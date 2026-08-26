@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+*.egg-info/
+
+# Generados: contienen la liga interna del despliegue
+*.pdf
+despliegue/servidor.log

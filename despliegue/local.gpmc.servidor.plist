@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>local.gpmc.servidor</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__RUTA__/.venv/bin/gpmc</string>
+    <string>servir</string>
+    <string>--host</string>
+    <string>0.0.0.0</string>
+    <string>--puerto</string>
+    <string>8000</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__RUTA__</string>
+
+  <!-- Arranca al iniciar sesion y se reinicia solo si se cae. -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- Sin esto la bitacora sale vacia: Python bufferea cuando no hay terminal. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__RUTA__/despliegue/servidor.log</string>
+  <key>StandardErrorPath</key>
+  <string>__RUTA__/despliegue/servidor.log</string>
+</dict>
+</plist>

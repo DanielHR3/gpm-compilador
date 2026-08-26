@@ -1,0 +1,142 @@
+# Plantilla de manifiesto — copiar y llenar para un trámite nuevo.
+#
+# Normalmente NO se escribe a mano: se genera con
+#
+#     gpmc extraer ruta/al/expediente -o tramite.yaml
+#
+# y se corrigen los huecos que reporte. Esta plantilla sirve para trámites sin
+# expediente todavía, o para consultar qué acepta cada campo.
+#
+# Validar en cualquier momento:  gpmc estimar tramite.yaml
+
+version: 1
+
+tramite:
+  nombre: Nombre completo del trámite
+  dependencia: Área responsable
+  homoclave: ''          # la asigna la plataforma; vacía en trámites nuevos
+  expediente: ''         # ruta al expediente de origen, si existe
+
+  # Ficha del registro de trámites. Viaja dentro del .gpm.
+  ruts:
+    category: ciudadano          # a quién va dirigido
+    type_of_person: ambas        # fisica | moral | ambas
+    tiempo_entrega: ''           # p. ej. "5 días hábiles"
+    costo: ''                    # vacío = gratuito
+    description: ''
+    publico: false               # true = visible sin iniciar sesión
+
+# Quién interviene. Un actor de tipo `grupo` produce una tarea restringida a
+# ese grupo de usuarios; `autoservicio` es el ciudadano.
+actores:
+  - id: ciudadano
+    nombre: Ciudadano
+    tipo: autoservicio
+  - id: area_responsable
+    nombre: Área Responsable
+    tipo: grupo
+    grupos_usuarios: [Nombre del grupo en la plataforma]
+
+# Las pantallas y sus campos. Suelen venir del Diccionario de Datos.
+pantallas:
+  - id: p1_solicitud
+    nombre: Datos de la solicitud
+    actor: ciudadano
+    paso_ciudadano: 1            # paso del stepper que ve el ciudadano
+    campos:
+
+      # Campo de texto con validación de longitud.
+      - nombre: curp
+        etiqueta: CURP
+        tipo: text
+        obligatorio: true
+        longitud_exacta: 18
+
+      # Campo autocompletado por consulta externa. Queda de solo lectura.
+      - nombre: nombre_completo
+        etiqueta: Nombre completo
+        tipo: text
+        solo_lectura: true
+        origen: sipubeh          # dispara la consulta por CURP
+
+      # Campo con catálogo. Los valores son los que evalúan las compuertas.
+      - nombre: tipo_persona
+        etiqueta: Tipo de persona
+        tipo: radio
+        obligatorio: true
+        catalogo:
+          - {etiqueta: Persona Física, valor: persona_fisica}
+          - {etiqueta: Persona Moral, valor: persona_moral}
+
+      # Carga de documento.
+      - nombre: identificacion
+        etiqueta: Identificación oficial
+        tipo: file
+        obligatorio: true
+        ayuda: PDF o imagen, máximo 5 MB
+
+  - id: p2_revision
+    nombre: Revisión documental
+    actor: area_responsable
+    campos:
+      - nombre: documentos_correctos
+        etiqueta: ¿La documentación está completa?
+        tipo: radio
+        obligatorio: true
+        catalogo:
+          - {etiqueta: 'Sí', valor: si}
+          - {etiqueta: 'No', valor: 'no'}
+
+# El flujo. Debe haber exactamente una tarea inicial y al menos una terminal.
+flujo:
+  tareas:
+    - id: t_solicitud
+      nombre: Capturar solicitud
+      actor: ciudadano
+      inicial: true
+      pantallas: [p1_solicitud]
+
+    - id: t_revision
+      nombre: Revisar documentación
+      actor: area_responsable
+      pantallas: [p2_revision]
+
+    - id: t_fin
+      nombre: Trámite concluido
+      terminal: true
+
+  conexiones:
+    # Sin `cuando` es una transición directa.
+    - {de: t_solicitud, a: t_revision}
+
+    # Con `cuando` es una bifurcación. El campo debe existir en una pantalla
+    # anterior, y el valor debe estar en su catálogo.
+    - {de: t_revision, a: t_fin,        cuando: {campo: documentos_correctos, igual: si}}
+    - {de: t_revision, a: t_solicitud,  cuando: {campo: documentos_correctos, igual: 'no'}}
+
+# Los cuatro arquetipos. Se dan parámetros, nunca código: por eso el folio sale
+# siempre con bloqueo transaccional y los documentos siempre escapados.
+acciones:
+
+  - tipo: folio
+    nombre: crear-folio
+    variable: folio
+    prefijo: ABC              # queda como ABC-2026-00001
+    inicial: 1
+
+  # - tipo: costo
+  #   nombre: calcular-costo
+  #   variable: monto_pago
+  #   tarifas: {persona_fisica: 76, persona_moral: 152}
+
+  # - tipo: documento
+  #   nombre: generar-oficio
+  #   variable: oficio_contenido
+  #   plantilla: "<p>Folio {{folio}} — {{nombre_completo}}</p>"
+  #   variables: [folio, nombre_completo]
+
+  # - tipo: notificacion
+  #   nombre: avisar-resolucion
+  #   para: "@@correo_solicitante"
+  #   asunto: Resolución de su trámite
+  #   contenido: Su trámite fue resuelto. Consulte el detalle en el portal.

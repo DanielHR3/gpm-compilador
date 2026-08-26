@@ -1,0 +1,80 @@
+version: 1
+
+tramite:
+  nombre: Vinculación con Organismos Internacionales
+  dependencia: COINHI — Dirección de Inversión y Atracción de Fondos Alternativos
+  homoclave: SEDECO/02
+  ruts:
+    category: ciudadano
+    type_of_person: ambas
+    tiempo_entrega: 5 días hábiles
+    costo: ''
+
+actores:
+  - id: solicitante
+    nombre: Solicitante
+    tipo: autoservicio
+  - id: coinhi
+    nombre: COINHI
+    tipo: grupo
+    grupos_usuarios: [COINHI]
+
+pantallas:
+  - id: p1_solicitud
+    nombre: Datos del solicitante
+    actor: solicitante
+    paso_ciudadano: 1
+    campos:
+      - nombre: curp
+        etiqueta: CURP
+        tipo: text
+        obligatorio: true
+        longitud_exacta: 18
+      - nombre: nombre_completo
+        etiqueta: Nombre completo
+        tipo: text
+        solo_lectura: true
+        origen: sipubeh
+      - nombre: tipo_persona
+        etiqueta: Tipo de persona
+        tipo: radio
+        obligatorio: true
+        catalogo:
+          - {etiqueta: Persona Física, valor: persona_fisica}
+          - {etiqueta: Persona Moral, valor: persona_moral}
+  - id: p2_revision
+    nombre: Revisión documental
+    actor: coinhi
+    campos:
+      - nombre: documentos_correctos
+        etiqueta: ¿La documentación está completa?
+        tipo: radio
+        obligatorio: true
+        catalogo:
+          - {etiqueta: 'Sí', valor: si}
+          - {etiqueta: 'No', valor: 'no'}
+
+flujo:
+  tareas:
+    - id: t_solicitud
+      nombre: Capturar solicitud
+      actor: solicitante
+      inicial: true
+      pantallas: [p1_solicitud]
+    - id: t_revision
+      nombre: Revisar documentación
+      actor: coinhi
+      pantallas: [p2_revision]
+    - id: t_fin
+      nombre: Trámite concluido
+      terminal: true
+  conexiones:
+    - {de: t_solicitud, a: t_revision}
+    - {de: t_revision, a: t_fin, cuando: {campo: documentos_correctos, igual: si}}
+    - {de: t_revision, a: t_solicitud, cuando: {campo: documentos_correctos, igual: 'no'}}
+
+acciones:
+  - tipo: folio
+    nombre: crear-folio
+    variable: folio
+    prefijo: SEDECO-VOI
