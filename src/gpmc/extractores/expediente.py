@@ -31,15 +31,32 @@ class SinPermiso(Exception):
     un error que a un analista no le dice nada."""
 
 
-def _leer(carpeta: Path, nombre: str) -> str:
-    ruta = carpeta / nombre
-    if not ruta.exists():
+def _leer(carpeta: Path, opciones: list[str]) -> str:
+    """Busca y lee un archivo intentando ser tolerante a prefijos como '1.-'
+    y variaciones de mayúsculas, pensando en usuarios no técnicos.
+    """
+    ruta_encontrada = None
+    for op in opciones:
+        # Intenta coincidencia exacta primero
+        if (carpeta / op).exists():
+            ruta_encontrada = carpeta / op
+            break
+        # Si no, busca si algún archivo en la carpeta contiene la opción
+        for archivo in carpeta.iterdir():
+            if archivo.is_file() and op.lower() in archivo.name.lower():
+                ruta_encontrada = archivo
+                break
+        if ruta_encontrada:
+            break
+            
+    if not ruta_encontrada:
         return ""
+        
     try:
-        return ruta.read_text(encoding="utf-8")
+        return ruta_encontrada.read_text(encoding="utf-8")
     except PermissionError as exc:
         raise SinPermiso(
-            f"macOS no permite leer '{ruta}'.\n\n"
+            f"macOS no permite leer '{ruta_encontrada}'.\n\n"
             "El archivo existe, pero el sistema bloquea el acceso a las carpetas "
             "Documentos, Escritorio y Descargas.\n\n"
             "Solucion: Ajustes del Sistema > Privacidad y seguridad > Acceso total al "
@@ -53,9 +70,9 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     carpeta = Path(carpeta)
     r = Resultado()
 
-    as_is = _leer(carpeta, "Análisis AS-IS.md") or _leer(carpeta, "AS-IS.md")
-    to_be = _leer(carpeta, "Propuesta TO-BE.md") or _leer(carpeta, "TO-BE.md")
-    dicc = _leer(carpeta, "Diccionario de Datos.md")
+    as_is = _leer(carpeta, ["Análisis AS-IS.md", "AS-IS.md", "AS IS.md"])
+    to_be = _leer(carpeta, ["Propuesta TO-BE.md", "TO-BE.md", "TO BE.md"])
+    dicc = _leer(carpeta, ["Diccionario de Datos.md", "Diccionario.md"])
 
     if not dicc:
         r.huecos.append("no se encontro 'Diccionario de Datos.md': sin el no hay pantallas")
