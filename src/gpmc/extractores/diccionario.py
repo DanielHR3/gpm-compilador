@@ -208,6 +208,76 @@ def extraer(texto: str) -> Resultado:
 
     if not r.pantallas:
         r.huecos.append(
-            "no se encontro ninguna cabecera '### Pantalla N — ACTOR — Nombre'"
+            "no se encontro ninguna cabecera '### Pantalla N — ACTOR — Nombre', "
+            "se agruparon todos los campos en una sola pantalla por defecto"
         )
+        
+        filas = [l for l in texto.splitlines() if l.strip().startswith("|")]
+        filas = [l for l in filas if not _es_separador(l)]
+        if len(filas) >= 2:
+            pantalla = PantallaExtraida(id="p1", numero=1, nombre="Datos Generales", actor="usuario")
+            columnas = [_babel(c) for c in _celdas(filas[0])]
+            
+            def col(*nombres, defecto=None):
+                for n in nombres:
+                    for j, c in enumerate(columnas):
+                        if n in c:
+                            return j
+                return defecto
+                
+            i_nombre = col("nombre del campo", "campo", "variable", defecto=0)
+            i_tipo = col("tipo de dato", "tipo", defecto=1)
+            i_comp = col("componente", defecto=2)
+            i_obl = col("obligatorio", defecto=3)
+            i_lim = col("limite", "especificaciones")
+            i_cat = col("catalogo de valores", "catalogo")
+            i_desc = col("descripcion", "comportamiento")
+            
+            for fila in filas[1:]:
+                celdas = _celdas(fila)
+                if len(celdas) < 3 or not celdas[i_nombre]:
+                    continue
+                    
+                etiqueta = re.sub(r"\*+", "", celdas[i_nombre]).strip()
+                # Quitar backticks si es una variable cruda
+                etiqueta = etiqueta.replace("`", "")
+                
+                desc = celdas[i_desc] if i_desc is not None and i_desc < len(celdas) else ""
+                
+                tecnicos = _CAMPO_TECNICO.findall(desc)
+                if tecnicos:
+                    nombre = tecnicos[0]
+                else:
+                    nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:40]
+                    r.huecos.append(f"p1: se propuso el nombre tecnico '{nombre}' para '{etiqueta}'")
+                    
+                limite = celdas[i_lim] if i_lim is not None and i_lim < len(celdas) else ""
+                m_long = _LONGITUD.search(limite or "")
+                
+                cat_celda = celdas[i_cat] if i_cat is not None and i_cat < len(celdas) else ""
+                catalogo, pendiente = _catalogo_de(cat_celda)
+                
+                tipo = _tipo_de(
+                    celdas[i_comp] if i_comp is not None and i_comp < len(celdas) else "",
+                    celdas[i_tipo] if i_tipo is not None and i_tipo < len(celdas) else "",
+                )
+                if catalogo and tipo == "text":
+                    tipo = "select"
+                    
+                obligatorio = _babel(
+                    celdas[i_obl] if i_obl is not None and i_obl < len(celdas) else ""
+                ).startswith("si")
+                
+                pantalla.campos.append(Campo(
+                    nombre=nombre,
+                    etiqueta=etiqueta,
+                    tipo=tipo,
+                    obligatorio=obligatorio,
+                    solo_lectura="solo lectura" in _babel(desc),
+                    longitud_exacta=int(m_long.group(1)) if m_long else None,
+                    catalogo=catalogo,
+                ))
+            if pantalla.campos:
+                r.pantallas.append(pantalla)
+
     return r
