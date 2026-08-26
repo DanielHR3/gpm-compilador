@@ -148,6 +148,7 @@ def revision(m, huecos, problemas, estimacion, sid: str) -> str:
 
 <div class="tarjeta">
   <h2>Salidas</h2>
+  <a class="btn" href="/aprobacion/{e(sid)}" target="_blank">Documento de aprobación ↗</a><br>
   <a class="btn" href="/simulador/{e(sid)}" target="_blank">Recorrer el trámite ↗</a>
   <a class="btn" href="/descargar/{e(sid)}/manifiesto">Manifiesto YAML</a>
   <a class="btn p" href="/descargar/{e(sid)}/gpm">Archivo .gpm</a>

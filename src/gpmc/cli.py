@@ -16,6 +16,7 @@ from gpmc.planeacion.proyeccion import proyectar
 from gpmc.planeacion.registro import Registro, capacidad, estado, sembrar_desde_wiki
 from gpmc.simulador.analisis import analizar
 from gpmc.simulador.html import generar as generar_simulador
+from gpmc.compilador.aprobacion import generar_aprobacion
 from gpmc.nucleo.manifiesto import cargar
 from gpmc.validador.reglas import Hallazgo, revisar, revisar_archivo
 
@@ -60,6 +61,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     sim.add_argument("manifiesto", type=Path)
     sim.add_argument("-o", "--salida", type=Path, required=True)
 
+    apr = sub.add_parser("aprobar", help="manifiesto -> HTML estático de aprobación")
+    apr.add_argument("manifiesto", type=Path)
+    apr.add_argument("-o", "--salida", type=Path, required=True)
+
     pl = sub.add_parser("planear", help="mide y proyecta el ciclo de Simplificacion")
     pl.add_argument("accion", choices=["iniciar", "hito", "cerrar", "estado", "capacidad",
                                        "proyectar", "sembrar"])
@@ -75,6 +80,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     srv = sub.add_parser("servir", help="levanta el asistente web")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--puerto", type=int, default=8000)
+
+    diag = sub.add_parser("diagnostico", help="herramientas de diagnóstico")
+    diag.add_argument("--sintaxis", action="store_true", help="genera archivos de prueba empírica de sintaxis")
+    diag.add_argument("-o", "--salida", type=Path, default=Path("diagnostico-sintaxis"), help="carpeta de salida")
 
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     if not args.orden:
@@ -235,6 +244,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("Analisis de flujo: sin problemas.")
         return 0
 
+    if args.orden == "aprobar":
+        try:
+            m = cargar(args.manifiesto)
+        except (ValidationError, ValueError) as exc:
+            print(f"Error al leer el manifiesto:\n{exc}", file=sys.stderr)
+            return 2
+        Path(args.salida).write_text(generar_aprobacion(m), encoding="utf-8")
+        print(f"Generado documento de aprobación: {args.salida}")
+        return 0
+
     if args.orden == "estimar":
         try:
             m = cargar(args.manifiesto)
@@ -252,6 +271,52 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(f"  - {m_}")
         print(f"\n{est.advertencia}")
         return 0
+
+    if args.orden == "diagnostico":
+        if args.sintaxis:
+            from gpmc.nucleo.manifiesto import Manifiesto
+            import gpmc.nucleo.reglas as nreglas
+            
+            base = {
+                "tramite": {"nombre": "Prueba Empírica Sintaxis", "dependencia": "DGT"},
+                "actores": [{"id": "c", "nombre": "Ciudadano"}],
+                "pantallas": [{"id": "p1", "nombre": "Pregunta", "actor": "c", "campos": [
+                    {"nombre": "opcion", "etiqueta": "¿Qué rama tomar?", "tipo": "radio", "catalogo": [
+                        {"etiqueta": "Rama 1", "valor": "r1"},
+                        {"etiqueta": "Rama 2", "valor": "r2"}
+                    ]}
+                ]}],
+                "flujo": {
+                    "tareas": [
+                        {"id": "t1", "nombre": "Elegir", "actor": "c", "inicial": True, "pantallas": ["p1"]},
+                        {"id": "t2", "nombre": "Llegaste a Rama 1", "actor": "c", "terminal": True},
+                        {"id": "t3", "nombre": "Llegaste a Rama 2", "actor": "c", "terminal": True}
+                    ],
+                    "conexiones": [
+                        {"de": "t1", "a": "t2", "cuando": {"campo": "opcion", "igual": "r1"}},
+                        {"de": "t1", "a": "t3", "cuando": {"campo": "opcion", "igual": "r2"}}
+                    ]
+                }
+            }
+            m = Manifiesto.model_validate(base)
+            args.salida.mkdir(parents=True, exist_ok=True)
+            
+            nreglas.SINTAXIS_ESTRICTA = False
+            gpm_laxo = compilar(m)
+            escribir(gpm_laxo, args.salida / "1_modo_relajado.gpm")
+            
+            nreglas.SINTAXIS_ESTRICTA = True
+            gpm_estricto = compilar(m)
+            escribir(gpm_estricto, args.salida / "2_modo_estricto.gpm")
+            
+            # Restaurar por si acaso
+            nreglas.SINTAXIS_ESTRICTA = False
+            
+            print(f"Archivos de prueba generados en {args.salida}/")
+            print("Importa ambos en la plataforma y verifica cuál evalúa correctamente el radio button.")
+            return 0
+        print("Especifique un diagnóstico, ej. --sintaxis")
+        return 2
 
     return 2
 

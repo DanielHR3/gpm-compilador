@@ -61,14 +61,14 @@ def campo(
     }
 
 
-def formulario(id, nombre, proceso_id, campos, subtitulo=""):
+def formulario(id, nombre, proceso_id, campos, subtitulo="", is_reusable=False):
     """Una pantalla. 7 claves."""
     return {
         "id": str(id),
         "nombre": nombre,
         "proceso_id": str(proceso_id),
         "subtitle": subtitulo,
-        "is_reusable": "0",
+        "is_reusable": "1" if is_reusable else "0",
         "metadata": None,
         "Campos": list(campos),
     }
@@ -89,7 +89,7 @@ def paso(id, orden, formulario_id, tarea_id, modo="edicion", regla=""):
 
 def tarea(
     id, identificador, nombre, proceso_id,
-    inicial=False, terminal=False, actor_grupos=(), pasos=(),
+    inicial=False, terminal=False, actor_grupos=(), pasos=(), eventos=(),
     posx=0, posy=0, asignacion="autoservicio", asignacion_usuario="",
 ):
     """Una tarea del diagrama BPMN. 40 claves."""
@@ -133,7 +133,7 @@ def tarea(
         "extra": None,
         "metadata": None,
         "Pasos": list(pasos),
-        "Eventos": [],
+        "Eventos": list(eventos),
         "GruposUsuarios": [{"nombre": g} for g in grupos],
     }
 

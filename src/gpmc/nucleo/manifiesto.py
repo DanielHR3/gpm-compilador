@@ -73,6 +73,12 @@ class Pantalla(BaseModel):
     campos: list[Campo] = []
 
 
+class PasoPantalla(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    modo: Literal["edicion", "visualizacion"] = "edicion"
+
+
 class Tarea(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
@@ -80,7 +86,22 @@ class Tarea(BaseModel):
     actor: Optional[str] = None
     inicial: bool = False
     terminal: bool = False
-    pantallas: list[str] = []
+    pantallas: list[PasoPantalla] = []
+    acciones_antes: list[str] = []
+    acciones_despues: list[str] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalizar_pantallas(cls, data: dict):
+        if isinstance(data, dict) and "pantallas" in data:
+            norm = []
+            for p in data["pantallas"]:
+                if isinstance(p, str):
+                    norm.append({"id": p, "modo": "edicion"})
+                else:
+                    norm.append(p)
+            data["pantallas"] = norm
+        return data
 
 
 class Condicion(BaseModel):
@@ -106,6 +127,10 @@ class Accion(BaseModel):
     model_config = ConfigDict(extra="allow")
     tipo: Literal["folio", "costo", "documento", "notificacion"]
     nombre: str
+    firmador_nombre: Optional[str] = None
+    firmador_cargo: Optional[str] = None
+    titulo: Optional[str] = None
+    subtitulo: Optional[str] = None
 
 
 class Manifiesto(BaseModel):
@@ -132,15 +157,19 @@ class Manifiesto(BaseModel):
                 raise ValueError(f"la pantalla '{p.id}' usa un actor no declarado: '{p.actor}'")
 
         ids_pantalla = {p.id for p in self.pantallas}
+        nombres_accion = {a.nombre for a in self.acciones}
         ids_tarea = {t.id for t in self.flujo.tareas}
         for t in self.flujo.tareas:
             if t.actor is not None and t.actor not in ids_actor:
                 raise ValueError(f"la tarea '{t.id}' usa un actor no declarado: '{t.actor}'")
-            for pid in t.pantallas:
-                if pid not in ids_pantalla:
+            for paso in t.pantallas:
+                if paso.id not in ids_pantalla:
                     raise ValueError(
-                        f"la tarea '{t.id}' referencia una pantalla inexistente: '{pid}'"
+                        f"la tarea '{t.id}' referencia una pantalla inexistente: '{paso.id}'"
                     )
+            for acc in t.acciones_antes + t.acciones_despues:
+                if acc not in nombres_accion:
+                    raise ValueError(f"la tarea '{t.id}' pide una accion inexistente: '{acc}'")
 
         if not any(t.inicial for t in self.flujo.tareas):
             raise ValueError("el flujo no tiene ninguna tarea inicial")

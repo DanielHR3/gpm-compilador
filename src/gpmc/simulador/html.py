@@ -114,7 +114,7 @@ def generar(m: Manifiesto) -> str:
 
     tareas = {
         t.id: {"nombre": t.nombre, "actor": t.actor or "", "terminal": t.terminal,
-               "pantallas": t.pantallas}
+               "pantallas": [p.id for p in t.pantallas]}
         for t in m.flujo.tareas
     }
     pantallas = {

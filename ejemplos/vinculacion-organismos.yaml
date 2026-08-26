@@ -60,11 +60,17 @@ flujo:
       nombre: Capturar solicitud
       actor: solicitante
       inicial: true
-      pantallas: [p1_solicitud]
+      pantallas:
+        - id: p1_solicitud
+          modo: edicion
     - id: t_revision
       nombre: Revisar documentación
       actor: coinhi
-      pantallas: [p2_revision]
+      pantallas:
+        - id: p1_solicitud
+          modo: visualizacion
+        - id: p2_revision
+          modo: edicion
     - id: t_fin
       nombre: Trámite concluido
       terminal: true

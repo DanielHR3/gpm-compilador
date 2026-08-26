@@ -104,6 +104,14 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
         return generar_simulador(m)
 
+    @app.get("/aprobacion/{sid}", response_class=HTMLResponse)
+    def aprobacion(sid: str):
+        m = _manifiesto(sid)
+        if m is None:
+            return HTMLResponse("Sesión no encontrada.", status_code=404)
+        from gpmc.compilador.aprobacion import generar_aprobacion
+        return generar_aprobacion(m)
+
     @app.get("/descargar/{sid}/{que}")
     def descargar(sid: str, que: str):
         m = _manifiesto(sid)

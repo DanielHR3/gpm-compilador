@@ -31,6 +31,13 @@ def compilar(m: Manifiesto, proceso_id: str = "900") -> dict:
     ids = count(1000)
     actores = {a.id: a for a in m.actores}
 
+    usos_pantalla = {}
+    for t in m.flujo.tareas:
+        for p in t.pantallas:
+            usos_pantalla[p.id] = usos_pantalla.get(p.id, 0) + 1
+
+    acciones_gpm, documentos_gpm, mapa_ids_accion = construir_acciones(m.acciones, proceso_id, ids)
+
     formularios = []
     id_de_pantalla: dict[str, str] = {}
     for pantalla in m.pantallas:
@@ -54,7 +61,11 @@ def compilar(m: Manifiesto, proceso_id: str = "900") -> dict:
         ]
         formularios.append(
             esquema.formulario(
-                id=fid, nombre=pantalla.nombre, proceso_id=proceso_id, campos=campos
+                id=fid, 
+                nombre=pantalla.nombre, 
+                proceso_id=proceso_id, 
+                campos=campos,
+                is_reusable=usos_pantalla.get(pantalla.id, 0) > 1,
             )
         )
 
@@ -69,11 +80,27 @@ def compilar(m: Manifiesto, proceso_id: str = "900") -> dict:
             esquema.paso(
                 id=str(next(ids)),
                 orden=orden,
-                formulario_id=id_de_pantalla[pid],
+                formulario_id=id_de_pantalla[p.id],
                 tarea_id=tid,
+                modo=p.modo,
             )
-            for orden, pid in enumerate(t.pantallas, start=1)
+            for orden, p in enumerate(t.pantallas, start=1)
         ]
+        
+        eventos = []
+        for a_nombre in t.acciones_antes:
+            eventos.append({
+                "id": str(next(ids)), "regla": "", "instante": "antes", 
+                "tarea_id": tid, "accion_id": mapa_ids_accion[a_nombre], 
+                "paso_id": None, "metadata": None
+            })
+        for a_nombre in t.acciones_despues:
+            eventos.append({
+                "id": str(next(ids)), "regla": "", "instante": "despues", 
+                "tarea_id": tid, "accion_id": mapa_ids_accion[a_nombre], 
+                "paso_id": None, "metadata": None
+            })
+
         tareas.append(
             esquema.tarea(
                 id=tid,
@@ -84,6 +111,7 @@ def compilar(m: Manifiesto, proceso_id: str = "900") -> dict:
                 terminal=t.terminal,
                 actor_grupos=grupos,
                 pasos=pasos,
+                eventos=eventos,
                 posx=200 + (i - 1) * 220,
                 posy=120,
             )
@@ -107,8 +135,6 @@ def compilar(m: Manifiesto, proceso_id: str = "900") -> dict:
         description=m.tramite.ruts.description,
         publico=m.tramite.ruts.publico,
     )
-
-    acciones_gpm, documentos_gpm = construir_acciones(m.acciones, proceso_id, ids)
 
     return esquema.proceso(
         id=proceso_id,

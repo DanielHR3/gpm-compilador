@@ -94,12 +94,22 @@ flujo:
       nombre: Capturar solicitud
       actor: ciudadano
       inicial: true
-      pantallas: [p1_solicitud]
+      pantallas: 
+        - id: p1_solicitud
+          modo: edicion
 
     - id: t_revision
       nombre: Revisar documentación
       actor: area_responsable
-      pantallas: [p2_revision]
+      acciones_antes:
+        - calcular-costo
+      acciones_despues:
+        - generar-oficio
+      pantallas: 
+        - id: p1_solicitud
+          modo: visualizacion
+        - id: p2_revision
+          modo: edicion
 
     - id: t_fin
       nombre: Trámite concluido
@@ -134,6 +144,8 @@ acciones:
   #   variable: oficio_contenido
   #   plantilla: "<p>Folio {{folio}} — {{nombre_completo}}</p>"
   #   variables: [folio, nombre_completo]
+  #   firmador_nombre: "Lic. Juan Pérez"
+  #   firmador_cargo: "Director General"
 
   # - tipo: notificacion
   #   nombre: avisar-resolucion

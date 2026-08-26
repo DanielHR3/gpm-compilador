@@ -50,8 +50,8 @@ def analizar(m: Manifiesto) -> Analisis:
     paso = 0
     for t in m.flujo.tareas:
         paso += 1
-        for pid in t.pantallas:
-            for nombre in campos_de_pantalla.get(pid, []):
+        for p in t.pantallas:
+            for nombre in campos_de_pantalla.get(p.id, []):
                 a.orden_captura.setdefault(nombre, paso)
 
     orden_tarea = {t.id: i for i, t in enumerate(m.flujo.tareas)}

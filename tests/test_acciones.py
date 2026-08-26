@@ -46,7 +46,7 @@ def test_el_costo_emite_la_tabla_de_tarifas():
 
 
 def test_construye_una_accion_de_folio():
-    accs, docs = construir_acciones(
+    accs, docs, _ = construir_acciones(
         [Accion(tipo="folio", nombre="crear-folio", variable="folio", prefijo="BT")],
         proceso_id="900",
         ids=iter(range(5000, 5100)),
@@ -61,7 +61,7 @@ def test_construye_una_accion_de_folio():
 
 
 def test_construye_una_notificacion_como_enviar_correo():
-    accs, _ = construir_acciones(
+    accs, docs, _ = construir_acciones(
         [Accion(tipo="notificacion", nombre="avisar", para="@@correo",
                 asunto="Resolución", contenido="Su trámite fue resuelto.")],
         proceso_id="900",
@@ -84,7 +84,7 @@ def test_la_notificacion_exige_destinatario():
 
 
 def test_el_documento_produce_una_entidad_documento():
-    accs, docs = construir_acciones(
+    accs, docs, _ = construir_acciones(
         [Accion(tipo="documento", nombre="oficio", variable="oficio_contenido",
                 plantilla="<p>{{folio}}</p>", variables=["folio"])],
         proceso_id="900",
@@ -99,7 +99,7 @@ def test_el_documento_produce_una_entidad_documento():
 
 
 def test_el_documento_no_configura_firma():
-    _, docs = construir_acciones(
+    _, docs, _ = construir_acciones(
         [Accion(tipo="documento", nombre="oficio", variable="x",
                 plantilla="<p>hola</p>", variables=[])],
         proceso_id="900",
@@ -108,3 +108,22 @@ def test_el_documento_no_configura_firma():
     d = docs[0]
     for clave in ("firmador_nombre", "firmador_cargo", "hsm_configuracion_id", "timbre", "validez"):
         assert d[clave] is None, f"{clave} no debe configurarse por inferencia"
+
+def test_el_documento_configura_firma_si_se_pide():
+    _, docs, _ = construir_acciones(
+        [
+            Accion(
+                nombre="d", tipo="documento",
+                plantilla="Cuerpo", variables=[],
+                firmador_nombre="Juan", firmador_cargo="Jefe",
+                titulo="Tit", subtitulo="Sub"
+            )
+        ],
+        "123",
+        iter(range(5000, 5100))
+    )
+    d = docs[0]
+    assert d["firmador_nombre"] == "Juan"
+    assert d["firmador_cargo"] == "Jefe"
+    assert d["titulo"] == "Tit"
+    assert d["subtitulo"] == "Sub"

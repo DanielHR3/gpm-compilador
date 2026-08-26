@@ -62,18 +62,21 @@ def php_documento(plantilla: str, variables: list[str]) -> str:
     return "\n".join(lineas) + f"\n\nreturn '{cuerpo}';"
 
 
-def _documento_gpm(id_, nombre, contenido, proceso_id) -> dict:
-    """La entidad Documento: 29 claves, sin configuracion de firma.
-
-    La firma electronica queda fuera de alcance: ningun .gpm del corpus
-    disponible tiene una configurada, y no se genera por inferencia.
+def _documento_gpm(id_, nombre, contenido, proceso_id, datos=None) -> dict:
+    """La entidad Documento: 29 claves.
+    Permite configuración básica de firma para simplificación.
     """
+    datos = datos or {}
     return {
         "id": id_, "tipo": "blanco", "nombre": nombre, "contenido": contenido,
         "servicio": None, "servicio_url": None, "logo": None, "timbre": None,
-        "firmador_nombre": None, "firmador_cargo": None, "firmador_servicio": None,
+        "firmador_nombre": datos.get("firmador_nombre"), 
+        "firmador_cargo": datos.get("firmador_cargo"), 
+        "firmador_servicio": None,
         "firmador_imagen": None, "validez": None, "hsm_configuracion_id": None,
-        "proceso_id": str(proceso_id), "subtitulo": None, "titulo": None,
+        "proceso_id": str(proceso_id), 
+        "subtitulo": datos.get("subtitulo"), 
+        "titulo": datos.get("titulo"),
         "validez_habiles": None, "paper_size": "LETTER", "orientation_page": "portrait",
         "header": None, "footer": "1 de 1", "margin_top": 100, "margin_bottom": 100,
         "margin_left": 20, "margin_right": 20, "output": "pdf",
@@ -93,8 +96,13 @@ def construir_acciones(acciones: list[Accion], proceso_id: str, ids):
     """Traduce las acciones del manifiesto a Acciones y Documentos del .gpm."""
     salida_acciones, salida_documentos = [], []
 
+    mapa_ids = {}
+
     for a in acciones:
         datos = a.model_dump()
+        accion_id = next(ids)
+        mapa_ids[a.nombre] = str(accion_id)
+        
         if a.tipo == "folio":
             php = php_folio(
                 prefijo=datos.get("prefijo", "GPM"),
@@ -103,7 +111,7 @@ def construir_acciones(acciones: list[Accion], proceso_id: str, ids):
             )
             extra = {"variable": datos.get("variable", "folio"), "expresion": php}
             salida_acciones.append(
-                _accion_gpm(next(ids), a.nombre, "variable", extra, proceso_id)
+                _accion_gpm(accion_id, a.nombre, "variable", extra, proceso_id)
             )
 
         elif a.tipo == "costo":
@@ -111,7 +119,7 @@ def construir_acciones(acciones: list[Accion], proceso_id: str, ids):
             php = php_costo(variable=variable, tarifas=datos.get("tarifas", {}))
             extra = {"variable": variable, "expresion": php}
             salida_acciones.append(
-                _accion_gpm(next(ids), a.nombre, "variable", extra, proceso_id)
+                _accion_gpm(accion_id, a.nombre, "variable", extra, proceso_id)
             )
 
         elif a.tipo == "documento":
@@ -121,10 +129,10 @@ def construir_acciones(acciones: list[Accion], proceso_id: str, ids):
             variable = datos.get("variable", "documento_contenido")
             extra = {"variable": variable, "expresion": php}
             salida_acciones.append(
-                _accion_gpm(next(ids), a.nombre, "variable", extra, proceso_id)
+                _accion_gpm(accion_id, a.nombre, "variable", extra, proceso_id)
             )
             salida_documentos.append(
-                _documento_gpm(next(ids), a.nombre, f"@@{variable}", proceso_id)
+                _documento_gpm(next(ids), a.nombre, f"@@{variable}", proceso_id, datos)
             )
 
         elif a.tipo == "notificacion":
@@ -142,7 +150,7 @@ def construir_acciones(acciones: list[Accion], proceso_id: str, ids):
                 "attach_files": datos.get("adjuntos", ""),
             }
             salida_acciones.append(
-                _accion_gpm(next(ids), a.nombre, "enviar_correo", extra, proceso_id)
+                _accion_gpm(accion_id, a.nombre, "enviar_correo", extra, proceso_id)
             )
 
-    return salida_acciones, salida_documentos
+    return salida_acciones, salida_documentos, mapa_ids

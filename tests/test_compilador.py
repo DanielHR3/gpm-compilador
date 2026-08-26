@@ -96,3 +96,33 @@ def test_el_ejemplo_compila_con_su_accion_de_folio():
     extra = json.loads(g["Acciones"][0]["extra"])
     assert "lockForUpdate()" in extra["expresion"]
     assert "SEDECO-VOI" in extra["expresion"]
+
+def test_las_acciones_se_mapean_a_eventos_en_la_tarea():
+    from gpmc.nucleo.manifiesto import Manifiesto, Tramite, FichaRUTS, Actor, Tarea, Flujo, Accion
+    m = Manifiesto(
+        version=1,
+        tramite=Tramite(nombre="Test", dependencia="DEP", ruts=FichaRUTS(category="ciudadano", type_of_person="ambas")),
+        actores=[Actor(id="a", nombre="A", tipo="autoservicio")],
+        flujo=Flujo(
+            tareas=[
+                Tarea(id="t1", nombre="T1", inicial=True, terminal=True, actor="a", acciones_antes=["folio"], acciones_despues=["costo"])
+            ]
+        ),
+        acciones=[
+            Accion(nombre="folio", tipo="folio", variable="f"),
+            Accion(nombre="costo", tipo="costo", variable="c")
+        ]
+    )
+    g = compilar(m)
+    t1 = g["Tareas"][0]
+    eventos = t1["Eventos"]
+    assert len(eventos) == 2
+    ev_antes = next(e for e in eventos if e["instante"] == "antes")
+    ev_despues = next(e for e in eventos if e["instante"] == "despues")
+    
+    id_folio = next(a["id"] for a in g["Acciones"] if a["nombre"] == "folio")
+    id_costo = next(a["id"] for a in g["Acciones"] if a["nombre"] == "costo")
+    
+    assert ev_antes["accion_id"] == str(id_folio)
+    assert ev_despues["accion_id"] == str(id_costo)
+    assert ev_antes["tarea_id"] == t1["id"]
