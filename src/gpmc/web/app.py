@@ -80,11 +80,14 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         except SinPermiso as exc:
             return HTMLResponse(plantillas.portada(error=str(exc)))
         if r.manifiesto is None:
-            motivo = r.huecos[0] if r.huecos else "no se pudo extraer el manifiesto"
+            # r.huecos son Hueco tipados; la plantilla espera texto.
+            motivo = str(r.huecos[0]) if r.huecos else "no se pudo extraer el manifiesto"
             return HTMLResponse(plantillas.portada(error=motivo))
 
         guardar(r.manifiesto, carpeta / "manifiesto.yaml")
-        (carpeta / "huecos.txt").write_text("\n".join(r.huecos), encoding="utf-8")
+        (carpeta / "huecos.txt").write_text(
+            "\n".join(str(h) for h in r.huecos), encoding="utf-8"
+        )
         return RedirectResponse(f"/revisar/{sid}", status_code=303)
 
     @app.get("/revisar/{sid}", response_class=HTMLResponse)
