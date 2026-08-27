@@ -12,6 +12,8 @@ from typing import Optional
 import re
 from dataclasses import dataclass, field
 
+from gpmc.nucleo.huecos import Hueco
+
 # Los 24 expedientes usan 38 nombres de carril para unos pocos roles reales.
 SINONIMOS = {
     "usuaria": "ciudadano",
@@ -68,7 +70,7 @@ class Resultado:
     nodos: list[Nodo] = field(default_factory=list)
     aristas: list[Arista] = field(default_factory=list)
     carriles: list[str] = field(default_factory=list)
-    huecos: list[str] = field(default_factory=list)
+    huecos: list[Hueco] = field(default_factory=list)
 
 
 def _limpiar(texto: str) -> str:
@@ -128,18 +130,23 @@ def extraer(bloque: str) -> Resultado:
     for a in r.aristas:
         for extremo in (a.de, a.a):
             if extremo not in ids:
-                r.huecos.append(f"la arista {a.de}->{a.a} referencia un nodo no declarado: {extremo}")
+                r.huecos.append(Hueco(
+                    "falta_dato", "MMD-02", "flujo",
+                    f"la arista {a.de}->{a.a} referencia un nodo no declarado: {extremo}",
+                ))
 
     for n in r.nodos:
         if n.actor is None and n.clase_nodo != "inicio_fin":
-            r.huecos.append(
-                f"el nodo '{n.id}' no declara carril (:::clase); no se puede saber que actor lo ejecuta"
-            )
+            r.huecos.append(Hueco(
+                "falta_dato", "MMD-03", n.id,
+                "no declara carril (:::clase); no se puede saber qué actor lo ejecuta",
+            ))
         if n.clase_nodo == "compuerta" and not n.campos:
-            r.huecos.append(
-                f"la compuerta '{n.id}' ({n.texto[:50]}) no nombra ningun campo @@; "
-                "la condicion debe capturarse a mano"
-            )
+            r.huecos.append(Hueco(
+                "falta_dato", "MMD-04", n.id,
+                f"la compuerta ({n.texto[:50]}) no nombra ningún campo @@; "
+                "la condición debe capturarse a mano",
+            ))
 
     r.aristas = [a for a in r.aristas if a.de in ids and a.a in ids]
     return r

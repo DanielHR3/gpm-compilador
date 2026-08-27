@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import WIKI, legible as _legible
+from gpmc.nucleo.huecos import Hueco
 
 from gpmc.extractores.mermaid import extraer
 
@@ -57,12 +58,20 @@ def test_detecta_el_campo_referenciado_en_una_compuerta():
 
 def test_reporta_hueco_cuando_la_compuerta_no_nombra_campo():
     r = extraer("flowchart TD\n  A[X]:::c --> D{¿Procede?}:::c\n  D -- sí --> B[Y]:::c\n  D -- no --> A")
-    assert any("campo" in h.lower() for h in r.huecos), r.huecos
+    mmd04 = [h for h in r.huecos if h.codigo == "MMD-04"]
+    assert mmd04, r.huecos
+    assert mmd04[0].nivel == "falta_dato"
 
 
 def test_reporta_hueco_cuando_un_nodo_no_declara_carril():
     r = extraer("flowchart TD\n  A[Sin clase] --> B[Fin]:::c")
-    assert any("carril" in h.lower() or "clase" in h.lower() for h in r.huecos), r.huecos
+    mmd03 = [h for h in r.huecos if h.codigo == "MMD-03"]
+    assert mmd03, r.huecos
+
+
+def test_todos_los_huecos_de_mermaid_son_Hueco():
+    r = extraer("flowchart TD\n  A[Sin clase] --> B[Fin]:::c")
+    assert all(isinstance(h, Hueco) for h in r.huecos)
 
 
 def test_normaliza_los_carriles_sinonimos():
