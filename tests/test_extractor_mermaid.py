@@ -67,6 +67,7 @@ def test_reporta_hueco_cuando_un_nodo_no_declara_carril():
     r = extraer("flowchart TD\n  A[Sin clase] --> B[Fin]:::c")
     mmd03 = [h for h in r.huecos if h.codigo == "MMD-03"]
     assert mmd03, r.huecos
+    assert mmd03[0].nivel == "falta_dato"
 
 
 def test_todos_los_huecos_de_mermaid_son_Hueco():

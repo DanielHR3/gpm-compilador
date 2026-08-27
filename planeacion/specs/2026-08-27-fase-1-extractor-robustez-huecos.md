@@ -125,12 +125,15 @@ Tabla de códigos y nivel:
 | `INS-01` | expediente | bloqueante | TO-BE no encontrado |
 | `INS-02` | expediente | falta_dato | insumo con varios candidatos |
 | `INS-03` | expediente | bloqueante | Diccionario de Datos no encontrado |
-| `DIC-00` | diccionario | bloqueante | sin tabla de campos legible / ninguna pantalla |
+| `DIC-00` | expediente | bloqueante | sin tabla de campos legible / ninguna pantalla |
 | `DIC-01` | diccionario | **por_confirmar** | nombre técnico `@@` propuesto; `propuesta` = el nombre sugerido, `ubicacion` = pantalla |
+| `DIC-04` | diccionario | falta_dato | no se encontró ninguna cabecera `### Pantalla N`; se agrupó todo en una pantalla |
 | `META-01` | metadatos | falta_dato | tiempo de respuesta no declarado |
 | `META-02` | metadatos | falta_dato | dependencia no encontrada en el frontmatter |
 | `META-03` | metadatos | por_confirmar | costo no declarado; se asume sin costo (el extractor ya asume un valor) |
 | `META-04` | metadatos | falta_dato | nombre del trámite no determinado |
+| `META-05` | metadatos | por_confirmar | homoclave no encontrada (normal en trámites nuevos) |
+| `META-06` | metadatos | por_confirmar | "A quién va dirigido" no encontrado; type_of_person queda en 'ambas' |
 | `FLU-01` | expediente | falta_dato | el TO-BE tiene N compuertas que el manifiesto lineal no ramifica |
 | `FLU-02` | expediente | falta_dato | nº de tareas del diagrama ≠ nº de pantallas del diccionario |
 | `MMD-01` | mermaid | falta_dato | la Propuesta TO-BE no trae bloque ```mermaid``` |

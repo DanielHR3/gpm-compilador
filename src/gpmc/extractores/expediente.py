@@ -53,7 +53,7 @@ def _normalizar(nombre: str) -> str:
     return t
 
 
-def _buscar_insumo(carpeta: Path, claves: list[str]):
+def _buscar_insumo(carpeta: Path, claves: list[str]) -> "tuple[Optional[Path], list[Hueco]]":
     """Devuelve (ruta_o_None, huecos). Solo considera archivos .md. Si varios
     casan, no adivina: devuelve None y un hueco INS-02."""
     claves_norm = [_normalizar(k) for k in claves]
