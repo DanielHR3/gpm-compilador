@@ -44,17 +44,26 @@ def test_subir_los_insumos_crea_una_sesion_y_extrae(cliente):
     assert "/revisar/" in r.headers["location"]
 
 
-def test_el_paso_de_revision_muestra_huecos_y_pantallas(cliente):
-    ins = _insumos()
+# Diccionario mínimo e inline: no depende de GPMC_WIKI, así la prueba corre en
+# un checkout limpio. Sin TO-BE => INS-01 bloqueante; 'Nombre' sin @@ => DIC-01
+# por_confirmar. Dos niveles presentes, que es lo que la prueba verifica.
+_DICC_MIN = """### Pantalla 1 — Solicitante — Datos
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |
+| CURP | Texto | Input | Sí | La CURP @@curp |
+| Nombre | Texto | Input | Sí | El nombre del solicitante |
+"""
+
+
+def test_el_paso_de_revision_agrupa_huecos_por_nivel(cliente):
     r = cliente.post("/extraer", files={
-        "as_is": ("as.md", ins["as_is"], "text/markdown"),
-        "to_be": ("tb.md", ins["to_be"], "text/markdown"),
-        "diccionario": ("dd.md", ins["diccionario"], "text/markdown"),
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
     })
-    assert r.status_code == 200
-    assert "hueco" in r.text.lower()
-    assert "Alta de Avisos de Testamento" in r.text
-    assert "Pantalla" in r.text or "pantallas" in r.text.lower()
+    assert r.status_code == 200, r.text
+    texto = r.text.lower()
+    assert "por confirmar" in texto
+    assert "bloqueante" in texto or "faltan datos" in texto
+    assert "<details" in r.text
 
 
 def test_descargar_el_gpm_de_una_sesion(cliente):
