@@ -2,6 +2,8 @@
 
 import html as _h
 
+from gpmc.nucleo.huecos import NIVELES
+
 # Paleta muestreada de capturas reales de la plataforma de modelado.
 ESTILO = """
 :root{--guinda:#5e132c;--guinda2:#66132a;--tinta:#18181b;--gris:#71717a;
@@ -40,6 +42,9 @@ th{background:var(--suave);color:var(--gris);font-weight:600;font-size:.78rem;te
         padding:1.25rem 1.5rem;margin-bottom:1.25rem}
 .huecos h2{color:var(--alerta);font-size:.95rem;margin:0 0 .75rem}
 .huecos li{font-size:.85rem;margin-bottom:.4rem}
+details.huecos{padding:.85rem 1.25rem}
+details.huecos summary{cursor:pointer;font-size:.95rem}
+details.huecos ul{margin:.6rem 0 .2rem}
 .cifras{display:flex;gap:1.5rem;flex-wrap:wrap;margin:.5rem 0 1rem}
 .cifra b{display:block;font-size:1.6rem;line-height:1.1}
 .cifra span{font-size:.78rem;color:var(--gris)}
@@ -94,13 +99,31 @@ def revision(m, huecos, problemas, estimacion, sid: str) -> str:
     e = _h.escape
     k = estimacion.metricas
 
+    # Un bloque plegable por nivel, en el orden canónico de NIVELES: de lo que
+    # impide compilar a lo que solo conviene revisar. 'por_confirmar' arranca
+    # cerrado porque el extractor ya propuso un valor y no bloquea nada.
+    _ROTULO = {
+        "bloqueante": ("Bloqueante", "resolver antes de compilar", "#c0392b"),
+        "falta_dato": ("Faltan datos", "un humano debe escribirlos", "#b9770e"),
+        "por_confirmar": ("Por confirmar", "el extractor propuso un valor", "#6b7280"),
+    }
     bloque_huecos = ""
-    if huecos:
-        filas = "".join(f"<li>{e(h)}</li>" for h in huecos[:40])
-        extra = f"<li><em>… y {len(huecos) - 40} más</em></li>" if len(huecos) > 40 else ""
-        bloque_huecos = (
-            f'<div class="huecos"><h2>{len(huecos)} hueco(s) que una persona debe resolver</h2>'
-            f"<ul>{filas}{extra}</ul></div>"
+    for nivel in NIVELES:
+        grupo = [h for h in huecos if h.nivel == nivel]
+        if not grupo:
+            continue
+        titulo, nota, color = _ROTULO[nivel]
+        lis = "".join(
+            f"<li><code>{e(h.codigo)}</code> "
+            f"{(e(h.ubicacion) + ' ') if h.ubicacion else ''}{e(h.mensaje)}"
+            f"{(' → <b>' + e(h.propuesta) + '</b>') if h.propuesta else ''}</li>"
+            for h in grupo
+        )
+        abierto = " open" if nivel != "por_confirmar" else ""
+        bloque_huecos += (
+            f'<details class="huecos"{abierto} style="border-left:4px solid {color}">'
+            f"<summary><b>{len(grupo)}</b> {titulo} — {nota}</summary>"
+            f"<ul>{lis}</ul></details>"
         )
 
     bloque_problemas = ""

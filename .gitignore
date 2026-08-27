@@ -8,3 +8,4 @@ __pycache__/
 # Generados: contienen la liga interna del despliegue
 *.pdf
 despliegue/servidor.log
+scratch/

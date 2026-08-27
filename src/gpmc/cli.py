@@ -11,6 +11,7 @@ from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.nucleo.formato import escribir
+from gpmc.nucleo.huecos import NIVELES
 from gpmc.nucleo.manifiesto import guardar
 from gpmc.planeacion.proyeccion import proyectar
 from gpmc.planeacion.registro import Registro, capacidad, estado, sembrar_desde_wiki
@@ -38,6 +39,29 @@ def _imprimir(hallazgos: list[Hallazgo]) -> int:
     return 1 if bloqueantes else 0
 
 
+_ROTULO = {
+    "bloqueante": ("■", "BLOQUEANTE", "resolver antes de compilar"),
+    "falta_dato": ("▲", "FALTAN DATOS", "un humano debe escribirlos"),
+    "por_confirmar": ("·", "POR CONFIRMAR", "el extractor propuso un valor, revísalos de un vistazo"),
+}
+
+
+def _imprimir_huecos(huecos, completo: bool) -> None:
+    for nivel in NIVELES:
+        grupo = [h for h in huecos if h.nivel == nivel]
+        if not grupo:
+            continue
+        glifo, titulo, nota = _ROTULO[nivel]
+        print(f"\n{glifo} {len(grupo)} {titulo} — {nota}")
+        limite = len(grupo) if (completo or nivel != "por_confirmar") else 3
+        for h in grupo[:limite]:
+            loc = f"{h.ubicacion} " if h.ubicacion else ""
+            flecha = f" → {h.propuesta}" if h.propuesta else ""
+            print(f"  [{h.codigo}] {loc}{h.mensaje}{flecha}")
+        if len(grupo) > limite:
+            print(f"  … y {len(grupo) - limite} más   (usa --huecos para verlos todos)")
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="gpmc", description="Compilador de tramites GPM")
     sub = parser.add_subparsers(dest="orden")
@@ -53,6 +77,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     e = sub.add_parser("extraer", help="carpeta de expediente -> manifiesto YAML")
     e.add_argument("expediente", type=Path)
     e.add_argument("-o", "--salida", type=Path, required=True)
+    e.add_argument("--huecos", "-H", action="store_true",
+                   help="lista todos los huecos sin truncar")
 
     s_ = sub.add_parser("estimar", help="complejidad y tiempo de ciclo de un manifiesto")
     s_.add_argument("manifiesto", type=Path)
@@ -126,12 +152,7 @@ def main(argv: Optional[list[str]] = None) -> int:
               f"{len(r.manifiesto.actores)} actores, "
               f"{len(r.manifiesto.flujo.tareas)} tareas")
         if r.huecos:
-            print(f"\n{len(r.huecos)} hueco(s) que una persona debe resolver "
-                  f"antes de compilar:\n")
-            for h in r.huecos[:20]:
-                print(f"  - {h}")
-            if len(r.huecos) > 20:
-                print(f"  ... y {len(r.huecos) - 20} mas")
+            _imprimir_huecos(r.huecos, args.huecos)
         return 0
 
     if args.orden == "planear":

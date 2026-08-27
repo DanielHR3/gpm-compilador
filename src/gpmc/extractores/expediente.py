@@ -6,12 +6,14 @@ los demas siguen. La herramienta siempre produce algo revisable.
 
 from typing import Optional
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from gpmc.extractores import diccionario as ext_dicc
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores import metadatos as ext_meta
+from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.manifiesto import (
     Actor, Conexion, Flujo, Manifiesto, Pantalla, Tarea,
 )
@@ -22,7 +24,7 @@ _BLOQUE_MERMAID = re.compile(r"```mermaid(.*?)```", re.S)
 @dataclass
 class Resultado:
     manifiesto: Optional[Manifiesto] = None
-    huecos: list[str] = field(default_factory=list)
+    huecos: list[Hueco] = field(default_factory=list)
 
 
 class SinPermiso(Exception):
@@ -31,32 +33,56 @@ class SinPermiso(Exception):
     un error que a un analista no le dice nada."""
 
 
-def _leer(carpeta: Path, opciones: list[str]) -> str:
-    """Busca y lee un archivo intentando ser tolerante a prefijos como '1.-'
-    y variaciones de mayúsculas, pensando en usuarios no técnicos.
-    """
-    ruta_encontrada = None
-    for op in opciones:
-        # Intenta coincidencia exacta primero
-        if (carpeta / op).exists():
-            ruta_encontrada = carpeta / op
+def _normalizar(nombre: str) -> str:
+    """Nombre de archivo -> forma canónica para comparar. Quita acentos, el
+    prefijo de orden ('1.-', '3) '), y sufijos de versión/copia (' 1', ' v2',
+    ' (2)', ' final', ' copia'). Sin esto, 'Propuesta TO-BE 1.md' no casaba
+    con 'Propuesta TO-BE' porque la comparación incluía la extensión."""
+    t = unicodedata.normalize("NFKD", nombre or "")
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn").lower()
+    t = re.sub(r"\.md$", "", t)
+    # El prefijo de orden se recorta ANTES de colapsar separadores: necesita ver
+    # la puntuación cruda ('1.-', '3)') que el colapso convertiría en espacio.
+    t = re.sub(r"^\s*\d+\s*[.)\-]+\s*", "", t)
+    t = re.sub(r"[\s._\-]+", " ", t).strip()
+    for _ in range(3):                                     # sufijos, posiblemente apilados
+        nuevo = re.sub(r"\s*(v?\d+|final|copia|\(\d+\))$", "", t).strip()
+        if nuevo == t:
             break
-        # Si no, busca si algún archivo en la carpeta contiene la opción
-        for archivo in carpeta.iterdir():
-            if archivo.is_file() and op.lower() in archivo.name.lower():
-                ruta_encontrada = archivo
-                break
-        if ruta_encontrada:
-            break
-            
-    if not ruta_encontrada:
-        return ""
-        
+        t = nuevo
+    return t
+
+
+def _buscar_insumo(carpeta: Path, claves: list[str]) -> "tuple[Optional[Path], list[Hueco]]":
+    """Devuelve (ruta_o_None, huecos). Solo considera archivos .md. Si varios
+    casan, no adivina: devuelve None y un hueco INS-02."""
+    claves_norm = [_normalizar(k) for k in claves]
+    candidatos = []
+    for archivo in sorted(carpeta.iterdir()):
+        if not archivo.is_file() or archivo.suffix.lower() != ".md":
+            continue
+        stem = _normalizar(archivo.name)
+        if any(k in stem for k in claves_norm):
+            candidatos.append(archivo)
+    if not candidatos:
+        return None, []
+    if len(candidatos) > 1:
+        nombres = ", ".join(a.name for a in candidatos)
+        return None, [Hueco(
+            "falta_dato", "INS-02", "",
+            f"{len(candidatos)} candidatos para '{claves[0]}': {nombres} — confirma cuál",
+        )]
+    return candidatos[0], []
+
+
+def _leer(ruta: Path) -> str:
+    """Lee el archivo ya resuelto. SinPermiso traduce el bloqueo de TCC de
+    macOS a algo accionable para un analista."""
     try:
-        return ruta_encontrada.read_text(encoding="utf-8")
+        return ruta.read_text(encoding="utf-8")
     except PermissionError as exc:
         raise SinPermiso(
-            f"macOS no permite leer '{ruta_encontrada}'.\n\n"
+            f"macOS no permite leer '{ruta}'.\n\n"
             "El archivo existe, pero el sistema bloquea el acceso a las carpetas "
             "Documentos, Escritorio y Descargas.\n\n"
             "Solucion: Ajustes del Sistema > Privacidad y seguridad > Acceso total al "
@@ -70,27 +96,41 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     carpeta = Path(carpeta)
     r = Resultado()
 
-    as_is = _leer(carpeta, ["Análisis AS-IS.md", "AS-IS.md", "AS IS.md"])
-    to_be = _leer(carpeta, ["Propuesta TO-BE.md", "TO-BE.md", "TO BE.md"])
-    dicc = _leer(carpeta, ["Diccionario de Datos.md", "Diccionario.md"])
+    ruta_as_is, h_as_is = _buscar_insumo(carpeta, ["Análisis AS-IS", "AS IS"])
+    ruta_to_be, h_to_be = _buscar_insumo(carpeta, ["Propuesta TO-BE", "TO BE"])
+    ruta_dicc, h_dicc = _buscar_insumo(carpeta, ["Diccionario de Datos", "Diccionario"])
+    r.huecos += h_as_is + h_to_be + h_dicc
+
+    as_is = _leer(ruta_as_is) if ruta_as_is else ""
+    to_be = _leer(ruta_to_be) if ruta_to_be else ""
+    dicc = _leer(ruta_dicc) if ruta_dicc else ""
 
     if not dicc:
-        r.huecos.append("no se encontro 'Diccionario de Datos.md': sin el no hay pantallas")
+        r.huecos.append(Hueco(
+            "bloqueante", "INS-03", "",
+            "no se encontró el Diccionario de Datos: sin él no hay pantallas",
+        ))
         return r
     if not to_be:
-        r.huecos.append("no se encontro 'Propuesta TO-BE.md': sin el no hay flujo")
+        r.huecos.append(Hueco(
+            "bloqueante", "INS-01", "",
+            "no se encontró la Propuesta TO-BE: el flujo sale lineal, sin ramificar",
+        ))
 
     meta = ext_meta.extraer(as_is, to_be, nombre_carpeta=carpeta.name)
-    r.huecos += [f"[metadatos] {h}" for h in meta.huecos]
+    r.huecos += meta.huecos
     tramite = meta.tramite
     if tramite is None:
         from gpmc.nucleo.manifiesto import Tramite
         tramite = Tramite(nombre=carpeta.name, dependencia="[por confirmar]")
 
     rd = ext_dicc.extraer(dicc)
-    r.huecos += [f"[diccionario] {h}" for h in rd.huecos]
+    r.huecos += rd.huecos
     if not rd.pantallas:
-        r.huecos.append("[diccionario] no se extrajo ninguna pantalla")
+        r.huecos.append(Hueco(
+            "bloqueante", "DIC-00", "",
+            "no se extrajo ninguna pantalla del Diccionario",
+        ))
         return r
 
     actores_vistos: dict[str, Actor] = {}
@@ -127,22 +167,27 @@ def extraer_expediente(carpeta: Path) -> Resultado:
         bloques = _BLOQUE_MERMAID.findall(to_be)
         if bloques:
             rm = ext_mmd.extraer(bloques[0])
-            r.huecos += [f"[mermaid] {h}" for h in rm.huecos]
+            r.huecos += rm.huecos
             compuertas = [n for n in rm.nodos if n.clase_nodo == "compuerta"]
             if compuertas:
-                r.huecos.append(
-                    f"[flujo] el diagrama TO-BE tiene {len(compuertas)} compuertas que este "
-                    f"manifiesto NO reproduce: el flujo propuesto es lineal, pantalla por "
-                    f"pantalla. Revisar y ramificar a mano antes de compilar."
-                )
+                r.huecos.append(Hueco(
+                    "falta_dato", "FLU-01", "flujo",
+                    f"el diagrama TO-BE tiene {len(compuertas)} compuertas que este "
+                    f"manifiesto NO reproduce: el flujo propuesto es lineal, pantalla "
+                    f"por pantalla. Revisar y ramificar a mano antes de compilar.",
+                ))
             tareas_mmd = [n for n in rm.nodos if n.clase_nodo == "tarea"]
             if len(tareas_mmd) != len(pantallas):
-                r.huecos.append(
-                    f"[flujo] el diagrama tiene {len(tareas_mmd)} tareas y el Diccionario "
-                    f"{len(pantallas)} pantallas; confirmar la correspondencia"
-                )
+                r.huecos.append(Hueco(
+                    "falta_dato", "FLU-02", "flujo",
+                    f"el diagrama tiene {len(tareas_mmd)} tareas y el Diccionario "
+                    f"{len(pantallas)} pantallas; confirmar la correspondencia",
+                ))
         else:
-            r.huecos.append("[mermaid] la Propuesta TO-BE no trae bloque ```mermaid```")
+            r.huecos.append(Hueco(
+                "falta_dato", "MMD-01", "flujo",
+                "la Propuesta TO-BE no trae bloque ```mermaid```",
+            ))
 
     r.manifiesto = Manifiesto(
         tramite=tramite,

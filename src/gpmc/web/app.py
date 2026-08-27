@@ -7,6 +7,7 @@ sin navegador.
 """
 
 from typing import Optional
+import json
 import re
 import secrets
 import tempfile
@@ -19,6 +20,7 @@ from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.nucleo.formato import serializar
+from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.manifiesto import cargar, guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.simulador.html import generar as generar_simulador
@@ -80,11 +82,22 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         except SinPermiso as exc:
             return HTMLResponse(plantillas.portada(error=str(exc)))
         if r.manifiesto is None:
-            motivo = r.huecos[0] if r.huecos else "no se pudo extraer el manifiesto"
+            # Sin manifiesto no hay página de revisión: el primer hueco explica
+            # por qué (su texto plano basta para el aviso de la portada).
+            motivo = r.huecos[0].mensaje if r.huecos else "no se pudo extraer el manifiesto"
             return HTMLResponse(plantillas.portada(error=motivo))
 
         guardar(r.manifiesto, carpeta / "manifiesto.yaml")
-        (carpeta / "huecos.txt").write_text("\n".join(r.huecos), encoding="utf-8")
+        # Los Hueco tipados se persisten como JSON para que /revisar los
+        # reconstruya sin volver a correr el extractor.
+        huecos_serializables = [
+            {"nivel": h.nivel, "codigo": h.codigo, "ubicacion": h.ubicacion,
+             "mensaje": h.mensaje, "propuesta": h.propuesta}
+            for h in r.huecos
+        ]
+        (carpeta / "huecos.json").write_text(
+            json.dumps(huecos_serializables, ensure_ascii=False), encoding="utf-8"
+        )
         return RedirectResponse(f"/revisar/{sid}", status_code=303)
 
     @app.get("/revisar/{sid}", response_class=HTMLResponse)
@@ -93,8 +106,8 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         if m is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
         carpeta = _carpeta(sid)
-        crudo = (carpeta / "huecos.txt").read_text(encoding="utf-8")
-        huecos = [h for h in crudo.splitlines() if h.strip()]
+        datos = json.loads((carpeta / "huecos.json").read_text(encoding="utf-8"))
+        huecos = [Hueco(**d) for d in datos]
         return plantillas.revision(m, huecos, analizar(m).problemas, estimar(m), sid)
 
     @app.get("/simulador/{sid}", response_class=HTMLResponse)
