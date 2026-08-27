@@ -35,3 +35,50 @@ def test_validar_un_gpm_defectuoso_devuelve_uno(gpm_del_equipo):
 
 def test_sin_argumentos_devuelve_dos(capsys):
     assert main([]) == 2
+
+
+_DICC = """### Pantalla 1 — Solicitante — Datos
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |
+| CURP | Texto | Input | Sí | La CURP @@curp |
+| Nombre | Texto | Input | Sí | El nombre del solicitante |
+"""
+
+
+def _exp(tmp_path):
+    c = tmp_path / "exp"
+    c.mkdir()
+    (c / "5.-Diccionario de Datos.md").write_text(_DICC, encoding="utf-8")
+    return c
+
+
+def test_extraer_agrupa_huecos_por_nivel(tmp_path, capsys):
+    salida = tmp_path / "t.yaml"
+    codigo = main(["extraer", str(_exp(tmp_path)), "-o", str(salida)])
+    out = capsys.readouterr().out
+    assert codigo == 0
+    assert "BLOQUEANTE" in out            # falta TO-BE
+    assert "POR CONFIRMAR" in out         # 'Nombre' sin @@
+    assert "[INS-01]" in out
+
+
+def test_bandera_huecos_no_trunca(tmp_path, capsys):
+    # Diccionario con muchos campos sin @@ para forzar truncado por defecto
+    filas = "\n".join(
+        f"| Campo {i} | Texto | Input | No | sin nombre tecnico |" for i in range(10)
+    )
+    dicc = ("### Pantalla 1 — Solicitante — Datos\n\n"
+            "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+            + filas + "\n")
+    c = tmp_path / "exp"
+    c.mkdir()
+    (c / "5.-Diccionario de Datos.md").write_text(dicc, encoding="utf-8")
+    salida = tmp_path / "t.yaml"
+
+    main(["extraer", str(c), "-o", str(salida)])
+    truncado = capsys.readouterr().out
+    assert "y " in truncado and "más" in truncado          # se truncó
+
+    main(["extraer", str(c), "-o", str(salida), "--huecos"])
+    completo = capsys.readouterr().out
+    assert "más" not in completo.split("POR CONFIRMAR")[1]  # ya no trunca
