@@ -5,6 +5,7 @@ import pytest
 from tests.conftest import WIKI, legible as _legible
 
 from gpmc.extractores.diccionario import extraer
+from gpmc.nucleo.huecos import Hueco
 
 
 
@@ -78,13 +79,26 @@ def test_marca_solo_lectura():
 def test_reporta_hueco_si_un_campo_no_trae_nombre_tecnico():
     sin_nombre = MUESTRA.replace("Campo `@@curp_testador`.", "sin nombre tecnico.")
     r = extraer(sin_nombre)
-    assert any("nombre" in h.lower() for h in r.huecos), r.huecos
+    dic01 = [h for h in r.huecos if h.codigo == "DIC-01"]
+    assert dic01, r.huecos
+    assert dic01[0].nivel == "por_confirmar"
+    assert dic01[0].propuesta
+    assert dic01[0].ubicacion.startswith("p")
 
 
 def test_reporta_hueco_si_el_catalogo_esta_pendiente():
     pend = MUESTRA.replace("Hombre · Mujer", "Pendiente de confirmar con la dependencia")
     r = extraer(pend)
-    assert any("catálogo" in h.lower() or "catalogo" in h.lower() for h in r.huecos), r.huecos
+    dic02 = [h for h in r.huecos if h.codigo == "DIC-02"]
+    assert dic02, r.huecos
+    assert dic02[0].nivel == "falta_dato"
+
+
+def test_todos_los_huecos_son_del_tipo_Hueco():
+    sin_nombre = MUESTRA.replace("Campo `@@curp_testador`.", "sin nombre tecnico.")
+    r = extraer(sin_nombre)
+    assert r.huecos
+    assert all(isinstance(h, Hueco) for h in r.huecos)
 
 
 @pytest.mark.parametrize("expediente", [

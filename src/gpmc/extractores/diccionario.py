@@ -18,6 +18,7 @@ import unicodedata
 from dataclasses import dataclass, field
 
 from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+from gpmc.nucleo.huecos import Hueco
 
 # Acepta ### y ####: los expedientes que siguen la regla fija 16 anidan las
 # pantallas bajo un encabezado "### Paso N del stepper".
@@ -61,7 +62,7 @@ class PantallaExtraida:
 @dataclass
 class Resultado:
     pantallas: list[PantallaExtraida] = field(default_factory=list)
-    huecos: list[str] = field(default_factory=list)
+    huecos: list[Hueco] = field(default_factory=list)
 
 
 def _sin_acentos(t: str) -> str:
@@ -133,7 +134,10 @@ def extraer(texto: str) -> Resultado:
         filas = [l for l in cuerpo.splitlines() if l.strip().startswith("|")]
         filas = [l for l in filas if not _es_separador(l)]
         if len(filas) < 2:
-            r.huecos.append(f"la pantalla {pantalla.id} no trae tabla de campos legible")
+            r.huecos.append(Hueco(
+                "falta_dato", "DIC-03", pantalla.id,
+                "no trae tabla de campos legible",
+            ))
             r.pantallas.append(pantalla)
             continue
 
@@ -167,10 +171,12 @@ def extraer(texto: str) -> Resultado:
                 nombre = tecnicos[0]
             else:
                 nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:40]
-                r.huecos.append(
-                    f"{pantalla.id}: el campo '{etiqueta}' no declara nombre tecnico @@ "
-                    f"en su descripcion; se propuso '{nombre}'"
-                )
+                r.huecos.append(Hueco(
+                    "por_confirmar", "DIC-01", pantalla.id,
+                    f"el campo '{etiqueta}' no declara nombre técnico @@ en su "
+                    f"descripción; se propuso '{nombre}'",
+                    propuesta=nombre,
+                ))
 
             limite = celdas[i_lim] if i_lim is not None and i_lim < len(celdas) else ""
             m_long = _LONGITUD.search(limite or "")
@@ -178,10 +184,11 @@ def extraer(texto: str) -> Resultado:
             cat_celda = celdas[i_cat] if i_cat is not None and i_cat < len(celdas) else ""
             catalogo, pendiente = _catalogo_de(cat_celda)
             if pendiente:
-                r.huecos.append(
-                    f"{pantalla.id}: el catálogo de '{etiqueta}' está declarado como "
-                    f"pendiente en el Diccionario; no se emite"
-                )
+                r.huecos.append(Hueco(
+                    "falta_dato", "DIC-02", pantalla.id,
+                    f"el catálogo de '{etiqueta}' está declarado como pendiente "
+                    f"en el Diccionario; no se emite",
+                ))
 
             tipo = _tipo_de(
                 celdas[i_comp] if i_comp is not None and i_comp < len(celdas) else "",
@@ -207,10 +214,11 @@ def extraer(texto: str) -> Resultado:
         r.pantallas.append(pantalla)
 
     if not r.pantallas:
-        r.huecos.append(
-            "no se encontro ninguna cabecera '### Pantalla N — ACTOR — Nombre', "
-            "se agruparon todos los campos en una sola pantalla por defecto"
-        )
+        r.huecos.append(Hueco(
+            "falta_dato", "DIC-04", "",
+            "no se encontró ninguna cabecera '### Pantalla N — ACTOR — Nombre'; "
+            "se agruparon todos los campos en una sola pantalla por defecto",
+        ))
         
         filas = [l for l in texto.splitlines() if l.strip().startswith("|")]
         filas = [l for l in filas if not _es_separador(l)]
@@ -249,7 +257,11 @@ def extraer(texto: str) -> Resultado:
                     nombre = tecnicos[0]
                 else:
                     nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:40]
-                    r.huecos.append(f"p1: se propuso el nombre tecnico '{nombre}' para '{etiqueta}'")
+                    r.huecos.append(Hueco(
+                        "por_confirmar", "DIC-01", "p1",
+                        f"se propuso el nombre técnico '{nombre}' para '{etiqueta}'",
+                        propuesta=nombre,
+                    ))
                     
                 limite = celdas[i_lim] if i_lim is not None and i_lim < len(celdas) else ""
                 m_long = _LONGITUD.search(limite or "")
