@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass, field
 
 from gpmc.nucleo.manifiesto import FichaRUTS, Tramite
+from gpmc.nucleo.huecos import Hueco
 
 _FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.S)
 _HOMOCLAVE = re.compile(r"\*\*Homoclave:?\*\*[:\s]*`?([A-Za-z0-9/\-]+)`?", re.I)
@@ -25,7 +26,7 @@ SIN_COSTO = ("ninguno", "gratuito", "sin costo", "no aplica", "0")
 @dataclass
 class Resultado:
     tramite: Optional[Tramite] = None
-    huecos: list[str] = field(default_factory=list)
+    huecos: list[Hueco] = field(default_factory=list)
 
 
 def _persona_de(texto: str) -> str:
@@ -52,7 +53,8 @@ def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "") -> Resultado:
         m = re.search(r"^#\s+An[aá]lisis AS-IS\s*[—\-–]\s*(.+?)\s*$", as_is or "", re.M)
         nombre = m.group(1).strip() if m else nombre_carpeta
     if not nombre:
-        r.huecos.append("no se pudo determinar el nombre del tramite")
+        r.huecos.append(Hueco("falta_dato", "META-04", "metadatos",
+                              "no se pudo determinar el nombre del tramite"))
         return r
 
     fm = _FRONTMATTER.search(as_is or "")
@@ -62,7 +64,8 @@ def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "") -> Resultado:
         if md:
             dependencia = md.group(1).strip().strip('"')
     if not dependencia:
-        r.huecos.append("no se encontro la dependencia en el frontmatter del AS-IS")
+        r.huecos.append(Hueco("falta_dato", "META-02", "metadatos",
+                              "no se encontro la dependencia en el frontmatter del AS-IS"))
         dependencia = "[por confirmar]"
 
     homoclave = ""
@@ -70,16 +73,16 @@ def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "") -> Resultado:
     if mh:
         homoclave = mh.group(1).strip()
     else:
-        r.huecos.append(
-            "no se encontro homoclave; en tramites nuevos es normal, la asigna GPM"
-        )
+        r.huecos.append(Hueco("por_confirmar", "META-05", "metadatos",
+                              "no se encontro homoclave; en tramites nuevos es normal, la asigna GPM"))
 
     tiempo = ""
     mt = _TIEMPO.search(texto)
     if mt:
         tiempo = mt.group(1).strip().rstrip(",;")
     else:
-        r.huecos.append("no se encontro el tiempo de respuesta declarado")
+        r.huecos.append(Hueco("falta_dato", "META-01", "metadatos",
+                              "no se encontro el tiempo de respuesta declarado"))
 
     costo = ""
     mc = _COSTO.search(texto)
@@ -87,16 +90,16 @@ def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "") -> Resultado:
         crudo = mc.group(1).strip().rstrip(",;")
         costo = "" if any(s in crudo.lower() for s in SIN_COSTO) else crudo
     else:
-        r.huecos.append("no se encontro el costo declarado; se asume sin costo")
+        r.huecos.append(Hueco("por_confirmar", "META-03", "metadatos",
+                              "no se encontro el costo declarado; se asume sin costo"))
 
     dirigido = ""
     md2 = _DIRIGIDO.search(texto)
     if md2:
         dirigido = md2.group(1)
     else:
-        r.huecos.append(
-            "no se encontro 'A quien va dirigido'; type_of_person queda en 'ambas'"
-        )
+        r.huecos.append(Hueco("por_confirmar", "META-06", "metadatos",
+                              "no se encontro 'A quien va dirigido'; type_of_person queda en 'ambas'"))
 
     r.tramite = Tramite(
         nombre=nombre,
