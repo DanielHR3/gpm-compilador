@@ -150,7 +150,8 @@ def extraer(texto: str) -> Resultado:
                         return j
             return defecto
 
-        i_nombre = col("nombre del campo", "campo", defecto=0)
+        i_nombre = col("nombre del campo", "campo", "variable", defecto=0)
+        es_columna_variable = i_nombre is not None and "variable" in columnas[i_nombre]
         i_tipo = col("tipo de dato", defecto=1)
         i_comp = col("componente", defecto=2)
         i_obl = col("obligatorio", defecto=3)
@@ -164,10 +165,14 @@ def extraer(texto: str) -> Resultado:
                 continue
 
             etiqueta = re.sub(r"\*+", "", celdas[i_nombre]).strip()
+            etiqueta = etiqueta.replace("`", "")
             desc = celdas[i_desc] if i_desc is not None and i_desc < len(celdas) else ""
 
             tecnicos = _CAMPO_TECNICO.findall(desc)
-            if tecnicos:
+            if es_columna_variable and re.fullmatch(r"[A-Za-z_]\w*", etiqueta):
+                nombre = etiqueta
+                etiqueta = nombre.replace("_", " ").capitalize()
+            elif tecnicos:
                 nombre = tecnicos[0]
             else:
                 nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:40]
@@ -259,6 +264,7 @@ def extraer(texto: str) -> Resultado:
                 tecnicos = _CAMPO_TECNICO.findall(desc)
                 if es_columna_variable and re.fullmatch(r"[A-Za-z_]\w*", etiqueta):
                     nombre = etiqueta
+                    etiqueta = nombre.replace("_", " ").capitalize()
                 elif tecnicos:
                     nombre = tecnicos[0]
                 else:
