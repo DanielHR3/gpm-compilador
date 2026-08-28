@@ -27,6 +27,35 @@ def _validacion_de(c: Campo) -> str:
     return "|".join(partes)
 
 
+def _campo_gpm(c, posicion, formulario_id, campo_id):
+    """Un Campo del manifiesto -> un campo del Form Builder.
+
+    Un select siempre declara de que tipo es su catalogo y siempre lleva
+    catalogo_id "1": asi lo traen los dos exports autenticos, sin una sola
+    excepcion. Sin catalog_type la vista de la plataforma revienta con
+    "Undefined property: stdClass::$catalog_url" (CampoSelect.php).
+    """
+    extra = {"tamano": ANCHOS[c.ancho]}
+    catalogo_id = None
+    if c.tipo == "select":
+        extra["catalog_type"] = "manual"
+        catalogo_id = "1"
+    return esquema.campo(
+        id=str(campo_id),
+        nombre=c.nombre,
+        tipo=c.tipo,
+        etiqueta=c.etiqueta or c.nombre,
+        formulario_id=formulario_id,
+        posicion=str(posicion),
+        validacion=_validacion_de(c),
+        datos=[o.model_dump() for o in c.catalogo] or None,
+        extra=extra,
+        readonly=c.solo_lectura,
+        ayuda=c.ayuda,
+        catalogo_id=catalogo_id,
+    )
+
+
 import hashlib
 
 def compilar(m: Manifiesto, proceso_id: str = "") -> dict:
@@ -52,19 +81,7 @@ def compilar(m: Manifiesto, proceso_id: str = "") -> dict:
         fid = str(next(ids))
         id_de_pantalla[pantalla.id] = fid
         campos = [
-            esquema.campo(
-                id=str(next(ids)),
-                nombre=c.nombre,
-                tipo=c.tipo,
-                etiqueta=c.etiqueta or c.nombre,
-                formulario_id=fid,
-                posicion=str(i),
-                validacion=_validacion_de(c),
-                datos=[o.model_dump() for o in c.catalogo] or None,
-                extra={"tamano": ANCHOS[c.ancho]},
-                readonly=c.solo_lectura,
-                ayuda=c.ayuda,
-            )
+            _campo_gpm(c, i, fid, next(ids))
             for i, c in enumerate(pantalla.campos, start=1)
         ]
         formularios.append(

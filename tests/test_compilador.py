@@ -126,3 +126,47 @@ def test_las_acciones_se_mapean_a_eventos_en_la_tarea():
     assert ev_antes["accion_id"] == str(id_folio)
     assert ev_despues["accion_id"] == str(id_costo)
     assert ev_antes["tarea_id"] == t1["id"]
+
+
+# Manifiesto minimo e inline: no depende de ejemplos/ ni de material real.
+_CON_SELECT = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: curp, etiqueta: CURP, tipo: text}
+  - {nombre: sexo, etiqueta: Sexo, tipo: select, catalogo: [{etiqueta: Hombre, valor: h}]}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+
+def _campos_de_prueba():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_SELECT)))
+    return {c["nombre"]: c for c in g["Formularios"][0]["Campos"]}
+
+
+def test_un_select_declara_su_tipo_de_catalogo():
+    sexo = _campos_de_prueba()["sexo"]
+    assert sexo["catalogo_id"] == "1"
+    assert json.loads(sexo["extra"])["catalog_type"] == "manual"
+
+
+def test_un_campo_que_no_es_select_no_declara_catalogo():
+    curp = _campos_de_prueba()["curp"]
+    assert curp["catalogo_id"] is None
+    assert "catalog_type" not in json.loads(curp["extra"])
+
+
+def test_el_select_conserva_el_ancho_y_sus_opciones():
+    sexo = _campos_de_prueba()["sexo"]
+    assert json.loads(sexo["extra"])["tamano"] == "col-xs-12 col-md-6"
+    assert json.loads(sexo["datos"]) == [{"etiqueta": "Hombre", "valor": "h"}]
