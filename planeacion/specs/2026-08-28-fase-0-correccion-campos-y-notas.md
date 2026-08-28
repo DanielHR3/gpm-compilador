@@ -249,8 +249,11 @@ Todos los fixtures van **inline**. Ninguna prueba de esta fase depende de materi
   el componente se consulta primero, y las pruebas de regresión fijan el comportamiento del
   Diccionario estándar antes de tocar la función.
 - **La señal `[/…/]` podría marcar como nota un nodo que no lo es.** En Mermaid esa forma
-  también se usa para entrada/salida. Mitigación: en los expedientes disponibles solo
-  aparece para anotaciones; el riesgo se acepta y se documenta.
+  también se usa para entrada/salida. Mitigación: la Propuesta TO-BE la redacta el equipo
+  de Simplificación —no llega de fuera; ellos se la mandan a la dependencia para que la
+  valide—, así que `classDef nota` y `[/…/]` son convención de casa y no salida
+  impredecible de un tercero. En los expedientes disponibles esa forma solo aparece para
+  anotaciones. El riesgo se acepta y se documenta.
 - **`catalogo_id` como parámetro nuevo en `esquema.campo()`.** Mitigación: valor por
   omisión `None`, posición de la clave intacta; ningún llamador existente cambia de
   comportamiento.
