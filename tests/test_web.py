@@ -129,3 +129,44 @@ def test_el_identificador_de_sesion_no_permite_salir_del_almacen(cliente):
     for malo in ("../../etc", "..%2f..", "a/b"):
         r = cliente.get(f"/descargar/{malo}/gpm")
         assert r.status_code in (400, 404), f"{malo} devolvio {r.status_code}"
+
+
+# Manifiesto minimo y valido, inline: no depende de GPMC_WIKI.
+_MANIFIESTO_BUENO = """tramite: {nombre: "Trámite Bueno", dependencia: "DEP"}
+actores: [{id: u, nombre: U}]
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, terminal: true}
+  conexiones: []
+"""
+
+# Valido como YAML pero de un esquema anterior: 'cargar' revienta al validarlo.
+_MANIFIESTO_CORRUPTO = """tramite: {nombre: "Viejo"}
+campos_antiguos: []
+"""
+
+
+def test_historial_vacio_responde_200(cliente):
+    r = cliente.get("/historial")
+    assert r.status_code == 200
+    assert "Historial" in r.text
+
+
+def test_historial_sobrevive_a_una_sesion_con_manifiesto_corrupto(cliente, tmp_path):
+    buena = tmp_path / ("a" * 16)
+    buena.mkdir()
+    (buena / "manifiesto.yaml").write_text(_MANIFIESTO_BUENO, encoding="utf-8")
+    mala = tmp_path / ("b" * 16)
+    mala.mkdir()
+    (mala / "manifiesto.yaml").write_text(_MANIFIESTO_CORRUPTO, encoding="utf-8")
+
+    r = cliente.get("/historial")
+    assert r.status_code == 200
+    assert "Trámite Bueno" in r.text
+
+
+def test_descargar_plantilla_responde_con_contenido(cliente):
+    r = cliente.get("/descargar-plantilla")
+    assert r.status_code == 200
+    assert r.content
+    assert "Diccionario de Datos" in r.text

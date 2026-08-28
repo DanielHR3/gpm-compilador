@@ -190,7 +190,7 @@ def historial(archivos) -> str:
         lista += f'<li><a href="/revisar/{a["sid"]}"><strong>{_h.escape(a["nombre"])}</strong></a> - {_h.escape(a["dependencia"])} <a class="btn" href="/descargar/{a["sid"]}/gpm" style="margin-left:1rem;padding:0.2rem 0.5rem">Descargar .gpm</a></li>'
     
     if not lista:
-        lista = '<li style="color:var(--gris)">No hay trámites procesados en esta sesión.</li>'
+        lista = '<li style="color:var(--gris)">Todavía no hay ningún trámite procesado.</li>'
     
     html = f"""
 <div class="tarjeta">

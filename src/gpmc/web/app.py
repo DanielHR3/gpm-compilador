@@ -7,6 +7,7 @@ sin navegador.
 """
 
 from typing import Optional
+import importlib.resources
 import json
 import re
 import secrets
@@ -61,12 +62,16 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
 
     @app.get("/descargar-plantilla")
     def descargar_plantilla():
-        import os
-        ruta_plantilla = Path(__file__).parent.parent.parent.parent / "ejemplos" / "plantilla-diccionario.md"
-        if not ruta_plantilla.exists():
-            return Response("Plantilla no encontrada.", status_code=404)
+        # La plantilla viaja como dato del paquete gpmc.web: se lee con
+        # importlib.resources para que siga funcionando tras `pip install`,
+        # donde no existe el arbol de fuentes ni la carpeta ejemplos/.
+        texto = (
+            importlib.resources.files("gpmc.web")
+            .joinpath("plantilla-diccionario.md")
+            .read_text(encoding="utf-8")
+        )
         return Response(
-            ruta_plantilla.read_text(encoding="utf-8"),
+            texto,
             media_type="text/markdown",
             headers={"content-disposition": 'attachment; filename="plantilla-diccionario.md"'},
         )
@@ -80,14 +85,19 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
                 continue
             manifiesto_path = carpeta / "manifiesto.yaml"
             if manifiesto_path.exists():
-                from gpmc.nucleo.manifiesto import cargar
-                m = cargar(manifiesto_path)
-                if m:
-                    archivos.append({
-                        "sid": carpeta.name, 
-                        "nombre": m.tramite.nombre, 
-                        "dependencia": m.tramite.dependencia
-                    })
+                try:
+                    m = cargar(manifiesto_path)
+                except Exception:
+                    # Un directorio de sesion puede guardar un manifiesto de un
+                    # esquema anterior o a medio escribir. cargar() revienta en
+                    # ese caso; se omite esa sesion en vez de tumbar la pagina
+                    # entera para todas las demas.
+                    continue
+                archivos.append({
+                    "sid": carpeta.name,
+                    "nombre": m.tramite.nombre,
+                    "dependencia": m.tramite.dependencia,
+                })
         return HTMLResponse(plantillas.historial(archivos))
 
     @app.post("/extraer", response_class=HTMLResponse)
