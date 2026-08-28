@@ -66,6 +66,17 @@ def test_el_paso_de_revision_agrupa_huecos_por_nivel(cliente):
     assert "<details" in r.text
 
 
+def test_revision_enlaza_al_simulador_en_la_misma_pestana(cliente):
+    # El navegador bloquea las pestañas nuevas de target="_blank"; los botones
+    # de navegación del asistente deben abrir en la misma pestaña.
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+    })
+    sid = r.url.path.rsplit("/", 1)[-1]
+    assert f'href="/simulador/{sid}"' in r.text
+    assert 'target="_blank"' not in r.text
+
+
 def test_descargar_el_gpm_de_una_sesion(cliente):
     import json
     ins = _insumos()
