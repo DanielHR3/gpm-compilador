@@ -83,6 +83,49 @@ def test_normaliza_los_carriles_sinonimos():
     assert normalizar_actor("coinhi") == "coinhi", "un carril propio se conserva"
 
 
+CON_NOTAS = """
+flowchart TD
+    classDef ciudadano fill:#E4EFEA
+    classDef nota fill:#FFF8DC
+
+    Start([Inicia]):::ciudadano --> C1[Ciudadano: Capturar]:::ciudadano
+    C1 --> N1[/Nota importante: no existe recurso de revision/]:::nota
+    N1 --> F1[Ciudadano: Concluir]:::ciudadano
+    F1 -.-> N2[/Nota sin clase declarada/]
+"""
+
+
+def test_una_nota_no_es_una_tarea():
+    r = extraer(CON_NOTAS)
+    por_id = {n.id: n for n in r.nodos}
+    assert por_id["N1"].clase_nodo == "nota"
+    assert por_id["C1"].clase_nodo == "tarea"
+
+
+def test_una_nota_se_reconoce_por_su_forma_aunque_no_declare_clase():
+    r = extraer(CON_NOTAS)
+    assert {n.id: n for n in r.nodos}["N2"].clase_nodo == "nota"
+
+
+def test_el_texto_de_la_nota_pierde_las_barras():
+    r = extraer(CON_NOTAS)
+    texto = {n.id: n for n in r.nodos}["N1"].texto
+    assert texto.startswith("Nota importante:")
+    assert "/" not in texto
+
+
+def test_las_notas_no_se_cuentan_como_tareas():
+    r = extraer(CON_NOTAS)
+    assert [n.id for n in r.nodos if n.clase_nodo == "tarea"] == ["C1", "F1"]
+
+
+def test_una_nota_no_reclama_carril():
+    # MMD-03 pide carril para saber que actor ejecuta el paso. Una anotacion
+    # no la ejecuta nadie.
+    r = extraer(CON_NOTAS)
+    assert not [h for h in r.huecos if h.codigo == "MMD-03" and h.ubicacion == "N2"]
+
+
 @pytest.mark.parametrize("expediente", [
     "elesvan/Constancia de No Infracción Vehicular Ambiental",
     "anita/Alta de Avisos de Testamento",
