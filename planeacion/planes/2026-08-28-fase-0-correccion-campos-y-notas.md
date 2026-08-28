@@ -290,28 +290,37 @@ git commit -m "fix: el tipo de campo se lee tambien de la columna de tipo"
 
 ---
 
-### Task 3: Etiqueta legible, propuesta y reportada (`DIC-05`)
+### Task 3: La etiqueta derivada se reporta como `DIC-05`
+
+> **Contexto que cambió después de escribir el plan.** El commit `6723784` ya
+> implementó la derivación de la etiqueta (`nombre.replace("_", " ").capitalize()`)
+> en **las dos** rutas del extractor: la estándar (con cabecera `### Pantalla N`) y
+> la de rescate. Lo que **falta** es el hueco: hoy la etiqueta se rellena en
+> silencio, y el invariante del proyecto dice que lo que no se deriva de los
+> insumos se reporta, nunca se rellena por inferencia callada. Esta tarea añade
+> solo eso.
 
 **Files:**
-- Modify: `src/gpmc/extractores/diccionario.py` (ruta de rescate, el bloque que decide `nombre` a partir de `etiqueta`)
+- Modify: `src/gpmc/extractores/diccionario.py:172-174` (ruta estándar) y `:265-267` (ruta de rescate)
 - Test: `tests/test_extractor_diccionario.py`
 
 **Interfaces:**
-- Consumes: la variable local `es_columna_variable` y el `nombre` que fija la ruta de rescate (ya existentes en el archivo).
-- Produces: hueco `DIC-05`, `nivel="por_confirmar"`, `ubicacion="p1"`, `propuesta=<etiqueta sugerida>`.
+- Consumes: las variables locales `es_columna_variable`, `nombre` y `etiqueta`, ya existentes en ambos sitios.
+- Produces: hueco `DIC-05`, `nivel="por_confirmar"`, `propuesta=<etiqueta derivada>`. `ubicacion=pantalla.id` en la ruta estándar, `ubicacion="p1"` en la de rescate.
 
 - [ ] **Step 1: Write the failing tests**
 
-Añade a `tests/test_extractor_diccionario.py`:
+Añade a `tests/test_extractor_diccionario.py`. La primera constante es nueva; `_DICC_HIBRIDO` y `MUESTRA` ya existen en el archivo.
 
 ```python
-def test_la_etiqueta_visible_no_es_el_nombre_tecnico():
-    # La plataforma distingue "Etiqueta" (lo que ve la persona) de "Nombre de
-    # la variable". Con el Diccionario hibrido ambas salian iguales.
-    r = extraer(_DICC_HIBRIDO)
-    por_nombre = {c.nombre: c for c in r.pantallas[0].campos}
-    assert por_nombre["estado_sol"].etiqueta == "Estado sol"
-    assert por_nombre["estado_sol"].nombre == "estado_sol"
+# Cabecera de pantalla + columna Variable: ejercita la ruta estandar, donde
+# la ubicacion del hueco es el id de la pantalla y no el "p1" del rescate.
+_DICC_PANTALLA_CON_VARIABLE = """### Pantalla 2 — Solicitante — Datos
+
+| Variable | Tipo (GPM) | Obligatorio | Comportamiento |
+| --- | --- | --- | --- |
+| `rfc_sol` | text | Sí | Validación de formato. |
+"""
 
 
 def test_la_etiqueta_derivada_se_reporta_como_DIC_05():
@@ -319,12 +328,28 @@ def test_la_etiqueta_derivada_se_reporta_como_DIC_05():
     dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
     assert dic05, r.huecos
     assert dic05[0].nivel == "por_confirmar"
-    assert dic05[0].propuesta
-    assert dic05[0].ubicacion == "p1"
+    assert {h.propuesta for h in dic05} >= {"Estado sol", "Municipio sol"}
 
 
-def test_el_diccionario_estandar_conserva_su_etiqueta():
-    # Guarda de regresion: ahi la etiqueta ya es legible y no se toca.
+def test_hay_un_DIC_05_por_cada_etiqueta_derivada():
+    # Los 4 campos de _DICC_HIBRIDO vienen de la columna Variable.
+    r = extraer(_DICC_HIBRIDO)
+    dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
+    assert len(dic05) == len(r.pantallas[0].campos) == 4
+    assert all(h.ubicacion == "p1" for h in dic05)
+
+
+def test_la_ruta_estandar_tambien_reporta_DIC_05():
+    r = extraer(_DICC_PANTALLA_CON_VARIABLE)
+    dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
+    assert dic05, r.huecos
+    assert dic05[0].ubicacion == "p2"
+    assert dic05[0].propuesta == "Rfc sol"
+
+
+def test_el_diccionario_estandar_no_levanta_DIC_05():
+    # Ahi la etiqueta ya es legible y la escribio una persona: no hay nada que
+    # confirmar.
     r = extraer(MUESTRA)
     assert r.pantallas[0].campos[0].etiqueta == "CURP"
     assert not [h for h in r.huecos if h.codigo == "DIC-05"]
@@ -333,29 +358,63 @@ def test_el_diccionario_estandar_conserva_su_etiqueta():
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_extractor_diccionario.py -v`
-Expected: FAIL — `assert 'estado_sol' == 'Estado sol'`.
+Expected: FAIL — los tres primeros con `assert []` (no existe ningún `DIC-05`). El cuarto ya pasa: es la guarda de regresión.
 
 - [ ] **Step 3: Write the implementation**
 
-En `src/gpmc/extractores/diccionario.py`, ruta de rescate: **justo después** del bloque `if es_columna_variable ... elif tecnicos: ... else: ...` que fija `nombre`, y **antes** de la línea que lee `limite`, insertar:
+Dos sitios, mismo cambio salvo la `ubicacion`.
+
+**Ruta estándar**, `src/gpmc/extractores/diccionario.py:172-174`. Sustituir:
 
 ```python
-                # La plataforma distingue la etiqueta visible del nombre de la
-                # variable. El Diccionario hibrido solo trae la segunda, asi que
-                # se propone una legible y se levanta la mano — mismo trato que
-                # DIC-01 le da al nombre tecnico, en el sentido contrario.
-                if es_columna_variable and etiqueta == nombre:
-                    legible = nombre.replace("_", " ").strip().capitalize()
+            if es_columna_variable and re.fullmatch(r"[A-Za-z_]\w*", etiqueta):
+                nombre = etiqueta
+                etiqueta = nombre.replace("_", " ").capitalize()
+```
+
+por:
+
+```python
+            if es_columna_variable and re.fullmatch(r"[A-Za-z_]\w*", etiqueta):
+                nombre = etiqueta
+                etiqueta = nombre.replace("_", " ").capitalize()
+                # La columna Variable declara el nombre tecnico, no una etiqueta
+                # para leer. La derivada es utilizable, pero nadie la escribio:
+                # se levanta la mano igual que DIC-01 hace con el nombre
+                # tecnico, en el sentido contrario.
+                r.huecos.append(Hueco(
+                    "por_confirmar", "DIC-05", pantalla.id,
+                    f"'{nombre}' no trae etiqueta visible en el Diccionario; "
+                    f"se propuso '{etiqueta}'",
+                    propuesta=etiqueta,
+                ))
+```
+
+**Ruta de rescate**, `src/gpmc/extractores/diccionario.py:265-267`. Sustituir:
+
+```python
+                if es_columna_variable and re.fullmatch(r"[A-Za-z_]\w*", etiqueta):
+                    nombre = etiqueta
+                    etiqueta = nombre.replace("_", " ").capitalize()
+```
+
+por:
+
+```python
+                if es_columna_variable and re.fullmatch(r"[A-Za-z_]\w*", etiqueta):
+                    nombre = etiqueta
+                    etiqueta = nombre.replace("_", " ").capitalize()
+                    # Misma razon que en la ruta estandar; aqui no hay cabecera
+                    # de pantalla, asi que la ubicacion es la pantalla unica.
                     r.huecos.append(Hueco(
                         "por_confirmar", "DIC-05", "p1",
                         f"'{nombre}' no trae etiqueta visible en el Diccionario; "
-                        f"se propuso '{legible}'",
-                        propuesta=legible,
+                        f"se propuso '{etiqueta}'",
+                        propuesta=etiqueta,
                     ))
-                    etiqueta = legible
 ```
 
-La derivación es deliberadamente tonta: guiones bajos a espacios y primera letra en mayúscula. No se intentan reconocer siglas (CURP, RFC, CP) — eso sería inferencia sobre inferencia, y para eso está el hueco.
+La derivación existente es deliberadamente tonta: guiones bajos a espacios y primera letra en mayúscula. No se intentan reconocer siglas (CURP, RFC, CP) — eso sería inferencia sobre inferencia, y para eso está el hueco. **No cambies la derivación**, solo añade el hueco.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
