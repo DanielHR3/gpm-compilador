@@ -27,8 +27,16 @@ def _validacion_de(c: Campo) -> str:
     return "|".join(partes)
 
 
-def compilar(m: Manifiesto, proceso_id: str = "900") -> dict:
-    ids = count(1000)
+import hashlib
+
+def compilar(m: Manifiesto, proceso_id: str = "") -> dict:
+    if not proceso_id:
+        # Generate stable IDs based on the process name to avoid collisions across different files
+        num = int(hashlib.sha256(m.tramite.nombre.encode('utf-8')).hexdigest(), 16)
+        proceso_id = str((num % 9000) + 100)
+        ids = count((num % 90000) + 10000)
+    else:
+        ids = count(1000)
     actores = {a.id: a for a in m.actores}
 
     usos_pantalla = {}
