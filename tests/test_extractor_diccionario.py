@@ -134,6 +134,38 @@ def test_acepta_pantallas_anidadas_bajo_el_stepper():
     assert p.campos[0].nombre == "curp"
 
 
+_DICC_HIBRIDO = """# Diccionario de Datos Híbrido - Acceso a la Información
+
+| Variable | Tipo (GPM) | Dependencia | Endpoint / API | Comportamiento |
+| :--- | :--- | :--- | :--- | :--- |
+| `estado_sol` | select | N/A | `mgee` (INEGI) | Despliega catálogo de 32 estados dinámicamente. |
+| `municipio_sol` | select | `estado_sol` | `mgem` (INEGI) | Se inyecta la variable @@estado_sol en la URL para extraer sus dependencias. |
+| `cp_sol` | text | N/A | N/A | Validación regex (exact_length[5]). |
+| `colonia_sol` | select | `cp_sol` | `zip_codes` (SEPOMEX) | Inyecta la variable @@cp_sol para retornar el catálogo de esa zona. |
+"""
+
+
+def test_formato_hibrido_usa_la_columna_variable_como_nombre_tecnico():
+    r = extraer(_DICC_HIBRIDO)
+    assert len(r.pantallas) == 1
+    nombres = [c.nombre for c in r.pantallas[0].campos]
+    assert nombres == ["estado_sol", "municipio_sol", "cp_sol", "colonia_sol"]
+
+
+def test_formato_hibrido_no_confunde_una_referencia_at_at_con_el_nombre():
+    # @@estado_sol en el Comportamiento de municipio_sol es una dependencia
+    # (select en cascada), no el nombre del campo: no debe colisionar.
+    r = extraer(_DICC_HIBRIDO)
+    nombres = [c.nombre for c in r.pantallas[0].campos]
+    assert len(nombres) == len(set(nombres)), f"nombres colisionados: {nombres}"
+
+
+def test_formato_hibrido_no_emite_DIC_01():
+    # La columna Variable ES el nombre técnico declarado; no es una propuesta.
+    r = extraer(_DICC_HIBRIDO)
+    assert not [h for h in r.huecos if h.codigo == "DIC-01"], r.huecos
+
+
 def test_no_absorbe_las_tablas_de_las_secciones_posteriores():
     """Las Secciones 2 a 5 del Diccionario traen tablas que no son de campos.
     Sin cortar, se colaban dentro de la ultima pantalla."""

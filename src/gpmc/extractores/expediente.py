@@ -121,8 +121,10 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     r.huecos += meta.huecos
     tramite = meta.tramite
     if tramite is None:
+        # metadatos ya intento el nombre de la carpeta; si llego aqui es que no
+        # servia (vacio o con forma de id de sesion del asistente web).
         from gpmc.nucleo.manifiesto import Tramite
-        tramite = Tramite(nombre=carpeta.name, dependencia="[por confirmar]")
+        tramite = Tramite(nombre="[por confirmar]", dependencia="[por confirmar]")
 
     rd = ext_dicc.extraer(dicc)
     r.huecos += rd.huecos
