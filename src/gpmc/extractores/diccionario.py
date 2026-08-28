@@ -177,6 +177,16 @@ def extraer(texto: str) -> Resultado:
             if es_columna_variable and re.fullmatch(r"[A-Za-z_]\w*", etiqueta):
                 nombre = etiqueta
                 etiqueta = nombre.replace("_", " ").capitalize()
+                # La columna Variable declara el nombre tecnico, no una etiqueta
+                # para leer. La derivada es utilizable, pero nadie la escribio:
+                # se levanta la mano igual que DIC-01 hace con el nombre
+                # tecnico, en el sentido contrario.
+                r.huecos.append(Hueco(
+                    "por_confirmar", "DIC-05", pantalla.id,
+                    f"'{nombre}' no trae etiqueta visible en el Diccionario; "
+                    f"se propuso '{etiqueta}'",
+                    propuesta=etiqueta,
+                ))
             elif tecnicos:
                 nombre = tecnicos[0]
             else:
@@ -263,13 +273,21 @@ def extraer(texto: str) -> Resultado:
                 etiqueta = re.sub(r"\*+", "", celdas[i_nombre]).strip()
                 # Quitar backticks si es una variable cruda
                 etiqueta = etiqueta.replace("`", "")
-                
+
                 desc = celdas[i_desc] if i_desc is not None and i_desc < len(celdas) else ""
 
                 tecnicos = _CAMPO_TECNICO.findall(desc)
                 if es_columna_variable and re.fullmatch(r"[A-Za-z_]\w*", etiqueta):
                     nombre = etiqueta
                     etiqueta = nombre.replace("_", " ").capitalize()
+                    # Misma razon que en la ruta estandar; aqui no hay cabecera
+                    # de pantalla, asi que la ubicacion es la pantalla unica.
+                    r.huecos.append(Hueco(
+                        "por_confirmar", "DIC-05", "p1",
+                        f"'{nombre}' no trae etiqueta visible en el Diccionario; "
+                        f"se propuso '{etiqueta}'",
+                        propuesta=etiqueta,
+                    ))
                 elif tecnicos:
                     nombre = tecnicos[0]
                 else:

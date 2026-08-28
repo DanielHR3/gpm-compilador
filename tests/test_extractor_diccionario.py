@@ -212,3 +212,43 @@ def test_el_diccionario_hibrido_produce_selects():
     assert tipos["estado_sol"] == "select"
     assert tipos["municipio_sol"] == "select"
     assert tipos["cp_sol"] == "text"
+
+
+_DICC_PANTALLA_CON_VARIABLE = """### Pantalla 2 — Solicitante — Datos
+
+| Variable | Tipo (GPM) | Obligatorio | Comportamiento |
+| --- | --- | --- | --- |
+| `rfc_sol` | text | Sí | Validación de formato. |
+"""
+
+
+def test_la_etiqueta_derivada_se_reporta_como_DIC_05():
+    r = extraer(_DICC_HIBRIDO)
+    dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
+    assert dic05, r.huecos
+    assert dic05[0].nivel == "por_confirmar"
+    assert {h.propuesta for h in dic05} >= {"Estado sol", "Municipio sol"}
+
+
+def test_hay_un_DIC_05_por_cada_etiqueta_derivada():
+    # Los 4 campos de _DICC_HIBRIDO vienen de la columna Variable.
+    r = extraer(_DICC_HIBRIDO)
+    dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
+    assert len(dic05) == len(r.pantallas[0].campos) == 4
+    assert all(h.ubicacion == "p1" for h in dic05)
+
+
+def test_la_ruta_estandar_tambien_reporta_DIC_05():
+    r = extraer(_DICC_PANTALLA_CON_VARIABLE)
+    dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
+    assert dic05, r.huecos
+    assert dic05[0].ubicacion == "p2"
+    assert dic05[0].propuesta == "Rfc sol"
+
+
+def test_el_diccionario_estandar_no_levanta_DIC_05():
+    # Ahi la etiqueta ya es legible y la escribio una persona: no hay nada que
+    # confirmar.
+    r = extraer(MUESTRA)
+    assert r.pantallas[0].campos[0].etiqueta == "CURP"
+    assert not [h for h in r.huecos if h.codigo == "DIC-05"]
