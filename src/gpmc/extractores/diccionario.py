@@ -76,10 +76,15 @@ def _babel(t: str) -> str:
 
 
 def _tipo_de(componente: str, tipo_dato: str) -> str:
-    c = _babel(componente)
-    for aguja, tipo in COMPONENTES:
-        if _sin_acentos(aguja) in c:
-            return tipo
+    """El Diccionario estandar nombra el componente ("Lista desplegable
+    (select)"); el hibrido nombra directamente el tipo de la plataforma
+    ("select"). Se consultan ambas columnas contra la misma tabla, el
+    componente primero para que la mas especifica gane."""
+    for celda in (componente, tipo_dato):
+        c = _babel(celda)
+        for aguja, tipo in COMPONENTES:
+            if _sin_acentos(aguja) in c:
+                return tipo
     return "file" if "archivo" in _babel(tipo_dato) else "text"
 
 

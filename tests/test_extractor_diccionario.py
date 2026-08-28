@@ -4,7 +4,7 @@ import pytest
 
 from tests.conftest import WIKI, legible as _legible
 
-from gpmc.extractores.diccionario import extraer
+from gpmc.extractores.diccionario import extraer, _tipo_de
 from gpmc.nucleo.huecos import Hueco
 
 
@@ -182,3 +182,33 @@ def test_no_absorbe_las_tablas_de_las_secciones_posteriores():
     etiquetas = [c.etiqueta for c in ultima.campos]
     assert "Acta" not in etiquetas and "Oficio" not in etiquetas
     assert etiquetas == ["Documento"]
+
+
+def test_el_tipo_se_lee_tambien_de_la_columna_de_tipo():
+    # El Diccionario hibrido no trae columna de componente: su columna
+    # "Tipo (GPM)" nombra directamente el tipo de la plataforma.
+    assert _tipo_de("", "select") == "select"
+    assert _tipo_de("", "file") == "file"
+    assert _tipo_de("", "textarea") == "textarea"
+
+
+def test_el_componente_gana_sobre_la_columna_de_tipo():
+    # Cuando ambas columnas existen manda la mas especifica, como hasta hoy.
+    assert _tipo_de("Lista desplegable (select)", "String") == "select"
+    assert _tipo_de("Campo de texto (input)", "String") == "text"
+
+
+def test_los_tipos_del_diccionario_estandar_no_cambian():
+    # Guarda de regresion: los valores de la columna "Tipo de Dato" del
+    # Diccionario estandar deben resolver igual que antes de este cambio.
+    assert _tipo_de("", "String") == "text"
+    assert _tipo_de("", "Number") == "text"
+    assert _tipo_de("", "Archivo") == "file"
+
+
+def test_el_diccionario_hibrido_produce_selects():
+    r = extraer(_DICC_HIBRIDO)
+    tipos = {c.nombre: c.tipo for c in r.pantallas[0].campos}
+    assert tipos["estado_sol"] == "select"
+    assert tipos["municipio_sol"] == "select"
+    assert tipos["cp_sol"] == "text"
