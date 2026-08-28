@@ -59,6 +59,37 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
     def portada():
         return plantillas.portada()
 
+    @app.get("/descargar-plantilla")
+    def descargar_plantilla():
+        import os
+        ruta_plantilla = Path(__file__).parent.parent.parent.parent / "ejemplos" / "plantilla-diccionario.md"
+        if not ruta_plantilla.exists():
+            return Response("Plantilla no encontrada.", status_code=404)
+        return Response(
+            ruta_plantilla.read_text(encoding="utf-8"),
+            media_type="text/markdown",
+            headers={"content-disposition": 'attachment; filename="plantilla-diccionario.md"'},
+        )
+
+
+    @app.get("/historial", response_class=HTMLResponse)
+    def historial():
+        archivos = []
+        for carpeta in raiz.iterdir():
+            if not carpeta.is_dir() or not _SESION_VALIDA.match(carpeta.name):
+                continue
+            manifiesto_path = carpeta / "manifiesto.yaml"
+            if manifiesto_path.exists():
+                from gpmc.nucleo.manifiesto import cargar
+                m = cargar(manifiesto_path)
+                if m:
+                    archivos.append({
+                        "sid": carpeta.name, 
+                        "nombre": m.tramite.nombre, 
+                        "dependencia": m.tramite.dependencia
+                    })
+        return HTMLResponse(plantillas.historial(archivos))
+
     @app.post("/extraer", response_class=HTMLResponse)
     async def extraer(
         as_is: UploadFile = File(None),

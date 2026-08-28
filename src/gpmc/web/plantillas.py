@@ -87,9 +87,12 @@ def portada(error: str = "") -> str:
     <em>De su diagrama Mermaid sale el flujo: tareas, compuertas y actores.</em>
     <input type="file" name="to_be" accept=".md"></label>
   <label><b>Diccionario de Datos</b> <span style="color:var(--alerta)">— obligatorio</span>
-    <em>De ahí salen las pantallas y los campos. Sin él no hay nada que compilar.</em>
+    <em>De ahí salen las pantallas y los campos. Sin él no hay nada que compilar. <a href="/descargar-plantilla" style="color:var(--guinda);text-decoration:none;font-weight:bold;margin-left:5px">↓ Descargar plantilla de ejemplo</a></em>
     <input type="file" name="diccionario" accept=".md" required></label>
   <button type="submit">Extraer manifiesto →</button>
+  <div style="margin-top:1rem;text-align:center">
+    <a href="/historial" style="font-size:0.9rem;color:var(--guinda);text-decoration:none">Ver historial de trámites procesados</a>
+  </div>
 </form>
 <p class="nota">La herramienta <strong>propone</strong>; no adivina. Lo que no puede derivar de los
 insumos lo reporta como hueco para que una persona lo resuelva antes de compilar.</p>""", 1)
@@ -180,3 +183,23 @@ def revision(m, huecos, problemas, estimacion, sid: str) -> str:
 <p class="nota">El flujo propuesto es <strong>lineal</strong>, una tarea por pantalla. Las
 compuertas del diagrama TO-BE se cuentan y se reportan arriba, pero no se reproducen: hay que
 ramificarlas a mano en el manifiesto. La importación a la plataforma también es manual.</p>""", 2)
+
+def historial(archivos) -> str:
+    lista = ""
+    for a in archivos:
+        lista += f'<li><a href="/revisar/{a["sid"]}"><strong>{_h.escape(a["nombre"])}</strong></a> - {_h.escape(a["dependencia"])} <a class="btn" href="/descargar/{a["sid"]}/gpm" style="margin-left:1rem;padding:0.2rem 0.5rem">Descargar .gpm</a></li>'
+    
+    if not lista:
+        lista = '<li style="color:var(--gris)">No hay trámites procesados en esta sesión.</li>'
+    
+    html = f"""
+<div class="tarjeta">
+  <h2>Historial de trámites procesados</h2>
+  <ul style="line-height:2">
+    {lista}
+  </ul>
+  <br>
+  <a class="btn" href="/">← Volver al inicio</a>
+</div>
+"""
+    return _envoltura("Historial GPM", html, 0)
