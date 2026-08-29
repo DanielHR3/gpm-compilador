@@ -170,3 +170,29 @@ def test_el_select_conserva_el_ancho_y_sus_opciones():
     sexo = _campos_de_prueba()["sexo"]
     assert json.loads(sexo["extra"])["tamano"] == "col-xs-12 col-md-6"
     assert json.loads(sexo["datos"]) == [{"etiqueta": "Hombre", "valor": "h"}]
+
+
+def _manifiesto_con_nombre(nombre: str):
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    datos = yaml.safe_load(_CON_SELECT)
+    datos["tramite"] = {"nombre": nombre, "dependencia": "D"}
+    return Manifiesto(**datos)
+
+
+def test_dos_nombres_de_tramite_distintos_dan_proceso_id_distinto():
+    ga = compilar(_manifiesto_con_nombre("Alfa"))
+    gb = compilar(_manifiesto_con_nombre("Beta"))
+    assert ga["id"] != gb["id"]
+
+
+def test_el_proceso_id_explicito_gana_sobre_la_derivacion():
+    g = compilar(_manifiesto_con_nombre("Alfa"), proceso_id="7777")
+    assert g["id"] == "7777"
+
+
+def test_la_derivacion_del_proceso_id_es_determinista():
+    # El mismo nombre siempre da el mismo id (la ruta sin proceso_id explicito).
+    assert compilar(_manifiesto_con_nombre("Gamma"))["id"] == compilar(
+        _manifiesto_con_nombre("Gamma")
+    )["id"]

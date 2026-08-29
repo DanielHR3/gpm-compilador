@@ -92,6 +92,7 @@ flowchart TD
     C1 --> N1[/Nota importante: no existe recurso de revision/]:::nota
     N1 --> F1[Ciudadano: Concluir]:::ciudadano
     F1 -.-> N2[/Nota sin clase declarada/]
+    F1 --> N3[Recordatorio operativo para la dependencia]:::nota
 """
 
 
@@ -105,6 +106,13 @@ def test_una_nota_no_es_una_tarea():
 def test_una_nota_se_reconoce_por_su_forma_aunque_no_declare_clase():
     r = extraer(CON_NOTAS)
     assert {n.id: n for n in r.nodos}["N2"].clase_nodo == "nota"
+
+
+def test_una_nota_se_reconoce_por_el_carril_sin_la_forma_de_barras():
+    # N3 declara :::nota sobre un [texto] normal, sin barras: la mitad del
+    # or que mira el carril debe bastar por si sola.
+    r = extraer(CON_NOTAS)
+    assert {n.id: n for n in r.nodos}["N3"].clase_nodo == "nota"
 
 
 def test_el_texto_de_la_nota_pierde_las_barras():

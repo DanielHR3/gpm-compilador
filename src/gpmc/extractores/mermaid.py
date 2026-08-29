@@ -76,6 +76,7 @@ class Resultado:
 def _limpiar(texto: str) -> str:
     t = re.sub(r"<br\s*/?>", " ", texto or "")
     t = t.replace('"', "").replace("&nbsp;", " ")
+    t = re.sub(r"\*\([^)]*\)\*?", "", t)
     t = re.sub(r"\s+", " ", t).strip()
     return _PREFIJO_ACTOR.sub("", t).strip()
 

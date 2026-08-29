@@ -204,6 +204,38 @@ def test_los_tipos_del_diccionario_estandar_no_cambian():
     assert _tipo_de("", "String") == "text"
     assert _tipo_de("", "Number") == "text"
     assert _tipo_de("", "Archivo") == "file"
+    # "Fecha" resuelve a "date" desde la Tarea 2 (antes daba "text"). Se fija
+    # aqui para que el cambio quede en el registro en cualquier sentido.
+    assert _tipo_de("", "Fecha") == "date"
+
+
+_DICC_HIBRIDO_PANTALLA_FECHA_NAC = """### Pantalla 1 — Solicitante — Datos
+
+| Variable | Tipo (GPM) | Dependencia | Comportamiento |
+| --- | --- | --- | --- |
+| `nacimiento_sol` | select | `fecha_nac` | Catálogo que depende de la fecha. |
+"""
+
+_DICC_HIBRIDO_RESCATE_FECHA_NAC = """# Diccionario de Datos Híbrido
+
+| Variable | Tipo (GPM) | Dependencia | Comportamiento |
+| :--- | :--- | :--- | :--- |
+| `nacimiento_sol` | select | `fecha_nac` | Catálogo que depende de la fecha. |
+"""
+
+
+def test_hibrido_el_tipo_declarado_gana_sobre_la_columna_dependencia_ruta_estandar():
+    # 'Dependencia' = fecha_nac cae posicionalmente donde el codigo buscaba el
+    # componente; 'fecha' NO debe ganarle al 'select' declarado en Tipo (GPM).
+    r = extraer(_DICC_HIBRIDO_PANTALLA_FECHA_NAC)
+    tipos = {c.nombre: c.tipo for c in r.pantallas[0].campos}
+    assert tipos["nacimiento_sol"] == "select"
+
+
+def test_hibrido_el_tipo_declarado_gana_sobre_la_columna_dependencia_ruta_rescate():
+    r = extraer(_DICC_HIBRIDO_RESCATE_FECHA_NAC)
+    tipos = {c.nombre: c.tipo for c in r.pantallas[0].campos}
+    assert tipos["nacimiento_sol"] == "select"
 
 
 def test_el_diccionario_hibrido_produce_selects():

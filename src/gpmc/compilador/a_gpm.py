@@ -5,6 +5,7 @@ contador base, para que compilar dos veces el mismo manifiesto produzca el
 mismo archivo.
 """
 
+import hashlib
 from itertools import count
 
 from gpmc.compilador.acciones import construir_acciones
@@ -27,19 +28,38 @@ def _validacion_de(c: Campo) -> str:
     return "|".join(partes)
 
 
-def _campo_gpm(c, posicion, formulario_id, campo_id):
+def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> dict:
     """Un Campo del manifiesto -> un campo del Form Builder.
 
     Un select siempre declara de que tipo es su catalogo y siempre lleva
     catalogo_id "1": asi lo traen los dos exports autenticos, sin una sola
-    excepcion. Sin catalog_type la vista de la plataforma revienta con
-    "Undefined property: stdClass::$catalog_url" (CampoSelect.php).
+    excepcion. Eso esta verificado. La bitacora interna del 2026-08-10 sostiene
+    ademas que sin catalog_type la vista de la plataforma revienta con
+    "Undefined property: stdClass::$catalog_url" (CampoSelect.php); el export
+    autentico no lo confirma y nadie ha importado un .gpm para comprobarlo, asi
+    que esa causa queda como hipotesis pendiente de prueba en la plataforma.
     """
     extra = {"tamano": ANCHOS[c.ancho]}
     catalogo_id = None
+    dependiente_tipo = None
+    dependiente_campo = None
+
     if c.tipo == "select":
-        extra["catalog_type"] = "manual"
-        catalogo_id = "1"
+        if c.endpoint:
+            extra["catalog_type"] = "url"
+            extra["catalog_url"] = c.endpoint
+            # Asumimos una estructura básica hasta que un export real la redefina
+            extra["object_response"] = "data"
+            extra["key_object"] = "valor"
+            extra["value_object"] = "etiqueta"
+        else:
+            extra["catalog_type"] = "manual"
+            catalogo_id = "1"
+            
+    if c.dependencia_tipo == "campo" and c.dependencia_campo:
+        dependiente_tipo = "campo"
+        dependiente_campo = c.dependencia_campo
+
     return esquema.campo(
         id=str(campo_id),
         nombre=c.nombre,
@@ -53,17 +73,18 @@ def _campo_gpm(c, posicion, formulario_id, campo_id):
         readonly=c.solo_lectura,
         ayuda=c.ayuda,
         catalogo_id=catalogo_id,
+        dependiente_tipo=dependiente_tipo,
+        dependiente_campo=dependiente_campo,
     )
 
 
-import hashlib
-
 def compilar(m: Manifiesto, proceso_id: str = "") -> dict:
     if not proceso_id:
-        # Generate stable IDs based on the process name to avoid collisions across different files
-        num = int(hashlib.sha256(m.tramite.nombre.encode('utf-8')).hexdigest(), 16)
-        proceso_id = str((num % 9000) + 100)
-        ids = count((num % 90000) + 10000)
+        num = int(hashlib.sha256(m.tramite.nombre.encode("utf-8")).hexdigest(), 16)
+        # Un ID muy pequeño o con pocas combinaciones colisiona fácilmente (ej. 9000 valores).
+        # Usamos modulo 1,000,000,000 para que sea de hasta 10 digitos y tenga pocas colisiones.
+        proceso_id = str((num % 1_000_000_000) + 10_000)
+        ids = count((num % 1_000_000_000) + 50_000)
     else:
         ids = count(1000)
     actores = {a.id: a for a in m.actores}
