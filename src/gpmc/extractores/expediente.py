@@ -14,6 +14,7 @@ from gpmc.extractores import diccionario as ext_dicc
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.nucleo.huecos import Hueco
+from gpmc.nucleo.integraciones import resolver as _resolver_catalogo
 from gpmc.nucleo.manifiesto import (
     Actor, Conexion, Flujo, Manifiesto, Pantalla, Tarea,
 )
@@ -151,6 +152,34 @@ def extraer_expediente(carpeta: Path) -> Resultado:
             id=p.id, nombre=p.nombre, actor=aid,
             paso_ciudadano=p.paso_ciudadano, campos=p.campos,
         ))
+
+    # Huecos de integracion: se comprueban aqui y no en el compilador porque
+    # aqui estan a la vez el campo, su pantalla y sus vecinos.
+    for p in pantallas:
+        nombres = {c.nombre for c in p.campos}
+        for c in p.campos:
+            if not c.endpoint:
+                continue
+            cat = _resolver_catalogo(c.endpoint)
+            if cat is None:
+                r.huecos.append(Hueco(
+                    "falta_dato", "API-01", c.nombre,
+                    f"el endpoint '{c.endpoint}' no está en el registro de catálogos "
+                    f"conocidos; el campo se emite como lista vacía",
+                ))
+                continue
+            if cat.requiere_padre and not c.dependencia_campo:
+                r.huecos.append(Hueco(
+                    "falta_dato", "API-03", c.nombre,
+                    f"el catálogo '{cat.clave}' se puebla a partir de otro campo, "
+                    f"pero no se declaró de cuál depende",
+                ))
+            elif c.dependencia_campo and c.dependencia_campo not in nombres:
+                r.huecos.append(Hueco(
+                    "falta_dato", "API-02", c.nombre,
+                    f"depende del campo '{c.dependencia_campo}', que no existe en "
+                    f"la pantalla '{p.nombre}'",
+                ))
 
     # Flujo: una tarea por pantalla, en orden, mas una terminal. El diagrama
     # Mermaid se usa para reportar cuanto se aparta esta linealizacion del
