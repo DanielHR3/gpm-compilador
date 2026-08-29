@@ -10,6 +10,7 @@ from itertools import count
 
 from gpmc.compilador.acciones import construir_acciones
 from gpmc.nucleo import esquema, reglas
+from gpmc.nucleo.integraciones import resolver as _resolver_catalogo
 from gpmc.nucleo.manifiesto import Campo, Manifiesto
 
 ANCHOS = {
@@ -41,24 +42,28 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
     """
     extra = {"tamano": ANCHOS[c.ancho]}
     catalogo_id = None
-    dependiente_tipo = None
-    dependiente_campo = None
 
     if c.tipo == "select":
-        if c.endpoint:
-            extra["catalog_type"] = "url"
-            extra["catalog_url"] = c.endpoint
-            # Asumimos una estructura básica hasta que un export real la redefina
-            extra["object_response"] = "data"
-            extra["key_object"] = "valor"
-            extra["value_object"] = "etiqueta"
-        else:
+        # Un select siempre lleva catalogo_id "1", sea manual o remoto: asi lo
+        # traen los dos exports autenticos, sin excepcion.
+        catalogo_id = "1"
+        cat = _resolver_catalogo(c.endpoint) if c.endpoint else None
+        if cat is None:
             extra["catalog_type"] = "manual"
-            catalogo_id = "1"
-            
-    if c.dependencia_tipo == "campo" and c.dependencia_campo:
-        dependiente_tipo = "campo"
-        dependiente_campo = c.dependencia_campo
+        else:
+            # Forma copiada de acceso-informacion-publica.gpm (estado_sol,
+            # municipio_sol). 'key_object' es una sola cadena "etiqueta, valor",
+            # no dos claves: se reproduce tal cual, incluido el espacio tras la
+            # coma. La dependencia de la cascada viaja aqui dentro, no en la
+            # raiz del campo: en el export las claves dependiente_* van vacias
+            # incluso en la cascada.
+            extra["catalog_type"] = "url"
+            extra["catalog_url"] = cat.url_para(c.dependencia_campo)
+            extra["object_response"] = cat.nodo
+            extra["key_object"] = f"{cat.etiqueta}, {cat.valor}"
+            if cat.requiere_padre and c.dependencia_campo:
+                extra["dependent_populated"] = "1"
+                extra["populated_by"] = [c.dependencia_campo]
 
     return esquema.campo(
         id=str(campo_id),
@@ -73,8 +78,6 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
         readonly=c.solo_lectura,
         ayuda=c.ayuda,
         catalogo_id=catalogo_id,
-        dependiente_tipo=dependiente_tipo,
-        dependiente_campo=dependiente_campo,
     )
 
 

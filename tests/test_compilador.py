@@ -196,3 +196,82 @@ def test_la_derivacion_del_proceso_id_es_determinista():
     assert compilar(_manifiesto_con_nombre("Gamma"))["id"] == compilar(
         _manifiesto_con_nombre("Gamma")
     )["id"]
+
+
+# Catalogo remoto: la forma sale de acceso-informacion-publica.gpm (estado_sol
+# y municipio_sol). No depende de material real: el manifiesto va inline.
+_CON_REMOTO = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: estado_sol, etiqueta: Estado, tipo: select, endpoint: mgee}
+  - {nombre: municipio_sol, etiqueta: Municipio, tipo: select, endpoint: mgem,
+     dependencia_tipo: campo, dependencia_campo: estado_sol}
+  - {nombre: sexo, etiqueta: Sexo, tipo: select, catalogo: [{etiqueta: H, valor: h}]}
+  - {nombre: raro, etiqueta: Raro, tipo: select, endpoint: consultarfc}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+
+def _campos_remotos():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_REMOTO)))
+    return {c["nombre"]: c for c in g["Formularios"][0]["Campos"]}
+
+
+def test_un_catalogo_remoto_usa_la_url_del_registro():
+    e = json.loads(_campos_remotos()["estado_sol"]["extra"])
+    assert e["catalog_type"] == "url"
+    assert e["catalog_url"] == "https://gaia.inegi.org.mx/wscatgeo/v2/mgee"
+    assert e["object_response"] == "datos"
+    assert e["key_object"] == "nomgeo, cvegeo"
+    assert "value_object" not in e          # esa clave no existe en ningun export
+
+
+def test_un_catalogo_remoto_conserva_catalogo_id():
+    # La Fase 0 fijo que todo select lleva catalogo_id "1". Un catalogo remoto
+    # sigue siendo un select.
+    assert _campos_remotos()["estado_sol"]["catalogo_id"] == "1"
+
+
+def test_una_cascada_interpola_el_padre_y_lo_declara():
+    e = json.loads(_campos_remotos()["municipio_sol"]["extra"])
+    assert e["catalog_url"] == (
+        "https://gaia.inegi.org.mx/wscatgeo/v2/mgem/@@estado_sol"
+    )
+    assert e["dependent_populated"] == "1"
+    assert e["populated_by"] == ["estado_sol"]
+    assert e["key_object"] == "nomgeo, cvegeo"
+    assert e["object_response"] == "datos"
+
+
+def test_un_endpoint_desconocido_cae_a_catalogo_manual():
+    c = _campos_remotos()["raro"]
+    e = json.loads(c["extra"])
+    assert e["catalog_type"] == "manual"
+    assert "catalog_url" not in e
+    assert c["catalogo_id"] == "1"
+
+
+def test_el_catalogo_manual_sigue_igual_que_en_la_fase_0():
+    c = _campos_remotos()["sexo"]
+    assert json.loads(c["extra"])["catalog_type"] == "manual"
+    assert c["catalogo_id"] == "1"
+
+
+def test_las_claves_coinciden_con_el_export_autentico():
+    # Comparado contra municipio_sol del export real, que es la cascada. Se
+    # excluye 'accion_id': lo asigna la plataforma, no lo emitimos nosotros.
+    e = json.loads(_campos_remotos()["municipio_sol"]["extra"])
+    esperadas = {"tamano", "catalog_type", "catalog_url", "object_response",
+                 "key_object", "dependent_populated", "populated_by"}
+    assert set(e) == esperadas
