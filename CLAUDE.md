@@ -69,17 +69,10 @@ Son reglas de calidad, no configurables:
 - **El validador propone, no adivina.** Lo que no puede derivarse de los insumos se reporta como
   hueco, nunca se rellena por inferencia silenciosa.
 
-## Cuestión abierta
+## Cuestiones resueltas empiricamente
 
-`SINTAXIS_ESTRICTA` en `nucleo/reglas.py` está en `False`. Controla si una regla de transición se
-emite como `@@campo=='valor'` o como `@@campo->value === 'valor'`.
-
-Hay documentación que sostiene que la primera forma falla con campos complejos, pero **los
-exports de referencia disponibles la usan**. No se puede resolver leyendo archivos: requiere una
-prueba empírica en la plataforma.
-
-**No cambies esa constante sin que exista esa prueba documentada.** Cuando llegue la respuesta,
-es lo único que hay que tocar.
+- `SINTAXIS_ESTRICTA` se mantiene en `False`: la prueba empirica del 2026-08-28 confirmo que la plataforma acepta la forma `@@campo=='valor'` sin problemas.
+- **proceso_id generado**: la plataforma traga y respeta un `proceso_id` ajeno (generado localmente por hash) sin corromperse.
 
 ## Tests
 
