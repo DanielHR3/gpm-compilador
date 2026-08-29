@@ -235,6 +235,11 @@ def test_un_catalogo_remoto_usa_la_url_del_registro():
     assert e["object_response"] == "datos"
     assert e["key_object"] == "nomgeo, cvegeo"
     assert "value_object" not in e          # esa clave no existe en ningun export
+    # Conjunto completo, como en la prueba de cascada: una clave nueva colada
+    # solo en la rama sin cascada no pasaria inadvertida. 'accion_id' del export
+    # lo asigna la plataforma, no lo emitimos.
+    assert set(e) == {"tamano", "catalog_type", "catalog_url",
+                      "object_response", "key_object"}
 
 
 def test_un_catalogo_remoto_conserva_catalogo_id():
@@ -275,3 +280,30 @@ def test_las_claves_coinciden_con_el_export_autentico():
     esperadas = {"tamano", "catalog_type", "catalog_url", "object_response",
                  "key_object", "dependent_populated", "populated_by"}
     assert set(e) == esperadas
+
+
+def test_una_cascada_sin_padre_no_emite_una_url_colgando():
+    # url_para(None) dejaria la URL en '.../mgem/@@'. Sin campo padre no se
+    # puede resolver el catalogo, asi que se degrada a lista manual vacia y
+    # el hueco API-03 del extractor explica por que.
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    m = Manifiesto(**yaml.safe_load("""
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: municipio_sol, etiqueta: Municipio, tipo: select, endpoint: mgem}
+flujo:
+  tareas: [{id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]},
+           {id: tf, nombre: Fin, terminal: true}]
+  conexiones: [{de: t1, a: tf}]
+"""))
+    c = compilar(m)["Formularios"][0]["Campos"][0]
+    e = json.loads(c["extra"])
+    assert e["catalog_type"] == "manual"
+    assert "catalog_url" not in e
+    assert c["catalogo_id"] == "1"

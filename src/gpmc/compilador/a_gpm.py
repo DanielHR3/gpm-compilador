@@ -48,6 +48,11 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
         # traen los dos exports autenticos, sin excepcion.
         catalogo_id = "1"
         cat = _resolver_catalogo(c.endpoint) if c.endpoint else None
+        # Un catalogo en cascada sin campo padre no se puede resolver: su URL
+        # quedaria colgando en '@@'. Se degrada a lista manual vacia — el hueco
+        # API-03 del extractor dice por que quedo vacia.
+        if cat is not None and cat.requiere_padre and not c.dependencia_campo:
+            cat = None
         if cat is None:
             extra["catalog_type"] = "manual"
         else:
