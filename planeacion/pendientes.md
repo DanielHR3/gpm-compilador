@@ -41,6 +41,13 @@ un borde.
 
 ### Deuda de proceso
 
+- **`tests/test_estimador.py` construye sus `Campo` a mano y nunca pasa por el
+  extractor.** Esa frontera sin cruzar permitio que quitar `origen` del
+  extractor dejara `estimador.integraciones` en 0 para un tramite con 6
+  integraciones, sin que ninguna prueba fallara. Detectado y corregido el
+  2026-08-29, pero el hueco estructural sigue: ninguna prueba recorre
+  Diccionario -> extractor -> estimador de punta a punta. Volvera a morder.
+
 - **8 scripts `fix_*.py` sueltos en la raíz del repo**, sin seguimiento. Es el mismo patrón
   que la Fase 1 limpió (`patch.py`, `patch_dic.py`). Parchear archivos con scripts en vez
   de editarlos es lo que permitió que `target="_blank"` volviera sin que nadie lo notara.
