@@ -14,7 +14,7 @@ import secrets
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from gpmc.compilador.a_gpm import compilar
@@ -102,6 +102,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
 
     @app.post("/extraer", response_class=HTMLResponse)
     async def extraer(
+        nombre_tramite: Optional[str] = Form(None),
         as_is: UploadFile = File(None),
         to_be: UploadFile = File(None),
         diccionario: UploadFile = File(...),
@@ -122,11 +123,17 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             r = extraer_expediente(carpeta)
         except SinPermiso as exc:
             return HTMLResponse(plantillas.portada(error=str(exc)))
+            
         if r.manifiesto is None:
-            # Sin manifiesto no hay página de revisión: el primer hueco explica
-            # por qué (su texto plano basta para el aviso de la portada).
             motivo = r.huecos[0].mensaje if r.huecos else "no se pudo extraer el manifiesto"
             return HTMLResponse(plantillas.portada(error=motivo))
+
+        if nombre_tramite and nombre_tramite.strip():
+            # Si el as-is no tenía nombre o falló, pero el usuario lo proveyó, lo usamos
+            if r.manifiesto.tramite.nombre == "[por confirmar]":
+                r.manifiesto.tramite.nombre = nombre_tramite.strip()
+                # Quitamos el hueco META-04 si existe
+                r.huecos = [h for h in r.huecos if h.codigo != "META-04"]
 
         guardar(r.manifiesto, carpeta / "manifiesto.yaml")
         # Los Hueco tipados se persisten como JSON para que /revisar los

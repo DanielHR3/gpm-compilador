@@ -21,6 +21,13 @@ from gpmc.simulador.analisis import analizar
 _ESTILO = """
 :root{--guinda:#5e132c;--guinda2:#66132a;--tinta:#1a1a1a;--gris:#6b7280;
       --linea:#e2d5d8;--fondo:#fff9f9;--suave:#f0f0f0;--alerta:#7f1d1d;--verde:#11453d}
+
+.layout { display: flex; min-height: 100vh; background: var(--fondo); }
+.sim-sidebar { width: 280px; background: #fff; border-right: 1px solid var(--linea); padding: 1.5rem 1rem; flex-shrink: 0; box-shadow: 2px 0 5px rgba(0,0,0,0.05); height: 100vh; overflow-y: auto; }
+.sim-main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; }
+.sim-nav-item { display: block; width: 100%; text-align: left; padding: 0.6rem 0.8rem; background: transparent; border: none; border-radius: 6px; color: var(--gris); font-size: 0.85rem; cursor: pointer; margin-bottom: 0.25rem; transition: all 0.15s; }
+.sim-nav-item:hover { background: var(--suave); color: var(--tinta); }
+.sim-nav-item.act { background: var(--guinda); color: #fff; font-weight: 600; }
 *{box-sizing:border-box}
 body{margin:0;background:var(--fondo);color:var(--tinta);
      font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -76,10 +83,37 @@ function avanzar(){
   if(t.siguiente){ir(t.siguiente)}
 }
 function retroceder(){if(ESTADO.rastro.length>1){ESTADO.rastro.pop();ESTADO.tarea=ESTADO.rastro[ESTADO.rastro.length-1];pintar()}}
+
+function pintarSidebar() {
+  const cont = document.getElementById("sim-sidebar-nav");
+  if (!cont) return;
+  
+  let html = '<div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--linea)"><b style="font-size:0.9rem;display:block;margin-bottom:0.5rem">Ir a pantalla:</b>';
+  for (const id in TAREAS) {
+    const t = TAREAS[id];
+    if (t.nombre) {
+        const activa = (id === ESTADO.tarea) ? "act" : "";
+        html += `<button class="sim-nav-item ${activa}" onclick="saltarA('${id}')">📄 ${t.nombre}</button>`;
+    }
+  }
+  html += '</div>';
+  html += `<div style="margin-top:auto"><button class="sim-nav-item" style="color:var(--guinda);border:1px solid var(--guinda)" onclick="window.history.back()">← Salir del Simulador</button></div>`;
+  cont.innerHTML = html;
+}
+
+function saltarA(id) {
+  ESTADO.tarea = id;
+  if (!ESTADO.rastro.includes(id)) {
+    ESTADO.rastro.push(id);
+  }
+  pintar();
+}
+
 function pintar(){
   const t=TAREAS[ESTADO.tarea];
   const cont=document.getElementById("lienzo");
-  if(t.terminal){cont.innerHTML=`<div class="tarjeta"><div class="encabezado"><strong>${t.nombre}</strong></div>
+  if(t.terminal){pintarSidebar();
+  cont.innerHTML=`<div class="tarjeta"><div class="encabezado"><strong>${t.nombre}</strong></div>
     <p>El trámite concluyó. Recorrido: ${ESTADO.rastro.map(x=>TAREAS[x].nombre).join(" → ")}</p>
     <div class="pie"><button class="sec" onclick="retroceder()">← Atrás</button>
     <button onclick="reiniciar()">Reiniciar</button></div></div>`;return}
@@ -90,12 +124,24 @@ function pintar(){
     `<div class="paso ${n===paso.paso_ciudadano?"activo":(n<paso.paso_ciudadano?"hecho":"")}">${n}</div>`).join("")+`</div>`}
   const campos=pantallas.flatMap(p=>p?p.campos:[]).map(c=>{
     const req=c.obligatorio?` <span class="req">*</span>`:"";
-    if(c.catalogo&&c.catalogo.length){
-      return `<label><span>${c.etiqueta}${req}</span><select name="${c.nombre}">
+    let api_badge = "";
+    if (c.dependencia_tipo === "api_ajax") {
+      api_badge = ` <span style="font-size:0.75rem;color:var(--guinda);background:var(--fondo);padding:0.1rem 0.4rem;border-radius:1rem;border:1px solid var(--guinda)">⚡ API AJAX</span>`;
+    } else if (c.dependencia_tipo === "campo") {
+      api_badge = ` <span style="font-size:0.75rem;color:var(--tinta);background:var(--suave);padding:0.1rem 0.4rem;border-radius:1rem;">Depende de: ${c.dependencia_campo}</span>`;
+    }
+    
+    if (c.tipo === "select" || (c.catalogo && c.catalogo.length)) {
+      const opts = c.catalogo && c.catalogo.length 
+        ? c.catalogo.map(o => `<option value="${o.valor}">${o.etiqueta}</option>`).join("") 
+        : `<option value="">(catálogo ${c.endpoint ? 'remoto: ' + c.endpoint : 'sin opciones'})</option>`;
+      return `<label><span>${c.etiqueta}${req}${api_badge}</span><select name="${c.nombre}">
         <option value="">— elegir —</option>
-        ${c.catalogo.map(o=>`<option value="${o.valor}">${o.etiqueta}</option>`).join("")}</select></label>`}
-    return `<label><span>${c.etiqueta}${req}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
+        ${opts}</select></label>`;
+    }
+    return `<label><span>${c.etiqueta}${req}${api_badge}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
   }).join("")||"<p style='color:var(--gris)'>Esta tarea no muestra pantallas al usuario.</p>";
+  pintarSidebar();
   cont.innerHTML=`<div class="tarjeta">${stepper}
     <div class="encabezado"><strong>${t.nombre}</strong><span class="actor">${ACTORES[t.actor]||""}</span></div>
     ${campos}
@@ -154,12 +200,21 @@ def generar(m: Manifiesto) -> str:
 
     return f"""<title>Simulación — {e(m.tramite.nombre)}</title>
 <style>{_ESTILO}</style>
+<div class="layout">
+<div class="sim-sidebar">
+  <strong style="display:block;margin-bottom:0.5rem;color:var(--guinda)">Simulador GPM</strong>
+  <div style="font-size:0.8rem;color:var(--gris);margin-bottom:1.5rem;line-height:1.4">
+    Puedes navegar libremente entre las pantallas del trámite para probarlas.
+  </div>
+  <div id="sim-sidebar-nav"></div>
+</div>
+<div class="sim-main">
 <div class="barra">
   <strong>{e(m.tramite.nombre)}</strong>
   <em>Simulación — Compilador GPM</em>
 </div>
 <div class="barra2">Vista previa del trámite · no conectada a ningún sistema</div>
-<div class="marco">
+<div class="marco" style="margin:0 auto;width:100%">
   <div class="aviso">
     <strong>Esto es una simulación, no es la plataforma GPM.</strong> No guarda nada, no envía
     nada y no está conectada a ningún sistema de gobierno. Reproduce el flujo, los pasos, los
@@ -167,5 +222,5 @@ def generar(m: Manifiesto) -> str:
   </div>
   <div id="lienzo"></div>
   {problemas}
-</div>
+</div></div></div>
 <script>{datos}{_GUION}</script>"""
