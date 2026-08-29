@@ -226,7 +226,7 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
         if i_dep is not None and i_dep < len(celdas):
             val_dep = _limpiar_celda(celdas[i_dep]).lstrip("@")
             if val_dep and val_dep.upper() != "N/A":
-                if val_dep == "api_ajax":
+                if val_dep.lower() == "api_ajax":
                     # No es un campo padre: marca que a este campo lo llena una
                     # peticion. Esta fase no emite el componente (ver spec §6).
                     dep_tipo = "api_ajax"
@@ -242,6 +242,8 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
         if i_end is not None and i_end < len(celdas):
             endpoint = _clave_endpoint(celdas[i_end])
 
+        origen = endpoint
+
         pantalla.campos.append(Campo(
             nombre=nombre,
             etiqueta=etiqueta,
@@ -253,6 +255,7 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
             dependencia_tipo=dep_tipo,
             dependencia_campo=dep_campo,
             endpoint=endpoint,
+            origen=origen,
         ))
 
 

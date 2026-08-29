@@ -335,3 +335,73 @@ def test_na_y_vacio_no_producen_dependencia():
     estado = {c.nombre: c for c in r.pantallas[0].campos}["estado_sol"]
     assert estado.dependencia_tipo is None
     assert estado.dependencia_campo is None
+
+
+def test_los_campos_con_endpoint_conservan_origen():
+    # estimador.py cuenta las integraciones con `if c.origen`; sin esta
+    # señal un trámite con 6 integraciones se estima como si no tuviera.
+    r = extraer(_DICC_HIBRIDO)
+    con_endpoint = [c for c in r.pantallas[0].campos if c.endpoint]
+    assert con_endpoint
+    assert all(c.origen for c in con_endpoint)
+
+
+def test_dependencia_con_doble_arroba():
+    # @@estado_sol en la columna Dependencia debe limpiarse a estado_sol.
+    dicc = """# Diccionario de Datos Híbrido
+
+| Variable | Tipo (GPM) | Dependencia | Comportamiento |
+| :--- | :--- | :--- | :--- |
+| `municipio` | select | `@@estado` | Se inyecta la variable. |
+"""
+    c = extraer(dicc).pantallas[0].campos[0]
+    assert c.dependencia_tipo == "campo"
+    assert c.dependencia_campo == "estado"
+
+
+def test_endpoint_con_guion_y_barra():
+    # `` `zip-codes/v2` (SEPOMEX) `` debe extraerse como "zip-codes/v2".
+    dicc = """# Diccionario de Datos Híbrido
+
+| Variable | Tipo (GPM) | Endpoint / API | Comportamiento |
+| :--- | :--- | :--- | :--- |
+| `colonia` | select | `zip-codes/v2` (SEPOMEX) | Consulta el API de códigos. |
+"""
+    c = extraer(dicc).pantallas[0].campos[0]
+    assert c.endpoint == "zip-codes/v2"
+
+
+def test_endpoint_na_en_minusculas_o_mixta():
+    # n/a, N/a deben producir endpoint None, igual que N/A.
+    dicc1 = """# Diccionario
+| Variable | Tipo (GPM) | Endpoint / API | Comportamiento |
+| :--- | :--- | :--- | :--- |
+| `campo1` | text | n/a | Sin endpoint. |
+"""
+    dicc2 = """# Diccionario
+| Variable | Tipo (GPM) | Endpoint / API | Comportamiento |
+| :--- | :--- | :--- | :--- |
+| `campo2` | text | N/a | Sin endpoint. |
+"""
+    assert extraer(dicc1).pantallas[0].campos[0].endpoint is None
+    assert extraer(dicc2).pantallas[0].campos[0].endpoint is None
+
+
+def test_cp_sol_tiene_endpoint_none():
+    # cp_sol en _DICC_HIBRIDO tiene N/A en Endpoint / API; debe ser None.
+    r = extraer(_DICC_HIBRIDO)
+    cp = {c.nombre: c for c in r.pantallas[0].campos}["cp_sol"]
+    assert cp.endpoint is None
+
+
+def test_api_ajax_es_insensible_a_mayusculas():
+    # API_AJAX, Api_Ajax, api_ajax deben todos producir dependencia_tipo='api_ajax'.
+    for variante in ["API_AJAX", "Api_Ajax", "api_ajax", "`API_AJAX`"]:
+        dicc = f"""# Diccionario
+| Variable | Tipo (GPM) | Dependencia | Endpoint / API | Comportamiento |
+| :--- | :--- | :--- | :--- | :--- |
+| `test` | text | {variante} | `consultacurpn` (SIPUBEH) | Prueba. |
+"""
+        c = extraer(dicc).pantallas[0].campos[0]
+        assert c.dependencia_tipo == "api_ajax", f"falló para {variante}"
+        assert c.dependencia_campo is None, f"falló para {variante}"
