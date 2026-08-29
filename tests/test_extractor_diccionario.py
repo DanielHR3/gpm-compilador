@@ -284,3 +284,54 @@ def test_el_diccionario_estandar_no_levanta_DIC_05():
     r = extraer(MUESTRA)
     assert r.pantallas[0].campos[0].etiqueta == "CURP"
     assert not [h for h in r.huecos if h.codigo == "DIC-05"]
+
+
+def test_el_endpoint_queda_desnudo_sin_acentos_graves_ni_proveedor():
+    # El Diccionario escribe "`mgem` (INEGI)"; el registro se busca por "mgem".
+    r = extraer(_DICC_HIBRIDO)
+    por_nombre = {c.nombre: c for c in r.pantallas[0].campos}
+    assert por_nombre["estado_sol"].endpoint == "mgee"
+    assert por_nombre["municipio_sol"].endpoint == "mgem"
+    assert por_nombre["colonia_sol"].endpoint == "zip_codes"
+
+
+def test_la_dependencia_de_campo_queda_desnuda():
+    r = extraer(_DICC_HIBRIDO)
+    municipio = {c.nombre: c for c in r.pantallas[0].campos}["municipio_sol"]
+    assert municipio.dependencia_tipo == "campo"
+    assert municipio.dependencia_campo == "estado_sol"
+
+
+def test_api_ajax_es_su_propio_tipo_de_dependencia_no_un_campo():
+    # 'api_ajax' en la columna Dependencia significa "lo llena una API", no
+    # "depende de un campo llamado api_ajax".
+    dicc = """# Hibrido
+
+| Variable | Tipo (GPM) | Dependencia | Endpoint / API | Comportamiento |
+| :--- | :--- | :--- | :--- | :--- |
+| `nombres_sol` | text | `api_ajax` | `consultacurpn` (SIPUBEH) | Del nodo data.nombres. |
+"""
+    c = extraer(dicc).pantallas[0].campos[0]
+    assert c.dependencia_tipo == "api_ajax"
+    assert c.dependencia_campo is None
+    assert c.endpoint == "consultacurpn"
+
+
+def test_api_ajax_levanta_API_04():
+    dicc = """# Hibrido
+
+| Variable | Tipo (GPM) | Dependencia | Endpoint / API | Comportamiento |
+| :--- | :--- | :--- | :--- | :--- |
+| `nombres_sol` | text | `api_ajax` | `consultacurpn` (SIPUBEH) | Del nodo data.nombres. |
+"""
+    r = extraer(dicc)
+    api04 = [h for h in r.huecos if h.codigo == "API-04"]
+    assert api04, r.huecos
+    assert api04[0].nivel == "por_confirmar"
+
+
+def test_na_y_vacio_no_producen_dependencia():
+    r = extraer(_DICC_HIBRIDO)
+    estado = {c.nombre: c for c in r.pantallas[0].campos}["estado_sol"]
+    assert estado.dependencia_tipo is None
+    assert estado.dependencia_campo is None

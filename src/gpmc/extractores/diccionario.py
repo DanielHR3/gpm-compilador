@@ -33,6 +33,7 @@ _PASO_STEPPER = re.compile(r"\(\s*Paso\s+(\d+)", re.I)
 _CORTE = re.compile(r"^#{1,3}\s+(?!#)", re.M)
 _CAMPO_TECNICO = re.compile(r"@@(\w+)")
 _LONGITUD = re.compile(r"(\d+)\s*caracteres")
+_ENDPOINT = re.compile(r"`?([\w/-]+)`?")
 
 COMPONENTES = [
     ("lista desplegable", "select"), ("desplegable", "select"), ("select", "select"),
@@ -73,6 +74,22 @@ def _sin_acentos(t: str) -> str:
 
 def _babel(t: str) -> str:
     return _sin_acentos((t or "").strip().lower())
+
+
+def _limpiar_celda(celda: str) -> str:
+    """Quita acentos graves, asteriscos y espacios. El Diccionario escribe los
+    identificadores entre acentos graves por costumbre de markdown."""
+    return re.sub(r"[`*]", "", celda or "").strip()
+
+
+def _clave_endpoint(celda: str) -> Optional[str]:
+    """'`mgem` (INEGI)' -> 'mgem'. El proveedor entre parentesis es informativo:
+    el registro de nucleo/integraciones ya sabe de quien es cada endpoint."""
+    limpio = _limpiar_celda(celda)
+    if not limpio or limpio.upper() == "N/A":
+        return None
+    m = _ENDPOINT.match(limpio)
+    return m.group(1) if m else None
 
 
 def _tipo_de(componente: str, tipo_dato: str) -> str:
@@ -201,26 +218,29 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
             celdas[i_obl] if i_obl is not None and i_obl < len(celdas) else ""
         ).startswith("si")
 
-        # Fase A: Parse dependencias y endpoint
+        # Fase A: dependencia y endpoint, normalizados.
         dep_tipo = None
         dep_campo = None
         endpoint = None
-        origen = None
-        
+
         if i_dep is not None and i_dep < len(celdas):
-            val_dep = celdas[i_dep].strip()
-            if val_dep.lower() not in ('', 'n/a', 'na'):
-                if val_dep.lower() == "api_ajax":
+            val_dep = _limpiar_celda(celdas[i_dep]).lstrip("@")
+            if val_dep and val_dep.upper() != "N/A":
+                if val_dep == "api_ajax":
+                    # No es un campo padre: marca que a este campo lo llena una
+                    # peticion. Esta fase no emite el componente (ver spec §6).
                     dep_tipo = "api_ajax"
+                    r.huecos.append(Hueco(
+                        "por_confirmar", "API-04", pantalla.id,
+                        f"'{nombre}' se autocompleta por API; esta versión no emite "
+                        f"el componente y el campo queda de captura manual",
+                    ))
                 else:
                     dep_tipo = "campo"
-                    dep_campo = val_dep.replace("@@", "").strip()
-        
+                    dep_campo = val_dep
+
         if i_end is not None and i_end < len(celdas):
-            val_end = celdas[i_end].strip()
-            if val_end.lower() not in ('', 'n/a', 'na'):
-                endpoint = val_end
-                origen = val_end
+            endpoint = _clave_endpoint(celdas[i_end])
 
         pantalla.campos.append(Campo(
             nombre=nombre,
@@ -233,7 +253,6 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
             dependencia_tipo=dep_tipo,
             dependencia_campo=dep_campo,
             endpoint=endpoint,
-            origen=origen,
         ))
 
 
