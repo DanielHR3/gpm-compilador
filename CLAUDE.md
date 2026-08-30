@@ -69,6 +69,40 @@ Son reglas de calidad, no configurables:
 - **El validador propone, no adivina.** Lo que no puede derivarse de los insumos se reporta como
   hueco, nunca se rellena por inferencia silenciosa.
 
+## Cuestión abierta: `Api variable` frente a `api_ajax`
+
+**No se resuelve leyendo archivos. Requiere una respuesta humana.**
+
+El invariante de arriba prohíbe emitir el componente `Api variable`. Pero el export auténtico
+`acceso-informacion-publica.gpm` **sí contiene** un campo de tipo `api_ajax`, con su
+configuración completa: la URL de SIPUBEH, el evento `blur` que lo dispara y los tres campos
+que autocompleta a partir de la CURP.
+
+La pregunta es si son el mismo componente:
+
+- Si **`Api variable` == `api_ajax`**, el invariante prohíbe algo que la plataforma produce por
+  su cuenta, y hay que decidir si se relaja y bajo qué condición.
+- Si **son distintos**, no hay conflicto: `api_ajax` puede emitirse y el invariante sigue
+  cubriendo otro componente.
+
+La redacción sugiere lo segundo —la justificación dice "los dos últimos evalúan control de flujo
+en el navegador", que solo cubre `Javascript` y `Redirección`— pero eso es una lectura, no una
+confirmación. Lo sabe quien tenga la plataforma abierta y vea cómo se llama cada componente en
+su catálogo.
+
+**Consecuencia mientras siga abierta:** la Fase A emite catálogos remotos por URL (que son
+campos `select` normales, sin componente prohibido y sin credencial) y **no** emite el
+autollenado por CURP. Un campo que lo declare se reporta como hueco `API-04` y queda de captura
+manual.
+
+**Si se resuelve que sí se puede emitir, la regla no es "emitirlo siempre":** solo endpoints
+públicos. INEGI, SEPOMEX y SIPUBEH responden sin credencial (verificado el 2026-08-28). RENAPO y
+SAT no, y `guia_modelado_gpm.md` es explícita al respecto —"no insertes tokens de APIs en campos
+`api_ajax`; toda llamada autenticada hazla a través de `Acciones` de tipo PHP"—, en línea con el
+riesgo SEG-04 ("fuga de secretos: API keys de Keycloak y RENAPO expuestas en las peticiones AJAX
+del navegador"). Un trámite que pida un endpoint autenticado se reporta como hueco y se manda a
+una Acción PHP.
+
 ## Cuestión abierta
 
 `SINTAXIS_ESTRICTA` en `nucleo/reglas.py` está en `False`. Controla si una regla de transición se
@@ -80,6 +114,21 @@ prueba empírica en la plataforma.
 
 **No cambies esa constante sin que exista esa prueba documentada.** Cuando llegue la respuesta,
 es lo único que hay que tocar.
+
+### Lo que se afirmó resuelto el 2026-08-28, y sigue sin acta
+
+Se registró aquí que tres preguntas habían quedado cerradas por una prueba en la plataforma:
+que `@@campo=='valor'` evalúa bien, que la plataforma acepta un `proceso_id` que ella no emitió,
+y que `catalog_type: "manual"` basta sin `catalog_url`.
+
+**Esa prueba no está documentada en el repositorio**: no consta qué `.gpm` se importó, en qué
+fecha, ni qué se observó. Las tres siguen listadas como abiertas en `planeacion/pendientes.md`,
+y este archivo no puede decir lo contrario mientras falte la evidencia. Es plausible que la
+prueba ocurriera —y si ocurrió, vale mucho— pero una afirmación sin acta hace que la siguiente
+persona deje de buscar.
+
+Para cerrarlas: escribir `planeacion/actas/` con el archivo, la fecha, la pantalla y lo
+observado, y citarlo desde aquí y desde `pendientes.md`.
 
 ## Tests
 

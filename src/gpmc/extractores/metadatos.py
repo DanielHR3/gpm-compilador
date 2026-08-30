@@ -48,10 +48,30 @@ def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "") -> Resultado:
     nombre = ""
     m = _TRAMITE_LINK.search(as_is or "")
     if m:
-        nombre = m.group(1).strip()
+        # El wikilink de Obsidian trae la ruta completa de la boveda
+        # ("1. REINGENIERIA/_recuperados/Alta de Avisos de Testamento"); el
+        # nombre del tramite es solo la ultima nota.
+        nombre = m.group(1).strip().split("/")[-1].strip()
     if not nombre:
         m = re.search(r"^#\s+An[aá]lisis AS-IS\s*[—\-–]\s*(.+?)\s*$", as_is or "", re.M)
-        nombre = m.group(1).strip() if m else nombre_carpeta
+        if m:
+            nombre = m.group(1).strip()
+    if not nombre:
+        # H1 no estandar que nombra la fase y separa el titulo con un guion:
+        # "# Arquitectura Actual (AS-IS) - Acceso a la Informacion".
+        for fuente in (as_is or "", to_be or ""):
+            m = re.search(
+                r"^#\s+[^\n]*?(?:\bAS-?IS\b|\bTO-?BE\b)[^\n]*?[—\-–]\s*(.+?)\s*$",
+                fuente, re.M | re.I,
+            )
+            if m:
+                nombre = m.group(1).strip()
+                break
+    if not nombre and nombre_carpeta and not re.fullmatch(r"[0-9a-f]{16}", nombre_carpeta):
+        # Ultimo recurso: el nombre de la carpeta del expediente (util en la
+        # CLI). El asistente web pasa el id de sesion como nombre de carpeta
+        # temporal; ese no es un nombre de tramite y se descarta.
+        nombre = nombre_carpeta
     if not nombre:
         r.huecos.append(Hueco("falta_dato", "META-04", "metadatos",
                               "no se pudo determinar el nombre del tramite"))

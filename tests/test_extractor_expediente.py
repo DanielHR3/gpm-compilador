@@ -179,3 +179,52 @@ def test_todos_los_huecos_del_expediente_son_Hueco(tmp_path):
     carpeta = _expediente(tmp_path, **{"5.-Diccionario de Datos.md": _DICC_MINIMO})
     r = extraer_expediente(carpeta)
     assert all(isinstance(h, Hueco) for h in r.huecos)
+
+
+_DICC_API = """### Pantalla 1 — Solicitante — Domicilio
+
+| Variable | Tipo (GPM) | Dependencia | Endpoint / API | Comportamiento |
+| :--- | :--- | :--- | :--- | :--- |
+| `estado_sol` | select | N/A | `mgee` (INEGI) | Catálogo. |
+| `municipio_sol` | select | `estado_sol` | `mgem` (INEGI) | Cascada correcta. |
+| `huerfano_sol` | select | `no_existe` | `mgem` (INEGI) | Padre inexistente. |
+| `sin_padre_sol` | select | N/A | `mgem` (INEGI) | Cascada sin declarar padre. |
+| `raro_sol` | select | N/A | `consultarfc` (SAT) | Endpoint no registrado. |
+"""
+
+
+def test_reporta_los_huecos_de_integracion(tmp_path):
+    carpeta = tmp_path / "exp"
+    carpeta.mkdir()
+    (carpeta / "5.-Diccionario de Datos.md").write_text(_DICC_API, encoding="utf-8")
+    r = extraer_expediente(carpeta)
+    por_codigo = {}
+    for h in r.huecos:
+        por_codigo.setdefault(h.codigo, []).append(h)
+
+    assert [h.mensaje for h in por_codigo.get("API-01", [])], "falta API-01 (endpoint desconocido)"
+    assert [h.mensaje for h in por_codigo.get("API-02", [])], "falta API-02 (padre inexistente)"
+    assert [h.mensaje for h in por_codigo.get("API-03", [])], "falta API-03 (cascada sin padre)"
+    assert all(h.nivel == "falta_dato"
+               for c in ("API-01", "API-02", "API-03") for h in por_codigo.get(c, []))
+
+
+def test_una_cascada_bien_declarada_no_levanta_huecos_de_integracion(tmp_path):
+    carpeta = tmp_path / "exp"
+    carpeta.mkdir()
+    (carpeta / "5.-Diccionario de Datos.md").write_text(_DICC_API, encoding="utf-8")
+    r = extraer_expediente(carpeta)
+    culpables = [h.ubicacion for h in r.huecos
+                 if h.codigo in ("API-01", "API-02", "API-03")]
+    assert "municipio_sol" not in culpables
+    assert "estado_sol" not in culpables
+
+
+def test_el_tramite_compila_pese_a_los_huecos_de_integracion(tmp_path):
+    # Los huecos avisan; nunca tumban la extraccion.
+    carpeta = tmp_path / "exp"
+    carpeta.mkdir()
+    (carpeta / "5.-Diccionario de Datos.md").write_text(_DICC_API, encoding="utf-8")
+    r = extraer_expediente(carpeta)
+    assert r.manifiesto is not None
+    assert len(r.manifiesto.pantallas[0].campos) == 5

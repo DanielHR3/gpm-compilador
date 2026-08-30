@@ -28,6 +28,7 @@ def campo(
     validacion="", datos=None, extra=None, readonly=False,
     valor_default="", ayuda=None, documento_id=None,
     dependiente_tipo=None, dependiente_campo="", dependiente_valor=None,
+    catalogo_id=None,
 ):
     """Un campo del Form Builder. 25 claves, en el orden del export."""
     if extra is None:
@@ -50,7 +51,7 @@ def campo(
         "documento_id": documento_id,
         "extra": json.dumps(extra, ensure_ascii=False),
         "dependiente_relacion": None,
-        "catalogo_id": None,
+        "catalogo_id": catalogo_id,
         "valid": None,
         "valid_readonly": None,
         "condicion_valor_default": None,

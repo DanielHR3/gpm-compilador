@@ -113,3 +113,137 @@ def test_el_aviso_de_simulacion_sigue_siendo_prominente():
     i = html.lower().index("simulaci")
     assert i < len(html) * 0.5, "el aviso debe ir arriba, no al pie"
     assert "no es" in html.lower() or "no la plataforma" in html.lower()
+
+
+# Pantalla con catalogos remotos: uno simple, uno en cascada, y uno cuyo
+# endpoint no esta en el registro. Inline, sin red.
+_CON_CATALOGOS = {
+    "pantallas": [
+        {"id": "p1", "nombre": "Domicilio", "actor": "ciudadano", "campos": [
+            {"nombre": "estado_sol", "etiqueta": "Estado", "tipo": "select",
+             "endpoint": "mgee"},
+            {"nombre": "municipio_sol", "etiqueta": "Municipio", "tipo": "select",
+             "endpoint": "mgem", "dependencia_tipo": "campo",
+             "dependencia_campo": "estado_sol"},
+            {"nombre": "raro_sol", "etiqueta": "Raro", "tipo": "select",
+             "endpoint": "consultarfc"},
+        ]},
+    ],
+    "flujo": {
+        "tareas": [{"id": "t1", "nombre": "Capturar", "actor": "ciudadano",
+                    "inicial": True, "pantallas": ["p1"]},
+                   {"id": "tf", "nombre": "Fin", "terminal": True}],
+        "conexiones": [{"de": "t1", "a": "tf"}],
+    },
+}
+
+
+def test_el_simulador_lleva_la_url_del_catalogo_remoto():
+    html = generar(_m(**_CON_CATALOGOS))
+    assert "https://gaia.inegi.org.mx/wscatgeo/v2/mgee" in html
+    assert '"catalogo_nodo": "datos"' in html or '"catalogo_nodo":"datos"' in html
+
+
+def test_el_simulador_lleva_el_mapeo_etiqueta_valor():
+    # Si etiqueta y valor se invierten, la cascada pide mgem/Hidalgo en vez de
+    # mgem/13 e INEGI no devuelve nada. Ninguna otra prueba lo detectaria.
+    html = generar(_m(**_CON_CATALOGOS))
+    assert '"catalogo_etiqueta": "nomgeo"' in html or '"catalogo_etiqueta":"nomgeo"' in html
+    assert '"catalogo_valor": "cvegeo"' in html or '"catalogo_valor":"cvegeo"' in html
+
+
+def test_la_cascada_declara_de_quien_depende_y_deja_el_hueco_del_padre():
+    html = generar(_m(**_CON_CATALOGOS))
+    assert '"depende_de": "estado_sol"' in html or '"depende_de":"estado_sol"' in html
+    # La plataforma interpola @@campo en tiempo de ejecucion; el simulador no
+    # tiene ese runtime y sustituye el valor elegido, asi que la URL viaja con
+    # un hueco {padre} y SIN la sintaxis de GPM.
+    assert "wscatgeo/v2/mgem/{padre}" in html
+    assert "@@" not in html
+
+
+def test_un_endpoint_no_registrado_no_inventa_una_url():
+    html = generar(_m(**_CON_CATALOGOS))
+    assert "consultarfc" not in html.split("const PANTALLAS")[1].split("const ACTORES")[0] \
+        or "catalogo_url" not in html.split("raro_sol")[1].split("}")[0]
+
+
+def test_un_select_sin_catalogo_resoluble_sale_deshabilitado():
+    # El simulador no puede mentir sobre lo que hara la plataforma: un campo que
+    # es desplegable se dibuja como desplegable, aunque no se pueda poblar.
+    # Assertear solo "disabled" seria vacuo: el JS trae esa palabra siempre.
+    html = generar(_m(**_CON_CATALOGOS))
+    assert '<input name="raro_sol"' not in html, "un select nunca se dibuja como caja de texto"
+    assert "(sin catálogo resoluble)" in html
+
+
+def test_el_simulador_conecta_los_catalogos_y_reporta_el_fallo():
+    html = generar(_m(**_CON_CATALOGOS))
+    assert "conectarCatalogos" in html
+    assert "no se pudo consultar el catálogo" in html
+
+
+def test_las_unicas_urls_externas_son_catalogos_del_registro():
+    """La prueba de arriba fija que un tramite SIN catalogos remotos no trae
+    ninguna URL. Este caso es el otro: cuando si los trae, las unicas URLs
+    permitidas son las del registro. Sin esto, 'autocontenido' se debilitaria en
+    silencio en cuanto un tramite declare un endpoint."""
+    import re
+    from gpmc.nucleo.integraciones import CATALOGOS
+
+    html = generar(_m(**_CON_CATALOGOS))
+    urls = set(re.findall(r"https?://[^\s\"'`<>)]+", html))
+    assert urls, "este tramite si declara catalogos remotos"
+
+    permitidas = set()
+    for cat in CATALOGOS.values():
+        permitidas.add(cat.url.split("@@")[0].rstrip("/?&="))
+    for u in urls:
+        raiz = u.split("{padre}")[0].rstrip("/?&=")
+        assert any(raiz.startswith(p) for p in permitidas), \
+            f"URL externa que no viene del registro de catalogos: {u}"
+
+
+def test_el_simulador_no_hace_red_desde_python():
+    """La red vive en el navegador. Si Python la hiciera, el nucleo perderia su
+    invariante y las pruebas dependerian de que INEGI este arriba."""
+    import inspect
+    from gpmc.simulador import html as modulo
+    fuente = inspect.getsource(modulo)
+    for prohibido in ("import requests", "import urllib", "urlopen", "httpx"):
+        assert prohibido not in fuente, f"{prohibido} no debe aparecer en el simulador"
+
+
+_CASCADA_SIN_PADRE = {
+    "pantallas": [
+        {"id": "p1", "nombre": "Domicilio", "actor": "ciudadano", "campos": [
+            {"nombre": "municipio_huerfano", "etiqueta": "Municipio", "tipo": "select",
+             "endpoint": "mgem"},
+        ]},
+    ],
+    "flujo": {
+        "tareas": [{"id": "t1", "nombre": "Capturar", "actor": "ciudadano",
+                    "inicial": True, "pantallas": ["p1"]},
+                   {"id": "tf", "nombre": "Fin", "terminal": True}],
+        "conexiones": [{"de": "t1", "a": "tf"}],
+    },
+}
+
+
+def test_una_cascada_sin_padre_no_filtra_la_sintaxis_de_gpm():
+    """endpoint mgem sin dependencia_campo es un manifiesto valido. url_para(None)
+    dejaria la URL en '.../mgem/@@' y esa arroba llegaria a la pagina. El
+    compilador ya degrada este caso a catalogo manual; el simulador debe
+    degradarlo a desplegable deshabilitado, no emitir una URL rota."""
+    html = generar(_m(**_CASCADA_SIN_PADRE))
+    assert "@@" not in html
+    assert "wscatgeo" not in html, "sin campo padre la URL no se puede construir"
+    assert '<input name="municipio_huerfano"' not in html
+
+
+def test_un_fallo_http_del_catalogo_se_reporta_como_fallo():
+    """fetch() resuelve con 404 o 500; sin comprobar res.ok, un error con cuerpo
+    JSON caeria en la lista vacia y el desplegable saldria habilitado y vacio,
+    indistinguible de un catalogo genuinamente vacio."""
+    html = generar(_m(**_CON_CATALOGOS))
+    assert "res.ok" in html

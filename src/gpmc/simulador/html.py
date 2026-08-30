@@ -12,6 +12,7 @@ de GPM en el material disponible, asi que la pagina se presenta como lo que es
 import html as _html
 import json
 
+from gpmc.nucleo.integraciones import resolver
 from gpmc.nucleo.manifiesto import Manifiesto
 from gpmc.simulador.analisis import analizar
 
@@ -21,6 +22,13 @@ from gpmc.simulador.analisis import analizar
 _ESTILO = """
 :root{--guinda:#5e132c;--guinda2:#66132a;--tinta:#1a1a1a;--gris:#6b7280;
       --linea:#e2d5d8;--fondo:#fff9f9;--suave:#f0f0f0;--alerta:#7f1d1d;--verde:#11453d}
+
+.layout { display: flex; min-height: 100vh; background: var(--fondo); }
+.sim-sidebar { width: 280px; background: #fff; border-right: 1px solid var(--linea); padding: 1.5rem 1rem; flex-shrink: 0; box-shadow: 2px 0 5px rgba(0,0,0,0.05); height: 100vh; overflow-y: auto; }
+.sim-main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; }
+.sim-nav-item { display: block; width: 100%; text-align: left; padding: 0.6rem 0.8rem; background: transparent; border: none; border-radius: 6px; color: var(--gris); font-size: 0.85rem; cursor: pointer; margin-bottom: 0.25rem; transition: all 0.15s; }
+.sim-nav-item:hover { background: var(--suave); color: var(--tinta); }
+.sim-nav-item.act { background: var(--guinda); color: #fff; font-weight: 600; }
 *{box-sizing:border-box}
 body{margin:0;background:var(--fondo);color:var(--tinta);
      font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -76,10 +84,37 @@ function avanzar(){
   if(t.siguiente){ir(t.siguiente)}
 }
 function retroceder(){if(ESTADO.rastro.length>1){ESTADO.rastro.pop();ESTADO.tarea=ESTADO.rastro[ESTADO.rastro.length-1];pintar()}}
+
+function pintarSidebar() {
+  const cont = document.getElementById("sim-sidebar-nav");
+  if (!cont) return;
+  
+  let html = '<div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--linea)"><b style="font-size:0.9rem;display:block;margin-bottom:0.5rem">Ir a pantalla:</b>';
+  for (const id in TAREAS) {
+    const t = TAREAS[id];
+    if (t.nombre) {
+        const activa = (id === ESTADO.tarea) ? "act" : "";
+        html += `<button class="sim-nav-item ${activa}" onclick="saltarA('${id}')">📄 ${t.nombre}</button>`;
+    }
+  }
+  html += '</div>';
+  html += `<div style="margin-top:auto"><button class="sim-nav-item" style="color:var(--guinda);border:1px solid var(--guinda)" onclick="window.history.back()">← Salir del Simulador</button></div>`;
+  cont.innerHTML = html;
+}
+
+function saltarA(id) {
+  ESTADO.tarea = id;
+  if (!ESTADO.rastro.includes(id)) {
+    ESTADO.rastro.push(id);
+  }
+  pintar();
+}
+
 function pintar(){
   const t=TAREAS[ESTADO.tarea];
   const cont=document.getElementById("lienzo");
-  if(t.terminal){cont.innerHTML=`<div class="tarjeta"><div class="encabezado"><strong>${t.nombre}</strong></div>
+  if(t.terminal){pintarSidebar();
+  cont.innerHTML=`<div class="tarjeta"><div class="encabezado"><strong>${t.nombre}</strong></div>
     <p>El trámite concluyó. Recorrido: ${ESTADO.rastro.map(x=>TAREAS[x].nombre).join(" → ")}</p>
     <div class="pie"><button class="sec" onclick="retroceder()">← Atrás</button>
     <button onclick="reiniciar()">Reiniciar</button></div></div>`;return}
@@ -88,24 +123,133 @@ function pintar(){
   let stepper="";
   if(paso){stepper=`<div class="stepper">`+PASOS.map(n=>
     `<div class="paso ${n===paso.paso_ciudadano?"activo":(n<paso.paso_ciudadano?"hecho":"")}">${n}</div>`).join("")+`</div>`}
-  const campos=pantallas.flatMap(p=>p?p.campos:[]).map(c=>{
+  const camposDeLaTarea=pantallas.flatMap(p=>p?p.campos:[]);
+  const campos=camposDeLaTarea.map(c=>{
     const req=c.obligatorio?` <span class="req">*</span>`:"";
-    if(c.catalogo&&c.catalogo.length){
-      return `<label><span>${c.etiqueta}${req}</span><select name="${c.nombre}">
-        <option value="">— elegir —</option>
-        ${c.catalogo.map(o=>`<option value="${o.valor}">${o.etiqueta}</option>`).join("")}</select></label>`}
-    return `<label><span>${c.etiqueta}${req}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
+    let api_badge = "";
+    if (c.dependencia_tipo === "api_ajax") {
+      api_badge = ` <span style="font-size:0.75rem;color:var(--guinda);background:var(--fondo);padding:0.1rem 0.4rem;border-radius:1rem;border:1px solid var(--guinda)">⚡ API AJAX</span>`;
+    } else if (c.dependencia_tipo === "campo") {
+      api_badge = ` <span style="font-size:0.75rem;color:var(--tinta);background:var(--suave);padding:0.1rem 0.4rem;border-radius:1rem;">Depende de: ${c.dependencia_campo}</span>`;
+    }
+    
+    if (c.tipo === "select" || (c.catalogo && c.catalogo.length)) {
+      // Un desplegable se dibuja como desplegable aunque no se pueda poblar:
+      // deshabilitado dice la verdad, una caja de texto no.
+      if (c.catalogo && c.catalogo.length) {
+        const opts = c.catalogo.map(o => `<option value="${o.valor}">${o.etiqueta}</option>`).join("");
+        return `<label><span>${c.etiqueta}${req}${api_badge}</span><select name="${c.nombre}">
+          <option value="">— elegir —</option>${opts}</select></label>`;
+      }
+      if (c.catalogo_url) {
+        return `<label><span>${c.etiqueta}${req}${api_badge}</span>
+          <select name="${c.nombre}" disabled><option value="">(consultando…)</option></select></label>`;
+      }
+      return `<label><span>${c.etiqueta}${req}${api_badge}</span>
+        <select name="${c.nombre}" disabled><option value="">(sin catálogo resoluble)</option></select></label>`;
+    }
+    return `<label><span>${c.etiqueta}${req}${api_badge}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
   }).join("")||"<p style='color:var(--gris)'>Esta tarea no muestra pantallas al usuario.</p>";
+  pintarSidebar();
   cont.innerHTML=`<div class="tarjeta">${stepper}
     <div class="encabezado"><strong>${t.nombre}</strong><span class="actor">${ACTORES[t.actor]||""}</span></div>
     ${campos}
     <div class="pie"><button class="sec" onclick="retroceder()">← Atrás</button>
     <button onclick="avanzar()">Continuar →</button></div></div>
     <div class="rastro">Recorrido: ${ESTADO.rastro.map(x=>TAREAS[x].nombre).join(" → ")}</div>`;
+  conectarCatalogos(camposDeLaTarea);
+}
+// Los catalogos remotos se piden desde el navegador, no desde Python: es donde
+// la plataforma tambien los pide, y los tres endpoints responden con CORS
+// abierto. Un fallo se dice en voz alta — un desplegable vacio por falta de red
+// no se distingue de uno vacio de verdad.
+async function poblar(campo,el,valorPadre){
+  if(!campo.catalogo_url){return}
+  let url=campo.catalogo_url;
+  if(campo.depende_de){
+    if(!valorPadre){
+      el.disabled=true;
+      el.innerHTML=`<option value="">(elige ${campo.depende_de} primero)</option>`;
+      return;
+    }
+    url=url.replace("{padre}",encodeURIComponent(valorPadre));
+  }
+  el.disabled=true;
+  el.innerHTML='<option value="">(consultando…)</option>';
+  try{
+    const res=await fetch(url);
+    // fetch() resuelve con 404 o 500. Sin esto, un error con cuerpo JSON caeria
+    // en la lista vacia y el desplegable saldria habilitado y vacio, que un
+    // analista no puede distinguir de un catalogo genuinamente vacio.
+    if(!res.ok){throw new Error("HTTP "+res.status)}
+    const datos=(await res.json())[campo.catalogo_nodo]||[];
+    // new Option() fija texto y valor como propiedades, no como marcado: un
+    // nombre de colonia con comillas o con < no puede romper el atributo ni
+    // inyectar nada. El invariante del proyecto sobre escapado no admite
+    // excepciones, y uno de los tres endpoints es un dominio de terceros.
+    el.replaceChildren(new Option("— elegir —",""));
+    datos.forEach(o=>el.appendChild(
+      new Option(o[campo.catalogo_etiqueta], o[campo.catalogo_valor])));
+    el.disabled=false;
+  }catch(err){
+    el.innerHTML='<option value="">(no se pudo consultar el catálogo)</option>';
+  }
+}
+function conectarCatalogos(campos){
+  campos.forEach(c=>{
+    const el=document.querySelector(`[name="${c.nombre}"]`);
+    if(!el||!c.catalogo_url){return}
+    if(c.depende_de){
+      const padre=document.querySelector(`[name="${c.depende_de}"]`);
+      if(padre){padre.addEventListener("change",()=>poblar(c,el,padre.value))}
+      poblar(c,el,padre?padre.value:"");
+    }else{
+      poblar(c,el,null);
+    }
+  });
 }
 function reiniciar(){ESTADO.tarea=INICIAL;ESTADO.rastro=[INICIAL];ESTADO.datos={};pintar()}
 reiniciar();
 """
+
+
+def _catalogo_de_campo(c) -> dict:
+    """Lo que el navegador necesita para poblar un select remoto.
+
+    La plataforma interpola `@@campo` en tiempo de ejecucion; el simulador no
+    tiene ese runtime, asi que la URL viaja con un hueco `{padre}` que el
+    JavaScript sustituye por el valor elegido. Sin endpoint resoluble devuelve
+    un dict vacio y el campo se dibuja como desplegable deshabilitado: nunca
+    como caja de texto, porque el simulador no puede mentir sobre lo que hara
+    la plataforma.
+    """
+    if c.tipo != "select":
+        # conectarCatalogos recorre todos los campos: si un campo de texto
+        # trajera catalogo_url, poblar() lo deshabilitaria y el analista
+        # veria una caja bloqueada donde la plataforma pone una editable.
+        return {}
+    cat = resolver(c.endpoint)
+    if cat is None:
+        return {}
+    if cat.requiere_padre and not c.dependencia_campo:
+        # Sin campo padre la URL no se puede construir: url_para(None) la
+        # dejaria colgando en '@@'. El compilador degrada este caso a catalogo
+        # manual; aqui se degrada a desplegable deshabilitado. Mentir con una
+        # URL rota es peor que decir que no hay catalogo.
+        return {}
+    # La plataforma interpola @@campo en tiempo de ejecucion. El simulador no
+    # tiene ese runtime, asi que se sustituye por un hueco que el JavaScript
+    # rellena con el valor elegido — y de paso la pagina no lleva sintaxis GPM.
+    url = cat.url.replace("@@{padre}", "{padre}") if cat.requiere_padre else cat.url
+    return {
+        "catalogo_url": url,
+        "catalogo_nodo": cat.nodo,
+        "catalogo_etiqueta": cat.etiqueta,
+        "catalogo_valor": cat.valor,
+        # Solo si el catalogo lo toma: marcarlo en un catalogo simple haria
+        # que el simulador pidiera un padre que la plataforma no pide.
+        "depende_de": c.dependencia_campo if cat.requiere_padre else None,
+    }
 
 
 def generar(m: Manifiesto) -> str:
@@ -124,7 +268,11 @@ def generar(m: Manifiesto) -> str:
             "campos": [
                 {"nombre": c.nombre, "etiqueta": c.etiqueta or c.nombre,
                  "obligatorio": c.obligatorio, "solo_lectura": c.solo_lectura,
-                 "catalogo": [{"etiqueta": o.etiqueta, "valor": o.valor} for o in c.catalogo]}
+                 "tipo": c.tipo,
+                 "dependencia_tipo": c.dependencia_tipo,
+                 "dependencia_campo": c.dependencia_campo,
+                 "catalogo": [{"etiqueta": o.etiqueta, "valor": o.valor} for o in c.catalogo],
+                 **_catalogo_de_campo(c)}
                 for c in p.campos
             ],
         }
@@ -154,12 +302,21 @@ def generar(m: Manifiesto) -> str:
 
     return f"""<title>Simulación — {e(m.tramite.nombre)}</title>
 <style>{_ESTILO}</style>
+<div class="layout">
+<div class="sim-sidebar">
+  <strong style="display:block;margin-bottom:0.5rem;color:var(--guinda)">Simulador GPM</strong>
+  <div style="font-size:0.8rem;color:var(--gris);margin-bottom:1.5rem;line-height:1.4">
+    Puedes navegar libremente entre las pantallas del trámite para probarlas.
+  </div>
+  <div id="sim-sidebar-nav"></div>
+</div>
+<div class="sim-main">
 <div class="barra">
   <strong>{e(m.tramite.nombre)}</strong>
   <em>Simulación — Compilador GPM</em>
 </div>
 <div class="barra2">Vista previa del trámite · no conectada a ningún sistema</div>
-<div class="marco">
+<div class="marco" style="margin:0 auto;width:100%">
   <div class="aviso">
     <strong>Esto es una simulación, no es la plataforma GPM.</strong> No guarda nada, no envía
     nada y no está conectada a ningún sistema de gobierno. Reproduce el flujo, los pasos, los
@@ -167,5 +324,5 @@ def generar(m: Manifiesto) -> str:
   </div>
   <div id="lienzo"></div>
   {problemas}
-</div>
+</div></div></div>
 <script>{datos}{_GUION}</script>"""

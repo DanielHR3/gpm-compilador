@@ -7,13 +7,14 @@ sin navegador.
 """
 
 from typing import Optional
+import importlib.resources
 import json
 import re
 import secrets
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from gpmc.compilador.a_gpm import compilar
@@ -59,8 +60,49 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
     def portada():
         return plantillas.portada()
 
+    @app.get("/descargar-plantilla")
+    def descargar_plantilla():
+        # La plantilla viaja como dato del paquete gpmc.web: se lee con
+        # importlib.resources para que siga funcionando tras `pip install`,
+        # donde no existe el arbol de fuentes ni la carpeta ejemplos/.
+        texto = (
+            importlib.resources.files("gpmc.web")
+            .joinpath("plantilla-diccionario.md")
+            .read_text(encoding="utf-8")
+        )
+        return Response(
+            texto,
+            media_type="text/markdown",
+            headers={"content-disposition": 'attachment; filename="plantilla-diccionario.md"'},
+        )
+
+
+    @app.get("/historial", response_class=HTMLResponse)
+    def historial():
+        archivos = []
+        for carpeta in raiz.iterdir():
+            if not carpeta.is_dir() or not _SESION_VALIDA.match(carpeta.name):
+                continue
+            manifiesto_path = carpeta / "manifiesto.yaml"
+            if manifiesto_path.exists():
+                try:
+                    m = cargar(manifiesto_path)
+                except Exception:
+                    # Un directorio de sesion puede guardar un manifiesto de un
+                    # esquema anterior o a medio escribir. cargar() revienta en
+                    # ese caso; se omite esa sesion en vez de tumbar la pagina
+                    # entera para todas las demas.
+                    continue
+                archivos.append({
+                    "sid": carpeta.name,
+                    "nombre": m.tramite.nombre,
+                    "dependencia": m.tramite.dependencia,
+                })
+        return HTMLResponse(plantillas.historial(archivos))
+
     @app.post("/extraer", response_class=HTMLResponse)
     async def extraer(
+        nombre_tramite: Optional[str] = Form(None),
         as_is: UploadFile = File(None),
         to_be: UploadFile = File(None),
         diccionario: UploadFile = File(...),
@@ -81,11 +123,17 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             r = extraer_expediente(carpeta)
         except SinPermiso as exc:
             return HTMLResponse(plantillas.portada(error=str(exc)))
+            
         if r.manifiesto is None:
-            # Sin manifiesto no hay página de revisión: el primer hueco explica
-            # por qué (su texto plano basta para el aviso de la portada).
             motivo = r.huecos[0].mensaje if r.huecos else "no se pudo extraer el manifiesto"
             return HTMLResponse(plantillas.portada(error=motivo))
+
+        if nombre_tramite and nombre_tramite.strip():
+            # Si el as-is no tenía nombre o falló, pero el usuario lo proveyó, lo usamos
+            if r.manifiesto.tramite.nombre == "[por confirmar]":
+                r.manifiesto.tramite.nombre = nombre_tramite.strip()
+                # Quitamos el hueco META-04 si existe
+                r.huecos = [h for h in r.huecos if h.codigo != "META-04"]
 
         guardar(r.manifiesto, carpeta / "manifiesto.yaml")
         # Los Hueco tipados se persisten como JSON para que /revisar los

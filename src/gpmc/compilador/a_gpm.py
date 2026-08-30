@@ -5,10 +5,12 @@ contador base, para que compilar dos veces el mismo manifiesto produzca el
 mismo archivo.
 """
 
+import hashlib
 from itertools import count
 
 from gpmc.compilador.acciones import construir_acciones
 from gpmc.nucleo import esquema, reglas
+from gpmc.nucleo.integraciones import resolver as _resolver_catalogo
 from gpmc.nucleo.manifiesto import Campo, Manifiesto
 
 ANCHOS = {
@@ -27,8 +29,77 @@ def _validacion_de(c: Campo) -> str:
     return "|".join(partes)
 
 
-def compilar(m: Manifiesto, proceso_id: str = "900") -> dict:
-    ids = count(1000)
+def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> dict:
+    """Un Campo del manifiesto -> un campo del Form Builder.
+
+    Un select siempre declara de que tipo es su catalogo y siempre lleva
+    catalogo_id "1": asi lo traen los dos exports autenticos, sin una sola
+    excepcion. Eso esta verificado. La bitacora interna del 2026-08-10 sostiene
+    ademas que sin catalog_type la vista de la plataforma revienta con
+    "Undefined property: stdClass::$catalog_url" (CampoSelect.php); el export
+    autentico no lo confirma y nadie ha importado un .gpm para comprobarlo, asi
+    que esa causa queda como hipotesis pendiente de prueba en la plataforma.
+    """
+    extra = {"tamano": ANCHOS[c.ancho]}
+    catalogo_id = None
+
+    if c.tipo == "select":
+        # Un select siempre lleva catalogo_id "1", sea manual o remoto: asi lo
+        # traen los dos exports autenticos, sin excepcion.
+        catalogo_id = "1"
+        cat = _resolver_catalogo(c.endpoint) if c.endpoint else None
+        # Un catalogo en cascada sin campo padre no se puede resolver: su URL
+        # quedaria colgando en '@@'. Se degrada a lista manual vacia — el hueco
+        # API-03 del extractor dice por que quedo vacia.
+        if cat is not None and cat.requiere_padre and not c.dependencia_campo:
+            cat = None
+        if cat is None:
+            extra["catalog_type"] = "manual"
+        else:
+            # Forma copiada de acceso-informacion-publica.gpm (estado_sol,
+            # municipio_sol). 'key_object' es una sola cadena "etiqueta, valor",
+            # no dos claves: se reproduce tal cual, incluido el espacio tras la
+            # coma. La dependencia de la cascada viaja aqui dentro, no en la
+            # raiz del campo: en el export las claves dependiente_* van vacias
+            # incluso en la cascada.
+            extra["catalog_type"] = "url"
+            extra["catalog_url"] = cat.url_para(c.dependencia_campo)
+            extra["object_response"] = cat.nodo
+            extra["key_object"] = f"{cat.etiqueta}, {cat.valor}"
+            if cat.requiere_padre and c.dependencia_campo:
+                extra["dependent_populated"] = "1"
+                extra["populated_by"] = [c.dependencia_campo]
+
+    return esquema.campo(
+        id=str(campo_id),
+        nombre=c.nombre,
+        tipo=c.tipo,
+        etiqueta=c.etiqueta or c.nombre,
+        formulario_id=formulario_id,
+        posicion=str(posicion),
+        validacion=_validacion_de(c),
+        datos=[o.model_dump() for o in c.catalogo] or None,
+        extra=extra,
+        readonly=c.solo_lectura,
+        ayuda=c.ayuda,
+        catalogo_id=catalogo_id,
+    )
+
+
+def compilar(m: Manifiesto, proceso_id: str = "") -> dict:
+    if not proceso_id:
+        num = int(hashlib.sha256(m.tramite.nombre.encode("utf-8")).hexdigest(), 16)
+        # El modulo lo fija el rango de los exports autenticos, no lo que
+        # parezca razonable: los 12 disponibles usan proceso_id de 842 a 10004
+        # e ids de elemento de 1000 a 9270. 90 000 cubetas dan cinco digitos,
+        # como el mayor observado (10002), y bastan de sobra para el catalogo
+        # estatal. Derivarlo del nombre importa porque acciones.py emite
+        # ->where('proceso_id', N) para el contador de folios: con un id fijo
+        # todos los tramites compartirian la misma fila.
+        proceso_id = str((num % 90_000) + 10_000)
+        ids = count((num % 8_000) + 1_000)
+    else:
+        ids = count(1000)
     actores = {a.id: a for a in m.actores}
 
     usos_pantalla = {}
@@ -44,19 +115,7 @@ def compilar(m: Manifiesto, proceso_id: str = "900") -> dict:
         fid = str(next(ids))
         id_de_pantalla[pantalla.id] = fid
         campos = [
-            esquema.campo(
-                id=str(next(ids)),
-                nombre=c.nombre,
-                tipo=c.tipo,
-                etiqueta=c.etiqueta or c.nombre,
-                formulario_id=fid,
-                posicion=str(i),
-                validacion=_validacion_de(c),
-                datos=[o.model_dump() for o in c.catalogo] or None,
-                extra={"tamano": ANCHOS[c.ancho]},
-                readonly=c.solo_lectura,
-                ayuda=c.ayuda,
-            )
+            _campo_gpm(c, i, fid, next(ids))
             for i, c in enumerate(pantalla.campos, start=1)
         ]
         formularios.append(

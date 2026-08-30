@@ -126,3 +126,248 @@ def test_las_acciones_se_mapean_a_eventos_en_la_tarea():
     assert ev_antes["accion_id"] == str(id_folio)
     assert ev_despues["accion_id"] == str(id_costo)
     assert ev_antes["tarea_id"] == t1["id"]
+
+
+# Manifiesto minimo e inline: no depende de ejemplos/ ni de material real.
+_CON_SELECT = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: curp, etiqueta: CURP, tipo: text}
+  - {nombre: sexo, etiqueta: Sexo, tipo: select, catalogo: [{etiqueta: Hombre, valor: h}]}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+
+def _campos_de_prueba():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_SELECT)))
+    return {c["nombre"]: c for c in g["Formularios"][0]["Campos"]}
+
+
+def test_un_select_declara_su_tipo_de_catalogo():
+    sexo = _campos_de_prueba()["sexo"]
+    assert sexo["catalogo_id"] == "1"
+    assert json.loads(sexo["extra"])["catalog_type"] == "manual"
+
+
+def test_un_campo_que_no_es_select_no_declara_catalogo():
+    curp = _campos_de_prueba()["curp"]
+    assert curp["catalogo_id"] is None
+    assert "catalog_type" not in json.loads(curp["extra"])
+
+
+def test_el_select_conserva_el_ancho_y_sus_opciones():
+    sexo = _campos_de_prueba()["sexo"]
+    assert json.loads(sexo["extra"])["tamano"] == "col-xs-12 col-md-6"
+    assert json.loads(sexo["datos"]) == [{"etiqueta": "Hombre", "valor": "h"}]
+
+
+def _manifiesto_con_nombre(nombre: str):
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    datos = yaml.safe_load(_CON_SELECT)
+    datos["tramite"] = {"nombre": nombre, "dependencia": "D"}
+    return Manifiesto(**datos)
+
+
+def test_dos_nombres_de_tramite_distintos_dan_proceso_id_distinto():
+    ga = compilar(_manifiesto_con_nombre("Alfa"))
+    gb = compilar(_manifiesto_con_nombre("Beta"))
+    assert ga["id"] != gb["id"]
+
+
+def test_el_proceso_id_explicito_gana_sobre_la_derivacion():
+    g = compilar(_manifiesto_con_nombre("Alfa"), proceso_id="7777")
+    assert g["id"] == "7777"
+
+
+def test_la_derivacion_del_proceso_id_es_determinista():
+    # El mismo nombre siempre da el mismo id (la ruta sin proceso_id explicito).
+    assert compilar(_manifiesto_con_nombre("Gamma"))["id"] == compilar(
+        _manifiesto_con_nombre("Gamma")
+    )["id"]
+
+
+# Catalogo remoto: la forma sale de acceso-informacion-publica.gpm (estado_sol
+# y municipio_sol). No depende de material real: el manifiesto va inline.
+_CON_REMOTO = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: estado_sol, etiqueta: Estado, tipo: select, endpoint: mgee}
+  - {nombre: municipio_sol, etiqueta: Municipio, tipo: select, endpoint: mgem,
+     dependencia_tipo: campo, dependencia_campo: estado_sol}
+  - {nombre: sexo, etiqueta: Sexo, tipo: select, catalogo: [{etiqueta: H, valor: h}]}
+  - {nombre: raro, etiqueta: Raro, tipo: select, endpoint: consultarfc}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+
+def _campos_remotos():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_REMOTO)))
+    return {c["nombre"]: c for c in g["Formularios"][0]["Campos"]}
+
+
+def test_un_catalogo_remoto_usa_la_url_del_registro():
+    e = json.loads(_campos_remotos()["estado_sol"]["extra"])
+    assert e["catalog_type"] == "url"
+    assert e["catalog_url"] == "https://gaia.inegi.org.mx/wscatgeo/v2/mgee"
+    assert e["object_response"] == "datos"
+    assert e["key_object"] == "nomgeo, cvegeo"
+    assert "value_object" not in e          # esa clave no existe en ningun export
+    # Conjunto completo, como en la prueba de cascada: una clave nueva colada
+    # solo en la rama sin cascada no pasaria inadvertida. 'accion_id' del export
+    # lo asigna la plataforma, no lo emitimos.
+    assert set(e) == {"tamano", "catalog_type", "catalog_url",
+                      "object_response", "key_object"}
+
+
+def test_un_catalogo_remoto_conserva_catalogo_id():
+    # La Fase 0 fijo que todo select lleva catalogo_id "1". Un catalogo remoto
+    # sigue siendo un select.
+    assert _campos_remotos()["estado_sol"]["catalogo_id"] == "1"
+
+
+def test_una_cascada_interpola_el_padre_y_lo_declara():
+    e = json.loads(_campos_remotos()["municipio_sol"]["extra"])
+    assert e["catalog_url"] == (
+        "https://gaia.inegi.org.mx/wscatgeo/v2/mgem/@@estado_sol"
+    )
+    assert e["dependent_populated"] == "1"
+    assert e["populated_by"] == ["estado_sol"]
+    assert e["key_object"] == "nomgeo, cvegeo"
+    assert e["object_response"] == "datos"
+
+
+def test_un_endpoint_desconocido_cae_a_catalogo_manual():
+    c = _campos_remotos()["raro"]
+    e = json.loads(c["extra"])
+    assert e["catalog_type"] == "manual"
+    assert "catalog_url" not in e
+    assert c["catalogo_id"] == "1"
+
+
+def test_el_catalogo_manual_sigue_igual_que_en_la_fase_0():
+    c = _campos_remotos()["sexo"]
+    assert json.loads(c["extra"])["catalog_type"] == "manual"
+    assert c["catalogo_id"] == "1"
+
+
+def test_las_claves_coinciden_con_el_export_autentico():
+    # Comparado contra municipio_sol del export real, que es la cascada. Se
+    # excluye 'accion_id': lo asigna la plataforma, no lo emitimos nosotros.
+    e = json.loads(_campos_remotos()["municipio_sol"]["extra"])
+    esperadas = {"tamano", "catalog_type", "catalog_url", "object_response",
+                 "key_object", "dependent_populated", "populated_by"}
+    assert set(e) == esperadas
+
+
+def test_una_cascada_sin_padre_no_emite_una_url_colgando():
+    # url_para(None) dejaria la URL en '.../mgem/@@'. Sin campo padre no se
+    # puede resolver el catalogo, asi que se degrada a lista manual vacia y
+    # el hueco API-03 del extractor explica por que.
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    m = Manifiesto(**yaml.safe_load("""
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: municipio_sol, etiqueta: Municipio, tipo: select, endpoint: mgem}
+flujo:
+  tareas: [{id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]},
+           {id: tf, nombre: Fin, terminal: true}]
+  conexiones: [{de: t1, a: tf}]
+"""))
+    c = compilar(m)["Formularios"][0]["Campos"][0]
+    e = json.loads(c["extra"])
+    assert e["catalog_type"] == "manual"
+    assert "catalog_url" not in e
+    assert c["catalogo_id"] == "1"
+
+
+def test_los_ids_generados_caben_en_el_rango_de_los_exports_autenticos():
+    """Los 12 exports disponibles usan proceso_id de 3 a 5 digitos (842..10004)
+    e ids de elemento de 4 (1000..9270). Las pruebas de distincion, override y
+    determinismo pasan con CUALQUIER modulo, asi que nada fijaba el rango: un
+    id de 9 digitos las satisfacia igual. La regla del proyecto es reproducir
+    lo que el export contiene, no lo que parece razonable."""
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_SELECT)))
+    assert len(g["id"]) <= 5, f"proceso_id de {len(g['id'])} digitos: ningun export pasa de 5"
+    assert 100 <= int(g["id"]) <= 99999
+    for t in g["Tareas"]:
+        assert len(t["id"]) <= 5, f"id de tarea {t['id']}: los exports usan 4 digitos"
+    for f in g["Formularios"]:
+        assert len(f["id"]) <= 5, f"id de formulario {f['id']}: los exports usan 4 digitos"
+
+
+def test_el_catalogo_remoto_coincide_con_el_export_autentico(export_referencia):
+    """La respuesta duradera al defecto que se repitio cuatro veces.
+
+    Las demas pruebas assertean literales que alguien tecleo mirando el export
+    — si el export cambiara, o si el literal se tecleo mal, nada lo detecta.
+    Esta abre el archivo y compara. Se salta cuando GPMC_EXPORTS no apunta a
+    material real, como el resto de las pruebas que lo necesitan."""
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+
+    suyo = None
+    for ruta in export_referencia.parent.glob("*.gpm"):
+        d = json.loads(ruta.read_text(encoding="utf-8"))
+        for f in d.get("Formularios", []):
+            for c in (f.get("campos") or f.get("Campos") or []):
+                if c["nombre"] == "municipio_sol":
+                    suyo = c
+    if suyo is None:
+        pytest.skip("ningun export de referencia trae el campo municipio_sol")
+
+    m = Manifiesto(**yaml.safe_load("""
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: municipio_sol, etiqueta: Municipio, tipo: select, endpoint: mgem,
+     dependencia_tipo: campo, dependencia_campo: estado_sol}
+flujo:
+  tareas: [{id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]},
+           {id: tf, nombre: Fin, terminal: true}]
+  conexiones: [{de: t1, a: tf}]
+"""))
+    nuestro = compilar(m)["Formularios"][0]["Campos"][0]
+    a, b = json.loads(nuestro["extra"]), json.loads(suyo["extra"])
+
+    # accion_id lo asigna la plataforma; tamano es el ancho del campo.
+    ajenas = {"accion_id", "tamano"}
+    assert set(a) - ajenas == set(b) - ajenas, "el conjunto de claves difiere del export"
+    for k in set(a) - ajenas:
+        assert a[k] == b[k], f"'{k}': emitimos {a[k]!r}, el export trae {b[k]!r}"
+    assert nuestro["catalogo_id"] == suyo["catalogo_id"]
+    assert nuestro["dependiente_campo"] == suyo["dependiente_campo"]

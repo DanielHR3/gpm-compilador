@@ -37,7 +37,7 @@
   - `Hueco.__str__() -> str` con formato `"[CODIGO] ubicacion: mensaje"` (sin `ubicacion:` si está vacía; sin `[CODIGO] ` si está vacío)
   - `ORDEN_NIVEL: dict` = `{"bloqueante": 0, "falta_dato": 1, "por_confirmar": 2}` para ordenar listas de huecos.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_huecos.py
@@ -73,12 +73,12 @@ def test_orden_nivel_prioriza_bloqueante():
     assert [h.nivel for h in huecos] == ["bloqueante", "falta_dato", "por_confirmar"]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_huecos.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'gpmc.nucleo.huecos'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # src/gpmc/nucleo/huecos.py
@@ -111,12 +111,12 @@ class Hueco:
         return f"{pre}{loc}{self.mensaje}"
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_huecos.py -v`
 Expected: PASS (5 passed)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/gpmc/nucleo/huecos.py tests/test_huecos.py
@@ -139,7 +139,7 @@ git commit -m "feat: tipo Hueco con tres niveles en nucleo"
   - `DIC-03` — `nivel="falta_dato"`, `ubicacion=pantalla.id` — la pantalla no trae tabla de campos legible.
   - `DIC-04` — `nivel="falta_dato"`, `ubicacion=""` — no se encontró ninguna cabecera `### Pantalla N`, se agrupó todo en una pantalla.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Reemplaza las dos pruebas existentes (líneas 78-87) y añade dos más:
 
@@ -173,12 +173,12 @@ def test_todos_los_huecos_son_del_tipo_Hueco():
 
 > Nota para el implementador: los fixtures `_DICC_SIN_NOMBRE_TECNICO` y `_DICC_CATALOGO_PENDIENTE` son los textos markdown que las dos pruebas originales ya construían inline. Extráelos a constantes de módulo si aún no lo están, sin cambiar su contenido.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_extractor_diccionario.py -v`
 Expected: FAIL — `AttributeError: 'str' object has no attribute 'codigo'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 En `src/gpmc/extractores/diccionario.py`:
 
@@ -245,12 +245,12 @@ from gpmc.nucleo.huecos import Hueco
                     ))
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_extractor_diccionario.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/gpmc/extractores/diccionario.py tests/test_extractor_diccionario.py
@@ -275,7 +275,7 @@ git commit -m "feat: diccionario emite Hueco tipado (DIC-01..04)"
   - `META-05` — `por_confirmar` — homoclave no encontrada (normal en trámites nuevos).
   - `META-06` — `por_confirmar` — "A quién va dirigido" no encontrado; queda en 'ambas'.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_extractor_metadatos.py  (crear si no existe)
@@ -311,12 +311,12 @@ def test_costo_faltante_es_por_confirmar():
     assert meta03.nivel == "por_confirmar"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_extractor_metadatos.py -v`
 Expected: FAIL — `AttributeError: 'str' object has no attribute 'codigo'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 En `src/gpmc/extractores/metadatos.py`:
 
@@ -345,12 +345,12 @@ En `src/gpmc/extractores/metadatos.py`:
                           "no se encontró 'A quién va dirigido'; type_of_person queda en 'ambas'"))
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_extractor_metadatos.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/gpmc/extractores/metadatos.py tests/test_extractor_metadatos.py
@@ -373,7 +373,7 @@ git commit -m "feat: metadatos emite Hueco tipado (META-01..06)"
   - `MMD-04` — `falta_dato`, `ubicacion=<id de la compuerta>` — una compuerta no nombra ningún campo `@@`.
   - (`MMD-01` no lo emite este módulo; lo emite `expediente.py`, ver Task 5.)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Reemplaza las dos pruebas de las líneas 58-65:
 
@@ -400,12 +400,12 @@ def test_todos_los_huecos_de_mermaid_son_Hueco():
     assert all(isinstance(h, Hueco) for h in r.huecos)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_extractor_mermaid.py -v`
 Expected: FAIL — `AttributeError: 'str' object has no attribute 'codigo'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 En `src/gpmc/extractores/mermaid.py`:
 
@@ -432,12 +432,12 @@ En `src/gpmc/extractores/mermaid.py`:
             ))
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_extractor_mermaid.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/gpmc/extractores/mermaid.py tests/test_extractor_mermaid.py
@@ -463,7 +463,7 @@ git commit -m "feat: mermaid emite Hueco tipado (MMD-02..04)"
   - `FLU-02` — `falta_dato`, `ubicacion="flujo"` — nº de tareas del diagrama ≠ nº de pantallas del Diccionario.
   - `MMD-01` — `falta_dato`, `ubicacion="flujo"` — la Propuesta TO-BE no trae bloque ```mermaid```.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Añade a `tests/test_extractor_expediente.py`. Helper para armar un expediente mínimo que compile:
 
@@ -570,12 +570,12 @@ Además, **actualiza** las pruebas existentes del archivo que hacen `for h in r.
 - Línea 64: `assert any("Diccionario" in h for h in r.huecos)` → `assert any("Diccionario" in str(h) for h in r.huecos)`
 - Línea 68 (`test_falla_con_gracia_si_falta_un_insumo`): `assert any("Diccionario" in h for h in r.huecos)` → `assert any(h.codigo == "INS-03" for h in r.huecos)`
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_extractor_expediente.py -v`
 Expected: FAIL — los casos nuevos fallan porque `_normalizar` no existe y `INS-01/02` aún no se emiten; el TO-BE con sufijo " 1" no se encuentra.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 En `src/gpmc/extractores/expediente.py`:
 
@@ -729,17 +729,17 @@ def _leer(ruta: Path) -> str:
 
 > El resto de `extraer_expediente` (construcción de actores, pantallas, tareas, conexiones, manifiesto) no cambia.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_extractor_expediente.py -v`
 Expected: PASS (incluidas las pruebas nuevas y las actualizadas)
 
-- [ ] **Step 5: Run the full extractor slice**
+- [x] **Step 5: Run the full extractor slice**
 
 Run: `.venv/bin/pytest tests/test_extractor_diccionario.py tests/test_extractor_metadatos.py tests/test_extractor_mermaid.py tests/test_extractor_expediente.py tests/test_huecos.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Verify against real material**
+- [x] **Step 6: Verify against real material**  ·  verificado 2026-08-28: `gpmc extraer` sobre `Alta de Avisos de Testamento` (con `3.-Propuesta TO-BE 1.md`) no emite `[INS-01]`; los 47 huecos de nombre técnico son `DIC-01`; exit 0, manifiesto generado.
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -758,7 +758,7 @@ PY
 
 Expected: la línea `[INS-01] ... Propuesta TO-BE` **no** aparece (el archivo `3.-Propuesta TO-BE 1.md` ahora se encuentra). Los ~47 huecos de nombre técnico son `DIC-01`. `scratch/` no se comitea (Task 8).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/gpmc/extractores/expediente.py tests/test_extractor_expediente.py
@@ -777,7 +777,7 @@ git commit -m "feat: buscador de insumos normalizado y huecos tipados en expedie
 - Consumes: `extraer_expediente(...)` con `Resultado.huecos: list[Hueco]`; `from gpmc.nucleo.huecos import ORDEN_NIVEL`.
 - Produces: función `_imprimir_huecos(huecos: list[Hueco], completo: bool) -> None`. El código de salida de `extraer` sigue siendo `0` con manifiesto producido, `2` sin él.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_cli.py  (añadir; crear el archivo si no existe con los imports)
@@ -829,12 +829,12 @@ def test_bandera_huecos_no_trunca(tmp_path, capsys):
     assert "más" not in completo.split("POR CONFIRMAR")[1]  # ya no trunca
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_cli.py -v`
 Expected: FAIL — la salida actual dice "hueco(s) que una persona debe resolver", no "BLOQUEANTE".
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 En `src/gpmc/cli.py`:
 
@@ -880,12 +880,12 @@ def _imprimir_huecos(huecos, completo: bool) -> None:
         return 0
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_cli.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/gpmc/cli.py tests/test_cli.py
@@ -905,7 +905,7 @@ git commit -m "feat: gpmc extraer agrupa huecos por nivel y acepta --huecos"
 - Consumes: `Resultado.huecos: list[Hueco]`; `from gpmc.nucleo.huecos import Hueco, ORDEN_NIVEL`.
 - Produces: en disco, `<sid>/huecos.json` = `[{"nivel","codigo","ubicacion","mensaje","propuesta"}, ...]`. `plantillas.revision(m, huecos, problemas, estimacion, sid)` sigue con la misma firma; `huecos` ahora es `list[Hueco]`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_web.py — reemplaza test_el_paso_de_revision_muestra_huecos_y_pantallas
@@ -921,12 +921,12 @@ def test_el_paso_de_revision_agrupa_huecos_por_nivel(cliente):
 
 > Si el archivo no tiene un helper `_subir_insumos_de_prueba`, reutiliza el cuerpo de la prueba original (que ya hace el POST a `/extraer` y sigue el redirect a `/revisar`).
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_web.py -v`
 Expected: FAIL — no hay `<details>` ni el rótulo "por confirmar".
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 En `src/gpmc/web/app.py`:
 
@@ -983,12 +983,12 @@ En `src/gpmc/web/plantillas.py`:
 
 5. CSS (líneas ~39-42): añadir reglas para `details.huecos summary{cursor:pointer;font-size:.95rem}` y conservar el aspecto de `.huecos`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_web.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Manual smoke check**
+- [x] **Step 5: Manual smoke check**  ·  verificado 2026-08-28: servidor en :8011, POST de los 3 `.md` de Testamento → `/revisar` renderiza `<details class="huecos">` por nivel con `border-left` de color; "Faltan datos" abierto, "Por confirmar" cerrado. Sin bloque "Bloqueante" porque el expediente no tiene huecos de ese nivel (comportamiento esperado).
 
 ```bash
 .venv/bin/gpmc servir --puerto 8011 &
@@ -998,7 +998,7 @@ sleep 2
 kill %1
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/gpmc/web/app.py src/gpmc/web/plantillas.py tests/test_web.py
@@ -1016,12 +1016,12 @@ git commit -m "feat: /revisar agrupa huecos en tres bloques plegables; huecos.js
 
 **Interfaces:** ninguna.
 
-- [ ] **Step 1: Confirmar que la suite completa pasa antes de limpiar**
+- [x] **Step 1: Confirmar que la suite completa pasa antes de limpiar**
 
 Run: `.venv/bin/pytest -v`
 Expected: PASS (toda la suite, incluida la de ida y vuelta byte-exacta de `nucleo/formato.py`)
 
-- [ ] **Step 2: Borrar archivos sueltos y actualizar `.gitignore`**
+- [x] **Step 2: Borrar archivos sueltos y actualizar `.gitignore`**
 
 ```bash
 git rm -f patch.py patch_dic.py test_acceso.yaml test_tol.yaml
@@ -1029,7 +1029,7 @@ rm -rf scratch/
 printf 'scratch/\n' >> .gitignore
 ```
 
-- [ ] **Step 3: Verificar que no quedó basura ni referencias**
+- [x] **Step 3: Verificar que no quedó basura ni referencias**
 
 ```bash
 git status
@@ -1038,12 +1038,12 @@ grep -rn "AS_IS.md\|TO_BE.md\|Diccionario_Datos.md" src/ || echo "sin variantes 
 
 Expected: `git status` limpio salvo los borrados y `.gitignore`; el `grep` no encuentra nada.
 
-- [ ] **Step 4: Suite completa una vez más**
+- [x] **Step 4: Suite completa una vez más**
 
 Run: `.venv/bin/pytest -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A

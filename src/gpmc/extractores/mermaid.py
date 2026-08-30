@@ -53,7 +53,7 @@ def normalizar_actor(clase: str) -> str:
 class Nodo:
     id: str
     texto: str
-    clase_nodo: str          # "tarea" | "compuerta" | "inicio_fin"
+    clase_nodo: str          # "tarea" | "compuerta" | "inicio_fin" | "nota"
     actor: Optional[str]
     campos: list[str] = field(default_factory=list)
 
@@ -76,6 +76,7 @@ class Resultado:
 def _limpiar(texto: str) -> str:
     t = re.sub(r"<br\s*/?>", " ", texto or "")
     t = t.replace('"', "").replace("&nbsp;", " ")
+    t = re.sub(r"\*\([^)]*\)\*?", "", t)
     t = re.sub(r"\s+", " ", t).strip()
     return _PREFIJO_ACTOR.sub("", t).strip()
 
@@ -91,7 +92,16 @@ def extraer(bloque: str) -> Resultado:
         elif m["compuerta"] is not None:
             clase_nodo, crudo = "compuerta", m["compuerta"]
         else:
-            clase_nodo, crudo = "tarea", m["tarea"]
+            crudo = m["tarea"]
+            # Los expedientes anotan el diagrama con la forma [/texto/] y el
+            # carril 'nota'. Se aceptan ambas senales: la clase la declara
+            # SINONIMOS, la forma cubre las notas que no declaran clase.
+            recortado = (crudo or "").strip()
+            es_nota = (
+                normalizar_actor(m["clase"] or "") == "_nota"
+                or (recortado.startswith("/") and recortado.endswith("/"))
+            )
+            clase_nodo = "nota" if es_nota else "tarea"
 
         nid = m["id"]
         if nid in vistos:
@@ -99,9 +109,16 @@ def extraer(bloque: str) -> Resultado:
                 vistos[nid].actor = normalizar_actor(m["clase"])
             continue
 
+        # A la nota no se le quita el prefijo de actor: "Nota importante:" no
+        # nombra a quien ejecuta, y _limpiar se lo comeria.
+        if clase_nodo == "nota":
+            texto = (crudo or "").strip().strip("/").strip()
+        else:
+            texto = _limpiar(crudo)
+
         nodo = Nodo(
             id=nid,
-            texto=_limpiar(crudo),
+            texto=texto,
             clase_nodo=clase_nodo,
             actor=normalizar_actor(m["clase"]) if m["clase"] else None,
             campos=_CAMPO.findall(crudo or ""),
@@ -136,7 +153,7 @@ def extraer(bloque: str) -> Resultado:
                 ))
 
     for n in r.nodos:
-        if n.actor is None and n.clase_nodo != "inicio_fin":
+        if n.actor is None and n.clase_nodo not in ("inicio_fin", "nota"):
             r.huecos.append(Hueco(
                 "falta_dato", "MMD-03", n.id,
                 "no declara carril (:::clase); no se puede saber qué actor lo ejecuta",

@@ -66,6 +66,17 @@ def test_el_paso_de_revision_agrupa_huecos_por_nivel(cliente):
     assert "<details" in r.text
 
 
+def test_revision_enlaza_al_simulador_en_la_misma_pestana(cliente):
+    # El navegador bloquea las pestañas nuevas de target="_blank"; los botones
+    # de navegación del asistente deben abrir en la misma pestaña.
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+    })
+    sid = r.url.path.rsplit("/", 1)[-1]
+    assert f'href="/simulador/{sid}"' in r.text
+    assert 'target="_blank"' not in r.text
+
+
 def test_descargar_el_gpm_de_una_sesion(cliente):
     import json
     ins = _insumos()
@@ -118,3 +129,44 @@ def test_el_identificador_de_sesion_no_permite_salir_del_almacen(cliente):
     for malo in ("../../etc", "..%2f..", "a/b"):
         r = cliente.get(f"/descargar/{malo}/gpm")
         assert r.status_code in (400, 404), f"{malo} devolvio {r.status_code}"
+
+
+# Manifiesto minimo y valido, inline: no depende de GPMC_WIKI.
+_MANIFIESTO_BUENO = """tramite: {nombre: "Trámite Bueno", dependencia: "DEP"}
+actores: [{id: u, nombre: U}]
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, terminal: true}
+  conexiones: []
+"""
+
+# Valido como YAML pero de un esquema anterior: 'cargar' revienta al validarlo.
+_MANIFIESTO_CORRUPTO = """tramite: {nombre: "Viejo"}
+campos_antiguos: []
+"""
+
+
+def test_historial_vacio_responde_200(cliente):
+    r = cliente.get("/historial")
+    assert r.status_code == 200
+    assert "Historial" in r.text
+
+
+def test_historial_sobrevive_a_una_sesion_con_manifiesto_corrupto(cliente, tmp_path):
+    buena = tmp_path / ("a" * 16)
+    buena.mkdir()
+    (buena / "manifiesto.yaml").write_text(_MANIFIESTO_BUENO, encoding="utf-8")
+    mala = tmp_path / ("b" * 16)
+    mala.mkdir()
+    (mala / "manifiesto.yaml").write_text(_MANIFIESTO_CORRUPTO, encoding="utf-8")
+
+    r = cliente.get("/historial")
+    assert r.status_code == 200
+    assert "Trámite Bueno" in r.text
+
+
+def test_descargar_plantilla_responde_con_contenido(cliente):
+    r = cliente.get("/descargar-plantilla")
+    assert r.status_code == 200
+    assert r.content
+    assert "Diccionario de Datos" in r.text
