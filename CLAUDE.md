@@ -103,10 +103,32 @@ riesgo SEG-04 ("fuga de secretos: API keys de Keycloak y RENAPO expuestas en las
 del navegador"). Un trámite que pida un endpoint autenticado se reporta como hueco y se manda a
 una Acción PHP.
 
-## Cuestiones resueltas empiricamente
+## Cuestión abierta
 
-- `SINTAXIS_ESTRICTA` se mantiene en `False`: la prueba empirica del 2026-08-28 confirmo que la plataforma acepta la forma `@@campo=='valor'` sin problemas.
-- **proceso_id generado**: la plataforma traga y respeta un `proceso_id` ajeno (generado localmente por hash) sin corromperse.
+`SINTAXIS_ESTRICTA` en `nucleo/reglas.py` está en `False`. Controla si una regla de transición se
+emite como `@@campo=='valor'` o como `@@campo->value === 'valor'`.
+
+Hay documentación que sostiene que la primera forma falla con campos complejos, pero **los
+exports de referencia disponibles la usan**. No se puede resolver leyendo archivos: requiere una
+prueba empírica en la plataforma.
+
+**No cambies esa constante sin que exista esa prueba documentada.** Cuando llegue la respuesta,
+es lo único que hay que tocar.
+
+### Lo que se afirmó resuelto el 2026-08-28, y sigue sin acta
+
+Se registró aquí que tres preguntas habían quedado cerradas por una prueba en la plataforma:
+que `@@campo=='valor'` evalúa bien, que la plataforma acepta un `proceso_id` que ella no emitió,
+y que `catalog_type: "manual"` basta sin `catalog_url`.
+
+**Esa prueba no está documentada en el repositorio**: no consta qué `.gpm` se importó, en qué
+fecha, ni qué se observó. Las tres siguen listadas como abiertas en `planeacion/pendientes.md`,
+y este archivo no puede decir lo contrario mientras falte la evidencia. Es plausible que la
+prueba ocurriera —y si ocurrió, vale mucho— pero una afirmación sin acta hace que la siguiente
+persona deje de buscar.
+
+Para cerrarlas: escribir `planeacion/actas/` con el archivo, la fecha, la pantalla y lo
+observado, y citarlo desde aquí y desde `pendientes.md`.
 
 ## Tests
 

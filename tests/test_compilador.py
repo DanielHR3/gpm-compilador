@@ -307,3 +307,67 @@ flujo:
     assert e["catalog_type"] == "manual"
     assert "catalog_url" not in e
     assert c["catalogo_id"] == "1"
+
+
+def test_los_ids_generados_caben_en_el_rango_de_los_exports_autenticos():
+    """Los 12 exports disponibles usan proceso_id de 3 a 5 digitos (842..10004)
+    e ids de elemento de 4 (1000..9270). Las pruebas de distincion, override y
+    determinismo pasan con CUALQUIER modulo, asi que nada fijaba el rango: un
+    id de 9 digitos las satisfacia igual. La regla del proyecto es reproducir
+    lo que el export contiene, no lo que parece razonable."""
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_SELECT)))
+    assert len(g["id"]) <= 5, f"proceso_id de {len(g['id'])} digitos: ningun export pasa de 5"
+    assert 100 <= int(g["id"]) <= 99999
+    for t in g["Tareas"]:
+        assert len(t["id"]) <= 5, f"id de tarea {t['id']}: los exports usan 4 digitos"
+    for f in g["Formularios"]:
+        assert len(f["id"]) <= 5, f"id de formulario {f['id']}: los exports usan 4 digitos"
+
+
+def test_el_catalogo_remoto_coincide_con_el_export_autentico(export_referencia):
+    """La respuesta duradera al defecto que se repitio cuatro veces.
+
+    Las demas pruebas assertean literales que alguien tecleo mirando el export
+    — si el export cambiara, o si el literal se tecleo mal, nada lo detecta.
+    Esta abre el archivo y compara. Se salta cuando GPMC_EXPORTS no apunta a
+    material real, como el resto de las pruebas que lo necesitan."""
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+
+    suyo = None
+    for ruta in export_referencia.parent.glob("*.gpm"):
+        d = json.loads(ruta.read_text(encoding="utf-8"))
+        for f in d.get("Formularios", []):
+            for c in (f.get("campos") or f.get("Campos") or []):
+                if c["nombre"] == "municipio_sol":
+                    suyo = c
+    if suyo is None:
+        pytest.skip("ningun export de referencia trae el campo municipio_sol")
+
+    m = Manifiesto(**yaml.safe_load("""
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: municipio_sol, etiqueta: Municipio, tipo: select, endpoint: mgem,
+     dependencia_tipo: campo, dependencia_campo: estado_sol}
+flujo:
+  tareas: [{id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]},
+           {id: tf, nombre: Fin, terminal: true}]
+  conexiones: [{de: t1, a: tf}]
+"""))
+    nuestro = compilar(m)["Formularios"][0]["Campos"][0]
+    a, b = json.loads(nuestro["extra"]), json.loads(suyo["extra"])
+
+    # accion_id lo asigna la plataforma; tamano es el ancho del campo.
+    ajenas = {"accion_id", "tamano"}
+    assert set(a) - ajenas == set(b) - ajenas, "el conjunto de claves difiere del export"
+    for k in set(a) - ajenas:
+        assert a[k] == b[k], f"'{k}': emitimos {a[k]!r}, el export trae {b[k]!r}"
+    assert nuestro["catalogo_id"] == suyo["catalogo_id"]
+    assert nuestro["dependiente_campo"] == suyo["dependiente_campo"]

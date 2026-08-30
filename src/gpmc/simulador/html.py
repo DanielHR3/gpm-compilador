@@ -183,9 +183,13 @@ async function poblar(campo,el,valorPadre){
     // analista no puede distinguir de un catalogo genuinamente vacio.
     if(!res.ok){throw new Error("HTTP "+res.status)}
     const datos=(await res.json())[campo.catalogo_nodo]||[];
-    el.innerHTML='<option value="">— elegir —</option>'+datos.map(o=>
-      `<option value="${o[campo.catalogo_valor]}">${o[campo.catalogo_etiqueta]}</option>`
-    ).join("");
+    // new Option() fija texto y valor como propiedades, no como marcado: un
+    // nombre de colonia con comillas o con < no puede romper el atributo ni
+    // inyectar nada. El invariante del proyecto sobre escapado no admite
+    // excepciones, y uno de los tres endpoints es un dominio de terceros.
+    el.replaceChildren(new Option("— elegir —",""));
+    datos.forEach(o=>el.appendChild(
+      new Option(o[campo.catalogo_etiqueta], o[campo.catalogo_valor])));
     el.disabled=false;
   }catch(err){
     el.innerHTML='<option value="">(no se pudo consultar el catálogo)</option>';
@@ -219,6 +223,11 @@ def _catalogo_de_campo(c) -> dict:
     como caja de texto, porque el simulador no puede mentir sobre lo que hara
     la plataforma.
     """
+    if c.tipo != "select":
+        # conectarCatalogos recorre todos los campos: si un campo de texto
+        # trajera catalogo_url, poblar() lo deshabilitaria y el analista
+        # veria una caja bloqueada donde la plataforma pone una editable.
+        return {}
     cat = resolver(c.endpoint)
     if cat is None:
         return {}
@@ -237,7 +246,9 @@ def _catalogo_de_campo(c) -> dict:
         "catalogo_nodo": cat.nodo,
         "catalogo_etiqueta": cat.etiqueta,
         "catalogo_valor": cat.valor,
-        "depende_de": c.dependencia_campo,
+        # Solo si el catalogo lo toma: marcarlo en un catalogo simple haria
+        # que el simulador pidiera un padre que la plataforma no pide.
+        "depende_de": c.dependencia_campo if cat.requiere_padre else None,
     }
 
 

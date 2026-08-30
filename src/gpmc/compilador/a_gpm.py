@@ -89,10 +89,15 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
 def compilar(m: Manifiesto, proceso_id: str = "") -> dict:
     if not proceso_id:
         num = int(hashlib.sha256(m.tramite.nombre.encode("utf-8")).hexdigest(), 16)
-        # Un ID muy pequeño o con pocas combinaciones colisiona fácilmente (ej. 9000 valores).
-        # Usamos modulo 1,000,000,000 para que sea de hasta 10 digitos y tenga pocas colisiones.
-        proceso_id = str((num % 1_000_000_000) + 10_000)
-        ids = count((num % 1_000_000_000) + 50_000)
+        # El modulo lo fija el rango de los exports autenticos, no lo que
+        # parezca razonable: los 12 disponibles usan proceso_id de 842 a 10004
+        # e ids de elemento de 1000 a 9270. 90 000 cubetas dan cinco digitos,
+        # como el mayor observado (10002), y bastan de sobra para el catalogo
+        # estatal. Derivarlo del nombre importa porque acciones.py emite
+        # ->where('proceso_id', N) para el contador de folios: con un id fijo
+        # todos los tramites compartirian la misma fila.
+        proceso_id = str((num % 90_000) + 10_000)
+        ids = count((num % 8_000) + 1_000)
     else:
         ids = count(1000)
     actores = {a.id: a for a in m.actores}
