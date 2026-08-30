@@ -12,6 +12,7 @@ de GPM en el material disponible, asi que la pagina se presenta como lo que es
 import html as _html
 import json
 
+from gpmc.nucleo.integraciones import resolver
 from gpmc.nucleo.manifiesto import Manifiesto
 from gpmc.simulador.analisis import analizar
 
@@ -132,15 +133,23 @@ function pintar(){
     }
     
     if (c.tipo === "select" || (c.catalogo && c.catalogo.length)) {
-      const opts = c.catalogo && c.catalogo.length 
-        ? c.catalogo.map(o => `<option value="${o.valor}">${o.etiqueta}</option>`).join("") 
-        : `<option value="">(catálogo ${c.endpoint ? 'remoto: ' + c.endpoint : 'sin opciones'})</option>`;
-      return `<label><span>${c.etiqueta}${req}${api_badge}</span><select name="${c.nombre}">
-        <option value="">— elegir —</option>
-        ${opts}</select></label>`;
+      // Un desplegable se dibuja como desplegable aunque no se pueda poblar:
+      // deshabilitado dice la verdad, una caja de texto no.
+      if (c.catalogo && c.catalogo.length) {
+        const opts = c.catalogo.map(o => `<option value="${o.valor}">${o.etiqueta}</option>`).join("");
+        return `<label><span>${c.etiqueta}${req}${api_badge}</span><select name="${c.nombre}">
+          <option value="">— elegir —</option>${opts}</select></label>`;
+      }
+      if (c.catalogo_url) {
+        return `<label><span>${c.etiqueta}${req}${api_badge}</span>
+          <select name="${c.nombre}" disabled><option value="">(consultando…)</option></select></label>`;
+      }
+      return `<label><span>${c.etiqueta}${req}${api_badge}</span>
+        <select name="${c.nombre}" disabled><option value="">(sin catálogo resoluble)</option></select></label>`;
     }
     return `<label><span>${c.etiqueta}${req}${api_badge}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
   }).join("")||"<p style='color:var(--gris)'>Esta tarea no muestra pantallas al usuario.</p>";
+  const camposDeLaTarea=pantallas.flatMap(p=>p?p.campos:[]);
   pintarSidebar();
   cont.innerHTML=`<div class="tarjeta">${stepper}
     <div class="encabezado"><strong>${t.nombre}</strong><span class="actor">${ACTORES[t.actor]||""}</span></div>
@@ -148,10 +157,77 @@ function pintar(){
     <div class="pie"><button class="sec" onclick="retroceder()">← Atrás</button>
     <button onclick="avanzar()">Continuar →</button></div></div>
     <div class="rastro">Recorrido: ${ESTADO.rastro.map(x=>TAREAS[x].nombre).join(" → ")}</div>`;
+  conectarCatalogos(camposDeLaTarea);
+}
+// Los catalogos remotos se piden desde el navegador, no desde Python: es donde
+// la plataforma tambien los pide, y los tres endpoints responden con CORS
+// abierto. Un fallo se dice en voz alta — un desplegable vacio por falta de red
+// no se distingue de uno vacio de verdad.
+async function poblar(campo,el,valorPadre){
+  if(!campo.catalogo_url){return}
+  let url=campo.catalogo_url;
+  if(campo.depende_de){
+    if(!valorPadre){
+      el.disabled=true;
+      el.innerHTML=`<option value="">(elige ${campo.depende_de} primero)</option>`;
+      return;
+    }
+    url=url.replace("{padre}",encodeURIComponent(valorPadre));
+  }
+  el.disabled=true;
+  el.innerHTML='<option value="">(consultando…)</option>';
+  try{
+    const res=await fetch(url);
+    const datos=(await res.json())[campo.catalogo_nodo]||[];
+    el.innerHTML='<option value="">— elegir —</option>'+datos.map(o=>
+      `<option value="${o[campo.catalogo_valor]}">${o[campo.catalogo_etiqueta]}</option>`
+    ).join("");
+    el.disabled=false;
+  }catch(err){
+    el.innerHTML='<option value="">(no se pudo consultar el catálogo)</option>';
+  }
+}
+function conectarCatalogos(campos){
+  campos.forEach(c=>{
+    const el=document.querySelector(`[name="${c.nombre}"]`);
+    if(!el||!c.catalogo_url){return}
+    if(c.depende_de){
+      const padre=document.querySelector(`[name="${c.depende_de}"]`);
+      if(padre){padre.addEventListener("change",()=>poblar(c,el,padre.value))}
+      poblar(c,el,padre?padre.value:"");
+    }else{
+      poblar(c,el,null);
+    }
+  });
 }
 function reiniciar(){ESTADO.tarea=INICIAL;ESTADO.rastro=[INICIAL];ESTADO.datos={};pintar()}
 reiniciar();
 """
+
+
+def _catalogo_de_campo(c) -> dict:
+    """Lo que el navegador necesita para poblar un select remoto.
+
+    La plataforma interpola `@@campo` en tiempo de ejecucion; el simulador no
+    tiene ese runtime, asi que la URL viaja con un hueco `{padre}` que el
+    JavaScript sustituye por el valor elegido. Sin endpoint resoluble devuelve
+    un dict vacio y el campo se dibuja como desplegable deshabilitado: nunca
+    como caja de texto, porque el simulador no puede mentir sobre lo que hara
+    la plataforma.
+    """
+    cat = resolver(getattr(c, "endpoint", None))
+    if cat is None:
+        return {}
+    url = cat.url_para(c.dependencia_campo) if cat.requiere_padre else cat.url
+    if cat.requiere_padre:
+        url = url.replace(f"@@{c.dependencia_campo}", "{padre}")
+    return {
+        "catalogo_url": url,
+        "catalogo_nodo": cat.nodo,
+        "catalogo_etiqueta": cat.etiqueta,
+        "catalogo_valor": cat.valor,
+        "depende_de": c.dependencia_campo,
+    }
 
 
 def generar(m: Manifiesto) -> str:
@@ -170,7 +246,11 @@ def generar(m: Manifiesto) -> str:
             "campos": [
                 {"nombre": c.nombre, "etiqueta": c.etiqueta or c.nombre,
                  "obligatorio": c.obligatorio, "solo_lectura": c.solo_lectura,
-                 "catalogo": [{"etiqueta": o.etiqueta, "valor": o.valor} for o in c.catalogo]}
+                 "tipo": c.tipo,
+                 "dependencia_tipo": c.dependencia_tipo,
+                 "dependencia_campo": c.dependencia_campo,
+                 "catalogo": [{"etiqueta": o.etiqueta, "valor": o.valor} for o in c.catalogo],
+                 **_catalogo_de_campo(c)}
                 for c in p.campos
             ],
         }
