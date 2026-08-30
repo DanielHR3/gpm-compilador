@@ -171,8 +171,10 @@ def test_un_endpoint_no_registrado_no_inventa_una_url():
 def test_un_select_sin_catalogo_resoluble_sale_deshabilitado():
     # El simulador no puede mentir sobre lo que hara la plataforma: un campo que
     # es desplegable se dibuja como desplegable, aunque no se pueda poblar.
+    # Assertear solo "disabled" seria vacuo: el JS trae esa palabra siempre.
     html = generar(_m(**_CON_CATALOGOS))
-    assert "disabled" in html
+    assert '<input name="raro_sol"' not in html, "un select nunca se dibuja como caja de texto"
+    assert "(sin catálogo resoluble)" in html
 
 
 def test_el_simulador_conecta_los_catalogos_y_reporta_el_fallo():
@@ -210,3 +212,38 @@ def test_el_simulador_no_hace_red_desde_python():
     fuente = inspect.getsource(modulo)
     for prohibido in ("import requests", "import urllib", "urlopen", "httpx"):
         assert prohibido not in fuente, f"{prohibido} no debe aparecer en el simulador"
+
+
+_CASCADA_SIN_PADRE = {
+    "pantallas": [
+        {"id": "p1", "nombre": "Domicilio", "actor": "ciudadano", "campos": [
+            {"nombre": "municipio_huerfano", "etiqueta": "Municipio", "tipo": "select",
+             "endpoint": "mgem"},
+        ]},
+    ],
+    "flujo": {
+        "tareas": [{"id": "t1", "nombre": "Capturar", "actor": "ciudadano",
+                    "inicial": True, "pantallas": ["p1"]},
+                   {"id": "tf", "nombre": "Fin", "terminal": True}],
+        "conexiones": [{"de": "t1", "a": "tf"}],
+    },
+}
+
+
+def test_una_cascada_sin_padre_no_filtra_la_sintaxis_de_gpm():
+    """endpoint mgem sin dependencia_campo es un manifiesto valido. url_para(None)
+    dejaria la URL en '.../mgem/@@' y esa arroba llegaria a la pagina. El
+    compilador ya degrada este caso a catalogo manual; el simulador debe
+    degradarlo a desplegable deshabilitado, no emitir una URL rota."""
+    html = generar(_m(**_CASCADA_SIN_PADRE))
+    assert "@@" not in html
+    assert "wscatgeo" not in html, "sin campo padre la URL no se puede construir"
+    assert '<input name="municipio_huerfano"' not in html
+
+
+def test_un_fallo_http_del_catalogo_se_reporta_como_fallo():
+    """fetch() resuelve con 404 o 500; sin comprobar res.ok, un error con cuerpo
+    JSON caeria en la lista vacia y el desplegable saldria habilitado y vacio,
+    indistinguible de un catalogo genuinamente vacio."""
+    html = generar(_m(**_CON_CATALOGOS))
+    assert "res.ok" in html

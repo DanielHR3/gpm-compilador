@@ -123,7 +123,8 @@ function pintar(){
   let stepper="";
   if(paso){stepper=`<div class="stepper">`+PASOS.map(n=>
     `<div class="paso ${n===paso.paso_ciudadano?"activo":(n<paso.paso_ciudadano?"hecho":"")}">${n}</div>`).join("")+`</div>`}
-  const campos=pantallas.flatMap(p=>p?p.campos:[]).map(c=>{
+  const camposDeLaTarea=pantallas.flatMap(p=>p?p.campos:[]);
+  const campos=camposDeLaTarea.map(c=>{
     const req=c.obligatorio?` <span class="req">*</span>`:"";
     let api_badge = "";
     if (c.dependencia_tipo === "api_ajax") {
@@ -149,7 +150,6 @@ function pintar(){
     }
     return `<label><span>${c.etiqueta}${req}${api_badge}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
   }).join("")||"<p style='color:var(--gris)'>Esta tarea no muestra pantallas al usuario.</p>";
-  const camposDeLaTarea=pantallas.flatMap(p=>p?p.campos:[]);
   pintarSidebar();
   cont.innerHTML=`<div class="tarjeta">${stepper}
     <div class="encabezado"><strong>${t.nombre}</strong><span class="actor">${ACTORES[t.actor]||""}</span></div>
@@ -178,6 +178,10 @@ async function poblar(campo,el,valorPadre){
   el.innerHTML='<option value="">(consultando…)</option>';
   try{
     const res=await fetch(url);
+    // fetch() resuelve con 404 o 500. Sin esto, un error con cuerpo JSON caeria
+    // en la lista vacia y el desplegable saldria habilitado y vacio, que un
+    // analista no puede distinguir de un catalogo genuinamente vacio.
+    if(!res.ok){throw new Error("HTTP "+res.status)}
     const datos=(await res.json())[campo.catalogo_nodo]||[];
     el.innerHTML='<option value="">— elegir —</option>'+datos.map(o=>
       `<option value="${o[campo.catalogo_valor]}">${o[campo.catalogo_etiqueta]}</option>`
@@ -215,12 +219,19 @@ def _catalogo_de_campo(c) -> dict:
     como caja de texto, porque el simulador no puede mentir sobre lo que hara
     la plataforma.
     """
-    cat = resolver(getattr(c, "endpoint", None))
+    cat = resolver(c.endpoint)
     if cat is None:
         return {}
-    url = cat.url_para(c.dependencia_campo) if cat.requiere_padre else cat.url
-    if cat.requiere_padre:
-        url = url.replace(f"@@{c.dependencia_campo}", "{padre}")
+    if cat.requiere_padre and not c.dependencia_campo:
+        # Sin campo padre la URL no se puede construir: url_para(None) la
+        # dejaria colgando en '@@'. El compilador degrada este caso a catalogo
+        # manual; aqui se degrada a desplegable deshabilitado. Mentir con una
+        # URL rota es peor que decir que no hay catalogo.
+        return {}
+    # La plataforma interpola @@campo en tiempo de ejecucion. El simulador no
+    # tiene ese runtime, asi que se sustituye por un hueco que el JavaScript
+    # rellena con el valor elegido — y de paso la pagina no lleva sintaxis GPM.
+    url = cat.url.replace("@@{padre}", "{padre}") if cat.requiere_padre else cat.url
     return {
         "catalogo_url": url,
         "catalogo_nodo": cat.nodo,
