@@ -54,18 +54,31 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
         if cat is not None and cat.requiere_padre and not c.dependencia_campo:
             cat = None
         if cat is None:
+            # Las cuatro claves van aunque el catalogo sea manual y tres queden
+            # vacias. Verificado el 2026-08-30: la plataforma revienta al
+            # importar un select que solo trae catalog_type
+            # ("Undefined property: stdClass::$catalog_url", CampoSelect.php:468).
+            # El export autentico las omite porque muestra lo que la plataforma
+            # PRODUCE, no lo que su importador ACEPTA — la bitacora del 2026-08-10
+            # tenia razon. Ver planeacion/actas/2026-08-30-prueba-en-plataforma.md.
             extra["catalog_type"] = "manual"
+            extra["catalog_url"] = ""
+            extra["object_response"] = ""
+            extra["key_object"] = ""
         else:
-            # Forma copiada de acceso-informacion-publica.gpm (estado_sol,
-            # municipio_sol). 'key_object' es una sola cadena "etiqueta, valor",
-            # no dos claves: se reproduce tal cual, incluido el espacio tras la
-            # coma. La dependencia de la cascada viaja aqui dentro, no en la
-            # raiz del campo: en el export las claves dependiente_* van vacias
+            # Forma tomada de acceso-informacion-publica.gpm (estado_sol,
+            # municipio_sol), con una correccion verificada en la plataforma:
+            # 'key_object' es una sola cadena "etiqueta,valor" SIN espacio tras
+            # la coma. El export lo trae con espacio, pero la plataforma parte
+            # por la coma sin recortar y acaba buscando una clave ' cvegeo' que
+            # no existe; con el espacio la cascada devolvio 404 (proceso 1045,
+            # 2026-08-30). La dependencia de la cascada viaja aqui dentro, no en
+            # la raiz del campo: en el export las claves dependiente_* van vacias
             # incluso en la cascada.
             extra["catalog_type"] = "url"
             extra["catalog_url"] = cat.url_para(c.dependencia_campo)
             extra["object_response"] = cat.nodo
-            extra["key_object"] = f"{cat.etiqueta}, {cat.valor}"
+            extra["key_object"] = f"{cat.etiqueta},{cat.valor}"
             if cat.requiere_padre and c.dependencia_campo:
                 extra["dependent_populated"] = "1"
                 extra["populated_by"] = [c.dependencia_campo]
