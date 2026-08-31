@@ -62,11 +62,22 @@ def campo(
     }
 
 
+# La columna 'nombre' de la plataforma tiene un limite: un nombre largo tumba el
+# import entero con "Data too long" (verificado 2026-08-31, proceso de Testamento,
+# ver planeacion/actas/). 60 es el mayor valor probado seguro. Ningun nombre que
+# emitimos puede romper una importacion, aunque el analista escriba uno larguisimo.
+_MAX_NOMBRE = 60
+
+
+def _cap(nombre):
+    return nombre if len(nombre) <= _MAX_NOMBRE else nombre[:_MAX_NOMBRE - 1] + "…"
+
+
 def formulario(id, nombre, proceso_id, campos, subtitulo="", is_reusable=False):
     """Una pantalla. 7 claves."""
     return {
         "id": str(id),
-        "nombre": nombre,
+        "nombre": _cap(nombre),
         "proceso_id": str(proceso_id),
         "subtitle": subtitulo,
         "is_reusable": "1" if is_reusable else "0",
@@ -99,7 +110,7 @@ def tarea(
         "id": str(id),
         "identificador": identificador,
         "inicial": "1" if inicial else "0",
-        "nombre": nombre,
+        "nombre": _cap(nombre),
         "posx": str(posx),
         "posy": str(posy),
         "asignacion": asignacion,

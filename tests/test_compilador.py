@@ -442,3 +442,31 @@ flujo:
     e = json.loads(compilar(m)["Formularios"][0]["Campos"][0]["extra"])
     assert e["key_object"] == "nomgeo,cvegeo", "sin espacio tras la coma"
     assert " " not in e["key_object"]
+
+
+def test_ningun_nombre_de_formulario_o_tarea_desborda_la_columna():
+    """Verificado en la plataforma (2026-08-31): un nombre demasiado largo en
+    'formulario.nombre' tumba el import con 'Data too long'. El compilador capa
+    los nombres para que ningun nombre pueda romper una importacion."""
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    largo = "N" * 200
+    m = Manifiesto(**yaml.safe_load(f"""
+tramite: {{nombre: T, dependencia: D}}
+actores: [{{id: u, nombre: U}}]
+pantallas:
+- id: p1
+  nombre: "{largo}"
+  actor: u
+  campos: [{{nombre: c, etiqueta: C}}]
+flujo:
+  tareas:
+  - {{id: t1, nombre: "{largo}", actor: u, inicial: true, pantallas: [{{id: p1}}]}}
+  - {{id: tf, nombre: Fin, terminal: true}}
+  conexiones: [{{de: t1, a: tf}}]
+"""))
+    g = compilar(m)
+    for f in g["Formularios"]:
+        assert len(f["nombre"]) <= 60, f"nombre de formulario de {len(f['nombre'])} chars"
+    for t in g["Tareas"]:
+        assert len(t["nombre"]) <= 60

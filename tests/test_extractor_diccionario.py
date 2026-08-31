@@ -405,3 +405,28 @@ def test_api_ajax_es_insensible_a_mayusculas():
         c = extraer(dicc).pantallas[0].campos[0]
         assert c.dependencia_tipo == "api_ajax", f"falló para {variante}"
         assert c.dependencia_campo is None, f"falló para {variante}"
+
+
+def test_limpia_la_anotacion_de_prueba_del_nombre_de_pantalla():
+    """El Diccionario de Testamento anota los nombres de pantalla con
+    '*(Tarea GPM #7920 en una prueba/mockup ...)*'. Ese texto no es parte del
+    nombre y, sin limpiar, desborda la columna 'nombre' de la plataforma y
+    tumba el import entero con 'Data too long' (verificado 2026-08-31)."""
+    texto = ("### Pantalla 1 — NOTARIO — Captura del Aviso (a distancia) "
+             "*(Tarea GPM #7920 en una prueba/mockup — el tramite no esta en produccion)*\n\n"
+             "| Nombre del Campo | Descripción |\n| CURP | La CURP @@curp |\n")
+    r = extraer(texto)
+    assert r.pantallas[0].nombre == "Captura del Aviso (a distancia)"
+
+
+def test_el_nombre_tecnico_propuesto_cabe_en_la_columna_campo():
+    """Un campo sin @@ con etiqueta larga hacía que _babel derivara un nombre
+    de 40 chars ('nombre_s_completo_del_testador_apellido_'), que desborda la
+    columna 'nombre' de la tabla campo y tumba el import entero con 'Data too
+    long' (verificado 2026-08-31, proceso de Testamento). Los exports
+    auténticos nunca pasan de 31 chars en ese nombre."""
+    texto = MUESTRA.replace(
+        "| CURP | String", "| Nombre(s) completo del Testador, Apellido Paterno Apellido Materno | String"
+    ).replace("Campo `@@curp_testador`.", "sin nombre tecnico.")
+    c = extraer(texto).pantallas[0].campos[0]
+    assert len(c.nombre) <= 31, c.nombre

@@ -244,3 +244,39 @@ Queda por borrar el proceso **1047**. (El 1044 de otra sesión sigue aparte.)
 
 Proceso 1047 eliminado el 2026-08-31; verificado por JavaScript: cero procesos
 "PRUEBA DGT" restantes. Queda el 1044 de otra sesión, aparte.
+
+---
+
+## Cuarta prueba — expediente REAL de punta a punta (2026-08-31)
+
+La pregunta era directa: ¿sirve el compilador para *crear* un `.gpm` importable a
+partir de un expediente real? Se compiló el expediente completo de Testamento
+(Diccionario + TO-BE + AS-IS): **9 pantallas, 46 campos, 10 tareas, 9 conexiones**.
+
+### Dos defectos de longitud de columna, encontrados y corregidos
+
+1. **`formulario.nombre` desbordaba.** El nombre de pantalla arrastraba la
+   anotación de mockup `*(Tarea GPM #7920 …)*`; con ella, el nombre pasaba del
+   límite de la columna y el import entero reventaba con `Data too long`.
+   Corregido: se limpia la anotación en el extractor y se capan los nombres de
+   formulario y tarea a 60 en `esquema.py`.
+2. **`campo.nombre` desbordaba.** Un campo sin `@@` con etiqueta larga hacía que
+   el extractor derivara un nombre de 40 chars
+   (`nombre_s_completo_del_testador_apellido_`), y la columna `campo.nombre` no lo
+   admite. Los exports auténticos no pasan de 31 chars ahí. Corregido: el nombre
+   propuesto se capa a 30 en `diccionario.py`.
+
+### Resultado — el compilador SÍ sirve
+
+Importado sin un solo error. Exportado de vuelta desde la plataforma
+(`/backend/procesos/exportar/1052`) y contado: la plataforma reconstruyó **9
+formularios, 10 tareas, 46 campos y 9 conexiones** — exactamente lo que emitimos.
+0 acciones, correcto: este expediente no configura folio. El trámite completo se
+levanta a partir de nuestro `.gpm`.
+
+### Limpieza
+
+La verificación creó 4 procesos duplicados (el POST de import se repitió al
+confirmar el resultado): **1052, 1053, 1054, 1055**. Los cuatro borrados el
+2026-08-31; verificado: cero restantes con ese nombre. Sigue el 1044 de otra
+sesión, aparte.

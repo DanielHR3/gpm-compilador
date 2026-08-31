@@ -26,7 +26,13 @@ _ENCABEZADO = re.compile(
     r"^#{3,4}\s+Pantalla\s+(?P<num>\d+)\s*[—\-–]\s*(?P<actor>[^—\-–]+?)\s*[—\-–]\s*(?P<nombre>.+?)\s*$",
     re.M,
 )
-_PASO_STEPPER = re.compile(r"\(\s*Paso\s+(\d+)", re.I)
+_PASO_STEPPER = re.compile(r"\(\s*Paso\s+(\d+)", re.I)          # captura el numero
+_PASO_STEPPER_FULL = re.compile(r"\s*\(\s*Paso\s+\d+[^)]*\)", re.I)  # el parentesis entero
+# Anotacion de mockup que el analista deja al final del nombre de pantalla, del
+# tipo '*(Tarea GPM #7920 en una prueba/mockup ...)*'. No es parte del nombre y,
+# sin quitarla, desborda la columna 'nombre' de la plataforma y tumba el import
+# entero con 'Data too long' (verificado 2026-08-31, ver actas/).
+_ANOTACION_MOCKUP = re.compile(r"\s*\*\(.*\)\*\s*$")
 # El cuerpo de una pantalla termina en la siguiente pantalla o en el siguiente
 # encabezado de igual o mayor jerarquia. Sin este corte, las tablas de las
 # Secciones 2 a 5 del Diccionario se absorben dentro de la ultima pantalla.
@@ -181,7 +187,11 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
         elif tecnicos:
             nombre = tecnicos[0]
         else:
-            nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:40]
+            # 30 chars: la columna 'nombre' de la tabla campo desborda con 40 y
+            # tumba el import ("Data too long", proceso de Testamento
+            # 2026-08-31). Los exports autenticos no pasan de 31. Se recorta y
+            # se limpia el '_' que quede colgando al cortar a mitad de palabra.
+            nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:30].strip("_")
             r.huecos.append(Hueco(
                 "por_confirmar", "DIC-01", pantalla.id,
                 f"el campo '{etiqueta}' no declara nombre técnico @@ en su descripción ni en la columna Variable; se propuso '{nombre}'",
@@ -271,12 +281,12 @@ def extraer(texto: str) -> Resultado:
             fin = corte.start()
         cuerpo = texto[ini:fin]
 
-        nombre_crudo = m["nombre"].strip()
+        nombre_crudo = _ANOTACION_MOCKUP.sub("", m["nombre"].strip())
         m_paso = _PASO_STEPPER.search(nombre_crudo)
         pantalla = PantallaExtraida(
             id=f"p{m['num']}",
             numero=int(m['num']),
-            nombre=_PASO_STEPPER.sub("(", nombre_crudo).replace("()", "").strip(" —-()"),
+            nombre=_PASO_STEPPER_FULL.sub("", nombre_crudo).strip(" —-"),
             actor=_babel(m["actor"]),
             paso_ciudadano=int(m_paso.group(1)) if m_paso else None,
         )
