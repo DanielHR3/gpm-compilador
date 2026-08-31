@@ -320,3 +320,32 @@ La verificación creó 4 procesos duplicados (el POST de import se repitió al
 confirmar el resultado): **1052, 1053, 1054, 1055**. Los cuatro borrados el
 2026-08-31; verificado: cero restantes con ese nombre. Sigue el 1044 de otra
 sesión, aparte.
+
+---
+
+## Quinta prueba — folio corregido (PLAT-4) y metadata de cascada, al importar (2026-08-31)
+
+Tras corregir `php_folio` a la forma auténtica (`dato_seguimiento` por nombre de
+variable, sin `proceso_id`), se compiló un trámite de prueba con cascada
+estado→municipio **y** acción de folio (`prueba-runtime.gpm`) y se importó
+(proceso **1057**). Exportado de vuelta (`/backend/procesos/exportar/1057`):
+
+- **PLAT-4, lado import — cerrado.** La expresión del folio almacenada por la
+  plataforma **no contiene `proceso_id`** y usa `dato_seguimiento`. El defecto que
+  rompía el folio al importar (un `proceso_id` reasignado y no reescrito) ya no
+  puede ocurrir: no hay `proceso_id` que reasignar.
+- **PLAT-3, metadata — intacta tras importar.** `estado_sol` → `catalog_url`
+  `.../mgee`; `municipio_sol` → `.../mgem/@@estado_sol` con `populated_by:
+  ['estado_sol']`. La plataforma reasignó el id del proceso a 1057 y conservó la
+  cascada.
+
+### Lo que falta, y por qué se detuvo aquí
+
+Las dos comprobaciones de **runtime** —que los municipios se pueblen al elegir un
+estado, y que el contador `valor` del folio **avance** al crear un expediente—
+exigen el runtime del ciudadano. La página de expedientes del proceso
+(`/backend/electronic_files/registers/1057`) está vacía y sin control de "nuevo
+expediente": iniciar uno exige **publicar el trámite al portal del ciudadano**,
+una acción irreversible y de cara al público en un sistema de gobierno. Se detuvo
+ahí para confirmarlo antes de ejecutarlo. Proceso 1057 queda montado y listo para
+esa prueba; si no se hace, borrar 1057.
