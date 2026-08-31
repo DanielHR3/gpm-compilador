@@ -175,7 +175,11 @@ del ciudadano los honra o no es lo único que falta.
 | Cascada de punta a punta (4a) | Pendiente del runtime del ciudadano |
 | `proceso_id` ajeno | La plataforma lo reasigna (1046). Sin cambio |
 
-### Limpieza pendiente
+### Limpieza — hecha el 2026-08-31
 
-Quedan DOS procesos de prueba: **1045** (v1, con el error) y **1046** (v2,
-arreglado). Ambos "PRUEBA DGT - cascada de catalogos (borrar)".
+Los dos procesos de prueba (**1045** y **1046**) se eliminaron de la plataforma.
+El listado se verificó por JavaScript: cero filas "PRUEBA DGT" restantes.
+
+Queda en la plataforma el proceso **1044** ("b5a8defd46ca96d2"), de una sesión
+anterior con otro agente, con nombre de id de sesión. No se tocó porque no salió
+de esta tarea; conviene revisarlo por separado.
