@@ -96,10 +96,16 @@ def _revisar_acciones(g: dict) -> list[Hallazgo]:
                     "el folio se genera con rand(): no es consecutivo y puede colisionar",
                     ubic,
                 ))
-            if "lockForUpdate()" in expr and "'contador'" not in expr:
+            if "lockForUpdate()" in expr and "dato_seguimiento" not in expr:
+                # El contador autentico vive en 'dato_seguimiento' (columna
+                # 'valor'), llaveado por el nombre de la variable: asi lo traen
+                # los dos exports que funcionan. El viejo esquema por
+                # proceso_folio/proceso_id se rompe al importar porque la
+                # plataforma reasigna el proceso_id (PLAT-4, acta 2026-08-30).
                 hallazgos.append(Hallazgo(
                     "FOLIO-02", "bloqueante",
-                    "el folio usa lockForUpdate() sobre una columna distinta de 'contador'",
+                    "el folio bloquea una tabla distinta de 'dato_seguimiento'; "
+                    "el contador autentico vive ahi (columna 'valor') y no lleva proceso_id",
                     ubic,
                 ))
 

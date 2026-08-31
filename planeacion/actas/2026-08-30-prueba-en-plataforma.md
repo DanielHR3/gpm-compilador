@@ -231,6 +231,46 @@ siempre con bloqueo transaccional sobre la columna contador". El PHP lo hace bie
 (`lockForUpdate`), pero apunta al proceso equivocado. El invariante se cumple en
 la forma y falla en el destino.
 
+### PLAT-4 · CAUSA RAÍZ — nuestro esquema de folio fue inventado (2026-08-31)
+
+Revisando cómo referencian el folio los exports auténticos que SÍ tienen acción de
+folio, la causa raíz queda clara: **el `proceso_id` no debería aparecer nunca en el
+PHP del folio.** Los dos exports con folio bien hecho no lo usan:
+
+- `constancia-de-no-infraccion-vehicular-ambiental.gpm`, acción `crear-folio-ambiental`:
+  ```php
+  $year = date('Y');
+  $total = \DB::table('dato_seguimiento')->where('nombre', 'numero_folio')->lockForUpdate()->value('valor'); // Fixed Race Condition
+  $consecutivo = str_pad($total + 1, 5, '0', STR_PAD_LEFT);
+  return 'CNIVA-' . $year . '-' . $consecutivo;
+  ```
+- `pago-de-bases-licitaciones.gpm`, acción `crear-folio-licitacion`: idéntico, con
+  `->where('nombre', 'folio')` y prefijo `PBL-`.
+
+Tres diferencias con nuestro `php_folio` (`acciones.py`), en orden de importancia:
+
+1. **El contador se llavea por el NOMBRE de la variable en `dato_seguimiento`, no por
+   `proceso_id` en `proceso_folio`.** Por eso el folio auténtico sobrevive al import:
+   no hay ningún `proceso_id` que la plataforma reasigne. Nuestro `->where('proceso_id',
+   N)` fue inventado — es el defecto de PLAT-4. Esto es, otra vez, "el export muestra lo
+   que la plataforma PRODUCE; no inventes estructura".
+2. **La columna es `valor` en la tabla `dato_seguimiento`**, no `contador` en
+   `proceso_folio`. El invariante de `CLAUDE.md` nombra `contador`; la forma auténtica
+   usa `valor`. El invariante acierta en el ESPÍRITU (lock transaccional sobre un
+   contador, nunca `count()` ni `rand()`) pero nombra mal la columna.
+3. **La expresión auténtica no reescribe el contador.** Lee `$total` con `lockForUpdate`,
+   devuelve `$total + 1` formateado, y no hace `updateOrInsert`. El incremento de
+   `dato_seguimiento.valor` lo administra la plataforma fuera de la expresión. Nuestro
+   `php_folio` sí escribe de vuelta (`updateOrInsert`), lo que puede ser innecesario o
+   incorrecto según cómo lleve la plataforma ese contador.
+
+**Qué queda para cerrar PLAT-4:** adoptar la forma auténtica (llavear por nombre de
+variable en `dato_seguimiento`, sin `proceso_id`) elimina la ruptura probada al
+importar. Pero el punto 3 —quién y cuándo incrementa `valor`— no se puede confirmar
+leyendo archivos: exige una prueba en el runtime (generar un folio en un expediente y
+ver si avanza), y eso comparte requisito con PLAT-3. Adoptar la forma auténtica además
+toca la redacción del primer invariante (columna `contador` → `valor`).
+
 ### PLAT-3 — la cascada, seguía sin poder probarse aquí
 
 Igual que en la segunda prueba: la vista de edición es el form builder y no cablea

@@ -47,11 +47,22 @@ def test_detecta_folio_con_rand():
     assert "FOLIO-01" in _codigos(revisar(g))
 
 
-def test_detecta_columna_incorrecta_en_el_parche_de_folio():
-    """Los dos folios que fix_gpm.py parcheo usan la columna 'valor'."""
+def test_el_folio_autentico_sobre_dato_seguimiento_pasa_limpio():
+    """La forma auténtica (dos exports que funcionan) bloquea 'dato_seguimiento'
+    columna 'valor'. Es correcta; no debe marcar FOLIO-02. Ver acta 2026-08-30."""
     g = _base()
     g["Acciones"] = [{"nombre": "folio", "tipo": "variable",
-                      "extra": '{"variable":"folio","expresion":"X->lockForUpdate()->value(\'valor\');"}'}]
+                      "extra": '{"variable":"folio","expresion":"\\\\DB::table(\'dato_seguimiento\')->where(\'nombre\', \'folio\')->lockForUpdate()->value(\'valor\');"}'}]
+    assert "FOLIO-02" not in _codigos(revisar(g))
+
+
+def test_detecta_folio_que_bloquea_una_tabla_distinta_de_dato_seguimiento():
+    """El contador auténtico vive en dato_seguimiento. El viejo esquema por
+    proceso_folio/proceso_id se rompe al importar (la plataforma reasigna el
+    proceso_id, PLAT-4); se marca FOLIO-02."""
+    g = _base()
+    g["Acciones"] = [{"nombre": "folio", "tipo": "variable",
+                      "extra": '{"variable":"folio","expresion":"\\\\DB::table(\'proceso_folio\')->where(\'proceso_id\', 59201)->lockForUpdate()->value(\'contador\');"}'}]
     assert "FOLIO-02" in _codigos(revisar(g))
 
 

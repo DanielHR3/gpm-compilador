@@ -58,8 +58,12 @@ estado de sesión. Esa separación es la que permite que la CLI y las pruebas ex
 
 Son reglas de calidad, no configurables:
 
-- **El folio se emite siempre con bloqueo transaccional sobre la columna `contador`.** Nunca
-  `->count()`, nunca `rand()`. Ambas formas producen folios que colisionan.
+- **El folio se emite siempre con bloqueo transaccional sobre el contador de `dato_seguimiento`,
+  llaveado por el nombre de la variable y sin `proceso_id`.** Nunca `->count()`, nunca `rand()`
+  (ambas colisionan), y nunca un `proceso_id` hardcodeado: la plataforma lo reasigna al importar
+  y no reescribe las referencias del PHP, así que el folio queda roto (PLAT-4). La forma correcta
+  es `\DB::table('dato_seguimiento')->where('nombre', '<variable>')->lockForUpdate()->value('valor')`,
+  copiada de los dos exports auténticos que funcionan. Ver `planeacion/actas/2026-08-30-prueba-en-plataforma.md`.
 - **Toda variable de usuario interpolada en un documento pasa por `htmlspecialchars`.** Sin
   excepción y sin bandera para desactivarlo.
 - **No se genera configuración de firma electrónica.** Ningún archivo de referencia disponible
@@ -115,20 +119,36 @@ prueba empírica en la plataforma.
 **No cambies esa constante sin que exista esa prueba documentada.** Cuando llegue la respuesta,
 es lo único que hay que tocar.
 
-### Lo que se afirmó resuelto el 2026-08-28, y sigue sin acta
+### Las tres preguntas del 2026-08-28, ya probadas en la plataforma (con acta)
 
-Se registró aquí que tres preguntas habían quedado cerradas por una prueba en la plataforma:
-que `@@campo=='valor'` evalúa bien, que la plataforma acepta un `proceso_id` que ella no emitió,
-y que `catalog_type: "manual"` basta sin `catalog_url`.
+El 2026-08-28 se afirmó aquí que tres preguntas habían quedado cerradas por una prueba, pero
+sin acta. El 2026-08-31 se probaron de verdad, importando `.gpm` reales a la plataforma, y la
+evidencia está en `planeacion/actas/2026-08-30-prueba-en-plataforma.md`. El resultado fue el
+**contrario** de lo afirmado en dos de las tres:
 
-**Esa prueba no está documentada en el repositorio**: no consta qué `.gpm` se importó, en qué
-fecha, ni qué se observó. Las tres siguen listadas como abiertas en `planeacion/pendientes.md`,
-y este archivo no puede decir lo contrario mientras falte la evidencia. Es plausible que la
-prueba ocurriera —y si ocurrió, vale mucho— pero una afirmación sin acta hace que la siguiente
-persona deje de buscar.
+1. **¿Basta `catalog_type: "manual"` sin `catalog_url`?** **NO.** Reventaba al importar
+   (`Undefined property: stdClass::$catalog_url`, `CampoSelect.php:468`). Arreglado emitiendo
+   las cuatro claves aunque tres queden vacías (**PLAT-1**, cerrado). El compilador ya lo hace.
+2. **¿Acepta la plataforma un `proceso_id` que ella no emitió?** **NO.** Lo reasigna al importar
+   y **no reescribe** las referencias `->where('proceso_id', N)` dentro del PHP de las acciones,
+   así que el contador de folios apunta a un proceso inexistente: el folio queda roto tras
+   importar (**PLAT-4**, abierto — bloquea usar acciones de folio en producción).
+3. **`SINTAXIS_ESTRICTA` (`@@campo=='valor'`)** — **sigue sin poder probarse.** Exige un `.gpm`
+   con una compuerta con regla de transición, y ningún `.gpm` que este compilador produce trae
+   una (el flujo sale lineal, `FLU-01`). Para probarla habría que ramificar un manifiesto a mano.
 
-Para cerrarlas: escribir `planeacion/actas/` con el archivo, la fecha, la pantalla y lo
-observado, y citarlo desde aquí y desde `pendientes.md`.
+Lección que se mantiene: una afirmación de "resuelto" sin acta hace que la siguiente persona deje
+de buscar. Toda pregunta de plataforma se cierra con un archivo en `planeacion/actas/` —el `.gpm`,
+la fecha, la pantalla y lo observado— citado desde aquí y desde `pendientes.md`.
+
+### Verificado de punta a punta el 2026-08-31
+
+El compilador produce `.gpm` importables completos: el expediente real de Testamento
+(Diccionario + TO-BE + AS-IS) se compiló, se importó sin error y la plataforma reconstruyó 9
+formularios, 10 tareas, 46 campos y 9 conexiones —exactamente lo emitido—. Dos defectos de
+longitud de columna que la suite local no atrapaba se corrigieron en esa prueba (nombres de
+formulario/tarea capados a 60; nombre técnico de campo derivado capado a 30, porque la columna
+`campo.nombre` no admite los 40 que producía una etiqueta larga). Cuarta prueba del acta.
 
 ## Tests
 

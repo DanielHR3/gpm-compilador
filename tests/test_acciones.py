@@ -10,19 +10,43 @@ from gpmc.nucleo.manifiesto import Accion
 
 def test_el_folio_usa_bloqueo_transaccional_nunca_count_ni_rand():
     """Las dos implementaciones existentes usan ->count() o rand(); ninguna sirve."""
-    php = php_folio(prefijo="BT", proceso_id="820", inicial=1)
+    php = php_folio(prefijo="BT", variable="folio")
     assert "lockForUpdate()" in php
     assert "->count()" not in php
     assert "rand(" not in php
 
 
-def test_el_folio_usa_la_columna_contador():
-    php = php_folio(prefijo="BT", proceso_id="820", inicial=1)
-    assert "'contador'" in php
+def test_el_folio_usa_la_forma_autentica_dato_seguimiento():
+    """Forma copiada de los dos exports auténticos que sí funcionan
+    (constancia-ambiental, pago-de-bases): el contador se llavea por el NOMBRE de
+    la variable en la tabla 'dato_seguimiento', columna 'valor'. Ver acta
+    2026-08-30, PLAT-4."""
+    php = php_folio(prefijo="BT", variable="numero_folio")
+    assert "dato_seguimiento" in php
+    assert "->where('nombre', 'numero_folio')" in php
+    assert "->value('valor')" in php
+
+
+def test_el_folio_no_referencia_proceso_id():
+    """Regresión de PLAT-4: la plataforma reasigna el proceso_id al importar y NO
+    reescribe las referencias dentro del PHP. Un folio que lo hardcodee queda roto
+    tras importar. La forma auténtica no lo menciona."""
+    php = php_folio(prefijo="BT", variable="folio")
+    assert "proceso_id" not in php
+
+
+def test_el_folio_no_comenta_el_return_en_una_sola_linea():
+    """La expresión va en una sola línea. Un comentario '//' comentaría todo lo
+    que le sigue —el str_pad y el return— y el folio devolvería null. El export
+    auténtico trae ese '//'; nosotros no lo reproducimos."""
+    php = php_folio(prefijo="BT", variable="folio")
+    assert "\n" not in php
+    assert "//" not in php
+    assert "return" in php
 
 
 def test_el_folio_incluye_el_prefijo_y_el_anio():
-    php = php_folio(prefijo="SEDECO-VOI", proceso_id="900", inicial=1)
+    php = php_folio(prefijo="SEDECO-VOI", variable="folio")
     assert "SEDECO-VOI" in php
     assert "date('Y')" in php
 
@@ -58,6 +82,9 @@ def test_construye_una_accion_de_folio():
     extra = json.loads(a["extra"])
     assert extra["variable"] == "folio"
     assert "lockForUpdate()" in extra["expresion"]
+    # PLAT-4: la expresión no puede llevar proceso_id; la plataforma lo reasigna
+    assert "proceso_id" not in extra["expresion"]
+    assert "dato_seguimiento" in extra["expresion"]
 
 
 def test_construye_una_notificacion_como_enviar_correo():

@@ -39,21 +39,28 @@ la cascada. Para cerrarlo hace falta llegar al runtime real — publicar el trá
 expediente de prueba —, una acción con efectos que conviene decidir aparte. La plataforma sí
 almacenó la metadata de cascada al importar. Ver `actas/2026-08-30-prueba-en-plataforma.md`.
 
-### PLAT-4 · CONFIRMADO como defecto — el folio se rompe tras importar
+### PLAT-4 · Causa raíz hallada y CORREGIDA en el compilador (2026-08-31)
 
-Cerrado el 2026-08-31 importando un `.gpm` con acción de folio (proceso 1047). Leído en el
-editor de la acción: el proceso quedó como **1047**, pero su PHP de folio **sigue diciendo
-`->where('proceso_id', 59201)`** — el id que emitimos, que ya no corresponde a ningún
-proceso. La plataforma reasigna el id del proceso pero **NO reescribe las referencias
-`proceso_id` dentro del PHP de las acciones**. El contador de folios apunta a un proceso
-inexistente: el folio queda roto tras cualquier importación.
+El defecto: la plataforma reasigna el `proceso_id` al importar y **no reescribe** las
+referencias `->where('proceso_id', N)` dentro del PHP de las acciones (confirmado en el
+proceso 1047). Nuestro `php_folio` hardcodeaba ese `proceso_id`, así que el folio quedaba
+roto tras importar.
 
-No se arregla emitiendo "el id correcto" — lo asigna la plataforma al importar y no lo
-conocemos al compilar. Tres caminos posibles en el acta, todos por confirmar con el
-proveedor. Esto también invalida el esquema de `proceso_id` por hash de `a_gpm.py`: da igual
-qué número emitamos. Ver `actas/2026-08-30-prueba-en-plataforma.md`, tercera prueba, y
-`src/gpmc/compilador/acciones.py :: php_folio`. **Bloquea usar acciones de folio en
-producción hasta resolverlo.**
+**Causa raíz:** el esquema `proceso_folio`/`proceso_id` de nuestro `php_folio` **fue
+inventado**. Los dos exports auténticos que sí tienen folio (`constancia-...-ambiental`,
+`pago-de-bases-licitaciones`) llavean el contador por el **nombre de la variable** en
+`dato_seguimiento` (columna `valor`), con `lockForUpdate` y **sin `proceso_id`**.
+
+**Corregido:** `php_folio` emite ahora la forma auténtica (sin `proceso_id`, sin write-back);
+el validador `FOLIO-02` verifica que el folio bloquee `dato_seguimiento`; el invariante de
+`CLAUDE.md` se corrigió (`contador` → `dato_seguimiento.valor`). Suite en 239. Además se
+detectó que el export auténtico trae un `// Fixed Race Condition` en la misma línea que
+comentaría el `return`; no lo reproducimos. Ver acta, cuarta/quinta prueba.
+
+**Lo que queda (runtime):** confirmar que el contador `valor` **avanza** en un expediente
+real —quién y cuándo incrementa `valor` no se ve en la expresión, lo administra la
+plataforma—. Requiere el runtime del ciudadano, igual que PLAT-3. Hasta esa prueba, el folio
+importa bien pero su avance no está verificado de punta a punta.
 
 ### P-03 · Sin AS-IS, todos los trámites se ven iguales
 

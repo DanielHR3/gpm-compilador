@@ -17,21 +17,31 @@ from gpmc.nucleo.manifiesto import Accion
 _VARIABLE_EN_PLANTILLA = re.compile(r"\{\{(\w+)\}\}")
 
 
-def php_folio(prefijo: str, proceso_id: str, inicial: int = 1) -> str:
-    """Folio consecutivo con bloqueo transaccional. Cierra FOLIO-01."""
-    return f"""$fila = \\DB::table('proceso_folio')
-    ->where('proceso_id', {proceso_id})
-    ->lockForUpdate()
-    ->first();
+def php_folio(prefijo: str, variable: str) -> str:
+    """Folio consecutivo con bloqueo transaccional. Cierra FOLIO-01.
 
-$siguiente = $fila ? ((int) $fila->contador) + 1 : {inicial};
+    Forma copiada byte a byte de los dos exports autenticos que funcionan
+    (constancia-de-no-infraccion-vehicular-ambiental.gpm,
+    pago-de-bases-licitaciones.gpm): el contador se llavea por el NOMBRE de la
+    variable en la tabla 'dato_seguimiento', columna 'valor', con lockForUpdate.
+    NO lleva proceso_id: la plataforma lo reasigna al importar y no reescribe las
+    referencias dentro del PHP, asi que cualquier proceso_id hardcodeado deja el
+    folio roto (PLAT-4, acta 2026-08-30). El incremento de 'valor' lo administra
+    la plataforma, por eso la expresion solo lee con el lock y no reescribe.
 
-\\DB::table('proceso_folio')->updateOrInsert(
-    ['proceso_id' => {proceso_id}],
-    ['contador' => $siguiente]
-);
-
-return '{prefijo}-' . date('Y') . '-' . str_pad($siguiente, 5, '0', STR_PAD_LEFT);"""
+    El export autentico trae un comentario '// Fixed Race Condition' en la misma
+    linea; como toda la expresion va en una sola linea, ese '//' comentaria el
+    resto (el str_pad y el return) si la plataforma la evalua cruda. No lo
+    reproducimos: copiamos el mecanismo, no un comentario que puede romperlo.
+    """
+    return (
+        "$year = date('Y'); "
+        "$total = \\DB::table('dato_seguimiento')"
+        f"->where('nombre', '{variable}')"
+        "->lockForUpdate()->value('valor'); "
+        "$consecutivo = str_pad($total + 1, 5, '0', STR_PAD_LEFT); "
+        f"return '{prefijo}-' . $year . '-' . $consecutivo;"
+    )
 
 
 def php_costo(variable: str, tarifas: dict) -> str:
@@ -104,12 +114,12 @@ def construir_acciones(acciones: list[Accion], proceso_id: str, ids):
         mapa_ids[a.nombre] = str(accion_id)
         
         if a.tipo == "folio":
-            php = php_folio(
-                prefijo=datos.get("prefijo", "GPM"),
-                proceso_id=proceso_id,
-                inicial=int(datos.get("inicial", 1)),
-            )
-            extra = {"variable": datos.get("variable", "folio"), "expresion": php}
+            variable = datos.get("variable", "folio")
+            # El contador se llavea por el nombre de la variable, no por proceso_id
+            # (PLAT-4). 'inicial' no es expresable en la forma autentica: el conteo
+            # arranca de dato_seguimiento, que administra la plataforma.
+            php = php_folio(prefijo=datos.get("prefijo", "GPM"), variable=variable)
+            extra = {"variable": variable, "expresion": php}
             salida_acciones.append(
                 _accion_gpm(accion_id, a.nombre, "variable", extra, proceso_id)
             )
