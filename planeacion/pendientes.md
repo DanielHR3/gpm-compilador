@@ -31,20 +31,27 @@ runtime del formulario que llena el ciudadano**, no en el *form builder* del mod
 el desplegable de municipios siempre muestra el error 404 de INEGI porque no hay estado
 seleccionado.
 
-Para cerrarlo: previsualizar o publicar el trámite como ciudadano, elegir un estado, y ver
-si municipios se puebla. Si sale vacío, mirar en las herramientas de desarrollo qué URL se
-pidió — si `mgem/13` (correcto) o `mgem/@@estado_sol` sin sustituir. Ver
-`actas/2026-08-30-prueba-en-plataforma.md`, resultado 4a.
+Verificado el 2026-08-31: el modelador **no expone una vista previa** del formulario del
+ciudadano para el proceso importado, y la vista de edición es el form builder, que no cablea
+la cascada. Para cerrarlo hace falta llegar al runtime real — publicar el trámite o crear un
+expediente de prueba —, una acción con efectos que conviene decidir aparte. La plataforma sí
+almacenó la metadata de cascada al importar. Ver `actas/2026-08-30-prueba-en-plataforma.md`.
 
-### PLAT-4 · `proceso_id`: la plataforma lo reasigna, y falta ver qué hace con las acciones
+### PLAT-4 · CONFIRMADO como defecto — el folio se rompe tras importar
 
-Confirmado importando (50604 → 1045 → 1046): la plataforma **descarta** el `proceso_id` que
-emitimos y asigna el suyo. Eso hace que derivarlo por hash sea inocuo pero inútil.
+Cerrado el 2026-08-31 importando un `.gpm` con acción de folio (proceso 1047). Leído en el
+editor de la acción: el proceso quedó como **1047**, pero su PHP de folio **sigue diciendo
+`->where('proceso_id', 59201)`** — el id que emitimos, que ya no corresponde a ningún
+proceso. La plataforma reasigna el id del proceso pero **NO reescribe las referencias
+`proceso_id` dentro del PHP de las acciones**. El contador de folios apunta a un proceso
+inexistente: el folio queda roto tras cualquier importación.
 
-Lo que queda abierto: `acciones.py` emite PHP con `->where('proceso_id', N)` para el contador
-de folios. Si la plataforma reasigna el id del proceso pero **no** reescribe ese `N` dentro
-de la acción, la acción queda apuntando al id viejo y el folio se rompe. No se probó porque
-el `.gpm` de prueba no tenía acciones. Un `.gpm` de prueba con una acción de folio lo cierra.
+No se arregla emitiendo "el id correcto" — lo asigna la plataforma al importar y no lo
+conocemos al compilar. Tres caminos posibles en el acta, todos por confirmar con el
+proveedor. Esto también invalida el esquema de `proceso_id` por hash de `a_gpm.py`: da igual
+qué número emitamos. Ver `actas/2026-08-30-prueba-en-plataforma.md`, tercera prueba, y
+`src/gpmc/compilador/acciones.py :: php_folio`. **Bloquea usar acciones de folio en
+producción hasta resolverlo.**
 
 ### P-03 · Sin AS-IS, todos los trámites se ven iguales
 

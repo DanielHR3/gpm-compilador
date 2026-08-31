@@ -183,3 +183,64 @@ El listado se verificó por JavaScript: cero filas "PRUEBA DGT" restantes.
 Queda en la plataforma el proceso **1044** ("b5a8defd46ca96d2"), de una sesión
 anterior con otro agente, con nombre de id de sesión. No se tocó porque no salió
 de esta tarea; conviene revisarlo por separado.
+
+---
+
+## Tercera prueba — 2026-08-31, con acción de folio (proceso 1047)
+
+Se importó `prueba-folio-cascada.gpm`, con una acción `folio` ligada a la tarea.
+El manifiesto emitió `proceso_id: 59201`, y el PHP de la acción lo llevaba
+hardcodeado en `->where('proceso_id', 59201)`.
+
+### PLAT-4 CERRADO — la plataforma NO reescribe el proceso_id dentro de la acción
+
+**Observado en la pestaña Acciones → Editar del proceso 1047** (leído del DOM y
+confirmado a ojo en el editor):
+
+- El proceso se importó como **1047** (de nuevo, la plataforma reasignó el id;
+  emitimos 59201).
+- El PHP de la acción de folio **sigue diciendo `proceso_id, 59201`**, en sus dos
+  ocurrencias (el `where` del lock y el `updateOrInsert`). `1047` no aparece por
+  ningún lado en la acción.
+
+**Conclusión:** la plataforma reasigna el id del proceso al importar pero **no
+reescribe las referencias `proceso_id` dentro del PHP de las acciones**. El
+contador de folios del proceso 1047 consultaría la fila `proceso_id = 59201`, que
+corresponde a un proceso que no existe. **El folio queda roto tras cualquier
+importación.**
+
+Es un defecto real y grave, y **no se puede arreglar emitiendo "el id correcto"**,
+porque el id lo asigna la plataforma en tiempo de importación — nosotros no lo
+conocemos al compilar. Caminos posibles, todos por confirmar con el proveedor o
+con más pruebas:
+
+1. Que el PHP de la acción **no** hardcodee un `proceso_id`, sino que use una
+   variable que la plataforma exponga en tiempo de ejecución (algo como el id del
+   proceso actual). Habría que averiguar si GPM ofrece esa variable.
+2. Que el folio se resuelva por otro mecanismo de la plataforma (¿un componente
+   nativo de folio?) en vez de PHP a mano.
+3. Reescribir el `proceso_id` de las acciones **después** de importar, ya sabiendo
+   el id asignado — un paso manual o un post-proceso.
+
+Esto invalida además el esquema de `proceso_id` por hash de `a_gpm.py`: da igual
+qué número emitamos, la plataforma lo ignora para el proceso y lo conserva —roto—
+dentro de la acción. Ver `src/gpmc/compilador/acciones.py :: php_folio`.
+
+**Nota de dominio:** el primer invariante de `CLAUDE.md` es "el folio se emite
+siempre con bloqueo transaccional sobre la columna contador". El PHP lo hace bien
+(`lockForUpdate`), pero apunta al proceso equivocado. El invariante se cumple en
+la forma y falla en el destino.
+
+### PLAT-3 — la cascada, seguía sin poder probarse aquí
+
+Igual que en la segunda prueba: la vista de edición es el form builder y no cablea
+la cascada. Sigue pendiente el runtime del ciudadano.
+
+### Limpieza
+
+Queda por borrar el proceso **1047**. (El 1044 de otra sesión sigue aparte.)
+
+### Limpieza — hecha
+
+Proceso 1047 eliminado el 2026-08-31; verificado por JavaScript: cero procesos
+"PRUEBA DGT" restantes. Queda el 1044 de otra sesión, aparte.
