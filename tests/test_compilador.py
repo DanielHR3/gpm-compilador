@@ -233,7 +233,7 @@ def test_un_catalogo_remoto_usa_la_url_del_registro():
     assert e["catalog_type"] == "url"
     assert e["catalog_url"] == "https://gaia.inegi.org.mx/wscatgeo/v2/mgee"
     assert e["object_response"] == "datos"
-    assert e["key_object"] == "nomgeo, cvegeo"
+    assert e["key_object"] == "nomgeo,cvegeo"  # sin espacio: la plataforma no lo recorta (acta 2026-08-30)
     assert "value_object" not in e          # esa clave no existe en ningun export
     # Conjunto completo, como en la prueba de cascada: una clave nueva colada
     # solo en la rama sin cascada no pasaria inadvertida. 'accion_id' del export
@@ -255,7 +255,7 @@ def test_una_cascada_interpola_el_padre_y_lo_declara():
     )
     assert e["dependent_populated"] == "1"
     assert e["populated_by"] == ["estado_sol"]
-    assert e["key_object"] == "nomgeo, cvegeo"
+    assert e["key_object"] == "nomgeo,cvegeo"  # sin espacio: la plataforma no lo recorta (acta 2026-08-30)
     assert e["object_response"] == "datos"
 
 
@@ -263,7 +263,11 @@ def test_un_endpoint_desconocido_cae_a_catalogo_manual():
     c = _campos_remotos()["raro"]
     e = json.loads(c["extra"])
     assert e["catalog_type"] == "manual"
-    assert "catalog_url" not in e
+    # Las cuatro claves van aunque tres queden vacias: sin catalog_url la
+    # plataforma revienta al importar (acta 2026-08-30).
+    assert e["catalog_url"] == ""
+    assert e["object_response"] == ""
+    assert e["key_object"] == ""
     assert c["catalogo_id"] == "1"
 
 
@@ -305,7 +309,7 @@ flujo:
     c = compilar(m)["Formularios"][0]["Campos"][0]
     e = json.loads(c["extra"])
     assert e["catalog_type"] == "manual"
-    assert "catalog_url" not in e
+    assert e["catalog_url"] == ""   # las cuatro claves, aunque vacias (acta 2026-08-30)
     assert c["catalogo_id"] == "1"
 
 
@@ -368,6 +372,73 @@ flujo:
     ajenas = {"accion_id", "tamano"}
     assert set(a) - ajenas == set(b) - ajenas, "el conjunto de claves difiere del export"
     for k in set(a) - ajenas:
-        assert a[k] == b[k], f"'{k}': emitimos {a[k]!r}, el export trae {b[k]!r}"
+        if k == "key_object":
+            # Divergencia deliberada y verificada: el export trae "nomgeo, cvegeo"
+            # con espacio, pero la plataforma parte por la coma sin recortarlo y
+            # la cascada falla (acta 2026-08-30). Emitimos sin espacio. Se
+            # compara ignorando espacios, que aun detecta una transposicion.
+            assert a[k].replace(" ", "") == b[k].replace(" ", ""), \
+                f"key_object difiere del export mas alla del espacio: {a[k]!r} vs {b[k]!r}"
+            assert " " not in a[k], "emitimos key_object sin espacio"
+        else:
+            assert a[k] == b[k], f"'{k}': emitimos {a[k]!r}, el export trae {b[k]!r}"
     assert nuestro["catalogo_id"] == suyo["catalogo_id"]
     assert nuestro["dependiente_campo"] == suyo["dependiente_campo"]
+
+
+# --- Correcciones tras la prueba de importacion en la plataforma (2026-08-30) ---
+# Ver planeacion/actas/2026-08-30-prueba-en-plataforma.md
+
+def test_un_select_manual_emite_las_cuatro_claves_de_catalogo():
+    """La plataforma revento con 'Undefined property: stdClass::$catalog_url'
+    (CampoSelect.php:468) al importar un select manual que solo traia
+    catalog_type. La bitacora interna del 2026-08-10 ya lo decia: las cuatro
+    claves son requeridas aunque vayan vacias. El export autentico las omite
+    porque muestra lo que la plataforma PRODUCE, no lo que su importador ACEPTA."""
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    m = Manifiesto(**yaml.safe_load("""
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: sexo, etiqueta: Sexo, tipo: select, catalogo: [{etiqueta: H, valor: h}]}
+flujo:
+  tareas: [{id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]},
+           {id: tf, nombre: Fin, terminal: true}]
+  conexiones: [{de: t1, a: tf}]
+"""))
+    e = json.loads(compilar(m)["Formularios"][0]["Campos"][0]["extra"])
+    assert e["catalog_type"] == "manual"
+    for clave in ("catalog_url", "object_response", "key_object"):
+        assert clave in e, f"falta '{clave}' — la plataforma revienta sin ella"
+        assert e[clave] == "", f"'{clave}' debe ir vacia en un catalogo manual"
+
+
+def test_key_object_no_lleva_espacio_tras_la_coma():
+    """La plataforma parte key_object por la coma SIN recortar espacios: con
+    'nomgeo, cvegeo' acabo buscando una clave ' cvegeo' (con espacio) que no
+    existe, y la cascada devolvio 404. Observado en el municipio del proceso
+    1045. Se emite sin espacio."""
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    m = Manifiesto(**yaml.safe_load("""
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: estado_sol, etiqueta: Estado, tipo: select, endpoint: mgee}
+flujo:
+  tareas: [{id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]},
+           {id: tf, nombre: Fin, terminal: true}]
+  conexiones: [{de: t1, a: tf}]
+"""))
+    e = json.loads(compilar(m)["Formularios"][0]["Campos"][0]["extra"])
+    assert e["key_object"] == "nomgeo,cvegeo", "sin espacio tras la coma"
+    assert " " not in e["key_object"]
