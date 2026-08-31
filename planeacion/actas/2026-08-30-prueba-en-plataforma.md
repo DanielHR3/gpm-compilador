@@ -117,3 +117,65 @@ lo que su importador acepta.
 
 El proceso **1045 — "PRUEBA DGT - cascada de catalogos (borrar)"** quedó en la
 plataforma. Nombrado así a propósito para que sea evidente que se puede eliminar.
+
+---
+
+## Segunda prueba — 2026-08-31, con los arreglos (proceso 1046)
+
+Se re-importó `prueba-cascada-v2.gpm`, compilado con las dos correcciones.
+Resultado del import: proceso **1046** (de nuevo, la plataforma reasignó el id;
+emitimos 50604). Homoclave asignada por ella.
+
+### Confirmado — Resultado 2 ARREGLADO (el error de PHP)
+
+En la vista del formulario del proceso 1046, el campo `sexo_manual` (catálogo
+manual) **ya no muestra ningún error**. Los tres campos se dibujan limpios.
+Comparado con el proceso 1045, donde el mismo campo mostraba el recuadro rojo
+`Undefined property: stdClass::$catalog_url`. **Emitir las cuatro claves
+(catalog_url/object_response/key_object vacías) resolvió el fallo.** La bitácora
+del 10-ago tenía razón.
+
+### Confirmado — Resultado 4b ARREGLADO (el espacio de key_object)
+
+Leído el DOM del proceso 1046:
+
+- `estado_sol` se pobló con los 32 estados **y sus valores correctos**:
+  `Hidalgo=13`, `Aguascalientes=01`, etc. En el proceso 1045 el `read_page` no
+  llegaba a mostrar esos valores.
+- Las opciones de `municipio_sol` ahora traen `value="cvegeo"` **sin el espacio
+  delante** (en 1045 era `value=" cvegeo"`).
+
+**Quitar el espacio de key_object corrigió la lectura de la clave.**
+
+### Sigue abierto — Resultado 4a (interpolación del campo padre)
+
+`municipio_sol` sigue mostrando el error de INEGI `Para la clave <> <> no existe
+información`. Se comprobó por JavaScript que seleccionar Hidalgo en `estado_sol`
+y disparar el evento `change` **no repobla** `municipio_sol` en la vista del
+constructor.
+
+**Diagnóstico:** la vista de edición del modelador es el *form builder*; no
+cablea la cascada. La interpolación de `@@estado_sol` y el repoblado por
+`dependent_populated`/`populated_by` solo ocurren en el **runtime del ciudadano**
+(el formulario publicado que llena el solicitante). Esa prueba no se hizo: exige
+previsualizar o publicar el trámite como ciudadano, un flujo distinto.
+
+**Lo que SÍ quedó verificado del lado del `.gpm`:** la plataforma almacenó
+`catalog_url` con `@@estado_sol`, `dependent_populated:"1"` y
+`populated_by:["estado_sol"]` — el import los aceptó sin quejarse. Si el runtime
+del ciudadano los honra o no es lo único que falta.
+
+### Balance
+
+| Pregunta | Estado |
+|---|---|
+| `catalog_type: "manual"` sin las 4 claves | **Arreglado y confirmado** |
+| `key_object` con espacio | **Arreglado y confirmado** |
+| Catálogo remoto simple (Estado) | Funciona, con valores correctos |
+| Cascada de punta a punta (4a) | Pendiente del runtime del ciudadano |
+| `proceso_id` ajeno | La plataforma lo reasigna (1046). Sin cambio |
+
+### Limpieza pendiente
+
+Quedan DOS procesos de prueba: **1045** (v1, con el error) y **1046** (v2,
+arreglado). Ambos "PRUEBA DGT - cascada de catalogos (borrar)".
