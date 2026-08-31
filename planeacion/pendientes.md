@@ -89,24 +89,18 @@ un borde.
 
 ---
 
-## Preguntas que solo se cierran frente a la plataforma
+## Preguntas de plataforma — estado al 2026-08-31
 
-`CLAUDE.md` registra desde el 2026-08-28 que las tres primeras quedaron resueltas por una
-prueba empírica. **Esa prueba no está documentada en el repositorio**: no consta qué archivo
-se importó, en qué fecha, ni qué se observó. El propio `CLAUDE.md` exigía que el cambio no
-se hiciera "sin que exista esa prueba documentada".
+Las tres preguntas que la bitácora del 28-ago daba por "resueltas empíricamente" sin acta ya
+tienen respuesta real, documentada en `actas/2026-08-30-prueba-en-plataforma.md`:
 
-Si la prueba ocurrió —y es plausible que sí—, vale la pena escribir el acta: qué `.gpm`, qué
-pantalla de la plataforma, qué se vio. Sin eso, la siguiente persona no puede distinguir un
-hallazgo de una suposición.
-
-1. **¿Basta `catalog_type: "manual"` en un `select` sin `catalog_url`?** El export auténtico
-   trae solo esa clave; la bitácora interna del 2026-08-10 pide cuatro.
-2. **¿Acepta la plataforma un `proceso_id` que ella no emitió?** Importa además porque con
-   el `"900"` fijo anterior *todos* los trámites compartían la fila 900 del contador de
-   folios (`acciones.py` emite `->where('proceso_id', …)`), lo que colisiona contra el
-   primer invariante del dominio.
-3. **`SINTAXIS_ESTRICTA`** — `@@campo=='valor'` contra `@@campo->value === 'valor'`.
+1. **¿Basta `catalog_type: "manual"` sin `catalog_url`?** **NO** — reventaba
+   (`CampoSelect.php:468`). Arreglado y reconfirmado (PLAT-1, arriba).
+2. **¿Acepta la plataforma un `proceso_id` ajeno?** **NO** — lo reasigna, y no reescribe las
+   referencias dentro de las acciones (PLAT-4, arriba). El folio se rompe.
+3. **`SINTAXIS_ESTRICTA`** — **sigue sin poder probarse**: exige un `.gpm` con una compuerta
+   con regla de transición, y ningún `.gpm` que este compilador produce tiene una (el flujo
+   sale lineal, `FLU-01`). Para probarla habría que ramificar un manifiesto a mano primero.
 
 ## Menores conocidos
 
