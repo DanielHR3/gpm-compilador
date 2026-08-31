@@ -9,3 +9,7 @@ __pycache__/
 *.pdf
 despliegue/servidor.log
 scratch/
+
+# Borradores de un solo uso: editar archivos directamente, no con scripts
+fix_*.py
+dummy*.md
