@@ -34,11 +34,11 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
 
     Un select siempre declara de que tipo es su catalogo y siempre lleva
     catalogo_id "1": asi lo traen los dos exports autenticos, sin una sola
-    excepcion. Eso esta verificado. La bitacora interna del 2026-08-10 sostiene
-    ademas que sin catalog_type la vista de la plataforma revienta con
-    "Undefined property: stdClass::$catalog_url" (CampoSelect.php); el export
-    autentico no lo confirma y nadie ha importado un .gpm para comprobarlo, asi
-    que esa causa queda como hipotesis pendiente de prueba en la plataforma.
+    excepcion. Eso esta verificado. Que sin catalog_type la plataforma reviente al
+    importar con "Undefined property: stdClass::$catalog_url" (CampoSelect.php:468)
+    ya no es hipotesis: se confirmo importando un .gpm el 2026-08-31 (PLAT-1, ver
+    planeacion/actas/2026-08-30-prueba-en-plataforma.md). Por eso un select siempre
+    emite las cuatro claves de catalogo aunque tres queden vacias.
     """
     extra = {"tamano": ANCHOS[c.ancho]}
     catalogo_id = None

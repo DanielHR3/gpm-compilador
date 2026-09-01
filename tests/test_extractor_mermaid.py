@@ -122,6 +122,15 @@ def test_el_texto_de_la_nota_pierde_las_barras():
     assert "/" not in texto
 
 
+def test_la_forma_de_barras_gana_sobre_un_carril_real():
+    """Comportamiento fijado: `[/texto/]` es nota por su FORMA aunque declare un
+    carril de actor real. El paralelogramo `[/.../]` es la señal de nota en estos
+    expedientes y no se deja anular por un `:::ciudadano` contradictorio; ante la
+    duda, un nodo con forma de nota no se ejecuta como tarea."""
+    r = extraer("flowchart TD\n  A[X]:::ciudadano --> N[/Aviso al ciudadano/]:::ciudadano")
+    assert {n.id: n for n in r.nodos}["N"].clase_nodo == "nota"
+
+
 def test_las_notas_no_se_cuentan_como_tareas():
     r = extraer(CON_NOTAS)
     assert [n.id for n in r.nodos if n.clase_nodo == "tarea"] == ["C1", "F1"]

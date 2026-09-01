@@ -31,6 +31,26 @@ def test_cuenta_las_integraciones_por_origen():
     assert estimar(Manifiesto.model_validate(d)).metricas.integraciones == 1
 
 
+def test_de_punta_a_punta_diccionario_extractor_estimador(tmp_path):
+    """Deuda de proceso: ninguna prueba recorría Diccionario → extractor → estimador,
+    así que quitar 'origen' del extractor dejó `integraciones` en 0 para un trámite
+    con integraciones sin que nada fallara. Esta prueba cruza esa frontera: un campo
+    con endpoint declarado en el Diccionario debe llegar a estimador.integraciones."""
+    from gpmc.extractores.expediente import extraer_expediente
+    dicc = (
+        "### Pantalla 1 — Solicitante — Datos\n\n"
+        "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Endpoint | Descripcion |\n"
+        "| Estado | Texto | select | mgee | El estado @@estado |\n"
+    )
+    carpeta = tmp_path / "exp"
+    carpeta.mkdir()
+    (carpeta / "5.-Diccionario de Datos.md").write_text(dicc, encoding="utf-8")
+    r = extraer_expediente(carpeta)
+    assert r.manifiesto is not None, r.huecos
+    met = estimar(r.manifiesto).metricas
+    assert met.integraciones == 1, "el endpoint del Diccionario debe contarse como integración"
+
+
 def test_clasifica_pero_marca_la_escala_como_no_calibrada():
     e = estimar(Manifiesto.model_validate(BASE))
     assert e.nivel in ("Bajo", "Medio", "Complejo")

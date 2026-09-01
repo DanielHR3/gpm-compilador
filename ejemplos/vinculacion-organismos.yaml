@@ -42,6 +42,19 @@ pantallas:
         catalogo:
           - {etiqueta: Persona Física, valor: persona_fisica}
           - {etiqueta: Persona Moral, valor: persona_moral}
+      # Un select con catálogo remoto y su cascada: ejercita el camino de
+      # serialización de select (catalogo_id, catalog_url, key_object).
+      - nombre: estado_sol
+        etiqueta: Estado
+        tipo: select
+        obligatorio: true
+        endpoint: mgee
+      - nombre: municipio_sol
+        etiqueta: Municipio
+        tipo: select
+        obligatorio: true
+        endpoint: mgem
+        dependencia_campo: estado_sol
   - id: p2_revision
     nombre: Revisión documental
     actor: coinhi

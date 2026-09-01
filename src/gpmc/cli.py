@@ -69,7 +69,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     c = sub.add_parser("compilar", help="manifiesto YAML -> archivo .gpm")
     c.add_argument("manifiesto", type=Path)
     c.add_argument("-o", "--salida", type=Path, required=True)
-    c.add_argument("--proceso-id", default="900")
+    # Vacío por omisión: compilar() deriva el proceso_id del nombre del trámite,
+    # igual que el asistente web. La plataforma lo reasigna al importar (PLAT-4),
+    # así que el valor emitido no llega a producción; lo que importa es que los dos
+    # caminos —CLI y web— deriven igual y de forma determinista.
+    c.add_argument("--proceso-id", default="")
 
     v = sub.add_parser("validar", help="revisa un .gpm existente")
     v.add_argument("archivo", type=Path)
@@ -79,6 +83,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     e.add_argument("-o", "--salida", type=Path, required=True)
     e.add_argument("--huecos", "-H", action="store_true",
                    help="lista todos los huecos sin truncar")
+    e.add_argument("--nombre", default="",
+                   help="nombre del trámite cuando no hay AS-IS (P-03); "
+                        "el asistente web lo pide en la portada")
 
     s_ = sub.add_parser("estimar", help="complejidad y tiempo de ciclo de un manifiesto")
     s_.add_argument("manifiesto", type=Path)
@@ -145,6 +152,10 @@ def main(argv: Optional[list[str]] = None) -> int:
             for h in r.huecos:
                 print(f"  - {h}", file=sys.stderr)
             return 2
+        # P-03: sin AS-IS el nombre cae al de la carpeta y se filtra al archivo y al
+        # proceso_id. --nombre lo suple, como la portada del asistente web.
+        if args.nombre and args.nombre.strip():
+            r.manifiesto.tramite.nombre = args.nombre.strip()
         guardar(r.manifiesto, args.salida)
         print(f"Generado: {args.salida}")
         print(f"  {len(r.manifiesto.pantallas)} pantallas, "

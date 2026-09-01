@@ -62,6 +62,29 @@ def test_extraer_agrupa_huecos_por_nivel(tmp_path, capsys):
     assert "[INS-01]" in out
 
 
+def test_extraer_nombre_sobrescribe_el_del_expediente(tmp_path):
+    """P-03: sin AS-IS el nombre cae al de la carpeta ('exp'), que se filtra al
+    nombre del archivo descargado y al proceso_id derivado. El asistente web ya pide
+    el nombre en la portada; --nombre da ese mismo camino a la CLI. Es un override
+    explícito: si el analista lo pasa, gana."""
+    import yaml
+    salida = tmp_path / "t.yaml"
+    codigo = main(["extraer", str(_exp(tmp_path)), "-o", str(salida), "--nombre", "Mi Trámite"])
+    assert codigo == 0
+    m = yaml.safe_load(salida.read_text(encoding="utf-8"))
+    assert m["tramite"]["nombre"] == "Mi Trámite"
+
+
+def test_extraer_sin_nombre_no_inventa(tmp_path):
+    """Sin --nombre no se toca el nombre que derivó el extractor: --nombre suple, no
+    fabrica por su cuenta."""
+    import yaml
+    salida = tmp_path / "t.yaml"
+    main(["extraer", str(_exp(tmp_path)), "-o", str(salida)])
+    m = yaml.safe_load(salida.read_text(encoding="utf-8"))
+    assert m["tramite"]["nombre"] == "exp"  # el nombre de la carpeta
+
+
 def test_bandera_huecos_no_trunca(tmp_path, capsys):
     # Diccionario con muchos campos sin @@ para forzar truncado por defecto
     filas = "\n".join(

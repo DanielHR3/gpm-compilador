@@ -95,7 +95,10 @@ def extraer(bloque: str) -> Resultado:
             crudo = m["tarea"]
             # Los expedientes anotan el diagrama con la forma [/texto/] y el
             # carril 'nota'. Se aceptan ambas senales: la clase la declara
-            # SINONIMOS, la forma cubre las notas que no declaran clase.
+            # SINONIMOS, la forma cubre las notas que no declaran clase. La forma
+            # de barras GANA sobre un carril real contradictorio ([/x/]:::ciudadano
+            # sale nota): ante la duda, un nodo con forma de nota no se ejecuta como
+            # tarea. Ver test_la_forma_de_barras_gana_sobre_un_carril_real.
             recortado = (crudo or "").strip()
             es_nota = (
                 normalizar_actor(m["clase"] or "") == "_nota"

@@ -90,6 +90,24 @@ def test_compilar_dos_veces_produce_lo_mismo():
     assert serializar(compilar(m)) == serializar(compilar(m))
 
 
+def test_el_ejemplo_ejercita_la_serializacion_de_un_select_remoto():
+    """El ejemplo trae un select con catálogo remoto (estado_sol/mgee) y su cascada
+    (municipio_sol). Sin un select en ejemplos/, la serialización de ese camino
+    —catalogo_id, catalog_url, key_object— nunca se ejercitaba desde un manifiesto
+    real."""
+    g = compilar(cargar(EJEMPLO))
+    campos = {c["nombre"]: c for f in g["Formularios"] for c in f["Campos"]}
+    estado = campos["estado_sol"]
+    assert estado["catalogo_id"] == "1"
+    extra = json.loads(estado["extra"])
+    assert extra["catalog_type"] == "url"
+    assert extra["catalog_url"].endswith("/mgee")
+    assert extra["key_object"] and " " not in extra["key_object"]
+    # La cascada declara su padre en el mismo campo, no en la raíz.
+    muni = json.loads(campos["municipio_sol"]["extra"])
+    assert muni["populated_by"] == ["estado_sol"]
+
+
 def test_el_ejemplo_compila_con_su_accion_de_folio():
     g = compilar(cargar(EJEMPLO))
     assert len(g["Acciones"]) == 1
