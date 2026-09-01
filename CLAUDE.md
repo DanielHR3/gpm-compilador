@@ -107,17 +107,24 @@ riesgo SEG-04 ("fuga de secretos: API keys de Keycloak y RENAPO expuestas en las
 del navegador"). Un trámite que pida un endpoint autenticado se reporta como hueco y se manda a
 una Acción PHP.
 
-## Cuestión abierta
+## Cuestión resuelta: `SINTAXIS_ESTRICTA` (2026-08-31)
 
-`SINTAXIS_ESTRICTA` en `nucleo/reglas.py` está en `False`. Controla si una regla de transición se
-emite como `@@campo=='valor'` o como `@@campo->value === 'valor'`.
+`SINTAXIS_ESTRICTA` en `nucleo/reglas.py` está en `False` y **ahí se queda**. Controla si una
+regla de transición se emite como `@@campo=='valor'` o como `@@campo->value === 'valor'`.
 
-Hay documentación que sostiene que la primera forma falla con campos complejos, pero **los
-exports de referencia disponibles la usan**. No se puede resolver leyendo archivos: requiere una
-prueba empírica en la plataforma.
+La documentación interna sostenía que la primera forma falla con campos complejos. Quedó
+**refutado con prueba empírica en la plataforma**, documentada en
+`planeacion/actas/2026-08-30-prueba-en-plataforma.md`:
 
-**No cambies esa constante sin que exista esa prueba documentada.** Cuando llegue la respuesta,
-es lo único que hay que tocar.
+- Cuatro exports auténticos **publicados** usan `@@campo == "valor"` sobre campos `select`
+  (constancia-ambiental, pago-de-bases, test-ciudadano-4-pasos, busqueda-testamento).
+- Prueba de runtime: un trámite compilado con la constante en `False` emitió `@@procede=='si'`
+  sobre un `select`, y en el portal del ciudadano el flujo **avanzó** al elegir la rama. La
+  tarea de origen sólo tenía salidas condicionales (sin transición por defecto), así que sólo
+  pudo avanzar porque una regla con `==` evaluó verdadero.
+
+La prueba confirma el valor actual (`False`); no exige cambiarlo. **Sigue en pie que no se
+cambie la constante sin una prueba documentada** — y la que hay respalda `False`.
 
 ### Las tres preguntas del 2026-08-28, ya probadas en la plataforma (con acta)
 

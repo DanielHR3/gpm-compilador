@@ -5,15 +5,22 @@ las reglas por su cuenta, el simulador mentiria sobre lo que hara la plataforma.
 
 Sobre SINTAXIS_ESTRICTA
 -----------------------
-la guía de modelado interna sostiene que comparar un campo complejo (select, radio)
+la guía de modelado interna sostenia que comparar un campo complejo (select, radio)
 con == "siempre falla en produccion", y que la forma correcta es
-`@@campo->value === 'valor'`. Los dos exports autenticos disponibles usan la
-forma con ==, incluido el producido por una implementacion. La cuestion no se puede
-resolver leyendo archivos.
+`@@campo->value === 'valor'`. Eso quedo REFUTADO el 2026-08-31:
 
-Hasta que una prueba empirica en la plataforma lo determine, se emite la forma
-que estos exports muestran y la constante queda apagada. Ver la seccion 9.bis
-del documento de diseno.
+- Cuatro exports autenticos publicados usan `@@campo == "valor"` sobre campos de
+  tipo `select` (constancia-ambiental, pago-de-bases, test-ciudadano-4-pasos,
+  busqueda-testamento). No es cierto que la forma con == no exista con campos
+  complejos: la usa produccion.
+- Prueba de runtime en el portal del ciudadano: un tramite compilado con esta
+  constante en False emitio `@@procede=='si'` sobre un `select`, y en el runtime
+  el flujo AVANZO al elegir la rama. La tarea de origen solo tenia salidas
+  condicionales (sin transicion por defecto), asi que solo pudo avanzar porque una
+  regla con == evaluo verdadero. Ver planeacion/actas/2026-08-30-prueba-en-plataforma.md.
+
+La constante se queda en False: la prueba confirma el valor actual, no exige
+cambiarlo.
 """
 
 import re

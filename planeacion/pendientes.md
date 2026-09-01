@@ -1,6 +1,6 @@
 # Pendientes — estado verificado
 
-Última verificación: 2026-08-31, suite en **240 passed, 22 skipped**.
+Última verificación: 2026-08-31, suite en **245 passed, 22 skipped**.
 
 Este archivo solo registra lo que se comprobó ejecutando código o importando a la
 plataforma. Una afirmación sin evidencia aquí vale menos que nada: hace que alguien deje de
@@ -23,64 +23,26 @@ buscar.
 | — | ¿El compilador sirve para *crear* `.gpm` importables? | **Sí, verificado en la plataforma el 2026-08-31**: expediente real → `.gpm` → import completo → export de vuelta con los mismos conteos |
 | **PLAT-3** | La cascada estado→municipio no se había probado en el runtime del ciudadano | **CONFIRMADA en el portal** (`tramites.hidalgo.gob.mx`, expediente real, 2026-08-31): al elegir "Hidalgo" salió `GET .../mgem/13` → 200 y Municipio se pobló con los municipios reales. La plataforma interpola `@@estado_sol`→`13`. Sexta prueba del acta |
 | **PLAT-6** | `add_in_menu` hardcodeado en `0`: un trámite `publico:true` no aparecía en el portal | Los 12 exports mueven `public` y `add_in_menu` juntos. Atado `add_in_menu` a `publico`; tras recompilar, el trámite entró al catálogo del portal (132→133). `test_publico_activa_public_y_add_in_menu_juntos` en verde |
+| **PLAT-4** | `php_folio` hardcodeaba un `proceso_id` que la plataforma reasigna al importar → folio roto | **Causa raíz:** el esquema `proceso_folio`/`proceso_id` fue inventado. Los dos exports con folio (`constancia-ambiental`, `pago-de-bases`) llavean el contador por el **nombre de la variable** en `dato_seguimiento`.`valor`, con `lockForUpdate` y sin `proceso_id`. `php_folio` emite ahora esa forma; `FOLIO-02` la exige; el invariante de `CLAUDE.md` corregido. Importa y corre en runtime sin el fallo. (Nota: no se reproduce el `// Fixed Race Condition` del export — en una línea comentaría el `return`.) |
+| **P-03** | Sin AS-IS el nombre caía al de la carpeta y se filtraba al archivo y al `proceso_id` | La portada del asistente web ya pedía el nombre (`web/app.py`); se añadió `gpmc extraer --nombre` para el mismo camino en la CLI. `test_extraer_nombre_sobrescribe_el_del_expediente` en verde |
+| **SINTAXIS_ESTRICTA** | ¿La forma simple `@@campo=='valor'` falla con campos complejos? | **REFUTADO con prueba en la plataforma** (séptima prueba del acta): `@@procede=='si'` sobre un `select` hizo avanzar el flujo en el runtime del ciudadano, y cuatro trámites de producción publicados usan esa forma sobre selects. La constante se queda en `False` |
+| — | `cli compilar --proceso-id` fijaba `"900"`, inconsistente con el web | Por omisión ahora deriva del nombre, como el web. La plataforma lo reasigna igual (PLAT-4) |
+| — | Ninguna prueba cruzaba Diccionario → extractor → estimador (dejó pasar el bug de `origen`) | `test_de_punta_a_punta_diccionario_extractor_estimador`: un endpoint en el Diccionario llega a `estimador.integraciones` |
+| — | `ejemplos/` no traía ningún `select`: la serialización de ese camino no se ejercitaba | `ejemplos/vinculacion-organismos` trae un select con catálogo remoto y su cascada; `test_el_ejemplo_ejercita_la_serializacion_de_un_select_remoto` en verde |
 
 ## Abiertos
 
-### PLAT-4 · Resuelto del lado del compilador; avance de contador es mecanismo de plataforma (2026-08-31)
+**Ninguno bloqueante.** Todo lo del compilador quedó cerrado el 2026-08-31; la suite pasa en
+245. Quedan sólo estas dos notas, que no son defectos de este repo:
 
-El defecto: la plataforma reasigna el `proceso_id` al importar y **no reescribe** las
-referencias `->where('proceso_id', N)` dentro del PHP de las acciones (confirmado en el
-proceso 1047). Nuestro `php_folio` hardcodeaba ese `proceso_id`, así que el folio quedaba
-roto tras importar.
-
-**Causa raíz:** el esquema `proceso_folio`/`proceso_id` de nuestro `php_folio` **fue
-inventado**. Los dos exports auténticos que sí tienen folio (`constancia-...-ambiental`,
-`pago-de-bases-licitaciones`) llavean el contador por el **nombre de la variable** en
-`dato_seguimiento` (columna `valor`), con `lockForUpdate` y **sin `proceso_id`**.
-
-**Corregido:** `php_folio` emite ahora la forma auténtica (sin `proceso_id`, sin write-back);
-el validador `FOLIO-02` verifica que el folio bloquee `dato_seguimiento`; el invariante de
-`CLAUDE.md` se corrigió (`contador` → `dato_seguimiento.valor`). Suite en 239. Además se
-detectó que el export auténtico trae un `// Fixed Race Condition` en la misma línea que
-comentaría el `return`; no lo reproducimos. Ver acta, cuarta/quinta prueba.
-
-**Estado (2026-08-31):** resuelto del lado del compilador. Emitimos **exactamente** la forma
-de dos trámites de producción que funcionan; verificado que importa sin `proceso_id` y que
-corre en un expediente real. La única pieza no observada directamente es el **avance** del
-contador `valor` (nuestro trámite de prueba no muestra el folio y el backend no lo expone en
-las vistas revisadas), pero el incremento de `valor` es mecanismo de plataforma, el mismo que
-usan esos dos trámites reales. Si algún día se quiere evidencia directa del avance: un trámite
-con acción `documento` que imprima `{{folio}}` y dos expedientes. Suite en 240.
-
-### P-03 · Sin AS-IS, todos los trámites se ven iguales
-
-Subiendo solo el Diccionario, el trámite queda sin nombre y `/revisar` y `/historial`
-muestran `[por confirmar]` para todos. `META-04` sí se reporta, pero el nombre no es el
-lugar donde se reporta un hueco: se filtra además al nombre del archivo descargado y al
-`proceso_id` derivado.
-
-La revisión final recomendó que la portada pida el nombre del trámite cuando no hay AS-IS.
-El Diccionario es el único insumo obligatorio, así que ese camino es de primera clase, no
-un borde.
-
-### Deuda de proceso
-
-- **`cli.py:72` fija `--proceso-id` en `"900"` por omisión; el asistente web lo deriva del
-  nombre.** Es una inconsistencia entre los dos caminos, pero tras verificar que la
-  plataforma **reasigna** el `proceso_id` al importar (PLAT-4), el valor emitido no llega a
-  importar de todos modos. Lo que sí importa es la referencia interna de `acciones.py`
-  (`->where('proceso_id', N)`), y eso está en PLAT-4. No arreglar por separado hasta cerrar
-  PLAT-4.
-
-- **`tests/test_estimador.py` construye sus `Campo` a mano y nunca pasa por el
-  extractor.** Esa frontera sin cruzar permitió que quitar `origen` del extractor dejara
-  `estimador.integraciones` en 0 para un trámite con 6 integraciones, sin que ninguna prueba
-  fallara. Detectado y corregido el 2026-08-29, pero el hueco estructural sigue: ninguna
-  prueba recorre Diccionario → extractor → estimador de punta a punta. Volverá a morder.
-
-- **El proceso `1044` ("b5a8defd46ca96d2") sigue en la plataforma.** Es de una sesión anterior
-  con otro agente, con nombre de id de sesión. No salió de esta tarea; conviene revisarlo y
-  borrarlo por separado.
+- **Externo (otra sesión):** el proceso `1044` ("b5a8defd46ca96d2") de otro agente sigue en la
+  plataforma. No es deuda de este compilador; se revisa/borra aparte con quien administra la
+  plataforma. (Los demás procesos de prueba de estas sesiones ya se borraron; los expedientes
+  que quedan huérfanos en la cuenta de prueba no tienen borrado del lado del ciudadano.)
+- **Mejora opcional (no defecto):** ver con los ojos el **avance** del contador de folio exige
+  un trámite con acción `documento` que imprima `{{folio}}` y dos expedientes. PLAT-4 ya está
+  resuelto —emitimos la forma de dos trámites de producción y corre en runtime—; esto sería
+  sólo evidencia visual del consecutivo.
 
 *(Cerrado el 2026-08-31: los 8 scripts `fix_*.py` y los `dummy*.md` sueltos se borraron y
 `.gitignore` ya los excluye. Fase A tiene spec y plan
@@ -88,26 +50,23 @@ un borde.
 
 ---
 
-## Preguntas de plataforma — estado al 2026-08-31
+## Preguntas de plataforma — las tres CERRADAS al 2026-08-31
 
-Las tres preguntas que la bitácora del 28-ago daba por "resueltas empíricamente" sin acta ya
-tienen respuesta real, documentada en `actas/2026-08-30-prueba-en-plataforma.md`:
+Documentadas en `actas/2026-08-30-prueba-en-plataforma.md`:
 
 1. **¿Basta `catalog_type: "manual"` sin `catalog_url`?** **NO** — reventaba
-   (`CampoSelect.php:468`). Arreglado y reconfirmado (PLAT-1, arriba).
-2. **¿Acepta la plataforma un `proceso_id` ajeno?** **NO** — lo reasigna, y no reescribe las
-   referencias dentro de las acciones (PLAT-4, arriba). El folio se rompe.
-3. **`SINTAXIS_ESTRICTA`** — **sigue sin poder probarse**: exige un `.gpm` con una compuerta
-   con regla de transición, y ningún `.gpm` que este compilador produce tiene una (el flujo
-   sale lineal, `FLU-01`). Para probarla habría que ramificar un manifiesto a mano primero.
+   (`CampoSelect.php:468`). Arreglado y reconfirmado (PLAT-1).
+2. **¿Acepta la plataforma un `proceso_id` ajeno?** **NO** — lo reasigna y no reescribe las
+   referencias del PHP (PLAT-4). El folio se corrigió llaveando por variable en
+   `dato_seguimiento`.
+3. **`SINTAXIS_ESTRICTA`** — **PROBADA**: `@@campo=='valor'` evalúa sobre un `select` en el
+   runtime del ciudadano; cuatro trámites de producción usan esa forma sobre selects. La
+   constante se queda en `False`. Ver acta, séptima prueba.
 
-## Menores conocidos
+## Menores — cerrados
 
-- `_campo_gpm` sin anotaciones de tipo, mientras su hermana `_validacion_de` sí las lleva.
-- El docstring de `_campo_gpm` afirma como hecho el fallo de `CampoSelect.php`, que es una
-  de las preguntas de arriba.
-- Ningún manifiesto de `ejemplos/` trae un `select`, así que la prueba de serialización
-  nunca ejercita ese camino.
-- En `test_extractor_mermaid.py`, la señal `:::nota` nunca se ejercita sola: todos los
-  fixtures de nota llevan también la forma `[/.../]`.
-- La forma `[/.../]` marca como nota un nodo aunque declare carril propio.
+- `_campo_gpm` ya llevaba anotaciones de tipo (la nota era vieja).
+- Docstring de `_campo_gpm` actualizado: el fallo de `CampoSelect.php` ya no es hipótesis
+  (confirmado en PLAT-1).
+- `ejemplos/` ya ejercita un `select` (ver tabla de resueltos).
+- `:::nota` sola ya estaba cubierta por el nodo N3 y `test_una_nota_se_reconoce_por_el_carril_sin_la_forma_de_barras`; además se añadió `test_la_forma_de_barras_gana_sobre_un_carril_real`, que fija que `[/.../]` gana sobre un carril real contradictorio (comportamiento intencional, ahora documentado en el código).

@@ -396,3 +396,35 @@ expediente creado (14398) quedó **huérfano** ("No hay ningún nombre") al borr
 proceso; el portal del ciudadano no ofrece borrado de expedientes (ya había varios
 huérfanos así en la cuenta de prueba, de borrados previos). Sin control ciudadano
 para eliminarlo.
+
+---
+
+## Séptima prueba — SINTAXIS_ESTRICTA: `@@campo=='valor'` sobre un select (2026-08-31)
+
+La pregunta abierta más vieja: ¿la forma simple `@@campo=='valor'` (constante
+`SINTAXIS_ESTRICTA=False`) falla con campos complejos, como sostenía la guía interna?
+
+**Evidencia de exports:** cuatro exports auténticos **publicados** usan
+`@@campo == "valor"` sobre campos de tipo **`select`** —`tiene_sancion`
+(constancia-ambiental), `datos_correctos` (pago-de-bases), `es_correcto`
+(test-ciudadano-4-pasos), `documentos_correctos` (busqueda-testamento)—. La forma
+con `==` sobre campos complejos no sólo existe: la usa producción.
+
+**Prueba de runtime:** se compiló un trámite (`prueba-branch`) con un `select`
+`procede` (Sí/No) y dos conexiones condicionales desde la tarea inicial —
+`@@procede=='si'` y `@@procede=='no'`—, **sin transición por defecto**. Publicado
+(proceso 1060) e iniciado en el portal del ciudadano: al elegir "Rama SI" y avanzar,
+**el flujo avanzó** de la tarea inicial al siguiente paso. Como la tarea de origen
+sólo tenía salidas condicionales, sólo pudo avanzar porque una regla con `==`
+evaluó verdadero sobre el `select`.
+
+**Límite de la observación:** el wizard del ciudadano no renderiza la pantalla de
+la tarea-destino de una ramificación (salta a "terminar"), así que no se pudo ver
+en pantalla el rótulo "RAMA SI"; el backend tampoco expone la tarea actual del
+expediente. Pero el avance del flujo ya demuestra que la regla evaluó. Junto con
+los cuatro trámites de producción, refuta el "== siempre falla con campos
+complejos".
+
+**Conclusión:** `SINTAXIS_ESTRICTA` se queda en `False`; la prueba confirma el
+valor actual. Procesos de prueba (1059, 1060) borrados; expedientes huérfanos como
+en las pruebas anteriores.
