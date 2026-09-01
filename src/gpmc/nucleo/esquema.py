@@ -189,7 +189,10 @@ def proceso(
         "icon": None,
         "invited": "0",
         "client_id": "1",
-        "add_in_menu": "0",
+        # 'public' y 'add_in_menu' van juntos en los 12 exports autenticos: un
+        # tramite publico aparece en el menu del ciudadano; sin add_in_menu=1
+        # queda fuera del portal y no se puede iniciar (verificado 2026-08-31).
+        "add_in_menu": "1" if ruts.publico else "0",
         "etapa_vida_id": "1",
         "tipo_apoyo_id": "1",
         "derecho_social_id": "1",

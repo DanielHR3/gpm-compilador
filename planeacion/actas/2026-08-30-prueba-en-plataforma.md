@@ -349,3 +349,50 @@ expediente": iniciar uno exige **publicar el trámite al portal del ciudadano**,
 una acción irreversible y de cara al público en un sistema de gobierno. Se detuvo
 ahí para confirmarlo antes de ejecutarlo. Proceso 1057 queda montado y listo para
 esa prueba; si no se hace, borrar 1057.
+
+---
+
+## Sexta prueba — RUNTIME del ciudadano: cascada confirmada, folio resuelto (2026-08-31)
+
+Se publicó el trámite de prueba al portal del ciudadano (`tramites.hidalgo.gob.mx`)
+y se inició un expediente real para llegar al runtime. Para publicar hizo falta un
+segundo arreglo del compilador (ver abajo). El proceso quedó como **1058**; el
+login lo hizo el usuario (no escribo credenciales).
+
+### Descubrimiento: `add_in_menu` — un trámite público no aparecía en el portal
+
+Con `publico: true` el `.gpm` salía con `public=1` pero `add_in_menu=0` (estaba
+hardcodeado). En los 12 exports auténticos `public` y `add_in_menu` **se mueven
+juntos**: sin `add_in_menu=1` el trámite no entra al menú del ciudadano y no se
+puede iniciar. Corregido: `add_in_menu` sigue a `publico` en `esquema.proceso`.
+Tras recompilar (1058), el trámite apareció en el catálogo del portal (132 → 133).
+
+### PLAT-3 — CASCADA CONFIRMADA EN RUNTIME ✅
+
+En el formulario del ciudadano (expediente real):
+- **Estado** se pobló solo con la lista de INEGI (`mgee`): Aguascalientes, Baja
+  California, Campeche…
+- Al elegir **"Hidalgo"**, la red mostró
+  `GET https://gaia.inegi.org.mx/wscatgeo/v2/mgem/13` → **200**, y **Municipio** se
+  pobló con los municipios reales de Hidalgo (Acatlán, Acaxochitlán, Actopan…).
+- La plataforma interpola `@@estado_sol` → `13` y hace la llamada en cascada.
+  **PLAT-3 cerrado.**
+
+### PLAT-4 — resuelto del lado del compilador
+
+El folio se genera server-side (`crear-folio`, `acciones_antes`), pero este trámite
+de prueba **no muestra el folio en pantalla** y el backend no lo expone en las
+vistas revisadas, así que el **avance** del contador no se pudo leer directamente.
+No se construyó una prueba adicional con folio visible (decisión del usuario). Base
+del cierre: emitimos **exactamente** la forma de dos trámites de producción que
+funcionan (`constancia-ambiental`, `pago-de-bases`); el incremento de
+`dato_seguimiento.valor` es mecanismo de plataforma, el mismo que usan esos
+trámites. Del lado del compilador PLAT-4 queda resuelto y verificado al importar.
+
+### Limpieza
+
+Proceso **1058 borrado** (0 procesos "PRUEBA DGT" restantes en el backend). El
+expediente creado (14398) quedó **huérfano** ("No hay ningún nombre") al borrar el
+proceso; el portal del ciudadano no ofrece borrado de expedientes (ya había varios
+huérfanos así en la cuenta de prueba, de borrados previos). Sin control ciudadano
+para eliminarlo.

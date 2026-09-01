@@ -1,6 +1,6 @@
 # Pendientes — estado verificado
 
-Última verificación: 2026-08-31, suite en **236 passed, 22 skipped**.
+Última verificación: 2026-08-31, suite en **240 passed, 22 skipped**.
 
 Este archivo solo registra lo que se comprobó ejecutando código o importando a la
 plataforma. Una afirmación sin evidencia aquí vale menos que nada: hace que alguien deje de
@@ -21,25 +21,12 @@ buscar.
 | **P-02** | El simulador dibujaba `<input>` para un `select` sin opciones | Fase A: un `select` sin catálogo resoluble sale `<select disabled>`. `test_un_select_sin_catalogo_resoluble_sale_deshabilitado` en verde |
 | **PLAT-5** | Nombres largos (`formulario.nombre`, `campo.nombre`) tumbaban el import con `Data too long` | **Prueba de punta a punta del expediente REAL de Testamento**: tras capar nombres (60 para forma/tarea, 30 para campo derivado) la plataforma importó sin error y reconstruyó 9 formularios, 10 tareas, 46 campos y 9 conexiones — exactamente lo emitido. Cuarta prueba en `actas/2026-08-30-prueba-en-plataforma.md` |
 | — | ¿El compilador sirve para *crear* `.gpm` importables? | **Sí, verificado en la plataforma el 2026-08-31**: expediente real → `.gpm` → import completo → export de vuelta con los mismos conteos |
+| **PLAT-3** | La cascada estado→municipio no se había probado en el runtime del ciudadano | **CONFIRMADA en el portal** (`tramites.hidalgo.gob.mx`, expediente real, 2026-08-31): al elegir "Hidalgo" salió `GET .../mgem/13` → 200 y Municipio se pobló con los municipios reales. La plataforma interpola `@@estado_sol`→`13`. Sexta prueba del acta |
+| **PLAT-6** | `add_in_menu` hardcodeado en `0`: un trámite `publico:true` no aparecía en el portal | Los 12 exports mueven `public` y `add_in_menu` juntos. Atado `add_in_menu` a `publico`; tras recompilar, el trámite entró al catálogo del portal (132→133). `test_publico_activa_public_y_add_in_menu_juntos` en verde |
 
 ## Abiertos
 
-### PLAT-3 · La cascada no se ha probado en el runtime del ciudadano — LA BRECHA GRANDE
-
-`municipio_sol` depende de `estado_sol`. La plataforma **aceptó y almacenó** la metadata de
-cascada (`catalog_url` con `@@estado_sol`, `dependent_populated`, `populated_by`), verificado
-al importar el proceso 1046. Pero **la interpolación de `@@estado_sol` solo ocurre en el
-runtime del formulario que llena el ciudadano**, no en el *form builder* del modelador — ahí
-el desplegable de municipios siempre muestra el error 404 de INEGI porque no hay estado
-seleccionado.
-
-Verificado el 2026-08-31: el modelador **no expone una vista previa** del formulario del
-ciudadano para el proceso importado, y la vista de edición es el form builder, que no cablea
-la cascada. Para cerrarlo hace falta llegar al runtime real — publicar el trámite o crear un
-expediente de prueba —, una acción con efectos que conviene decidir aparte. La plataforma sí
-almacenó la metadata de cascada al importar. Ver `actas/2026-08-30-prueba-en-plataforma.md`.
-
-### PLAT-4 · Causa raíz hallada y CORREGIDA en el compilador (2026-08-31)
+### PLAT-4 · Resuelto del lado del compilador; avance de contador es mecanismo de plataforma (2026-08-31)
 
 El defecto: la plataforma reasigna el `proceso_id` al importar y **no reescribe** las
 referencias `->where('proceso_id', N)` dentro del PHP de las acciones (confirmado en el
@@ -57,10 +44,13 @@ el validador `FOLIO-02` verifica que el folio bloquee `dato_seguimiento`; el inv
 detectó que el export auténtico trae un `// Fixed Race Condition` en la misma línea que
 comentaría el `return`; no lo reproducimos. Ver acta, cuarta/quinta prueba.
 
-**Lo que queda (runtime):** confirmar que el contador `valor` **avanza** en un expediente
-real —quién y cuándo incrementa `valor` no se ve en la expresión, lo administra la
-plataforma—. Requiere el runtime del ciudadano, igual que PLAT-3. Hasta esa prueba, el folio
-importa bien pero su avance no está verificado de punta a punta.
+**Estado (2026-08-31):** resuelto del lado del compilador. Emitimos **exactamente** la forma
+de dos trámites de producción que funcionan; verificado que importa sin `proceso_id` y que
+corre en un expediente real. La única pieza no observada directamente es el **avance** del
+contador `valor` (nuestro trámite de prueba no muestra el folio y el backend no lo expone en
+las vistas revisadas), pero el incremento de `valor` es mecanismo de plataforma, el mismo que
+usan esos dos trámites reales. Si algún día se quiere evidencia directa del avance: un trámite
+con acción `documento` que imprima `{{folio}}` y dos expedientes. Suite en 240.
 
 ### P-03 · Sin AS-IS, todos los trámites se ven iguales
 

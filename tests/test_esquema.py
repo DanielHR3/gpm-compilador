@@ -43,6 +43,27 @@ def test_extra_de_raiz_va_doblemente_codificado():
     assert json.loads(interno)["folio_consecutivo_inicial"] == "1"
 
 
+def test_publico_activa_public_y_add_in_menu_juntos():
+    """En los 12 exports auténticos 'public' y 'add_in_menu' se mueven juntos: un
+    trámite visible en el portal del ciudadano tiene los dos en '1'; los ocultos,
+    los dos en '0'. Emitir 'public=1' con 'add_in_menu=0' deja el trámite fuera del
+    menú del ciudadano, así que no se puede iniciar. Verificado en el portal el
+    2026-08-31."""
+    pub = esquema.proceso(
+        id="1", nombre="X", homoclave="", ruts=esquema.RUTS(publico=True),
+        tareas=[], formularios=[], acciones=[], conexiones=[], documentos=[],
+    )
+    assert pub["public"] == "1"
+    assert pub["add_in_menu"] == "1"
+
+    priv = esquema.proceso(
+        id="1", nombre="X", homoclave="", ruts=esquema.RUTS(publico=False),
+        tareas=[], formularios=[], acciones=[], conexiones=[], documentos=[],
+    )
+    assert priv["public"] == "0"
+    assert priv["add_in_menu"] == "0"
+
+
 def test_conexion_secuencial_versus_evaluacion():
     assert esquema.conexion(1, 10, 20)["tipo"] == "secuencial"
     assert esquema.conexion(1, 10, 20)["regla"] is None
