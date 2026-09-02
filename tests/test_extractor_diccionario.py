@@ -430,3 +430,153 @@ def test_el_nombre_tecnico_propuesto_cabe_en_la_columna_campo():
     ).replace("Campo `@@curp_testador`.", "sin nombre tecnico.")
     c = extraer(texto).pantallas[0].campos[0]
     assert len(c.nombre) <= 31, c.nombre
+
+
+def test_capa_el_nombre_tecnico_declarado_que_desborda_la_columna():
+    """Un `@@nombre` explícito de más de 30 chars reventaba el import con
+    'Data too long for column nombre' (verificado 2026-09-02, expediente de
+    Prórroga: `@@fecha_vencimiento_certificado_anterior`, 38 chars). El
+    extractor solo capaba la ruta de nombre PROPUESTO; el declarado pasaba
+    verbatim. Ahora se capa y se reporta DIC-06 para que una persona ajuste
+    las referencias @@ del TO-BE y de las fórmulas."""
+    texto = MUESTRA.replace(
+        "Campo `@@curp_testador`.",
+        "Campo `@@fecha_vencimiento_del_certificado_anterior`.",
+    )
+    r = extraer(texto)
+    campo = r.pantallas[0].campos[0]
+    assert len(campo.nombre) <= 30, campo.nombre
+    assert not campo.nombre.endswith("_")
+    dic06 = [h for h in r.huecos if h.codigo == "DIC-06"]
+    assert dic06, r.huecos
+    assert dic06[0].nivel == "falta_dato"
+    assert dic06[0].propuesta == campo.nombre
+
+
+def test_capa_el_nombre_de_la_columna_variable_que_desborda_la_columna():
+    texto = """
+### Pantalla 1 — NOTARIO — Captura
+
+| Nombre del Campo | Variable | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Fecha de Vencimiento | fecha_de_vencimiento_del_certificado_anterior | Date | Selector de fecha | Sí | Siempre visible | N/A | N/A | 10/04/2025 | [Captura]. |
+"""
+    r = extraer(texto)
+    campo = r.pantallas[0].campos[0]
+    assert len(campo.nombre) <= 30, campo.nombre
+    assert [h for h in r.huecos if h.codigo == "DIC-06"], r.huecos
+
+
+def test_un_nombre_tecnico_declarado_dentro_del_limite_no_dispara_DIC_06():
+    r = extraer(MUESTRA)
+    assert [h for h in r.huecos if h.codigo == "DIC-06"] == [], r.huecos
+
+
+def test_catalogo_separado_por_comas():
+    """El Diccionario de Reposición lista las opciones del select separadas por
+    comas ('Doble cero, Cero, Uno, Dos, Voluntario'), no por '·'. Sin esto el
+    campo salía sin opciones y la plataforma reventaba al renderizar la vista
+    con 'Invalid argument supplied for foreach()' (models/CampoSelect.php:375)."""
+    texto = MUESTRA.replace("Hombre · Mujer", "Doble cero, Cero, Uno, Dos, Voluntario")
+    sexo = extraer(texto).pantallas[0].campos[1]
+    assert [o.etiqueta for o in sexo.catalogo] == [
+        "Doble cero", "Cero", "Uno", "Dos", "Voluntario",
+    ]
+
+
+def test_catalogo_si_no_declarado_en_la_columna_de_limite():
+    """Los radios booleanos ('¿Es Persona Moral?') traen 'Sí / No' en la columna
+    Límite/Especificaciones y 'N/A' en Catálogo de Valores. El campo salía sin
+    opciones -> foreach() en radio/display.php:4 al abrir la vista."""
+    texto = """
+### Pantalla 1 — CIUDADANO — Datos
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ¿Es Persona Moral? | Boolean | Switch / radio Sí-No | Sí | Siempre visible | Sí / No | N/A | No | [Captura] Campo `@@es_persona_moral`. |
+"""
+    campo = extraer(texto).pantallas[0].campos[0]
+    assert campo.tipo == "radio"
+    assert [o.etiqueta for o in campo.catalogo] == ["Sí", "No"]
+    assert [o.valor for o in campo.catalogo] == ["si", "no"]
+
+
+def test_reporta_hueco_si_un_select_queda_sin_opciones():
+    """Un select/radio sin catálogo parseable ni endpoint es un hueco DIC-07:
+    la vista de la plataforma lo renderiza como lista vacía."""
+    texto = MUESTRA.replace("Hombre · Mujer", "Valores definidos")
+    r = extraer(texto)
+    dic07 = [h for h in r.huecos if h.codigo == "DIC-07"]
+    assert dic07, r.huecos
+    assert dic07[0].nivel == "falta_dato"
+
+
+def test_un_select_con_catalogo_no_dispara_DIC_07():
+    r = extraer(MUESTRA)
+    assert [h for h in r.huecos if h.codigo == "DIC-07"] == [], r.huecos
+
+
+def test_selector_de_fecha_no_se_confunde_con_un_select():
+    """'Selector de fecha (calendario)' contiene la subcadena 'select'
+    ('sele-ctor'). Se clasificaba como lista desplegable y salía como un select
+    vacío en la vista (verificado 2026-09-02, Prórroga: 'Fecha de Vencimiento
+    del Certificado Anterior')."""
+    assert _tipo_de("Selector de fecha (calendario)", "Date") == "date"
+    assert _tipo_de("Lista desplegable (select)", "String") == "select"
+
+
+def test_catalogo_largo_separado_por_medios_puntos_no_se_descarta():
+    """El catálogo de Municipio de Publicación en el Periódico Oficial trae 84
+    valores separados por ' · '. Un tope de conteo lo descartaba y el campo
+    salía sin opciones (regresión detectada 2026-09-02)."""
+    municipios = " · ".join(f"Municipio {i}" for i in range(1, 85))
+    texto = MUESTRA.replace("Hombre · Mujer", municipios)
+    sexo = extraer(texto).pantallas[0].campos[1]
+    assert len(sexo.catalogo) == 84
+
+
+def test_una_lista_por_comas_larguisima_se_trata_como_prosa():
+    """La coma es ambigua: 40+ fragmentos o fragmentos largos son prosa."""
+    prosa = ("si es doble cero, execto e ircopracion . colocar fecha de "
+             "terminacion exacta o la fecha de formato de incorporacion . si es "
+             "cero uno y dos de acuerdo al calendario de verificacion vehicular")
+    texto = MUESTRA.replace("Hombre · Mujer", prosa)
+    sexo = extraer(texto).pantallas[0].campos[1]
+    assert sexo.catalogo == []
+
+
+def test_catalogo_con_envoltura_de_parentesis_y_prefijo():
+    """El Diccionario de Testamento escribe '(catálogo: A, B, C)' — con
+    paréntesis y prefijo. Sin limpiarlos, la primera opción salía como
+    '(catálogo: A' (verificado 2026-09-02, 'Tipo de Testamento')."""
+    texto = MUESTRA.replace(
+        "Hombre · Mujer",
+        "(catálogo: Público abierto, Público Cerrado, Público simplificado)",
+    )
+    sexo = extraer(texto).pantallas[0].campos[1]
+    assert [o.etiqueta for o in sexo.catalogo] == [
+        "Público abierto", "Público Cerrado", "Público simplificado",
+    ]
+
+
+def test_catalogo_separado_por_br():
+    """'Soltero <br>Casado <br>Viudo' — separador HTML."""
+    texto = MUESTRA.replace("Hombre · Mujer", "Soltero <br>Casado <br>Viudo")
+    sexo = extraer(texto).pantallas[0].campos[1]
+    assert [o.etiqueta for o in sexo.catalogo] == ["Soltero", "Casado", "Viudo"]
+
+
+def test_un_campo_booleano_sin_catalogo_explicito_usa_si_no():
+    """'Tipo de Dato = Boolean' con 'Sí-No' en Límite y sin lista en Catálogo:
+    el dominio es {Sí, No}. Salía sin opciones -> foreach() en la vista
+    (verificado 2026-09-02, 'Disposiciones de Contenido Irrevocable')."""
+    texto = """
+### Pantalla 1 — CIUDADANO — Datos
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Disposiciones Irrevocables | Boolean | Switch / radio Sí-No | No | Siempre visible | Sí-No | No | No | [Captura] Campo `@@disposiciones`. |
+"""
+    campo = extraer(texto).pantallas[0].campos[0]
+    assert campo.tipo == "radio"
+    assert [o.valor for o in campo.catalogo] == ["si", "no"]

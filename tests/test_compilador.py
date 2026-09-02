@@ -488,3 +488,69 @@ flujo:
         assert len(f["nombre"]) <= 60, f"nombre de formulario de {len(f['nombre'])} chars"
     for t in g["Tareas"]:
         assert len(t["nombre"]) <= 60
+
+
+# --- select/radio sin opciones: 'datos' nunca puede salir null ---
+# La plataforma hace foreach($datos) al renderizar un select/radio manual:
+# radio/display.php:4 y models/CampoSelect.php:375. Con datos=null suelta
+# "Invalid argument supplied for foreach()" en la vista (verificado 2026-09-02,
+# Reposición de Certificado de Verificación Vehicular; y ni con datos '[]' deja
+# de reventar — verificado 2026-09-02, 'Estado Civil' de Testamento). Un
+# select/radio sin opciones ni endpoint se degrada a input de texto; el hueco
+# DIC-07 del extractor dice que falta el catálogo. Un catálogo remoto
+# (catalog_type url) sí conserva datos=null: lo puebla por AJAX.
+
+_CON_SELECT_RADIO_VACIOS = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: es_persona_moral, etiqueta: "¿Es persona moral?", tipo: radio}
+  - {nombre: tipo_holograma, etiqueta: Tipo, tipo: select}
+  - {nombre: estado_ok, etiqueta: Estado, tipo: select, catalogo: [{etiqueta: A, valor: a}]}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+
+def _campos_vacios():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_SELECT_RADIO_VACIOS)))
+    return {c["nombre"]: c for c in g["Formularios"][0]["Campos"]}
+
+
+def test_un_select_sin_opciones_se_degrada_a_texto():
+    c = _campos_vacios()["tipo_holograma"]
+    assert c["tipo"] == "text", c["tipo"]
+    assert c["datos"] is None
+    assert c["catalogo_id"] is None
+
+
+def test_un_radio_sin_opciones_se_degrada_a_texto():
+    c = _campos_vacios()["es_persona_moral"]
+    assert c["tipo"] == "text", c["tipo"]
+    assert c["datos"] is None
+
+
+def test_un_select_con_opciones_sigue_siendo_select():
+    c = _campos_vacios()["estado_ok"]
+    assert c["tipo"] == "select"
+    assert json.loads(c["datos"]) == [{"etiqueta": "A", "valor": "a"}]
+    assert c["catalogo_id"] == "1"
+
+
+def test_un_select_remoto_conserva_datos_null():
+    """El select con catálogo remoto se puebla por AJAX; datos=null es correcto
+    y así lo traen los exports auténticos (estado_sol/municipio_sol)."""
+    assert _campos_remotos()["estado_sol"]["datos"] is None
+
+
+def test_un_select_manual_con_opciones_no_cambia():
+    assert json.loads(_campos_remotos()["sexo"]["datos"]) == [{"etiqueta": "H", "valor": "h"}]

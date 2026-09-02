@@ -43,7 +43,20 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
     extra = {"tamano": ANCHOS[c.ancho]}
     catalogo_id = None
 
-    if c.tipo == "select":
+    opciones = [o.model_dump() for o in c.catalogo]
+
+    # Un select/radio sin opciones, sin endpoint y sin campo padre revienta la
+    # vista de la plataforma con "Invalid argument supplied for foreach()"
+    # (radio/display.php:4, models/CampoSelect.php:375). Ni datos '[]' lo evita
+    # (verificado 2026-09-02, 'Estado Civil' de Testamento). Se degrada a input
+    # de texto; el hueco DIC-07 del extractor dice que falta el catalogo. Un
+    # endpoint (aunque no se resuelva) se respeta: lo cubre el hueco API-01.
+    tipo = c.tipo
+    if tipo in ("select", "radio") and not opciones \
+            and not c.endpoint and not c.dependencia_campo:
+        tipo = "text"
+
+    if tipo == "select":
         # Un select siempre lleva catalogo_id "1", sea manual o remoto: asi lo
         # traen los dos exports autenticos, sin excepcion.
         catalogo_id = "1"
@@ -83,15 +96,17 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
                 extra["dependent_populated"] = "1"
                 extra["populated_by"] = [c.dependencia_campo]
 
+    datos = opciones or None
+
     return esquema.campo(
         id=str(campo_id),
         nombre=c.nombre,
-        tipo=c.tipo,
+        tipo=tipo,
         etiqueta=c.etiqueta or c.nombre,
         formulario_id=formulario_id,
         posicion=str(posicion),
         validacion=_validacion_de(c),
-        datos=[o.model_dump() for o in c.catalogo] or None,
+        datos=datos,
         extra=extra,
         readonly=c.solo_lectura,
         ayuda=c.ayuda,

@@ -74,6 +74,59 @@ def _revisar_estructura(g: dict) -> list[Hallazgo]:
     return hallazgos
 
 
+# La columna 'campo.nombre' de la plataforma corta en este limite y el import
+# entero falla con "Data too long for column 'nombre'" (verificado 2026-09-02,
+# expediente de Prorroga). El extractor ya capa el nombre; esta regla es la red
+# de seguridad para un manifiesto escrito a mano.
+_LIMITE_NOMBRE_CAMPO = 30
+
+
+def _catalog_type_de(campo: dict) -> str:
+    try:
+        return json.loads(campo.get("extra") or "{}").get("catalog_type", "") or ""
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        return ""
+
+
+def _revisar_campos(g: dict) -> list[Hallazgo]:
+    hallazgos = []
+    for f in g.get("Formularios", []):
+        for c in f.get("Campos", []):
+            nombre = str(c.get("nombre") or "")
+            ubic = f"Formularios/{f.get('id')}/{nombre}"
+            if len(nombre) > _LIMITE_NOMBRE_CAMPO:
+                hallazgos.append(Hallazgo(
+                    "EST-05", "bloqueante",
+                    f"el nombre tecnico '{nombre}' tiene {len(nombre)} caracteres; la "
+                    f"columna 'campo.nombre' corta en {_LIMITE_NOMBRE_CAMPO} y el import "
+                    f"falla con 'Data too long for column nombre'",
+                    ubic,
+                ))
+
+            # La plataforma hace foreach($datos) al renderizar un select/radio
+            # (radio/display.php:4, models/CampoSelect.php:375). Un catalogo
+            # remoto (catalog_type 'url') se puebla por AJAX y datos=null es
+            # correcto; en cualquier otro caso null revienta la vista con
+            # "Invalid argument supplied for foreach()" (verificado 2026-09-02).
+            if c.get("tipo") in ("select", "radio") and _catalog_type_de(c) != "url":
+                datos = c.get("datos")
+                if datos is None:
+                    hallazgos.append(Hallazgo(
+                        "EST-06", "bloqueante",
+                        f"el campo {c.get('tipo')} '{nombre}' no lleva 'datos' (null); la "
+                        f"vista revienta con 'Invalid argument supplied for foreach()'",
+                        ubic,
+                    ))
+                elif datos in ("[]", "", "null"):
+                    hallazgos.append(Hallazgo(
+                        "EST-06", "aviso",
+                        f"el campo {c.get('tipo')} '{nombre}' no tiene opciones; la "
+                        f"plataforma lo renderiza como lista vacia",
+                        ubic,
+                    ))
+    return hallazgos
+
+
 def _revisar_acciones(g: dict) -> list[Hallazgo]:
     hallazgos = []
     for a in g.get("Acciones", []):
@@ -153,6 +206,7 @@ def _revisar_sintaxis(g: dict) -> list[Hallazgo]:
 def revisar(gpm: dict) -> list[Hallazgo]:
     return (
         _revisar_estructura(gpm)
+        + _revisar_campos(gpm)
         + _revisar_acciones(gpm)
         + _revisar_credenciales(gpm)
         + _revisar_sintaxis(gpm)

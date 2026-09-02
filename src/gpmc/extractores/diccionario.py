@@ -41,7 +41,29 @@ _CAMPO_TECNICO = re.compile(r"@@(\w+)")
 _LONGITUD = re.compile(r"(\d+)\s*caracteres")
 _ENDPOINT = re.compile(r"`?([\w/-]+)`?")
 
+# La columna 'campo.nombre' de la plataforma corta los nombres tecnicos largos y
+# tumba el import entero con "Data too long for column 'nombre'" (verificado
+# 2026-09-02: expediente de Prorroga con `@@fecha_vencimiento_certificado_anterior`,
+# 38 chars). Los exports autenticos no pasan de 31. 30 es el tope que ya usaba la
+# ruta de nombre propuesto; ahora se aplica tambien al nombre que el analista
+# declara a mano (columna Variable o `@@` en la Descripcion).
+LIMITE_NOMBRE_CAMPO = 30
+
+
+def _capar_nombre(nombre: str) -> "tuple[str, bool]":
+    """Devuelve (nombre, fue_capado). Recorta a LIMITE_NOMBRE_CAMPO y limpia el
+    '_' que quede colgando al cortar a mitad de palabra."""
+    if len(nombre) <= LIMITE_NOMBRE_CAMPO:
+        return nombre, False
+    return nombre[:LIMITE_NOMBRE_CAMPO].strip("_"), True
+
 COMPONENTES = [
+    # 'selector de fecha' y 'calendario' van antes que 'select': "Selector de
+    # fecha (calendario)" contiene la subcadena "select" ("sele-ctor") y se
+    # clasificaba como lista desplegable, saliendo como un select vacio en la
+    # vista (verificado 2026-09-02, Prorroga: "Fecha de Vencimiento del
+    # Certificado Anterior").
+    ("selector de fecha", "date"), ("calendario", "date"),
     ("lista desplegable", "select"), ("desplegable", "select"), ("select", "select"),
     ("carga de archivo", "file"), ("archivo", "file"), ("file", "file"),
     ("area de texto", "textarea"), ("área de texto", "textarea"), ("textarea", "textarea"),
@@ -122,14 +144,46 @@ def _es_separador(linea: str) -> bool:
     return bool(re.fullmatch(r"\|[\s:\-|]+\|", linea.strip()))
 
 
+def _partir_opciones(crudo: str) -> list[str]:
+    """Divide la lista de opciones. Los Diccionarios no son consistentes en el
+    separador: el estandar usa ' · ', pero varios expedientes reales (Reposicion,
+    Holograma) usan comas ('Doble cero, Cero, Uno, Dos') y los radios booleanos
+    escriben 'Sí / No'.
+
+    ' · ', ' • ', ';' y '<br>' son inequivocos: si aparecen, es una lista, sin
+    limite de conteo ni de tamano (los municipios de Hidalgo son 84; un organismo
+    puede tener un nombre de 130 caracteres). La coma y la barra son ambiguas:
+    ahi si se descarta la prosa —fragmentos larguisimos o demasiados no son
+    opciones— y 'Persona física, Persona moral / institución' parte por la coma
+    en 2, sin seguir partiendo por la barra."""
+    inequivoco = [
+        p.strip() for p in
+        re.split(r"\s+·\s+|\s+•\s+|\s*;\s*|\s*<br\s*/?>\s*", crudo)
+        if p.strip()
+    ]
+    if len(inequivoco) >= 2:
+        return inequivoco
+    for patron in (r"\s*,\s*", r"\s+/\s+"):
+        partes = [p.strip() for p in re.split(patron, crudo) if p.strip()]
+        if 2 <= len(partes) <= 40 and all(len(p) <= 60 for p in partes):
+            return partes
+    return []
+
+
 def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
     """Devuelve las opciones y si el catalogo esta declarado como pendiente."""
     crudo = (celda or "").strip()
+    # El Diccionario de Testamento envuelve la lista: '(catálogo: A, B, C)'. Sin
+    # quitar el prefijo y el parentesis, la primera opcion salia como
+    # '(catálogo: A' (verificado 2026-09-02).
+    m = re.match(r"^\(\s*cat[aá]logo\s*:\s*(.+?)\s*\)?\s*$", crudo, re.I)
+    if m:
+        crudo = m.group(1).rstrip(")").strip()
     if not crudo or crudo.upper() == "N/A":
         return [], False
     if any(m in _babel(crudo) for m in MARCAS_PENDIENTE):
         return [], True
-    partes = [p.strip() for p in re.split(r"\s+·\s+|\s+•\s+|\s*;\s*", crudo) if p.strip()]
+    partes = _partir_opciones(crudo)
     if len(partes) < 2:
         return [], False
     return [
@@ -183,20 +237,33 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
                 nombre = var_cruda
 
         if nombre:
-            pass
+            declarado = True
         elif tecnicos:
             nombre = tecnicos[0]
+            declarado = True
         else:
-            # 30 chars: la columna 'nombre' de la tabla campo desborda con 40 y
-            # tumba el import ("Data too long", proceso de Testamento
-            # 2026-08-31). Los exports autenticos no pasan de 31. Se recorta y
-            # se limpia el '_' que quede colgando al cortar a mitad de palabra.
-            nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:30].strip("_")
+            declarado = False
+            # Se recorta a LIMITE_NOMBRE_CAMPO y se limpia el '_' que quede
+            # colgando al cortar a mitad de palabra (ver _capar_nombre).
+            nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:LIMITE_NOMBRE_CAMPO].strip("_")
             r.huecos.append(Hueco(
                 "por_confirmar", "DIC-01", pantalla.id,
                 f"el campo '{etiqueta}' no declara nombre técnico @@ en su descripción ni en la columna Variable; se propuso '{nombre}'",
                 propuesta=nombre,
             ))
+
+        if declarado:
+            nombre, capado = _capar_nombre(nombre)
+            if capado:
+                r.huecos.append(Hueco(
+                    "falta_dato", "DIC-06", pantalla.id,
+                    f"el nombre técnico declarado para '{etiqueta}' excede los "
+                    f"{LIMITE_NOMBRE_CAMPO} caracteres que admite la columna 'campo.nombre' "
+                    f"de la plataforma (el import falla con 'Data too long'); se emitió "
+                    f"como '{nombre}'. Ajusta este nombre y sus referencias @@ en la "
+                    f"Propuesta TO-BE y en las fórmulas del Diccionario.",
+                    propuesta=nombre,
+                ))
 
         if es_columna_variable and (etiqueta == nombre or not etiqueta or etiqueta.lower() == nombre.lower()):
             etiqueta = nombre.replace("_", " ").capitalize()
@@ -209,18 +276,41 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
         limite = celdas[i_lim] if i_lim is not None and i_lim < len(celdas) else ""
         m_long = _LONGITUD.search(limite or "")
 
+        tipo_dato = _babel(celdas[i_tipo] if i_tipo is not None and i_tipo < len(celdas) else "")
+        componente = _babel(celdas[i_comp] if i_comp is not None and i_comp < len(celdas) else "")
+        tipo = _tipo_de(
+            celdas[i_comp] if i_comp is not None and i_comp < len(celdas) else "",
+            celdas[i_tipo] if i_tipo is not None and i_tipo < len(celdas) else "",
+        )
+
         cat_celda = celdas[i_cat] if i_cat is not None and i_cat < len(celdas) else ""
         catalogo, pendiente = _catalogo_de(cat_celda)
+        # Fallback: varios expedientes escriben las opciones en la columna
+        # Limite/Especificaciones ('Sí / No' para los radios booleanos) y dejan
+        # 'Catálogo de Valores' en 'N/A'. Solo para select/radio y solo si no hay
+        # ya opciones ni marca de pendiente.
+        if not catalogo and not pendiente and tipo in ("select", "radio"):
+            catalogo, pendiente = _catalogo_de(limite)
+        # Un campo Boolean (o 'Switch / radio Sí-No') sin lista parseable: su
+        # dominio ES {Sí, No}. Derivarlo no es inventar. Sin esto salia sin
+        # opciones y la vista reventaba con foreach() (verificado 2026-09-02,
+        # 'Disposiciones de Contenido Irrevocable' de Testamento).
+        if not catalogo and not pendiente and (
+            "boolean" in tipo_dato or "si-no" in componente or "sí-no" in componente
+            or "si/no" in _babel(limite) or "sí/no" in _babel(limite)
+        ):
+            catalogo = [
+                OpcionCatalogo(etiqueta="Sí", valor="si"),
+                OpcionCatalogo(etiqueta="No", valor="no"),
+            ]
+            if tipo not in ("select", "radio"):
+                tipo = "radio"
         if pendiente:
             r.huecos.append(Hueco(
                 "falta_dato", "DIC-02", pantalla.id,
                 f"el catálogo de '{etiqueta}' está declarado como pendiente en el Diccionario; no se emite",
             ))
 
-        tipo = _tipo_de(
-            celdas[i_comp] if i_comp is not None and i_comp < len(celdas) else "",
-            celdas[i_tipo] if i_tipo is not None and i_tipo < len(celdas) else "",
-        )
         if catalogo and tipo == "text":
             tipo = "select"
 
@@ -253,6 +343,20 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
             endpoint = _clave_endpoint(celdas[i_end])
 
         origen = endpoint
+
+        # DIC-07: un select/radio que quedo sin opciones, sin marca de pendiente
+        # y sin endpoint. Un select vacio revienta la vista de la plataforma con
+        # foreach() (radio/display.php, CampoSelect.php), asi que el compilador lo
+        # emite como campo de texto. Se reporta para que una persona escriba el
+        # catalogo en el Diccionario y el campo vuelva a ser una lista.
+        if tipo in ("select", "radio") and not catalogo and not pendiente \
+                and not endpoint and dep_tipo != "api_ajax":
+            r.huecos.append(Hueco(
+                "falta_dato", "DIC-07", pantalla.id,
+                f"el campo '{etiqueta}' es {tipo} pero no se extrajo ninguna opción "
+                f"(ni en 'Catálogo de Valores' ni en 'Límite/Especificaciones'); "
+                f"el compilador lo emite como campo de texto hasta que se defina el catálogo",
+            ))
 
         pantalla.campos.append(Campo(
             nombre=nombre,

@@ -112,6 +112,28 @@ def test_la_regla_de_sintaxis_esta_apagada_por_omision():
     assert "FMT-01" not in _codigos(revisar(g))
 
 
+def test_detecta_nombre_de_campo_que_desborda_la_columna_de_la_plataforma():
+    """La columna 'campo.nombre' corta en 30 y el import entero falla con
+    'Data too long for column nombre' (verificado 2026-09-02, expediente de
+    Prórroga). El extractor ya lo capa, pero un manifiesto escrito a mano
+    puede traer un nombre largo: el validador es la red de seguridad."""
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "fecha_vencimiento_certificado_anterior", "tipo": "date"},
+    ]}]
+    hallazgos = revisar(g)
+    assert "EST-05" in _codigos(hallazgos)
+    assert any(h.gravedad == "bloqueante" for h in hallazgos if h.codigo == "EST-05")
+
+
+def test_un_nombre_de_campo_dentro_del_limite_pasa_limpio():
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "curp_testador", "tipo": "text"},
+    ]}]
+    assert "EST-05" not in _codigos(revisar(g))
+
+
 def test_la_regla_de_sintaxis_se_activa_con_la_constante(monkeypatch):
     from gpmc.nucleo import reglas as nreglas
     monkeypatch.setattr(nreglas, "SINTAXIS_ESTRICTA", True)
@@ -130,3 +152,36 @@ def test_encuentra_los_defectos_reales_de_los_gpm_del_equipo(gpm_del_equipo):
     assert len(con_folio_malo) >= 3, f"esperaba al menos 3 folios defectuosos, hallo {con_folio_malo}"
     assert any("alta-de-avisos-test-ui" in n for n in con_token), \
         f"esperaba el token expuesto en alta-de-avisos-test-ui, hallo {con_token}"
+
+
+def test_detecta_select_manual_sin_opciones_con_datos_null():
+    """radio/display.php y CampoSelect.php hacen foreach($datos): con datos=null
+    la vista suelta 'Invalid argument supplied for foreach()' (verificado
+    2026-09-02). Un manifiesto a mano puede dejarlo así; el validador lo marca."""
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "tipo_holograma", "tipo": "select", "datos": None,
+         "extra": '{"catalog_type": "manual", "catalog_url": ""}'},
+    ]}]
+    hallazgos = revisar(g)
+    assert "EST-06" in _codigos(hallazgos)
+    assert any(h.gravedad == "bloqueante" for h in hallazgos if h.codigo == "EST-06")
+
+
+def test_un_select_remoto_con_datos_null_no_dispara_EST_06():
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "estado_sol", "tipo": "select", "datos": None,
+         "extra": '{"catalog_type": "url", "catalog_url": "https://x/y"}'},
+    ]}]
+    assert "EST-06" not in _codigos(revisar(g))
+
+
+def test_un_select_con_lista_vacia_es_solo_aviso():
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "tipo_holograma", "tipo": "select", "datos": "[]",
+         "extra": '{"catalog_type": "manual", "catalog_url": ""}'},
+    ]}]
+    hallazgos = [h for h in revisar(g) if h.codigo == "EST-06"]
+    assert hallazgos and all(h.gravedad == "aviso" for h in hallazgos)
