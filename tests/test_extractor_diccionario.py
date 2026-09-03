@@ -580,3 +580,70 @@ def test_un_campo_booleano_sin_catalogo_explicito_usa_si_no():
     campo = extraer(texto).pantallas[0].campos[0]
     assert campo.tipo == "radio"
     assert [o.valor for o in campo.catalogo] == ["si", "no"]
+
+
+# --- condicion de visibilidad (columna "Condición de Visibilidad") ---
+
+_VIS = """
+### Pantalla 1 — CIUDADANO — Datos
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ¿Es Persona Moral? | Boolean | Switch / radio Sí-No | Sí | Siempre visible | Sí / No | N/A | No | [Captura] Campo `@@es_persona_moral`. |
+| Tipo de Solicitante | Select | Lista desplegable | Sí | Siempre visible | N/A | Persona física · Persona moral | Persona física | [Captura] Campo `@@tipo_solicitante`. |
+| CURP del Solicitante | String | Campo de texto | Condicional | Visible y obligatorio solo si "¿Es Persona Moral?" = No | 18 caracteres | N/A | N/A | [Captura] Campo `@@curp_solicitante`. |
+| Razón Social | String | Campo de texto | Condicional | Visible solo cuando `@@es_persona_moral` = Sí | N/A | N/A | N/A | [Captura] Campo `@@razon_social`. |
+| Nombre del Representante | String | Campo de texto | Condicional | Visible solo si "Tipo de Solicitante" = Persona moral | N/A | N/A | N/A | [Captura] Campo `@@nombre_representante`. |
+| PDF escrito | Archivo | Carga de archivo | Condicional | Visible solo si "Tipo de Solicitante" ≠ Persona física | N/A | N/A | N/A | [Captura] Campo `@@pdf_escrito`. |
+| Nota rara | String | Campo de texto | Condicional | Visible y obligatoria cuando `@@tipo_documento` ∈ {Acuerdo, Decreto, Ley} | N/A | N/A | N/A | [Captura] Campo `@@nota_rara`. |
+"""
+
+
+def _campo(r, nombre):
+    for p in r.pantallas:
+        for c in p.campos:
+            if c.nombre == nombre:
+                return c
+    raise AssertionError(nombre)
+
+
+def test_condicion_visible_desde_etiqueta_si_no():
+    c = _campo(extraer(_VIS), "curp_solicitante")
+    assert c.condicion_visible is not None
+    assert c.condicion_visible.campo == "es_persona_moral"
+    assert c.condicion_visible.igual == "no"
+    assert c.condicion_visible.operador == "=="
+
+
+def test_condicion_visible_desde_referencia_at_at():
+    c = _campo(extraer(_VIS), "razon_social")
+    assert c.condicion_visible.campo == "es_persona_moral"
+    assert c.condicion_visible.igual == "si"
+
+
+def test_condicion_visible_resuelve_el_valor_contra_el_catalogo_del_campo_referido():
+    c = _campo(extraer(_VIS), "nombre_representante")
+    assert c.condicion_visible.campo == "tipo_solicitante"
+    assert c.condicion_visible.igual == "persona_moral"
+
+
+def test_condicion_visible_con_desigualdad():
+    c = _campo(extraer(_VIS), "pdf_escrito")
+    assert c.condicion_visible.campo == "tipo_solicitante"
+    assert c.condicion_visible.igual == "persona_fisica"
+    assert c.condicion_visible.operador == "!="
+
+
+def test_siempre_visible_no_pone_condicion_ni_hueco():
+    r = extraer(_VIS)
+    assert _campo(r, "tipo_solicitante").condicion_visible is None
+    assert [h for h in r.huecos if h.codigo == "DIC-08"] == [] or \
+        all("Nota rara" in h.mensaje for h in r.huecos if h.codigo == "DIC-08")
+
+
+def test_condicion_no_interpretable_reporta_DIC_08():
+    r = extraer(_VIS)
+    dic08 = [h for h in r.huecos if h.codigo == "DIC-08"]
+    assert dic08, r.huecos
+    assert "nota_rara" in dic08[0].mensaje.lower() or "Nota rara" in dic08[0].mensaje
+    assert _campo(r, "nota_rara").condicion_visible is None

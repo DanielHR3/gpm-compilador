@@ -554,3 +554,46 @@ def test_un_select_remoto_conserva_datos_null():
 
 def test_un_select_manual_con_opciones_no_cambia():
     assert json.loads(_campos_remotos()["sexo"]["datos"]) == [{"etiqueta": "H", "valor": "h"}]
+
+
+# --- condicion de visibilidad -> dependiente_campo (forma autentica) ---
+
+_CON_VISIBILIDAD = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: es_persona_moral, etiqueta: "¿Es persona moral?", tipo: radio, catalogo: [{etiqueta: "Sí", valor: "si"}, {etiqueta: "No", valor: "no"}]}
+  - {nombre: curp, etiqueta: CURP, condicion_visible: {campo: es_persona_moral, igual: "no"}}
+  - {nombre: rfc, etiqueta: RFC, condicion_visible: {campo: es_persona_moral, igual: "si", operador: "!="}}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+
+def _campos_visibilidad():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_VISIBILIDAD)))
+    return {c["nombre"]: c for c in g["Formularios"][0]["Campos"]}
+
+
+def test_condicion_visible_va_en_dependiente_campo():
+    c = _campos_visibilidad()["curp"]
+    assert c["dependiente_campo"] == "@@es_persona_moral=='no'"
+    assert c["dependiente_tipo"] is None
+    assert c["dependiente_valor"] is None
+
+
+def test_condicion_visible_con_desigualdad_en_dependiente_campo():
+    assert _campos_visibilidad()["rfc"]["dependiente_campo"] == "@@es_persona_moral!='si'"
+
+
+def test_campo_sin_condicion_visible_no_pone_dependiente_campo():
+    assert _campos_visibilidad()["es_persona_moral"]["dependiente_campo"] == ""

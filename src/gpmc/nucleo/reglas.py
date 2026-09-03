@@ -38,10 +38,16 @@ _CAMPO = re.compile(r"@@(\w+)")
 
 
 def emitir(cond: "Condicion") -> str:
-    """Traduce una condicion del manifiesto a la sintaxis de regla del .gpm."""
+    """Traduce una condicion del manifiesto a la sintaxis de regla del .gpm.
+
+    El operador puede ser '==' o '!=': la desigualdad la usan las condiciones de
+    visibilidad ('@@tipo_solicitante != \"usuario\"' en busqueda-de-testamento)."""
+    desigual = getattr(cond, "operador", "==") == "!="
     if SINTAXIS_ESTRICTA:
-        return f"@@{cond.campo}->value === '{cond.igual}'"
-    return f"@@{cond.campo}=='{cond.igual}'"
+        op = "!==" if desigual else "==="
+        return f"@@{cond.campo}->value {op} '{cond.igual}'"
+    op = "!=" if desigual else "=="
+    return f"@@{cond.campo}{op}'{cond.igual}'"
 
 
 def campos_de(regla: str) -> list[str]:

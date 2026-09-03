@@ -50,6 +50,13 @@ class OpcionCatalogo(BaseModel):
     valor: str
 
 
+class Condicion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    campo: str
+    igual: str
+    operador: Literal["==", "!="] = "=="
+
+
 class Campo(BaseModel):
     model_config = ConfigDict(extra="forbid")
     nombre: str
@@ -60,6 +67,9 @@ class Campo(BaseModel):
     longitud_exacta: Optional[int] = None
     ayuda: Optional[str] = None
     catalogo: list[OpcionCatalogo] = []
+    # Condicion de visibilidad ('Visible solo si "X" = Y' en el Diccionario).
+    # Viaja al .gpm como string en dependiente_campo, la forma de los exports.
+    condicion_visible: Optional[Condicion] = None
     # Propiedades para Fase A: integracion de catalogos y APIs
     dependencia_tipo: Optional[Literal["api_ajax", "campo"]] = None
     dependencia_campo: Optional[str] = None
@@ -106,12 +116,6 @@ class Tarea(BaseModel):
                     norm.append(p)
             data["pantallas"] = norm
         return data
-
-
-class Condicion(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    campo: str
-    igual: str
 
 
 class Conexion(BaseModel):

@@ -98,6 +98,11 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
 
     datos = opciones or None
 
+    # La condicion de visibilidad viaja como string en dependiente_campo, con la
+    # misma sintaxis que una regla de transicion: asi la traen los exports
+    # autenticos (busqueda-de-testamento: @@tipo_solicitante == "notario").
+    dependiente_campo = reglas.emitir(c.condicion_visible) if c.condicion_visible else ""
+
     return esquema.campo(
         id=str(campo_id),
         nombre=c.nombre,
@@ -111,6 +116,7 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
         readonly=c.solo_lectura,
         ayuda=c.ayuda,
         catalogo_id=catalogo_id,
+        dependiente_campo=dependiente_campo,
     )
 
 

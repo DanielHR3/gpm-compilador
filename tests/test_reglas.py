@@ -44,3 +44,14 @@ def test_extrae_los_campos_de_una_regla():
 def test_regla_no_reconocida_lanza_error():
     with pytest.raises(ValueError, match="no reconocida"):
         reglas.evaluar("esto no es una regla", {})
+
+
+def test_emite_la_forma_de_desigualdad():
+    """Una condicion de visibilidad puede ser 'campo != valor'
+    (@@tipo_solicitante != 'usuario' en busqueda-de-testamento)."""
+    assert reglas.emitir(Condicion(campo="x", igual="a", operador="!=")) == "@@x!='a'"
+
+
+def test_emite_desigualdad_en_forma_estricta(monkeypatch):
+    monkeypatch.setattr(reglas, "SINTAXIS_ESTRICTA", True)
+    assert reglas.emitir(Condicion(campo="x", igual="a", operador="!=")) == "@@x->value !== 'a'"

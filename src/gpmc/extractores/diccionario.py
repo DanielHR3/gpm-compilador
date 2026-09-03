@@ -191,7 +191,86 @@ def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
     ], False
 
 
-def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
+_RE_VISIBLE = re.compile(
+    r"(?:visible|obligatori[ao]|se\s+muestra|se\s+habilita|se\s+genera)"
+    r".*?\b(?:solo\s+si|solo\s+cuando|cuando|si)\s+"
+    r"(?P<ref>\"[^\"]+\"|`?@@\w+`?)"
+    r"\s*(?P<op>≠|!=|=)\s*"
+    r"(?P<val>.+)$",
+    re.I,
+)
+_ETIQUETA_CLAVE = re.compile(r"[¿?¡!.:\"`]")
+
+
+def _clave_etiqueta(texto: str) -> str:
+    """Etiqueta -> forma canonica para casar la referencia de una condicion
+    ('¿Es Persona Moral?') con el campo que la define."""
+    return _ETIQUETA_CLAVE.sub("", _babel(texto)).strip()
+
+
+def _parece_condicion(texto: str) -> bool:
+    t = _babel(texto)
+    return ("solo si" in t or "solo cuando" in t
+            or ("cuando" in t and ("=" in t or "≠" in t or "∈" in t)))
+
+
+def _parsear_condicion_visible(texto: str):
+    """(ref_crudo, operador, valor_crudo) o None. None = no es una condicion
+    simple 'campo = valor'; el llamador decide si es 'siempre visible' o un
+    hueco DIC-08."""
+    t = (texto or "").strip()
+    tb = _babel(t)
+    if "∈" in t or "{" in t or "salvo cuando" in tb or "no aplica cuando" in tb:
+        return None
+    m = _RE_VISIBLE.search(t)
+    if not m:
+        return None
+    val = re.split(r"\s*[,(]", m["val"].strip(), maxsplit=1)[0].strip().strip('"').strip()
+    if not val or '"' in val or "∈" in val:
+        return None
+    if re.search(r"\s(?:y|o|and|or)\s", val, re.I):
+        return None
+    op = "!=" if m["op"] in ("≠", "!=") else "=="
+    return m["ref"].strip().strip('"').strip("`"), op, val
+
+
+def _resolver_condicion_visible(
+    ref_crudo: str, operador: str, valor_crudo: str, indice: dict,
+) -> "Optional[object]":
+    """Resuelve la referencia a un @@nombre ya visto y el valor contra el
+    catalogo de ese campo. Devuelve una Condicion, o None si no resuelve."""
+    from gpmc.nucleo.manifiesto import Condicion
+
+    if ref_crudo.startswith("@@"):
+        ref_nombre = ref_crudo[2:]
+        if ref_nombre not in indice["campos"]:
+            return None
+    else:
+        ref_nombre = indice["por_etiqueta"].get(_clave_etiqueta(ref_crudo))
+        if ref_nombre is None:
+            return None
+
+    v = _babel(valor_crudo)
+    if v in ("si", "sí"):
+        igual = "si"
+    elif v == "no":
+        igual = "no"
+    else:
+        ref_campo = indice["campos"][ref_nombre]
+        igual = next(
+            (o.valor for o in ref_campo.catalogo if _babel(o.etiqueta) == v), None
+        )
+        if igual is None:
+            return None
+    return Condicion(campo=ref_nombre, igual=igual, operador=operador)
+
+
+def _extraer_campos(
+    filas: list[str], pantalla: PantallaExtraida, r: Resultado,
+    indice: "Optional[dict]" = None,
+):
+    if indice is None:
+        indice = {"por_etiqueta": {}, "campos": {}}
     if len(filas) < 2:
         return
 
@@ -211,6 +290,7 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
     i_tipo = col("tipo de dato", "tipo", defecto=1)
     i_comp = col("componente sugerido", "componente")
     i_obl = col("obligatorio", defecto=3)
+    i_vis = col("condicion de visibilidad", "visibilidad")
     i_lim = col("limite", "especificaciones")
     i_cat = col("catalogo de valores", "catalogo")
     i_desc = col("descripcion", "comportamiento")
@@ -358,7 +438,7 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
                 f"el compilador lo emite como campo de texto hasta que se defina el catálogo",
             ))
 
-        pantalla.campos.append(Campo(
+        campo = Campo(
             nombre=nombre,
             etiqueta=etiqueta,
             tipo=tipo,
@@ -370,11 +450,41 @@ def _extraer_campos(filas: list[str], pantalla: PantallaExtraida, r: Resultado):
             dependencia_campo=dep_campo,
             endpoint=endpoint,
             origen=origen,
-        ))
+        )
+
+        # Condicion de visibilidad. Se resuelve contra los campos ya vistos
+        # (el que gobierna casi siempre viene antes). Si la condicion parece
+        # una condicion pero no se puede interpretar con seguridad, se reporta
+        # DIC-08 y el campo queda siempre visible — no se adivina.
+        vis_cruda = celdas[i_vis] if i_vis is not None and i_vis < len(celdas) else ""
+        parsed = _parsear_condicion_visible(vis_cruda)
+        if parsed is not None:
+            cond = _resolver_condicion_visible(*parsed, indice)
+            if cond is not None:
+                campo.condicion_visible = cond
+            else:
+                r.huecos.append(Hueco(
+                    "falta_dato", "DIC-08", pantalla.id,
+                    f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
+                    f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
+                ))
+        elif _parece_condicion(vis_cruda):
+            r.huecos.append(Hueco(
+                "falta_dato", "DIC-08", pantalla.id,
+                f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
+                f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
+            ))
+
+        indice["campos"][nombre] = campo
+        indice["por_etiqueta"].setdefault(_clave_etiqueta(etiqueta), nombre)
+        pantalla.campos.append(campo)
 
 
 def extraer(texto: str) -> Resultado:
     r = Resultado()
+    # Indice de campos vistos, compartido entre pantallas: una condicion de
+    # visibilidad casi siempre nombra un campo de una pantalla anterior.
+    indice = {"por_etiqueta": {}, "campos": {}}
     encabezados = list(_ENCABEZADO.finditer(texto))
 
     for i, m in enumerate(encabezados):
@@ -405,7 +515,7 @@ def extraer(texto: str) -> Resultado:
             r.pantallas.append(pantalla)
             continue
 
-        _extraer_campos(filas, pantalla, r)
+        _extraer_campos(filas, pantalla, r, indice)
         r.pantallas.append(pantalla)
 
     if not r.pantallas:
@@ -418,7 +528,7 @@ def extraer(texto: str) -> Resultado:
         filas = [l for l in filas if not _es_separador(l)]
         if len(filas) >= 2:
             pantalla = PantallaExtraida(id="p1", numero=1, nombre="Datos Generales", actor="usuario")
-            _extraer_campos(filas, pantalla, r)
+            _extraer_campos(filas, pantalla, r, indice)
             if pantalla.campos:
                 r.pantallas.append(pantalla)
 
