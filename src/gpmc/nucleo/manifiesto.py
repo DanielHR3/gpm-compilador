@@ -71,7 +71,7 @@ class Campo(BaseModel):
     # Viaja al .gpm como string en dependiente_campo, la forma de los exports.
     condicion_visible: Optional[Condicion] = None
     # Propiedades para Fase A: integracion de catalogos y APIs
-    dependencia_tipo: Optional[Literal["api_ajax", "campo"]] = None
+    dependencia_tipo: Optional[Literal["api_ajax", "campo", "archivo"]] = None
     dependencia_campo: Optional[str] = None
     endpoint: Optional[str] = None
     origen: Optional[str] = None

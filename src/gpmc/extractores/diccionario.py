@@ -183,6 +183,12 @@ def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
         return [], False
     if any(m in _babel(crudo) for m in MARCAS_PENDIENTE):
         return [], True
+    # Si es un catálogo por archivo, se maneja como un endpoint especial
+    m_archivo = re.match(r"^(?:archivo|file)\s*[:\-]\s*(.+?\.csv)$", crudo, re.I)
+    if m_archivo:
+        # Esto se parsea en _clave_endpoint, aquí devolvemos lista vacía
+        return [], False
+        
     partes = _partir_opciones(crudo)
     if len(partes) < 2:
         return [], False
@@ -333,6 +339,7 @@ def _extraer_campos(
             ))
 
         if declarado:
+            nombre_original = nombre
             nombre, capado = _capar_nombre(nombre)
             if capado:
                 r.huecos.append(Hueco(
@@ -340,12 +347,13 @@ def _extraer_campos(
                     f"el nombre técnico declarado para '{etiqueta}' excede los "
                     f"{LIMITE_NOMBRE_CAMPO} caracteres que admite la columna 'campo.nombre' "
                     f"de la plataforma (el import falla con 'Data too long'); se emitió "
-                    f"como '{nombre}'. Ajusta este nombre y sus referencias @@ en la "
-                    f"Propuesta TO-BE y en las fórmulas del Diccionario.",
+                    f"como '{nombre}'. El compilador mantendrá un alias para que tus fórmulas con "
+                    f"@@{nombre_original} sigan funcionando sin que las modifiques.",
                     propuesta=nombre,
                 ))
+                indice["campos"][nombre_original] = None # placeholder to be updated
 
-        if es_columna_variable and (etiqueta == nombre or not etiqueta or etiqueta.lower() == nombre.lower()):
+        if es_columna_variable and (etiqueta == nombre or not etiqueta or etiqueta.lower() == (nombre_original.lower() if declarado else nombre.lower())):
             etiqueta = nombre.replace("_", " ").capitalize()
             r.huecos.append(Hueco(
                 "por_confirmar", "DIC-05", pantalla.id,
@@ -476,6 +484,8 @@ def _extraer_campos(
             ))
 
         indice["campos"][nombre] = campo
+        if declarado and capado:
+            indice["campos"][nombre_original] = campo
         indice["por_etiqueta"].setdefault(_clave_etiqueta(etiqueta), nombre)
         pantalla.campos.append(campo)
 

@@ -120,6 +120,40 @@ def extraer_expediente(carpeta: Path) -> Resultado:
 
     meta = ext_meta.extraer(as_is, to_be, nombre_carpeta=carpeta.name)
     r.huecos += meta.huecos
+    
+    # Validacion de concordancia de insumos (flexible)
+    def _sacar_titulo(texto: str, patron: str) -> str:
+        m = re.search(patron, texto or "", re.M | re.I)
+        return _normalizar(m.group(1).strip()) if m else ""
+        
+    tit_as = _sacar_titulo(as_is, r"^#\s+An[aá]lisis AS-?IS\s*[—\-–]\s*(.+?)\s*$")
+    tit_tb = _sacar_titulo(to_be, r"^#\s+Propuesta TO-?BE\s*[—\-–]\s*(.+?)\s*$")
+    tit_dic = _sacar_titulo(dicc, r"^#\s+Diccionario de Datos\s*[—\-–]\s*(.+?)\s*$")
+    
+    def _palabras(t: str) -> set:
+        # Extrae palabras de 4 o más letras para ignorar preposiciones ("de", "en", "el")
+        return set(re.findall(r'\b\w{4,}\b', t)) if t else set()
+
+    p_as = _palabras(tit_as)
+    p_tb = _palabras(tit_tb)
+    p_dic = _palabras(tit_dic)
+    
+    # Comparamos solo los archivos que sí traen título H1 válido
+    conjuntos = [p for p in (p_as, p_tb, p_dic) if p]
+    
+    if len(conjuntos) > 1:
+        # Buscamos si existe al menos UNA palabra significativa en común entre todos.
+        # En "Alta de Avisos de Testamento" y "Digitalización de Alta de Avisos en GPM",
+        # la intersección tendría "alta", "avisos", "testamento".
+        interseccion = conjuntos[0].intersection(*conjuntos[1:])
+        if not interseccion:
+            nombres_encontrados = " | ".join(t for t in (tit_as, tit_tb, tit_dic) if t)
+            r.huecos.append(Hueco(
+                "falta_dato", "INS-04", "archivos",
+                f"Los títulos de los archivos no parecen coincidir en absoluto "
+                f"({nombres_encontrados}). Revisa que no hayas mezclado insumos de diferentes trámites."
+            ))
+
     tramite = meta.tramite
     if tramite is None:
         # metadatos ya intento el nombre de la carpeta; si llego aqui es que no
@@ -181,34 +215,89 @@ def extraer_expediente(carpeta: Path) -> Resultado:
                     f"la pantalla '{p.nombre}'",
                 ))
 
-    # Flujo: una tarea por pantalla, en orden, mas una terminal. El diagrama
-    # Mermaid se usa para reportar cuanto se aparta esta linealizacion del
-    # flujo real, no para construirla: eso exige la revision de una persona.
-    tareas = [
-        Tarea(id=f"t_{p.id}", nombre=p.nombre[:60], actor=p.actor,
-              inicial=(i == 0), pantallas=[p.id])
-        for i, p in enumerate(pantallas)
-    ]
-    tareas.append(Tarea(id="t_fin", nombre="Trámite concluido", terminal=True))
-    conexiones = [
-        Conexion(de=tareas[i].id, a=tareas[i + 1].id) for i in range(len(tareas) - 1)
-    ]
+    tareas = []
+    conexiones = []
+    flujo_ramificado_exitoso = False
 
     if to_be:
         bloques = _BLOQUE_MERMAID.findall(to_be)
         if bloques:
             rm = ext_mmd.extraer(bloques[0])
             r.huecos += rm.huecos
+            
+            # Intento de mapeo exacto (sin adivinar)
+            nombres_pantallas = {ext_dicc._babel(p.nombre): p for p in pantallas}
+            tareas_mmd = [n for n in rm.nodos if n.clase_nodo == "tarea"]
+            
+            mapeo_exacto = True
+            nodos_a_pantallas = {}
+            for n in tareas_mmd:
+                babel_n = ext_dicc._babel(n.texto)
+                if babel_n in nombres_pantallas:
+                    nodos_a_pantallas[n.id] = nombres_pantallas[babel_n]
+                else:
+                    mapeo_exacto = False
+                    break
+                    
+            if mapeo_exacto and len(tareas_mmd) == len(pantallas):
+                # Generar tareas
+                nodos_inicio = {a.a for a in rm.aristas if a.de in [n.id for n in rm.nodos if n.clase_nodo == "inicio_fin"]}
+                nodos_fin = {a.de for a in rm.aristas if a.a in [n.id for n in rm.nodos if n.clase_nodo == "inicio_fin"]}
+                
+                # Nodos inicio/fin que no son compuertas ni tareas
+                ids_inicio_fin = {n.id for n in rm.nodos if n.clase_nodo == "inicio_fin"}
+                
+                # Crear Tareas
+                for n in rm.nodos:
+                    if n.clase_nodo == "tarea":
+                        p = nodos_a_pantallas[n.id]
+                        tareas.append(Tarea(
+                            id=n.id, nombre=n.texto[:60], actor=p.actor,
+                            inicial=(n.id in nodos_inicio or not any(a.a == n.id for a in rm.aristas if a.de not in ids_inicio_fin)),
+                            terminal=(n.id in nodos_fin or not any(a.de == n.id for a in rm.aristas if a.a not in ids_inicio_fin)),
+                            pantallas=[p.id]
+                        ))
+                
+                # Manejar compuertas resolviendo condiciones desde el Diccionario
+                from gpmc.nucleo.manifiesto import Condicion
+                from gpmc.extractores.diccionario import _parsear_condicion_visible, _resolver_condicion_visible
+                
+                # Índice simulado para resolver condiciones de compuertas
+                indice_campos = {"por_etiqueta": {}, "campos": {}}
+                for p in pantallas:
+                    for c in p.campos:
+                        indice_campos["campos"][c.nombre] = c
+                        indice_campos["por_etiqueta"].setdefault(ext_dicc._clave_etiqueta(c.etiqueta), c.nombre)
+
+                compuertas_resueltas = True
+                for a in rm.aristas:
+                    if a.de in ids_inicio_fin or a.a in ids_inicio_fin:
+                        continue
+                        
+                    nodo_origen = next((n for n in rm.nodos if n.id == a.de), None)
+                    if nodo_origen and nodo_origen.clase_nodo == "compuerta":
+                        # La arista sale de una compuerta
+                        # Necesitamos resolver la etiqueta de la arista o los campos de la compuerta
+                        # Como Mermaid solo tiene etiquetas de arista libres (ej. "Sí", "No"), y el compilador 
+                        # necesita `cuando: campo == valor`, esto requiere inferencia riesgosa.
+                        # Para no violar el invariante "no adivinar", exigimos validación humana.
+                        compuertas_resueltas = False
+                        break
+                    elif nodo_origen and nodo_origen.clase_nodo == "tarea":
+                        conexiones.append(Conexion(de=a.de, a=a.a))
+                        
+                if compuertas_resueltas:
+                    flujo_ramificado_exitoso = True
+
             compuertas = [n for n in rm.nodos if n.clase_nodo == "compuerta"]
-            if compuertas:
+            if compuertas and not flujo_ramificado_exitoso:
                 r.huecos.append(Hueco(
                     "falta_dato", "FLU-01", "flujo",
                     f"el diagrama TO-BE tiene {len(compuertas)} compuertas que este "
-                    f"manifiesto NO reproduce: el flujo propuesto es lineal, pantalla "
-                    f"por pantalla. Revisar y ramificar a mano antes de compilar.",
+                    f"manifiesto NO reproduce de forma automática (requiere resolver condiciones a mano). "
+                    f"El flujo propuesto es lineal. Revisar y ramificar a mano antes de compilar.",
                 ))
-            tareas_mmd = [n for n in rm.nodos if n.clase_nodo == "tarea"]
-            if len(tareas_mmd) != len(pantallas):
+            if len(tareas_mmd) != len(pantallas) and not flujo_ramificado_exitoso:
                 r.huecos.append(Hueco(
                     "falta_dato", "FLU-02", "flujo",
                     f"el diagrama tiene {len(tareas_mmd)} tareas y el Diccionario "
@@ -219,6 +308,17 @@ def extraer_expediente(carpeta: Path) -> Resultado:
                 "falta_dato", "MMD-01", "flujo",
                 "la Propuesta TO-BE no trae bloque ```mermaid```",
             ))
+
+    if not flujo_ramificado_exitoso:
+        tareas = [
+            Tarea(id=f"t_{p.id}", nombre=p.nombre[:60], actor=p.actor,
+                  inicial=(i == 0), pantallas=[p.id])
+            for i, p in enumerate(pantallas)
+        ]
+        tareas.append(Tarea(id="t_fin", nombre="Trámite concluido", terminal=True))
+        conexiones = [
+            Conexion(de=tareas[i].id, a=tareas[i + 1].id) for i in range(len(tareas) - 1)
+        ]
 
     r.manifiesto = Manifiesto(
         tramite=tramite,
