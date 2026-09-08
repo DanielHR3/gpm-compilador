@@ -53,11 +53,30 @@ CATALOGOS = {
             nodo="zip_codes", etiqueta="d_asenta", valor="d_asenta",
             requiere_padre=True,
         ),
+        Catalogo(
+            clave="consultacurpn", proveedor="SIPUBEH",
+            url="https://sipubeh.hidalgo.gob.mx/api/consultacurpn/@@{padre}",
+            nodo="data", etiqueta="nombres", valor="nombres",
+            requiere_padre=True,
+        ),
     )
+}
+
+# Sinonimos: los Diccionarios del equipo de Simplificacion escriben el nombre
+# del proveedor ("INEGI", "SEPOMEX") en vez de la clave tecnica del endpoint.
+# Sin este mapeo, el compilador no los reconoce y emite huecos API-01 falsos.
+# Cada sinonimo apunta a la clave por omision del proveedor: si un proveedor
+# tiene mas de un endpoint, el Diccionario debe usar la clave tecnica exacta
+# ("mgee" o "mgem"), no el nombre del proveedor, o aclarar cual.
+SINONIMOS = {
+    "inegi": "mgee",          # estados; "mgem" requiere padre, se resuelve aparte
+    "sepomex": "zip_codes",
+    "sipubeh": "consultacurpn",
 }
 
 
 def resolver(clave: Optional[str]) -> Optional[Catalogo]:
     """Un endpoint no registrado devuelve None: el compilador lo reporta como
     hueco API-01 en vez de inventar una URL."""
-    return CATALOGOS.get((clave or "").strip().lower())
+    normalizada = (clave or "").strip().lower()
+    return CATALOGOS.get(normalizada) or CATALOGOS.get(SINONIMOS.get(normalizada, ""))

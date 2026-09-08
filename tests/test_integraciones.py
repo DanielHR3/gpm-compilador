@@ -1,8 +1,8 @@
 from gpmc.nucleo.integraciones import CATALOGOS, Catalogo, resolver
 
 
-def test_los_tres_catalogos_verificados_estan_registrados():
-    assert set(CATALOGOS) == {"mgee", "mgem", "zip_codes"}
+def test_los_catalogos_verificados_estan_registrados():
+    assert set(CATALOGOS) == {"mgee", "mgem", "zip_codes", "consultacurpn"}
 
 
 def test_mgee_trae_la_url_y_el_mapeo_del_export_autentico():
@@ -43,3 +43,11 @@ def test_un_endpoint_desconocido_devuelve_none_sin_reventar():
 
 def test_un_catalogo_sin_padre_ignora_el_argumento():
     assert resolver("mgee").url_para(None) == resolver("mgee").url_para("lo_que_sea")
+
+def test_los_sinonimos_se_resuelven_al_catalogo_base():
+    assert resolver("INEGI").clave == "mgee"
+    assert resolver("SEPOMEX").clave == "zip_codes"
+    assert resolver("SIPUBEH").clave == "consultacurpn"
+    # Ademas, las claves originales siguen resolviendo
+    assert resolver("mgem").clave == "mgem"
+    assert resolver("mgee").clave == "mgee"

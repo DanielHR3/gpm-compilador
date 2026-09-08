@@ -45,16 +45,32 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
 
     opciones = [o.model_dump() for o in c.catalogo]
 
-    # Un select/radio sin opciones, sin endpoint y sin campo padre revienta la
-    # vista de la plataforma con "Invalid argument supplied for foreach()"
-    # (radio/display.php:4, models/CampoSelect.php:375). Ni datos '[]' lo evita
-    # (verificado 2026-09-02, 'Estado Civil' de Testamento). Se degrada a input
-    # de texto; el hueco DIC-07 del extractor dice que falta el catalogo. Un
-    # endpoint (aunque no se resuelva) se respeta: lo cubre el hueco API-01.
+    # Un select/radio sin opciones revienta la vista de la plataforma con
+    # "Invalid argument supplied for foreach()" (radio/display.php:4,
+    # models/CampoSelect.php:375). Ni datos '[]' lo evita (verificado
+    # 2026-09-02, 'Estado Civil' de Testamento). Se degrada a input de texto.
+    #
+    # La degradacion cubre tres casos:
+    #   1. Sin opciones, sin endpoint, sin campo padre → hueco DIC-07.
+    #   2. Con endpoint que no resuelve (API-01) → el catalogo no se puede poblar
+    #      y la plataforma haria foreach() sobre null.
+    #   3. Con endpoint que resuelve pero requiere padre sin campo padre → API-03.
     tipo = c.tipo
-    if tipo in ("select", "radio") and not opciones \
-            and not c.endpoint and not c.dependencia_campo:
-        tipo = "text"
+    if tipo in ("select", "radio") and not opciones:
+        cat_resuelto = _resolver_catalogo(c.endpoint) if c.endpoint else None
+        
+        if not c.endpoint and not c.dependencia_campo:
+            tipo = "text"
+        elif c.endpoint and cat_resuelto is None:
+            # El endpoint esta declarado pero no esta en el registro: el campo
+            # quedaria como select remoto con datos null. Degradar a texto
+            # evita que la vista reviente; el hueco API-01 dice por que.
+            tipo = "text"
+        elif c.endpoint and cat_resuelto and cat_resuelto.requiere_padre and not c.dependencia_campo:
+            # El endpoint existe y es en cascada, pero el Diccionario no declaro
+            # de quien depende. No se puede armar la URL, asi que se degrada a texto.
+            # El hueco API-03 dice por que.
+            tipo = "text"
 
     if tipo == "select":
         # Un select siempre lleva catalogo_id "1", sea manual o remoto: asi lo

@@ -277,16 +277,15 @@ def test_una_cascada_interpola_el_padre_y_lo_declara():
     assert e["object_response"] == "datos"
 
 
-def test_un_endpoint_desconocido_cae_a_catalogo_manual():
+def test_un_endpoint_desconocido_se_degrada_a_texto_para_evitar_foreach_nulo():
     c = _campos_remotos()["raro"]
-    e = json.loads(c["extra"])
-    assert e["catalog_type"] == "manual"
-    # Las cuatro claves van aunque tres queden vacias: sin catalog_url la
-    # plataforma revienta al importar (acta 2026-08-30).
-    assert e["catalog_url"] == ""
-    assert e["object_response"] == ""
-    assert e["key_object"] == ""
-    assert c["catalogo_id"] == "1"
+    # Si el endpoint declarado no existe en el registro, el campo caería a
+    # catálogo remoto nulo o manual vacío, lo que causaría 'datos = null' y
+    # reventaría la plataforma con Invalid argument supplied for foreach().
+    # Ahora se degrada limpiamente a input de texto.
+    assert c["tipo"] == "text"
+    assert c["catalogo_id"] is None
+    assert "catalog_type" not in json.loads(c["extra"])
 
 
 def test_el_catalogo_manual_sigue_igual_que_en_la_fase_0():
@@ -304,10 +303,10 @@ def test_las_claves_coinciden_con_el_export_autentico():
     assert set(e) == esperadas
 
 
-def test_una_cascada_sin_padre_no_emite_una_url_colgando():
+def test_una_cascada_sin_padre_se_degrada_a_texto_para_evitar_foreach_nulo():
     # url_para(None) dejaria la URL en '.../mgem/@@'. Sin campo padre no se
-    # puede resolver el catalogo, asi que se degrada a lista manual vacia y
-    # el hueco API-03 del extractor explica por que.
+    # puede resolver el catalogo, asi que se degrada a texto y el hueco API-03
+    # del extractor explica por que.
     import yaml
     from gpmc.nucleo.manifiesto import Manifiesto
     m = Manifiesto(**yaml.safe_load("""
@@ -325,10 +324,9 @@ flujo:
   conexiones: [{de: t1, a: tf}]
 """))
     c = compilar(m)["Formularios"][0]["Campos"][0]
-    e = json.loads(c["extra"])
-    assert e["catalog_type"] == "manual"
-    assert e["catalog_url"] == ""   # las cuatro claves, aunque vacias (acta 2026-08-30)
-    assert c["catalogo_id"] == "1"
+    assert c["tipo"] == "text"
+    assert c["catalogo_id"] is None
+    assert "catalog_type" not in json.loads(c["extra"])
 
 
 def test_los_ids_generados_caben_en_el_rango_de_los_exports_autenticos():
