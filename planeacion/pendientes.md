@@ -1,6 +1,6 @@
 # Pendientes — estado verificado
 
-Última verificación: 2026-08-31, suite en **245 passed, 22 skipped**.
+Última verificación: 2026-09-08, suite en **289 passed, 22 skipped**.
 
 Este archivo solo registra lo que se comprobó ejecutando código o importando a la
 plataforma. Una afirmación sin evidencia aquí vale menos que nada: hace que alguien deje de
@@ -30,10 +30,21 @@ buscar.
 | — | Ninguna prueba cruzaba Diccionario → extractor → estimador (dejó pasar el bug de `origen`) | `test_de_punta_a_punta_diccionario_extractor_estimador`: un endpoint en el Diccionario llega a `estimador.integraciones` |
 | — | `ejemplos/` no traía ningún `select`: la serialización de ese camino no se ejercitaba | `ejemplos/vinculacion-organismos` trae un select con catálogo remoto y su cascada; `test_el_ejemplo_ejercita_la_serializacion_de_un_select_remoto` en verde |
 
+## Lote de reingeniería 2026-09-02 y trabajo posterior (verificado)
+
+| | Hallazgo | Cómo se comprobó |
+|---|---|---|
+| **PLAT-7** | El nombre `@@` declarado por el analista pasaba entero; `Data too long for column 'nombre'` al importar (Prórroga, 38 chars) | El extractor capa las tres rutas a 30 y reporta `DIC-06`; el validador marca `EST-05` (bloqueante). 6 `.gpm` reimportados (procesos 1068-1073). Commit `16dc52c` |
+| **PLAT-8** | `select`/`radio` sin opciones → `Invalid argument supplied for foreach()` en las vistas | Parser de catálogo ampliado (coma, ` / `, `<br>`, envoltura `(catálogo: …)`, Boolean con `Sí-No` en Límite → `{Sí, No}`); piso: sin opciones/endpoint/padre → texto (`DIC-07`, `EST-06`). Commit `16dc52c` |
+| **PLAT-9** | `Selector de fecha (calendario)` clasificado como `select` porque «select» es subcadena de «selector» | `selector de fecha`/`calendario` → `date`. Commit `16dc52c` |
+| **blindaje** | Los Diccionarios viejos escriben el proveedor (`INEGI`, `SEPOMEX`) en la columna Endpoint; catálogos en cascada sin campo padre | Mapa `SINONIMOS` en `integraciones.py`; el `select` se degrada a texto si el endpoint no resuelve (`API-01`) o es cascada sin padre (`API-03`). `Constancia Vehicular` y `Poda de Árboles` validan sin bloqueantes. Commits del 2026-09-04, `04382c9` |
+| **INS-04** | Nada avisaba si se subían insumos de trámites distintos por error | `expediente.py` compara los títulos H1 de AS-IS/TO-BE/Diccionario por intersección de palabras. Commit `b259ffb` |
+| **EST-07** | `Estado Civil` de Testamento compiló `('Soltero        casado', 'Divorciado  Viudo', 'Unión Libre')` — 3 opciones basura — **sin un solo hallazgo** | `_despegar` parte una corrida de 2+ espacios/tabs dentro de una opción; el validador marca `EST-07` (aviso). Re-extraer Testamento da 5 opciones y valida limpio; el `.gpm` viejo del lote ahora marca `EST-07` ×2; los otros 5 del lote sin falsos positivos. Commit `038cd90` |
+| **FLU-01 (primer corte)** | El flujo salía siempre lineal | `expediente.py` intenta un flujo ramificado desde el Mermaid solo si los nombres de tarea casan exactamente con las pantallas y el conteo coincide; ante cualquier compuerta, degrada a lineal y mantiene `FLU-01`. Commit `b259ffb`. **Ramificación completa: pendiente de spec propio + prueba en plataforma** (ver `docs/superpowers/specs/2026-09-03-linter-y-ramificacion-design.md` Parte 2) |
+
 ## Abiertos
 
-**Ninguno bloqueante.** Todo lo del compilador quedó cerrado el 2026-08-31; la suite pasa en
-245. Quedan sólo estas dos notas, que no son defectos de este repo:
+**Ninguno bloqueante en el compilador.** Notas que no son defectos de este repo:
 
 - **Externo (otra sesión):** el proceso `1044` ("b5a8defd46ca96d2") de otro agente sigue en la
   plataforma. No es deuda de este compilador; se revisa/borra aparte con quien administra la
