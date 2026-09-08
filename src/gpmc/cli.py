@@ -74,6 +74,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     # así que el valor emitido no llega a producción; lo que importa es que los dos
     # caminos —CLI y web— deriven igual y de forma determinista.
     c.add_argument("--proceso-id", default="")
+    c.add_argument("--modo-pruebas", action="store_true",
+                   help="agrupa todas las pantallas en una sola Tarea Inicial (Test UI)")
 
     v = sub.add_parser("validar", help="revisa un .gpm existente")
     v.add_argument("archivo", type=Path)
@@ -129,7 +131,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         except (ValidationError, ValueError) as e:
             print(f"Error al leer el manifiesto:\n{e}", file=sys.stderr)
             return 2
-        gpm = compilar(manifiesto, proceso_id=args.proceso_id)
+        gpm = compilar(manifiesto, proceso_id=args.proceso_id, modo_pruebas=args.modo_pruebas)
         hallazgos = revisar(gpm)
         if any(h.gravedad == "bloqueante" for h in hallazgos):
             print("No se genero el archivo: hay hallazgos bloqueantes.\n")

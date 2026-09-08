@@ -4,72 +4,93 @@ import html as _h
 
 from gpmc.nucleo.huecos import NIVELES
 
-# Paleta muestreada de capturas reales de la plataforma de modelado.
+# Paleta muestreada de capturas reales de la plataforma de modelado,
+# pero con un diseño modernizado inspirado en bibliotecas UI modernas.
 ESTILO = """
-
-:root{--guinda:#6b1433;--guinda2:#851a41;--tinta:#1f2937;--gris:#6b7280;
-      --linea:#e5e7eb;--fondo:#f9fafb;--suave:#f3f4f6;--verde:#059669;
-      --alerta:#dc2626;--alerta-suave:#fef2f2;--ok:#f0fdf4;
-      --sombra:0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      --radio:12px; --radio-peq:8px;}
+:root{
+  --guinda:#831b43; --guinda2:#9d2050; --tinta:#09090b; --gris:#71717a;
+  --linea:#e4e4e7; --fondo:#fafafa; --suave:#f4f4f5; --verde:#10b981;
+  --alerta:#ef4444; --alerta-suave:#fef2f2; --ok:#ecfdf5;
+  --sombra-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --sombra-btn: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --ring: rgba(131, 27, 67, 0.2);
+  --radio: 0.75rem; --radio-peq: 0.5rem;
+}
 *{box-sizing:border-box}
 body{margin:0;background:var(--fondo);color:var(--tinta);
-     font:16px/1.6 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;}
-.barra{background:var(--guinda);color:#fff;padding:1.2rem 2rem;display:flex;
-       justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;
-       box-shadow:var(--sombra);}
-.barra strong{font-size:1.2rem; font-weight:700;}
-.barra em{font-style:normal;font-size:0.85rem;opacity:.9;background:rgba(255,255,255,0.1);padding:0.3rem 0.8rem;border-radius:var(--radio-peq);}
-.marco{max-width:60rem;margin:2rem auto;padding:0 1.5rem;}
-.sub{color:var(--gris);margin:0 0 2rem;font-size:1rem;}
-.pasos{display:flex;gap:1rem;margin-bottom:2.5rem;flex-wrap:wrap;font-size:0.85rem;align-items:center;}
-.pasos span{padding:0.4rem 1rem;background:var(--suave);border:1px solid var(--linea);border-radius:2rem;color:var(--gris);font-weight:500;transition:all 0.2s;}
-.pasos span.act{background:var(--guinda);color:#fff;border-color:var(--guinda);box-shadow:var(--sombra);}
-.tarjeta{background:#fff;border:1px solid var(--linea);border-radius:var(--radio);padding:2rem;margin-bottom:1.5rem;box-shadow:var(--sombra);}
-.tarjeta h2{font-size:1.25rem;margin:0 0 1.25rem;font-weight:600;color:var(--tinta);}
-label{display:block;margin-bottom:1.5rem;}
-label b{display:block;font-weight:600;font-size:.95rem;margin-bottom:.25rem;color:var(--tinta);}
-label em{display:block;font-style:normal;color:var(--gris);font-size:.85rem;margin-bottom:.6rem;}
-input[type=text]{width:100%;padding:0.75rem 1rem;border:1px solid var(--linea);border-radius:var(--radio-peq);font:inherit;transition:border-color 0.2s;outline:none;}
-input[type=text]:focus{border-color:var(--guinda);}
-/* Drag and Drop Zone */
-.dropzone{width:100%;padding:2rem;border:2px dashed var(--linea);border-radius:var(--radio-peq);
-          background:var(--suave);color:var(--tinta);font:inherit;text-align:center;
-          transition:all 0.2s ease;cursor:pointer;position:relative;}
-.dropzone:hover, .dropzone.dragover{border-color:var(--guinda);background:#fdf2f5;}
-.dropzone input[type=file]{opacity:0;position:absolute;top:0;left:0;width:100%;height:100%;cursor:pointer;}
-.dropzone-text{font-weight:500;color:var(--gris);}
-.dropzone-text span{color:var(--guinda);text-decoration:underline;}
+     font:15px/1.6 "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;}
+.barra{background:#ffffff; color:var(--tinta); padding:1rem 2rem; display:flex;
+       justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;
+       border-bottom: 1px solid var(--linea); position: sticky; top: 0; z-index: 10;
+       backdrop-filter: blur(8px); background-color: rgba(255,255,255,0.85);}
+.barra strong{font-size:1.15rem; font-weight:600; letter-spacing: -0.01em;}
+.barra em{font-style:normal;font-size:0.75rem; font-weight: 500; color:var(--guinda); background:var(--suave); padding:0.25rem 0.75rem; border-radius:1rem; border: 1px solid var(--linea);}
 
-button{padding:0.75rem 1.5rem;border-radius:var(--radio-peq);border:none;
-       background:var(--guinda);color:#fff;font:inherit;font-weight:600;cursor:pointer;
-       transition:background 0.2s, transform 0.1s;box-shadow:var(--sombra);}
-button:hover{background:var(--guinda2);transform:translateY(-1px);}
+.layout{display:flex; min-height: calc(100vh - 60px);}
+.sidebar{width: 250px; background: #ffffff; border-right: 1px solid var(--linea); padding: 2rem 1rem; display:flex; flex-direction:column; gap:0.5rem;}
+.contenido{flex:1; padding: 3rem 2rem; max-width: 52rem; margin: 0 auto;}
+
+.nav-item{display:flex; align-items:center; padding: 0.5rem 1rem; border-radius: var(--radio-peq); color: var(--gris); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: all 0.2s;}
+.nav-item:hover{background: var(--suave); color: var(--tinta);}
+.nav-item.act{background: var(--suave); color: var(--tinta); font-weight: 600;}
+.nav-item.disabled{opacity: 0.5; pointer-events: none;}
+
+.tarjeta{background:#fff; border:1px solid var(--linea); border-radius:var(--radio); padding:2rem; margin-bottom:1.5rem; box-shadow:var(--sombra-card); transition: box-shadow 0.2s;}
+.tarjeta h2{font-size:1.15rem; margin:0 0 1.25rem; font-weight:600; color:var(--tinta); letter-spacing: -0.01em;}
+
+label{display:block; margin-bottom:1.5rem;}
+label b{display:block; font-weight:500; font-size:.9rem; margin-bottom:.35rem; color:var(--tinta);}
+label em{display:block; font-style:normal; color:var(--gris); font-size:.85rem; margin-bottom:.6rem;}
+
+input[type=text]{width:100%; padding:0.6rem 0.75rem; border:1px solid var(--linea); border-radius:var(--radio-peq); font:inherit; font-size:0.9rem; transition:all 0.2s; outline:none; background: #fff;}
+input[type=text]:focus{border-color:var(--guinda); box-shadow: 0 0 0 3px var(--ring);}
+
+/* Drag and Drop Zone */
+.dropzone{width:100%; padding:2.5rem 2rem; border:1.5px dashed var(--linea); border-radius:var(--radio);
+          background:#fafafa; color:var(--tinta); font:inherit; text-align:center;
+          transition:all 0.2s ease; cursor:pointer; position:relative;}
+.dropzone:hover, .dropzone.dragover{border-color:var(--guinda); background:rgba(131, 27, 67, 0.02);}
+.dropzone input[type=file]{opacity:0; position:absolute; top:0; left:0; width:100%; height:100%; cursor:pointer;}
+.dropzone-text{font-weight:500; color:var(--gris); font-size: 0.9rem;}
+.dropzone-text span{color:var(--guinda); font-weight:600;}
+
+button{padding:0.6rem 1.2rem; border-radius:var(--radio-peq); border:1px solid transparent;
+       background:var(--tinta); color:#fff; font:inherit; font-size:0.9rem; font-weight:500; cursor:pointer;
+       transition:all 0.2s; box-shadow:var(--sombra-btn);}
+button:hover{background:#27272a; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);}
 button:active{transform:translateY(1px);}
-a.btn{display:inline-block;padding:0.6rem 1.2rem;border:1px solid var(--guinda);border-radius:var(--radio-peq);
-      color:var(--guinda);text-decoration:none;font-size:.95rem;font-weight:500;margin:0 .5rem .5rem 0;
-      transition:all 0.2s;}
-a.btn:hover{background:#fdf2f5;}
-a.btn.p{background:var(--guinda);color:#fff;}
-a.btn.p:hover{background:var(--guinda2);color:#fff;}
-table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:1rem;}
-th,td{text-align:left;padding:0.75rem 1rem;border-bottom:1px solid var(--linea);vertical-align:top;}
-th{background:var(--suave);color:var(--gris);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;border-radius:4px 4px 0 0;}
-.huecos{background:var(--alerta-suave);border:1px solid var(--alerta);border-radius:var(--radio);
-        padding:1.5rem;margin-bottom:1.5rem;}
-.huecos h2{color:var(--alerta);font-size:1.05rem;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;}
-.huecos li{font-size:.9rem;margin-bottom:.5rem;line-height:1.5;}
-details.huecos{padding:1rem 1.5rem;}
-details.huecos summary{cursor:pointer;font-size:1rem;font-weight:500;}
+button:focus-visible{outline:none; box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.2);}
+
+a.btn{display:inline-flex; align-items:center; justify-content:center; padding:0.5rem 1rem; border:1px solid var(--linea); border-radius:var(--radio-peq);
+      color:var(--tinta); text-decoration:none; font-size:0.9rem; font-weight:500; margin:0 .5rem .5rem 0;
+      transition:all 0.2s; background: #fff; box-shadow: var(--sombra-btn);}
+a.btn:hover{background:var(--suave); border-color:#d4d4d8;}
+a.btn.p{background:var(--guinda); color:#fff; border-color:transparent;}
+a.btn.p:hover{background:var(--guinda2);}
+
+table{width:100%; border-collapse:collapse; font-size:.85rem; margin-top:1rem;}
+th,td{text-align:left; padding:0.75rem 1rem; border-bottom:1px solid var(--linea); vertical-align:top;}
+th{background:#fff; color:var(--gris); font-weight:500; font-size:.8rem; border-bottom: 2px solid var(--linea);}
+
+.huecos{background:#fff; border:1px solid var(--alerta); border-radius:var(--radio);
+        padding:1.5rem; margin-bottom:1.5rem; box-shadow: 0 1px 2px 0 rgba(239, 68, 68, 0.05);}
+.huecos h2{color:var(--alerta); font-size:1.05rem; margin:0 0 1rem; display:flex; align-items:center; gap:0.5rem;}
+.huecos li{font-size:.9rem; margin-bottom:.5rem; line-height:1.5; color:var(--tinta);}
+details.huecos{padding:1rem 1.5rem; border-color: var(--linea);}
+details.huecos h2{color: var(--tinta);}
+details.huecos summary{cursor:pointer; font-size:0.95rem; font-weight:500; outline:none;}
+details.huecos summary:focus-visible{color: var(--guinda);}
 details.huecos summary::-webkit-details-marker {display:none;}
-details.huecos ul{margin:1rem 0 .5rem;padding-left:1.5rem;}
-.cifras{display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:1rem;margin:1rem 0 1.5rem;}
-.cifra{background:var(--suave);padding:1rem;border-radius:var(--radio-peq);text-align:center;}
-.cifra b{display:block;font-size:1.8rem;line-height:1;color:var(--guinda);margin-bottom:0.25rem;}
-.cifra span{font-size:.85rem;color:var(--gris);font-weight:500;}
-.err{background:var(--alerta-suave);border-left:4px solid var(--alerta);color:var(--alerta);
-     padding:1.25rem 1.5rem;border-radius:0 var(--radio-peq) var(--radio-peq) 0;margin-bottom:2rem;font-size:.95rem;font-weight:500;}
-.nota{font-size:.85rem;color:var(--gris);margin-top:2rem;padding:1.5rem;background:var(--suave);border-radius:var(--radio-peq);}
+details.huecos ul{margin:1rem 0 .5rem; padding-left:1.5rem;}
+
+.cifras{display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:1rem; margin:1rem 0 1.5rem;}
+.cifra{background:#fff; padding:1.25rem; border-radius:var(--radio); text-align:center; border: 1px solid var(--linea); box-shadow: var(--sombra-card);}
+.cifra b{display:block; font-size:2rem; line-height:1; color:var(--tinta); margin-bottom:0.35rem; font-weight: 600; letter-spacing: -0.02em;}
+.cifra span{font-size:.8rem; color:var(--gris); font-weight:500;}
+
+.err{background:var(--alerta-suave); border:1px solid rgba(239, 68, 68, 0.2); color:var(--alerta);
+     padding:1rem 1.25rem; border-radius:var(--radio-peq); margin-bottom:1.5rem; font-size:.9rem; font-weight:500; display:flex; align-items:center; gap:0.5rem;}
+.nota{font-size:.85rem; color:var(--gris); margin-top:2rem; padding:1.25rem; background:var(--suave); border-radius:var(--radio-peq); border: 1px solid var(--linea);}
 """
 
 
@@ -168,6 +189,14 @@ def portada(error: str = "") -> str:
     </div>
   </label>
   
+  <label><b>Vistas (HTML)</b>
+    <em>Mockup de las pantallas propuesto por el equipo de Simplificación. Es referencia visual; no afecta la compilación.</em>
+    <div class="dropzone" id="dz4">
+      <div class="dropzone-text" id="dt4">Arrastra tu archivo aquí o <span>haz clic para examinar</span></div>
+      <input type="file" name="vistas" accept=".html,.htm" onchange="document.getElementById('dt4').innerText = this.files[0].name">
+    </div>
+  </label>
+  
   <div style="margin-top:2rem;display:flex;justify-content:space-between;align-items:center">
     <a href="/historial" style="font-size:0.95rem;color:var(--gris);text-decoration:none;font-weight:500;transition:color 0.2s" onmouseover="this.style.color='var(--guinda)'" onmouseout="this.style.color='var(--gris)'">Ver historial de trámites procesados</a>
     <button type="submit">Extraer manifiesto →</button>
@@ -186,7 +215,7 @@ def portada(error: str = "") -> str:
 insumos lo reporta como hueco para que una persona lo resuelva antes de compilar.</p>""", 1)
 
 
-def revision(m, huecos, problemas, estimacion, sid: str) -> str:
+def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = False) -> str:
     e = _h.escape
     k = estimacion.metricas
 
@@ -198,24 +227,70 @@ def revision(m, huecos, problemas, estimacion, sid: str) -> str:
         "falta_dato": ("Faltan datos", "un humano debe escribirlos", "#b9770e"),
         "por_confirmar": ("Por confirmar", "el extractor propuso un valor", "#6b7280"),
     }
-    bloque_huecos = ""
+    bloque_huecos = f'<form method="POST" action="/resolver/{e(sid)}">'
+    
+    # Construir diccionarios para traducir IDs técnicos a nombres amigables
+    mapa_actores = {a.id: a.nombre for a in m.actores}
+    opciones_actores = "".join(f'<option value="{e(id)}">{e(nombre)}</option>' for id, nombre in mapa_actores.items())
+    
+    mapa_campos = {c.nombre: c.etiqueta or c.nombre for p in m.pantallas for c in p.campos}
+    opciones_campos = "".join(f'<option value="{e(nombre)}">{e(etiqueta)}</option>' for nombre, etiqueta in mapa_campos.items())
+    
+    mapa_tareas = {t.id: t.nombre for t in m.flujo.tareas}
+
     for nivel in NIVELES:
         grupo = [h for h in huecos if h.nivel == nivel]
         if not grupo:
             continue
         titulo, nota, color = _ROTULO[nivel]
-        lis = "".join(
-            f"<li><code>{e(h.codigo)}</code> "
-            f"{(e(h.ubicacion) + ' ') if h.ubicacion else ''}{e(h.mensaje)}"
-            f"{(' → <b>' + e(h.propuesta) + '</b>') if h.propuesta else ''}</li>"
-            for h in grupo
-        )
+        
+        lis = ""
+        for h in grupo:
+            # Renderizado interactivo y amigable para huecos específicos
+            if h.codigo == "MMD-03":
+                nombre_tarea = mapa_tareas.get(h.ubicacion, h.ubicacion)
+                texto_amigable = f"La tarea <b>«{e(nombre_tarea)}»</b> no tiene responsable asignado."
+                control = f'<br><select name="mmd03_{e(h.ubicacion)}" style="margin-top:0.5rem;padding:0.4rem;border-radius:4px;border:1px solid #ccc;font-size:0.9rem;width:100%;max-width:300px"><option value="">(Selecciona quién hace esto...)</option>{opciones_actores}</select>'
+            elif h.codigo == "META-01":
+                texto_amigable = "Falta el <b>tiempo de respuesta</b> que se le promete al ciudadano."
+                control = f'<br><input type="text" name="meta01" placeholder="Ej. 5 días hábiles" style="margin-top:0.5rem;padding:0.4rem;border-radius:4px;border:1px solid #ccc;font-size:0.9rem;width:100%;max-width:300px">'
+            elif h.codigo == "META-02":
+                texto_amigable = "Falta indicar qué <b>Dependencia o Secretaría</b> atiende este trámite."
+                control = f'<br><input type="text" name="meta02" placeholder="Ej. Dirección General de Tránsito" style="margin-top:0.5rem;padding:0.4rem;border-radius:4px;border:1px solid #ccc;font-size:0.9rem;width:100%;max-width:300px">'
+            elif h.codigo == "API-03":
+                etiqueta_campo = mapa_campos.get(h.ubicacion, h.ubicacion)
+                texto_amigable = f"El campo <b>«{e(etiqueta_campo)}»</b> es un catálogo dinámico, pero no sabemos de qué otro campo depende para cargar sus datos."
+                control = f'<br><select name="api03_{e(h.ubicacion)}" style="margin-top:0.5rem;padding:0.4rem;border-radius:4px;border:1px solid #ccc;font-size:0.9rem;width:100%;max-width:300px"><option value="">(Depende de lo que elija en...)</option>{opciones_campos}</select>'
+            elif h.codigo == "INS-04":
+                texto_amigable = f"<b style='color:var(--alerta)'>¡Alerta de archivos mezclados!</b><br>{e(h.mensaje)}"
+                control = ""
+            else:
+                texto_amigable = f"{(e(h.ubicacion) + ': ') if h.ubicacion else ''}{e(h.mensaje)}"
+                control = ""
+                
+            lis += (
+                f"<li style='margin-bottom:1.25rem; background: var(--suave); padding: 1rem; border-radius: var(--radio-peq); border: 1px solid var(--linea);'>"
+                f"<div style='font-size:0.8rem; color:var(--gris); margin-bottom:0.25rem; font-family:monospace'>Código interno: {e(h.codigo)}</div>"
+                f"{texto_amigable}"
+                f"{(' → <b>' + e(h.propuesta) + '</b>') if h.propuesta else ''}"
+                f"{control}</li>"
+            )
+            
         abierto = " open" if nivel != "por_confirmar" else ""
         bloque_huecos += (
             f'<details class="huecos"{abierto} style="border-left:4px solid {color}">'
             f"<summary><b>{len(grupo)}</b> {titulo} — {nota}</summary>"
-            f"<ul>{lis}</ul></details>"
+            f"<ul style='list-style:none;padding-left:0;margin-top:1.5rem'>{lis}</ul></details>"
         )
+        
+    # Botón flotante para guardar cambios si hay resolubles
+    if any(h.codigo in ("MMD-03", "META-01", "META-02", "API-03") for h in huecos):
+        bloque_huecos += (
+            f'<div style="text-align:right; margin-bottom:1.5rem;">'
+            f'<button type="submit" style="background:var(--verde);border-color:var(--verde)">Guardar y Recompilar</button>'
+            f'</div>'
+        )
+    bloque_huecos += "</form>"
 
     bloque_problemas = ""
     if problemas:
@@ -264,8 +339,12 @@ def revision(m, huecos, problemas, estimacion, sid: str) -> str:
   <h2>Salidas y Descargas (Paso 4)</h2>
   <a class="btn" href="/aprobacion/{e(sid)}">Documento de aprobación</a><br>
   <a class="btn" href="/simulador/{e(sid)}">Recorrer el trámite</a>
-  <a class="btn" href="/descargar/{e(sid)}/manifiesto">Manifiesto YAML</a>
-  <a class="btn p" href="/descargar/{e(sid)}/gpm">Archivo .gpm</a>
+  <a class="btn" href="/descargar/{e(sid)}/manifiesto">Manifiesto YAML</a><br>
+  <div style="margin-top:1rem;display:flex;gap:1rem;flex-wrap:wrap;">
+      <a class="btn p" href="/descargar/{e(sid)}/gpm" style="background:var(--verde);border-color:var(--verde)">Archivo .gpm (Producción)</a>
+      <a class="btn p" href="/descargar/{e(sid)}/gpm-pruebas" title="Agrupa todas las pantallas en una sola tarea inicial para revisión visual rápida">Archivo .gpm (Modo Pruebas / Test UI)</a>
+  </div>
+  {'<br><a class="btn" href="/vistas/' + e(sid) + '" target="_blank">Ver vistas (HTML) ↗</a>' if tiene_vistas else ''}
 </div>
 
 <p class="nota">El flujo propuesto es <strong>lineal</strong>, una tarea por pantalla. Las

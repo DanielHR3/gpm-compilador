@@ -29,7 +29,7 @@ def _insumos():
 def test_la_portada_pide_los_tres_insumos(cliente):
     r = cliente.get("/")
     assert r.status_code == 200
-    for campo in ("as_is", "to_be", "diccionario"):
+    for campo in ("as_is", "to_be", "diccionario", "vistas"):
         assert f'name="{campo}"' in r.text
 
 
@@ -69,12 +69,83 @@ def test_el_paso_de_revision_agrupa_huecos_por_nivel(cliente):
 def test_revision_enlaza_al_simulador_en_la_misma_pestana(cliente):
     # El navegador bloquea las pestañas nuevas de target="_blank"; los botones
     # de navegación del asistente deben abrir en la misma pestaña.
+    # Excepcion: el enlace de vistas sí abre en pestaña nueva.
     r = cliente.post("/extraer", files={
         "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
     })
     sid = r.url.path.rsplit("/", 1)[-1]
     assert f'href="/simulador/{sid}"' in r.text
+    # Contar target="_blank": sin vistas subidas, no debe haber ninguno
     assert 'target="_blank"' not in r.text
+
+
+# ── Vistas HTML (mockup de referencia visual) ────────────────────────
+
+_HTML_VISTAS = b"""<!doctype html><html><body>
+<h1>Mockup de pantallas</h1>
+<p>Pantalla 1: Datos del solicitante</p>
+</body></html>"""
+
+
+def test_subir_vistas_las_persiste_y_la_revision_muestra_el_enlace(cliente):
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+        "vistas": ("vistas.html", _HTML_VISTAS, "text/html"),
+    })
+    assert r.status_code == 200, r.text
+    assert "Ver vistas (HTML)" in r.text
+    assert 'target="_blank"' in r.text  # el enlace de vistas abre en nueva pestaña
+
+
+def test_el_endpoint_de_vistas_sirve_el_html_subido(cliente):
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+        "vistas": ("vistas.html", _HTML_VISTAS, "text/html"),
+    })
+    sid = r.url.path.rsplit("/", 1)[-1]
+    v = cliente.get(f"/vistas/{sid}")
+    assert v.status_code == 200
+    assert "Mockup de pantallas" in v.text
+
+
+def test_sin_vistas_el_enlace_no_aparece_y_el_endpoint_devuelve_404(cliente):
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+    })
+    assert "Ver vistas (HTML)" not in r.text
+    sid = r.url.path.rsplit("/", 1)[-1]
+    v = cliente.get(f"/vistas/{sid}")
+    assert v.status_code == 404
+
+
+def test_vistas_de_sesion_inexistente_devuelve_404(cliente):
+    assert cliente.get("/vistas/noexiste").status_code == 404
+
+
+# ── Resolucion interactiva de huecos (POST /resolver) ────────────────
+
+
+def test_resolver_una_sesion_inexistente_devuelve_404(cliente):
+    # Regresion: el handler declaraba `request: Request` sin importar Request,
+    # asi que FastAPI trataba `request` como query param obligatorio y todo
+    # POST a /resolver devolvia 422 antes de llegar a la logica.
+    r = cliente.post("/resolver/0123456789abcdef", data={"meta01": "x"})
+    assert r.status_code == 404
+
+
+def test_resolver_aplica_la_respuesta_al_manifiesto_y_redirige(cliente):
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+    })
+    sid = r.url.path.rsplit("/", 1)[-1]
+
+    resp = cliente.post(f"/resolver/{sid}", data={"meta01": "10 dias habiles"},
+                        follow_redirects=False)
+    assert resp.status_code == 303, resp.text
+    assert resp.headers["location"] == f"/revisar/{sid}"
+
+    yaml = cliente.get(f"/descargar/{sid}/manifiesto").text
+    assert "10 dias habiles" in yaml
 
 
 def test_descargar_el_gpm_de_una_sesion(cliente):

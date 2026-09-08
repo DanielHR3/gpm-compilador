@@ -14,7 +14,7 @@ import secrets
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, Request, UploadFile, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from gpmc.compilador.a_gpm import compilar
@@ -34,6 +34,12 @@ INSUMOS = {
     "to_be": "Propuesta TO-BE.md",
     "diccionario": "Diccionario de Datos.md",
 }
+
+# El HTML de vistas es referencia visual, no insumo de extraccion. Se guarda
+# en la sesion para que el analista lo consulte durante la revision, pero no
+# alimenta al extractor ni al compilador: el origen de verdad de las pantallas
+# sigue siendo el Diccionario de Datos.
+ARCHIVO_VISTAS = "Vistas.html"
 
 
 def crear_app(almacen: Optional[Path] = None) -> FastAPI:
@@ -106,6 +112,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         as_is: UploadFile = File(None),
         to_be: UploadFile = File(None),
         diccionario: UploadFile = File(...),
+        vistas: UploadFile = File(None),
     ):
         subidos = {"as_is": as_is, "to_be": to_be, "diccionario": diccionario}
         sid = secrets.token_hex(8)
@@ -118,6 +125,13 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             contenido = await archivo.read()
             if contenido:
                 (carpeta / INSUMOS[clave]).write_bytes(contenido)
+
+        # El HTML de vistas es referencia visual: se persiste para consulta en
+        # /revisar pero no alimenta al extractor.
+        if vistas is not None:
+            contenido_vistas = await vistas.read()
+            if contenido_vistas:
+                (carpeta / ARCHIVO_VISTAS).write_bytes(contenido_vistas)
 
         try:
             r = extraer_expediente(carpeta)
@@ -156,7 +170,67 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         carpeta = _carpeta(sid)
         datos = json.loads((carpeta / "huecos.json").read_text(encoding="utf-8"))
         huecos = [Hueco(**d) for d in datos]
-        return plantillas.revision(m, huecos, analizar(m).problemas, estimar(m), sid)
+        tiene_vistas = (carpeta / ARCHIVO_VISTAS).exists()
+        return plantillas.revision(
+            m, huecos, analizar(m).problemas, estimar(m), sid,
+            tiene_vistas=tiene_vistas,
+        )
+
+    @app.post("/resolver/{sid}")
+    async def resolver(sid: str, request: Request):
+        m = _manifiesto(sid)
+        if m is None:
+            return HTMLResponse("Sesión no encontrada.", status_code=404)
+            
+        form = await request.form()
+        resueltos = []
+        
+        # Procesar MMD-03 (Asignación de actores a tareas)
+        for key, value in form.items():
+            if key.startswith("mmd03_") and value:
+                tarea_id = key.split("_", 1)[1]
+                for t in m.flujo.tareas:
+                    if t.id == tarea_id:
+                        t.actor = str(value)
+                        resueltos.append(("MMD-03", tarea_id))
+                        
+            # Procesar META-01 (Tiempo de respuesta)
+            if key == "meta01" and value:
+                m.tramite.ruts.tiempo_entrega = str(value)
+                resueltos.append(("META-01", "metadatos"))
+                
+            # Procesar META-02 (Dependencia)
+            if key == "meta02" and value:
+                m.tramite.dependencia = str(value)
+                resueltos.append(("META-02", "metadatos"))
+                
+            # Procesar API-03 (Dependencia de campo en catálogo)
+            if key.startswith("api03_") and value:
+                campo_nombre = key.split("_", 1)[1]
+                campo = m.campo_por_nombre(campo_nombre)
+                if campo:
+                    campo.dependencia_campo = str(value)
+                    resueltos.append(("API-03", campo_nombre))
+                    
+        # Persistir los cambios si hubo alguno
+        if resueltos:
+            carpeta = _carpeta(sid)
+            guardar(m, carpeta / "manifiesto.yaml")
+            
+            # Limpiar los huecos que ya se resolvieron
+            datos_huecos = json.loads((carpeta / "huecos.json").read_text(encoding="utf-8"))
+            nuevos_huecos = []
+            for h in datos_huecos:
+                codigo = h.get("codigo")
+                ubicacion = h.get("ubicacion")
+                if (codigo, ubicacion) not in resueltos:
+                    nuevos_huecos.append(h)
+                    
+            (carpeta / "huecos.json").write_text(
+                json.dumps(nuevos_huecos, ensure_ascii=False), encoding="utf-8"
+            )
+            
+        return RedirectResponse(f"/revisar/{sid}", status_code=303)
 
     @app.get("/simulador/{sid}", response_class=HTMLResponse)
     def simulador(sid: str):
@@ -164,6 +238,22 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         if m is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
         return generar_simulador(m)
+
+    @app.get("/vistas/{sid}", response_class=HTMLResponse)
+    def vistas(sid: str):
+        """Sirve el mockup de vistas subido por Simplificacion.
+
+        Es referencia visual: el compilador no lo consume. Se despliega en
+        una pestana aparte para que el analista compare sus pantallas
+        propuestas contra lo que el extractor produjo del Diccionario.
+        """
+        carpeta = _carpeta(sid)
+        if carpeta is None:
+            return HTMLResponse("Sesión no encontrada.", status_code=404)
+        ruta = carpeta / ARCHIVO_VISTAS
+        if not ruta.exists():
+            return HTMLResponse("No se subió archivo de vistas.", status_code=404)
+        return HTMLResponse(ruta.read_text(encoding="utf-8"))
 
     @app.get("/aprobacion/{sid}", response_class=HTMLResponse)
     def aprobacion(sid: str):
@@ -185,6 +275,12 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
                 serializar(compilar(m)),
                 media_type="application/octet-stream",
                 headers={"content-disposition": f'attachment; filename="{base}.gpm"'},
+            )
+        if que == "gpm-pruebas":
+            return Response(
+                serializar(compilar(m, modo_pruebas=True)),
+                media_type="application/octet-stream",
+                headers={"content-disposition": f'attachment; filename="{base}-test-ui.gpm"'},
             )
         if que == "manifiesto":
             destino = _carpeta(sid) / "manifiesto.yaml"

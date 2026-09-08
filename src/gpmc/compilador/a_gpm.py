@@ -136,7 +136,26 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
     )
 
 
-def compilar(m: Manifiesto, proceso_id: str = "") -> dict:
+def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) -> dict:
+    if modo_pruebas:
+        # MODO PRUEBAS (Test UI): Agrupa todas las pantallas secuencialmente en
+        # una sola Tarea Inicial. Esto permite al equipo de modelado inspeccionar
+        # libremente todo el diseño visual en la plataforma iterando la URL 
+        # (.../procedures/[id]/1, /2, etc.) sin chocar con reglas de compuertas.
+        from gpmc.nucleo.manifiesto import Tarea, PasoPantalla
+        tarea_test = Tarea(
+            id="t_pruebas",
+            nombre=f"TEST UI - {m.tramite.nombre}",
+            inicial=True,
+            terminal=True,
+            pantallas=[PasoPantalla(id=p.id) for p in m.pantallas]
+        )
+        # Clonamos el manifiesto superficialmente para no mutar el original en memoria
+        m_nuevo = m.model_copy(deep=True)
+        m_nuevo.flujo.tareas = [tarea_test]
+        m_nuevo.flujo.conexiones = []
+        m = m_nuevo
+
     if not proceso_id:
         num = int(hashlib.sha256(m.tramite.nombre.encode("utf-8")).hexdigest(), 16)
         # El modulo lo fija el rango de los exports autenticos, no lo que
