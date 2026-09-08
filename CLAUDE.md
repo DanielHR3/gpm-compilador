@@ -150,8 +150,14 @@ públicos. INEGI, SEPOMEX y SIPUBEH responden sin credencial (verificado el 2026
 SAT no, y `guia_modelado_gpm.md` es explícita al respecto —"no insertes tokens de APIs en campos
 `api_ajax`; toda llamada autenticada hazla a través de `Acciones` de tipo PHP"—, en línea con el
 riesgo SEG-04 ("fuga de secretos: API keys de Keycloak y RENAPO expuestas en las peticiones AJAX
-del navegador"). Un trámite que pida un endpoint autenticado se reporta como hueco y se manda a
-una Acción PHP.
+del navegador").
+
+Esto **supersede la sección 7 del `Diseño técnico`**, que contemplaba un `apis.yaml` central y
+emitir la cabecera `Authorization` en el cliente. No se hace: un endpoint autenticado conocido
+(`nucleo/integraciones.APIS_CON_TOKEN` — SAT, TLÁLOC…) se reporta como hueco **`API-05`** y el
+trámite lo resuelve con una Acción PHP escrita a mano (que además está fuera de alcance del
+compilador). El validador conserva `CRED-01` (aviso) como red para un `.gpm` editado a mano que
+sí traiga un `Authorization`.
 
 ## Cuestión resuelta: `SINTAXIS_ESTRICTA` (2026-08-31)
 

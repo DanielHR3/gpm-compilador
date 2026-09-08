@@ -337,3 +337,20 @@ def test_un_md_en_latin1_no_revienta_la_extraccion(tmp_path):
         contenido.replace("ano", "a\xf1o").replace("nino", "ni\xf1o").encode("latin-1"))
     r = extraer_expediente(carpeta)
     assert r.manifiesto is not None
+
+
+def test_un_endpoint_con_token_se_reporta_como_API_05_no_API_01(tmp_path):
+    """El diseño §7 contemplaba emitir el token en cliente; el CLAUDE.md lo
+    revirtió (SEG-04). Un endpoint autenticado se reporta como API-05 con la
+    vía correcta (Acción PHP a mano), no como 'endpoint desconocido'."""
+    dicc = ("### Pantalla 1 — Solicitante — Datos\n\n"
+            "| Variable | Tipo (GPM) | Dependencia | Endpoint / API | Comportamiento |\n"
+            "| :--- | :--- | :--- | :--- | :--- |\n"
+            "| `rfc_sol` | select | N/A | `tlaloc_curp` | Autocompletar por CURP. |\n")
+    carpeta = _expediente(tmp_path, **{"5.-Diccionario de Datos.md": dicc})
+    r = extraer_expediente(carpeta)
+    cods = {h.codigo for h in r.huecos}
+    assert "API-05" in cods
+    assert "API-01" not in cods
+    a05 = next(h for h in r.huecos if h.codigo == "API-05")
+    assert "token" in a05.mensaje.lower() and "SEG-04" in a05.mensaje

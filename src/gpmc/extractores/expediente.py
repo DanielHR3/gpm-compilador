@@ -15,6 +15,7 @@ from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.integraciones import resolver as _resolver_catalogo
+from gpmc.nucleo.integraciones import requiere_token as _requiere_token
 from gpmc.nucleo.limites import LIMITE_FORMULARIO_NOMBRE as _CAP_NOMBRE
 from gpmc.nucleo.manifiesto import (
     Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, Tarea,
@@ -313,6 +314,14 @@ def extraer_expediente(carpeta: Path) -> Resultado:
         nombres = {c.nombre for c in p.campos}
         for c in p.campos:
             if not c.endpoint:
+                continue
+            if _requiere_token(c.endpoint):
+                r.huecos.append(Hueco(
+                    "falta_dato", "API-05", c.nombre,
+                    f"el endpoint '{c.endpoint}' exige token; el compilador no lo emite "
+                    f"en cliente (riesgo SEG-04). Configúralo como una Acción PHP a mano, "
+                    f"o usa la vía pública si existe (para CURP: SIPUBEH).",
+                ))
                 continue
             cat = _resolver_catalogo(c.endpoint)
             if cat is None:

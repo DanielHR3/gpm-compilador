@@ -74,9 +74,23 @@ SINONIMOS = {
     "sipubeh": "consultacurpn",
 }
 
+# Endpoints conocidos que EXIGEN token. El diseño (sección 7) contemplaba
+# emitirlos como `Api ajax` con la cabecera Authorization en el cliente; el
+# CLAUDE.md lo revirtió (riesgo SEG-04: la llave queda a la vista del ciudadano).
+# El compilador no los emite: se reportan como hueco API-05 y el trámite los
+# resuelve con una Acción PHP escrita a mano (que además está fuera de alcance
+# del compilador). Para CURP, la vía pública es SIPUBEH (`consultacurpn`).
+APIS_CON_TOKEN = frozenset({"sat", "tlaloc_curp", "tlaloc", "renapo_directo"})
+
 
 def resolver(clave: Optional[str]) -> Optional[Catalogo]:
     """Un endpoint no registrado devuelve None: el compilador lo reporta como
     hueco API-01 en vez de inventar una URL."""
     normalizada = (clave or "").strip().lower()
     return CATALOGOS.get(normalizada) or CATALOGOS.get(SINONIMOS.get(normalizada, ""))
+
+
+def requiere_token(clave: Optional[str]) -> bool:
+    """El endpoint es uno conocido que necesita credencial. El compilador no lo
+    emite en cliente (SEG-04); se reporta como hueco API-05 → Acción PHP a mano."""
+    return (clave or "").strip().lower() in APIS_CON_TOKEN

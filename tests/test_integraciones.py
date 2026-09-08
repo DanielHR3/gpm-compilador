@@ -51,3 +51,12 @@ def test_los_sinonimos_se_resuelven_al_catalogo_base():
     # Ademas, las claves originales siguen resolviendo
     assert resolver("mgem").clave == "mgem"
     assert resolver("mgee").clave == "mgee"
+
+
+def test_los_endpoints_con_token_se_reconocen():
+    from gpmc.nucleo.integraciones import requiere_token
+    assert requiere_token("SAT") is True
+    assert requiere_token("tlaloc_curp") is True
+    assert requiere_token("mgee") is False        # público, registrado
+    assert requiere_token("cualquier_cosa") is False
+    assert requiere_token(None) is False

@@ -1,7 +1,15 @@
 """Reglas de revision sobre un .gpm.
 
-Los codigos SEG-* son propios de esta herramienta
-de 2026. Los EST-* y FMT-* son propios de esta herramienta.
+Codigos: EST-* (estructura y limite de columna), FMT-* (formato del .gpm),
+FOLIO-* (integridad del folio), DOC-* (escapado en documentos) y CRED-* (fuga
+de credenciales) son propios de esta herramienta.
+
+Mapeo con los hallazgos SEG-* del dictamen de auditoria del core de GPM (esos
+defectos son del proveedor; esta herramienta solo evita *introducirlos*):
+
+    SEG-07  folio sin bloqueo          -> FOLIO-01 / FOLIO-02
+    SEG-06  documento sin escapar      -> DOC-01
+    SEG-04  credencial expuesta        -> CRED-01  (aviso: decision del area)
 """
 
 import json
