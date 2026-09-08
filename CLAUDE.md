@@ -9,7 +9,8 @@ archivo `.gpm` importable en una plataforma de modelado BPMN.
 - `pydantic` para el modelo del manifiesto
 - `pyyaml` para leer y escribir manifiestos
 - `pytest` para las pruebas
-- `fastapi` + `uvicorn` como extra opcional `[web]`
+- `fastapi` + `uvicorn` + `python-multipart` como extra opcional `[web]`
+- `reportlab` como extra opcional `[guia]` (genera los PDF de la guía del equipo)
 - Sin dependencias de red en el núcleo. Sin base de datos.
 
 ## Regla que gobierna todo el formato `.gpm`
@@ -27,23 +28,53 @@ aceptable, y la prueba de ida y vuelta lo verifica en cada corrida.
 ```
 src/gpmc/
 ├── nucleo/
-│   ├── formato.py      serializacion byte-exacta
-│   ├── esquema.py      primitivos: tarea, paso, formulario, campo, conexion, proceso
-│   ├── manifiesto.py   modelo Pydantic del manifiesto y su coherencia
-│   └── reglas.py       evaluador UNICO de reglas de transicion
-├── extractores/        insumos en markdown -> manifiesto
-├── compilador/         manifiesto -> .gpm, y los cuatro arquetipos de Accion
-├── validador/          hallazgos estructurales, de folio, de escapado y de credenciales
-├── simulador/          recorrido navegable del tramite y analisis estatico
-├── planeacion/         registro y proyeccion del ciclo de trabajo
-├── estimador.py        complejidad del tramite
-├── web/                asistente de 5 pasos
-└── cli.py              las 7 ordenes
+│   ├── formato.py        serializacion byte-exacta
+│   ├── esquema.py        primitivos: tarea, paso, formulario, campo, conexion, proceso
+│   ├── manifiesto.py     modelo Pydantic del manifiesto y su coherencia
+│   ├── reglas.py         evaluador UNICO de reglas de transicion y de visibilidad
+│   ├── integraciones.py  catalogo de APIs (SIPUBEH, INEGI, SEPOMEX) y su mapeo de respuesta
+│   └── huecos.py         tipo Hueco y codigos estables (INS-*, DIC-*, META-*, FLU-*, MMD-*, API-*, PLAT-*)
+├── extractores/
+│   ├── expediente.py     orquestador: carpeta de insumos -> manifiesto + huecos
+│   ├── metadatos.py      frontmatter y encabezados -> nombre, homoclave, dependencia, ficha RUTS
+│   ├── diccionario.py    Diccionario .md -> pantallas, campos, catalogos, condiciones de visibilidad
+│   └── mermaid.py        flowchart del TO-BE -> tareas, compuertas, conexiones, actores
+├── compilador/
+│   ├── a_gpm.py          manifiesto -> .gpm
+│   ├── acciones.py       los cuatro arquetipos: folio, costo, documento, notificacion
+│   └── aprobacion.py     manifiesto -> HTML estatico de aprobacion para la dependencia
+├── validador/
+│   └── reglas.py         hallazgos EST-* (estructura y limite de columna), FOLIO-*, de escapado y de credenciales
+├── simulador/
+│   ├── analisis.py       analisis estatico del flujo (tareas inalcanzables, ramas muertas, bucles)
+│   └── html.py           recorrido navegable del tramite
+├── planeacion/
+│   ├── registro.py       mide el ciclo real de cada tramite
+│   └── proyeccion.py     proyecta capacidad y tiempo
+├── estimador.py          seis metricas de complejidad + sugerencia de nivel (escala no calibrada)
+├── web/
+│   ├── app.py            asistente de 5 pasos (FastAPI)
+│   └── plantillas.py     HTML/CSS embebido, cero dependencias de frontend
+└── cli.py                las 9 ordenes (abajo)
 ```
 
 **Dependencia en un solo sentido:** `web`/`cli` → `compilador`/`validador`/`extractores` →
 `nucleo`. Nada por debajo de `web` conoce interfaz de usuario: son funciones sobre archivos, sin
 estado de sesión. Esa separación es la que permite que la CLI y las pruebas existan sin navegador.
+
+### Las 9 órdenes de la CLI
+
+| Orden | Hace |
+|---|---|
+| `compilar` | manifiesto YAML → `.gpm`. `--modo-pruebas` agrupa todas las pantallas en una tarea inicial sintética para recorrer las vistas sin compuertas |
+| `validar` | revisa un `.gpm` existente |
+| `extraer` | carpeta de expediente → manifiesto YAML + huecos. `--nombre` cuando no hay AS-IS (P-03) |
+| `estimar` | seis métricas de complejidad y tiempo de ciclo |
+| `simular` | manifiesto → simulador navegable en HTML |
+| `aprobar` | manifiesto → HTML estático de aprobación para la dependencia |
+| `planear` | mide y proyecta el ciclo (`iniciar`/`hito`/`cerrar`/`estado`/`capacidad`/`proyectar`/`sembrar`) |
+| `servir` | levanta el asistente web |
+| `diagnostico` | `--sintaxis` genera los archivos de la prueba empírica de sintaxis en plataforma |
 
 ## Reglas de código
 
@@ -72,6 +103,10 @@ Son reglas de calidad, no configurables:
   evalúan control de flujo en el navegador.
 - **El validador propone, no adivina.** Lo que no puede derivarse de los insumos se reporta como
   hueco, nunca se rellena por inferencia silenciosa.
+- **Las condiciones de visibilidad solo se emiten cuando son inequívocas.** Un campo del
+  Diccionario con la forma «Visible solo si X = Y» viaja al `.gpm` como string en
+  `dependiente_campo`, que es la forma de los exports. Una condición compuesta o ambigua se
+  reporta como hueco `DIC-08` y el campo queda siempre visible — no se infiere la regla.
 
 ## Cuestión abierta: `Api variable` frente a `api_ajax`
 
@@ -138,8 +173,10 @@ evidencia está en `planeacion/actas/2026-08-30-prueba-en-plataforma.md`. El res
    las cuatro claves aunque tres queden vacías (**PLAT-1**, cerrado). El compilador ya lo hace.
 2. **¿Acepta la plataforma un `proceso_id` que ella no emitió?** **NO.** Lo reasigna al importar
    y **no reescribe** las referencias `->where('proceso_id', N)` dentro del PHP de las acciones,
-   así que el contador de folios apunta a un proceso inexistente: el folio queda roto tras
-   importar (**PLAT-4**, abierto — bloquea usar acciones de folio en producción).
+   así que el contador de folios apuntaba a un proceso inexistente y el folio quedaba roto tras
+   importar (**PLAT-4**). **Cerrado el 2026-08-31:** el folio se llavea ahora por el nombre de la
+   variable en `dato_seguimiento.valor`, sin `proceso_id` — la forma de `constancia-ambiental` y
+   `pago-de-bases`, que corre en runtime. Ver el invariante del folio arriba y `pendientes.md`.
 3. **`SINTAXIS_ESTRICTA` (`@@campo=='valor'`)** — **sigue sin poder probarse.** Exige un `.gpm`
    con una compuerta con regla de transición, y ningún `.gpm` que este compilador produce trae
    una (el flujo sale lineal, `FLU-01`). Para probarla habría que ramificar un manifiesto a mano.
@@ -157,6 +194,24 @@ longitud de columna que la suite local no atrapaba se corrigieron en esa prueba 
 formulario/tarea capados a 60; nombre técnico de campo derivado capado a 30, porque la columna
 `campo.nombre` no admite los 40 que producía una etiqueta larga). Cuarta prueba del acta.
 
+### Lote de reingeniería del 2026-09-02 — PLAT-7/8/9 (suite 245 → 268)
+
+Seis expedientes con insumos reales del equipo de Simplificación se importaron a
+`modelador.hidalgo.gob.mx` (procesos 1068-1073). Tres defectos que la suite de escritorio no
+atrapaba salieron en pantalla al importar:
+
+- **PLAT-7** — `Data too long for column 'nombre'`: el nombre técnico `@@` que declara el
+  analista pasaba entero (`@@fecha_vencimiento_certificado_anterior`, 38 chars). El extractor
+  solo capaba a 30 el nombre que *proponía*. Ahora capa las tres rutas, reporta `DIC-06`, y el
+  validador marca `EST-05` (bloqueante) si `campo.nombre` pasa de 30.
+- **PLAT-8** — `Invalid argument supplied for foreach()`: los `select`/`radio` salían sin
+  opciones. El extractor no leía varios formatos de catálogo (coma, ` / `, `<br>`, envoltura
+  `(catalogo: …)`, Boolean con `Sí-No` en la columna Límite). Parser ampliado; Boolean →
+  `{Sí, No}`. Piso seguro: un `select`/`radio` sin opciones, sin endpoint y sin campo padre se
+  degrada a texto (hueco `DIC-07`, regla `EST-06`).
+- **PLAT-9** — un «Selector de fecha (calendario)» se clasificaba como `select` porque «select»
+  es subcadena de «selector». `selector de fecha`/`calendario` → `date`.
+
 ## Tests
 
 - Cada módulo tiene su `tests/test_<modulo>.py`. Antes de escribir código, escribe la prueba que
@@ -173,3 +228,17 @@ formulario/tarea capados a 60; nombre técnico de campo derivado capado a 30, po
 - Relajar una aserción de prueba para que pase. Si una prueba falla, se corrige el código o se
   reporta el problema — no se ablanda el criterio.
 - Sobrescribir cualquier archivo `.gpm` existente.
+
+## Mejoras recientes (Septiembre 2026)
+
+### 1. Extracción Automática de Flujos (Resolución de FLU-01)
+El orquestador (`extractores/expediente.py`) ahora intenta construir un **flujo no lineal (ramificado)** a partir del diagrama Mermaid. Para no violar el principio de "el compilador no adivina":
+- Sólo mapea una `tarea` de Mermaid a una `pantalla` del Diccionario si **sus nombres coinciden exactamente** (después de normalizar acentos y mayúsculas).
+- Sólo asimila el flujo si la cantidad de tareas coincide exactamente.
+- Si hay compuertas, se delegan a validación manual (por ahora) porque las aristas de Mermaid ("Sí"/"No") no ofrecen suficiente información estructurada para generar la regla `cuando: campo == valor` de forma segura. Si el flujo es complejo o ambiguo, el extractor degrada a flujo lineal y lanza los huecos `FLU-01` y `FLU-02` como lo hacía antes.
+
+### 2. Soporte de Alias para variables truncadas (Mitigación de DIC-06)
+Cuando un nombre de variable excede los 30 caracteres (el límite de la base de datos para la columna `campo.nombre` que tumba el import con `Data too long`), el extractor sigue reportando el hueco **`DIC-06`** y emite el nombre truncado seguro en el `.gpm`. Sin embargo, `diccionario.py` ahora mantiene un **alias** interno en memoria durante la extracción. Esto permite que las reglas de visibilidad (y otras fórmulas en el texto) que sigan usando la referencia larga (`@@nombre_muy_largo`) se resuelvan correctamente sin obligar al analista a corregir toda la documentación del expediente.
+
+### 3. Autocompletado `api_ajax` (Pendiente)
+Aún se mantiene el hueco `API-04` que degrada el componente a captura manual. Implementarlo requiere un ejemplo validado del JSON esperado por la plataforma en el arreglo `extra` del campo, y no contamos con esa estructura en este momento.
