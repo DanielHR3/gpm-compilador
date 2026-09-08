@@ -256,11 +256,24 @@ extractor partía solo por `<br>` y emitía **3 opciones basura** — `Soltero  
 
 ## Mejoras recientes (Septiembre 2026)
 
-### 1. Extracción Automática de Flujos (Resolución de FLU-01)
-El orquestador (`extractores/expediente.py`) ahora intenta construir un **flujo no lineal (ramificado)** a partir del diagrama Mermaid. Para no violar el principio de "el compilador no adivina":
-- Sólo mapea una `tarea` de Mermaid a una `pantalla` del Diccionario si **sus nombres coinciden exactamente** (después de normalizar acentos y mayúsculas).
-- Sólo asimila el flujo si la cantidad de tareas coincide exactamente.
-- Si hay compuertas, se delegan a validación manual (por ahora) porque las aristas de Mermaid ("Sí"/"No") no ofrecen suficiente información estructurada para generar la regla `cuando: campo == valor` de forma segura. Si el flujo es complejo o ambiguo, el extractor degrada a flujo lineal y lanza los huecos `FLU-01` y `FLU-02` como lo hacía antes.
+### 1. Ramificación del flujo desde el Mermaid (`expediente._flujo_ramificado`)
+El extractor construye un flujo **no lineal** desde el diagrama TO-BE, y **solo si es
+seguro** (spec 2026-09-03, Parte 2). Las cuatro condiciones, todas obligatorias — si una
+falla, el flujo sale lineal y se reporta `FLU-01`, exactamente como antes:
+
+1. Cada nodo `tarea` casa 1:1 por nombre con una pantalla del Diccionario (se acepta el
+   prefijo de carril: `Area: Cotiza` casa con la pantalla `Cotiza`).
+2. Cada compuerta nombra **exactamente un** `@@campo`, y ese campo existe en el manifiesto.
+3. Cada arista que sale de una compuerta trae etiqueta, y esa etiqueta resuelve a un valor
+   del catálogo del campo (por valor técnico o por etiqueta visible), o `Sí`/`No`.
+4. Toda compuerta está alimentada por una tarea, y sus ramas van a tareas.
+
+Cuando ramifica, emite `FLU-03` (`por_confirmar`): «se ramificó solo; confirma el emparejado
+nodo↔pantalla». `mermaid._ARISTA` acepta las dos formas de etiqueta de arista de Mermaid:
+`A -- texto --> B` (la que usan los expedientes del equipo) y `A -->|texto| B` (la que
+prescribe la plantilla para las compuertas). Ejemplo conforme y verificado:
+`ejemplos/expedientes/constancia-de-residencia/`. **Ningún `.gpm` ramificado se ha importado
+aún a la plataforma**; hasta hacerlo con acta, la ramificación no está probada en runtime.
 
 ### 2. Soporte de Alias para variables truncadas (Mitigación de DIC-06)
 Cuando un nombre de variable excede los 30 caracteres (el límite de la base de datos para la columna `campo.nombre` que tumba el import con `Data too long`), el extractor sigue reportando el hueco **`DIC-06`** y emite el nombre truncado seguro en el `.gpm`. Sin embargo, `diccionario.py` ahora mantiene un **alias** interno en memoria durante la extracción. Esto permite que las reglas de visibilidad (y otras fórmulas en el texto) que sigan usando la referencia larga (`@@nombre_muy_largo`) se resuelvan correctamente sin obligar al analista a corregir toda la documentación del expediente.

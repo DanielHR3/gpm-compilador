@@ -36,8 +36,18 @@ _NODO = re.compile(
     r"|\[(?P<tarea>[^\]]*)\])"            # A[texto]
     r"(?::::(?P<clase>\w+))?"
 )
+# Mermaid admite la etiqueta de la arista antes de la flecha
+# (`A -- texto --> B`, `A -- |texto| --> B`) o despues (`A -->|texto| B`).
+# Los expedientes del equipo usan la primera; la plantilla del Diccionario
+# prescribe la segunda para las compuertas. Se aceptan las dos.
 _ARISTA = re.compile(
-    r"(?P<de>\w+)\s*--\s*(?:\|(?P<et1>[^|]*)\||(?P<et2>[^->|]+?))?\s*-->\s*(?P<a>\w+)"
+    r"(?P<de>\w+)\s*"
+    r"(?:"
+    r"--\s*(?:\|(?P<et1>[^|]*)\||(?P<et2>[^->|]+?))?\s*-->"
+    r"|"
+    r"-->\s*\|(?P<et3>[^|]*)\|"
+    r")"
+    r"\s*(?P<a>\w+)"
 )
 _ARISTA_SIMPLE = re.compile(r"(?P<de>\w+)\s*-->\s*(?P<a>\w+)")
 _CAMPO = re.compile(r"@@(\w+)")
@@ -137,7 +147,7 @@ def extraer(bloque: str) -> Resultado:
 
     ocupadas = set()
     for m in _ARISTA.finditer(plano):
-        et = (m["et1"] or m["et2"] or "").strip() or None
+        et = (m["et1"] or m["et2"] or m["et3"] or "").strip() or None
         r.aristas.append(Arista(de=m["de"], a=m["a"], etiqueta=et))
         ocupadas.add(m.span())
     for m in _ARISTA_SIMPLE.finditer(plano):

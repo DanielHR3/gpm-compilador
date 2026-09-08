@@ -16,10 +16,124 @@ from gpmc.extractores import metadatos as ext_meta
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.integraciones import resolver as _resolver_catalogo
 from gpmc.nucleo.manifiesto import (
-    Actor, Conexion, Flujo, Manifiesto, Pantalla, Tarea,
+    Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, Tarea,
 )
 
 _BLOQUE_MERMAID = re.compile(r"```mermaid(.*?)```", re.S)
+
+
+def _mapear_nodos_a_pantallas(nodos_tarea, pantallas):
+    """Casa cada nodo 'tarea' del Mermaid con una pantalla del Diccionario por
+    nombre normalizado. Acepta el prefijo de carril: 'Area: Cotiza' casa con la
+    pantalla 'Cotiza'. Devuelve {id_nodo: pantalla} o None si no casan 1:1."""
+    if len(nodos_tarea) != len(pantallas):
+        return None
+    por_nombre = {ext_dicc._babel(p.nombre): p for p in pantallas}
+    mapa = {}
+    for n in nodos_tarea:
+        p = por_nombre.get(ext_dicc._babel(n.texto))
+        if p is None and ":" in n.texto:
+            p = por_nombre.get(ext_dicc._babel(n.texto.split(":", 1)[1]))
+        if p is None:
+            return None
+        mapa[n.id] = p
+    if len({id(p) for p in mapa.values()}) != len(pantallas):
+        return None  # dos nodos apuntan a la misma pantalla
+    return mapa
+
+
+def _valor_de_arista(etiqueta, campo):
+    """La etiqueta de una arista que sale de una compuerta tiene que ser un valor
+    del catalogo del campo que decide (por valor tecnico o por etiqueta visible),
+    o 'Si'/'No'. Devuelve el valor tecnico, o None si no resuelve."""
+    if not etiqueta:
+        return None
+    e = ext_dicc._babel(etiqueta)
+    for o in getattr(campo, "catalogo", []) or []:
+        if e in (ext_dicc._babel(o.valor), ext_dicc._babel(o.etiqueta)):
+            return o.valor
+    if e in ("si", "no"):
+        return e
+    return None
+
+
+def _flujo_ramificado(rm, pantallas):
+    """Construye tareas y conexiones NO lineales desde el Mermaid, y solo si es
+    seguro (spec 2026-09-03, Parte 2). Devuelve (tareas, conexiones, parejas) o
+    None — y entonces el flujo sigue saliendo lineal, como antes.
+
+    Condiciones, todas obligatorias:
+      1. Cada nodo 'tarea' casa 1:1 por nombre con una pantalla del Diccionario.
+      2. Cada compuerta nombra exactamente un @@campo, y ese campo existe.
+      3. Cada arista que sale de una compuerta trae etiqueta, y esa etiqueta
+         resuelve a un valor del catalogo del campo (o Si/No).
+      4. Toda compuerta esta alimentada por una tarea, y sus ramas van a tareas
+         (no a inicio/fin ni a otra compuerta).
+    Si algo falla, se devuelve None: no se adivina.
+    """
+    nodos_tarea = [n for n in rm.nodos if n.clase_nodo == "tarea"]
+    mapa = _mapear_nodos_a_pantallas(nodos_tarea, pantallas)
+    if mapa is None:
+        return None
+
+    ids_if = {n.id for n in rm.nodos if n.clase_nodo == "inicio_fin"}
+    compuertas = {n.id: n for n in rm.nodos if n.clase_nodo == "compuerta"}
+    campos = {c.nombre: c for p in pantallas for c in p.campos}
+
+    for g in compuertas.values():
+        if len(set(g.campos)) != 1 or g.campos[0] not in campos:
+            return None
+
+    utiles = [a for a in rm.aristas if a.de not in ids_if and a.a not in ids_if]
+
+    # Predecesor (una tarea) de cada compuerta.
+    pred_de = {}
+    for a in utiles:
+        if a.a in compuertas:
+            if a.de not in mapa:
+                return None
+            pred_de[a.a] = a.de
+    if set(pred_de) != set(compuertas):
+        return None
+
+    conexiones = []
+    for a in utiles:
+        if a.de in compuertas:
+            if a.a not in mapa:
+                return None  # rama de compuerta a inicio/fin u otra compuerta
+            campo = campos[compuertas[a.de].campos[0]]
+            valor = _valor_de_arista(a.etiqueta, campo)
+            if valor is None:
+                return None
+            conexiones.append(Conexion(
+                de=pred_de[a.de], a=a.a,
+                cuando=Condicion(campo=campo.nombre, igual=valor),
+            ))
+        elif a.de in mapa and a.a in mapa:
+            conexiones.append(Conexion(de=a.de, a=a.a))
+        elif a.de in mapa and a.a in compuertas:
+            pass  # tarea -> compuerta: la conexion real ya se emitio arriba
+        else:
+            return None
+
+    entra_if = {a.a for a in rm.aristas if a.de in ids_if}
+    sale_if = {a.de for a in rm.aristas if a.a in ids_if}
+    entra = {a.a for a in utiles}
+    sale = {a.de for a in utiles}
+    tareas = []
+    for n in nodos_tarea:
+        p = mapa[n.id]
+        tareas.append(Tarea(
+            id=n.id, nombre=(p.nombre or n.texto)[:60], actor=p.actor,
+            inicial=(n.id in entra_if or n.id not in entra),
+            terminal=(n.id in sale_if or n.id not in sale),
+            pantallas=[p.id],
+        ))
+    if not any(t.inicial for t in tareas) or not any(t.terminal for t in tareas):
+        return None
+
+    parejas = [(n.id, mapa[n.id].nombre) for n in nodos_tarea]
+    return tareas, conexiones, parejas
 
 
 @dataclass
@@ -224,85 +338,38 @@ def extraer_expediente(carpeta: Path) -> Resultado:
         if bloques:
             rm = ext_mmd.extraer(bloques[0])
             r.huecos += rm.huecos
-            
-            # Intento de mapeo exacto (sin adivinar)
-            nombres_pantallas = {ext_dicc._babel(p.nombre): p for p in pantallas}
+
             tareas_mmd = [n for n in rm.nodos if n.clase_nodo == "tarea"]
-            
-            mapeo_exacto = True
-            nodos_a_pantallas = {}
-            for n in tareas_mmd:
-                babel_n = ext_dicc._babel(n.texto)
-                if babel_n in nombres_pantallas:
-                    nodos_a_pantallas[n.id] = nombres_pantallas[babel_n]
-                else:
-                    mapeo_exacto = False
-                    break
-                    
-            if mapeo_exacto and len(tareas_mmd) == len(pantallas):
-                # Generar tareas
-                nodos_inicio = {a.a for a in rm.aristas if a.de in [n.id for n in rm.nodos if n.clase_nodo == "inicio_fin"]}
-                nodos_fin = {a.de for a in rm.aristas if a.a in [n.id for n in rm.nodos if n.clase_nodo == "inicio_fin"]}
-                
-                # Nodos inicio/fin que no son compuertas ni tareas
-                ids_inicio_fin = {n.id for n in rm.nodos if n.clase_nodo == "inicio_fin"}
-                
-                # Crear Tareas
-                for n in rm.nodos:
-                    if n.clase_nodo == "tarea":
-                        p = nodos_a_pantallas[n.id]
-                        tareas.append(Tarea(
-                            id=n.id, nombre=n.texto[:60], actor=p.actor,
-                            inicial=(n.id in nodos_inicio or not any(a.a == n.id for a in rm.aristas if a.de not in ids_inicio_fin)),
-                            terminal=(n.id in nodos_fin or not any(a.de == n.id for a in rm.aristas if a.a not in ids_inicio_fin)),
-                            pantallas=[p.id]
-                        ))
-                
-                # Manejar compuertas resolviendo condiciones desde el Diccionario
-                from gpmc.nucleo.manifiesto import Condicion
-                from gpmc.extractores.diccionario import _parsear_condicion_visible, _resolver_condicion_visible
-                
-                # Índice simulado para resolver condiciones de compuertas
-                indice_campos = {"por_etiqueta": {}, "campos": {}}
-                for p in pantallas:
-                    for c in p.campos:
-                        indice_campos["campos"][c.nombre] = c
-                        indice_campos["por_etiqueta"].setdefault(ext_dicc._clave_etiqueta(c.etiqueta), c.nombre)
-
-                compuertas_resueltas = True
-                for a in rm.aristas:
-                    if a.de in ids_inicio_fin or a.a in ids_inicio_fin:
-                        continue
-                        
-                    nodo_origen = next((n for n in rm.nodos if n.id == a.de), None)
-                    if nodo_origen and nodo_origen.clase_nodo == "compuerta":
-                        # La arista sale de una compuerta
-                        # Necesitamos resolver la etiqueta de la arista o los campos de la compuerta
-                        # Como Mermaid solo tiene etiquetas de arista libres (ej. "Sí", "No"), y el compilador 
-                        # necesita `cuando: campo == valor`, esto requiere inferencia riesgosa.
-                        # Para no violar el invariante "no adivinar", exigimos validación humana.
-                        compuertas_resueltas = False
-                        break
-                    elif nodo_origen and nodo_origen.clase_nodo == "tarea":
-                        conexiones.append(Conexion(de=a.de, a=a.a))
-                        
-                if compuertas_resueltas:
-                    flujo_ramificado_exitoso = True
-
             compuertas = [n for n in rm.nodos if n.clase_nodo == "compuerta"]
-            if compuertas and not flujo_ramificado_exitoso:
+
+            ramificado = _flujo_ramificado(rm, pantallas)
+            if ramificado is not None:
+                tareas, conexiones, parejas = ramificado
+                flujo_ramificado_exitoso = True
+                n_cond = sum(1 for c in conexiones if c.cuando is not None)
+                detalle = "; ".join(f"«{ext_dicc._babel(nom)}» → {nid}" for nid, nom in parejas)
                 r.huecos.append(Hueco(
-                    "falta_dato", "FLU-01", "flujo",
-                    f"el diagrama TO-BE tiene {len(compuertas)} compuertas que este "
-                    f"manifiesto NO reproduce de forma automática (requiere resolver condiciones a mano). "
-                    f"El flujo propuesto es lineal. Revisar y ramificar a mano antes de compilar.",
+                    "por_confirmar", "FLU-03", "flujo",
+                    f"el flujo se ramificó automáticamente del diagrama TO-BE "
+                    f"({len(compuertas)} compuerta(s), {n_cond} conexión(es) con condición). "
+                    f"Confirma que las tareas casan con las pantallas: {detalle}",
                 ))
-            if len(tareas_mmd) != len(pantallas) and not flujo_ramificado_exitoso:
-                r.huecos.append(Hueco(
-                    "falta_dato", "FLU-02", "flujo",
-                    f"el diagrama tiene {len(tareas_mmd)} tareas y el Diccionario "
-                    f"{len(pantallas)} pantallas; confirmar la correspondencia",
-                ))
+            else:
+                if compuertas:
+                    r.huecos.append(Hueco(
+                        "falta_dato", "FLU-01", "flujo",
+                        f"el diagrama TO-BE tiene {len(compuertas)} compuerta(s) que este "
+                        f"manifiesto NO reproduce: falta el `@@campo` en la compuerta, o "
+                        f"una etiqueta de arista no casa con un valor del catálogo, o las "
+                        f"tareas no casan con las pantallas. El flujo sale lineal; "
+                        f"ramificar a mano.",
+                    ))
+                if len(tareas_mmd) != len(pantallas):
+                    r.huecos.append(Hueco(
+                        "falta_dato", "FLU-02", "flujo",
+                        f"el diagrama tiene {len(tareas_mmd)} tareas y el Diccionario "
+                        f"{len(pantallas)} pantallas; confirmar la correspondencia",
+                    ))
         else:
             r.huecos.append(Hueco(
                 "falta_dato", "MMD-01", "flujo",

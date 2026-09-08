@@ -3,7 +3,11 @@
 Fecha: 2026-09-03
 Estado: **Parte 1 implementada el 2026-09-08** (`nucleo/huecos.bloquean`, `gpmc extraer
 --estricto`, `gpmc compilar --desde-expediente`, puerta en `GET /descargar/{sid}/gpm` +
-`POST /reconocer/{sid}`). Parte 2 (ramificación): sigue como esbozo, sin implementar.
+`POST /reconocer/{sid}`). **Parte 2 implementada el 2026-09-08 con las condiciones de
+seguridad de abajo** (`expediente._flujo_ramificado`, `mermaid._ARISTA` amplía a
+`A -->|texto| B`, hueco `FLU-03` de confirmación, expediente de ejemplo
+`ejemplos/expedientes/constancia-de-residencia/`). **Pendiente: importar un `.gpm`
+ramificado a la plataforma y recorrer las ramas, con acta** — sin eso no está probada.
 Contexto: bitácora `2026-09-02 - Lote de reingenieria …` y commits `16dc52c`, `4027b80`.
 
 ---

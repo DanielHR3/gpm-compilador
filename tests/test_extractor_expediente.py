@@ -228,3 +228,98 @@ def test_el_tramite_compila_pese_a_los_huecos_de_integracion(tmp_path):
     r = extraer_expediente(carpeta)
     assert r.manifiesto is not None
     assert len(r.manifiesto.pantallas[0].campos) == 5
+
+
+# ── Ramificación del flujo desde el Mermaid (spec 2026-09-03, Parte 2) ──
+
+_DICC_RAMA = """### Pantalla 1 — SOLICITANTE — Captura la solicitud
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 | N/A | X | [Captura] `@@curp` |
+
+### Pantalla 2 — AREA — Cotiza
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| ¿Procede? | Boolean | Radio Sí-No | Sí | Siempre visible | Sí · No | N/A | Sí | [Captura] `@@procede` |
+
+### Pantalla 3 — AREA — Oficio de improcedencia
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| Motivo | String | Área de texto (textarea) | Sí | Siempre visible | 300 | N/A | X | [Captura] `@@motivo` |
+"""
+
+_TOBE_RAMA = """# Propuesta TO-BE
+
+```mermaid
+flowchart TD
+    classDef solicitante fill:#eee
+    classDef area fill:#eee
+    Inicio([Inicio]):::solicitante --> T1[Solicitante: Captura la solicitud]:::solicitante
+    T1 --> G{¿@@procede == 'si'?}:::area
+    G -->|Sí| T2[Area: Cotiza]:::area
+    G -->|No| T3[Area: Oficio de improcedencia]:::area
+    T2 --> Fin([Fin]):::area
+    T3 --> Fin
+```
+"""
+
+
+def _cod(r):
+    return {h.codigo for h in r.huecos}
+
+
+def test_ramifica_el_flujo_cuando_la_compuerta_nombra_el_campo(tmp_path):
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA,
+        "3.-Propuesta TO-BE.md": _TOBE_RAMA,
+    })
+    r = extraer_expediente(carpeta)
+    assert "FLU-01" not in _cod(r), [str(h) for h in r.huecos]
+    assert "FLU-03" in _cod(r)  # se ramificó; confírmese a mano
+    m = r.manifiesto
+    con_cond = [c for c in m.flujo.conexiones if c.cuando is not None]
+    assert len(con_cond) == 2
+    valores = {(c.cuando.campo, c.cuando.igual) for c in con_cond}
+    assert valores == {("procede", "si"), ("procede", "no")}
+    # las dos ramas salen de la misma tarea (la que precede a la compuerta)
+    assert len({c.de for c in con_cond}) == 1
+
+
+def test_el_flujo_ramificado_compila_y_valida(tmp_path):
+    from gpmc.compilador.a_gpm import compilar
+    from gpmc.validador.reglas import revisar
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA,
+        "3.-Propuesta TO-BE.md": _TOBE_RAMA,
+    })
+    m = extraer_expediente(carpeta).manifiesto
+    gpm = compilar(m)
+    assert not [h for h in revisar(gpm) if h.gravedad == "bloqueante"]
+
+
+def test_no_ramifica_si_la_compuerta_no_nombra_campo(tmp_path):
+    tobe = _TOBE_RAMA.replace("{¿@@procede == 'si'?}", "{¿Procede?}")
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA, "3.-Propuesta TO-BE.md": tobe,
+    })
+    r = extraer_expediente(carpeta)
+    assert "FLU-01" in _cod(r)
+    assert all(c.cuando is None for c in r.manifiesto.flujo.conexiones)
+
+
+def test_no_ramifica_si_el_campo_de_la_compuerta_no_existe(tmp_path):
+    tobe = _TOBE_RAMA.replace("@@procede", "@@no_existe")
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA, "3.-Propuesta TO-BE.md": tobe,
+    })
+    r = extraer_expediente(carpeta)
+    assert "FLU-01" in _cod(r)
+
+
+def test_no_ramifica_si_una_etiqueta_de_arista_no_es_un_valor(tmp_path):
+    tobe = _TOBE_RAMA.replace("|No|", "|Quizás|")
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA, "3.-Propuesta TO-BE.md": tobe,
+    })
+    r = extraer_expediente(carpeta)
+    assert "FLU-01" in _cod(r)
