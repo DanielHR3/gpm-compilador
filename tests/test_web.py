@@ -316,3 +316,32 @@ def test_la_revision_ofrece_configurar_a_mano_los_huecos_no_interactivos(cliente
     cliente.post(f"/reconocer/{sid}", data={"reconocer": "DIC-07|p1"})
     pagina2 = cliente.get(f"/revisar/{sid}").text
     assert "lo configuraré a mano" in pagina2
+
+
+# ── Endurecimiento (auditoría 2026-09-08) ──────────────────────────
+
+def test_toda_respuesta_trae_cabeceras_de_seguridad(cliente):
+    r = cliente.get("/")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "SAMEORIGIN"
+
+
+def test_vistas_se_sirve_en_sandbox(cliente):
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+        "vistas": ("v.html", b"<html><body><script>alert(1)</script>ok</body></html>", "text/html"),
+    }, follow_redirects=False)
+    sid = _sid_de(r)
+    v = cliente.get(f"/vistas/{sid}")
+    assert v.status_code == 200
+    assert "sandbox" in v.headers.get("content-security-policy", "")
+
+
+def test_un_archivo_gigante_no_se_escribe(cliente):
+    grande = b"x" * (11 * 1024 * 1024)  # 11 MB > tope de 10
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", grande, "text/markdown"),
+    }, follow_redirects=False)
+    # el .md se ignora por tamaño → no hay Diccionario → no se produce manifiesto
+    assert r.status_code == 200
+    assert "no se pudo" in r.text.lower() or "diccionario" in r.text.lower()

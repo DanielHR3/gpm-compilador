@@ -11,6 +11,7 @@ from pathlib import Path
 
 from gpmc.nucleo import reglas as nreglas
 from gpmc.nucleo.formato import leer
+from gpmc.nucleo.limites import LIMITE_CAMPO_NOMBRE as _LIMITE_NOMBRE_CAMPO
 
 
 @dataclass(frozen=True)
@@ -74,11 +75,8 @@ def _revisar_estructura(g: dict) -> list[Hallazgo]:
     return hallazgos
 
 
-# La columna 'campo.nombre' de la plataforma corta en este limite y el import
-# entero falla con "Data too long for column 'nombre'" (verificado 2026-09-02,
-# expediente de Prorroga). El extractor ya capa el nombre; esta regla es la red
-# de seguridad para un manifiesto escrito a mano.
-_LIMITE_NOMBRE_CAMPO = 30
+# `_LIMITE_NOMBRE_CAMPO` = `LIMITE_CAMPO_NOMBRE` (nucleo/limites.py). El
+# extractor ya capa el nombre; esta regla es la red para un manifiesto a mano.
 
 
 def _catalog_type_de(campo: dict) -> str:

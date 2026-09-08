@@ -42,10 +42,23 @@ INSUMOS = {
 ARCHIVO_VISTAS = "Vistas.html"
 
 
+# Un .md de trámite pesa unos KB; 10 MB es holgado y frena una subida de varios
+# GB que agotaría la memoria del proceso (lee el archivo entero en RAM).
+_MAX_SUBIDA = 10 * 1024 * 1024
+
+
 def crear_app(almacen: Optional[Path] = None) -> FastAPI:
     raiz = Path(almacen) if almacen else Path(tempfile.mkdtemp(prefix="gpmc-"))
     raiz.mkdir(parents=True, exist_ok=True)
     app = FastAPI(title="Compilador GPM")
+
+    @app.middleware("http")
+    async def _cabeceras_seguras(request, call_next):
+        resp = await call_next(request)
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        resp.headers.setdefault("Referrer-Policy", "no-referrer")
+        return resp
 
     def _carpeta(sid: str) -> Optional[Path]:
         """Resuelve la sesion. El identificador se valida contra un patron
@@ -133,17 +146,23 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         carpeta = raiz / sid
         carpeta.mkdir(parents=True, exist_ok=True)
 
+        async def _leer(archivo) -> Optional[bytes]:
+            datos = await archivo.read(_MAX_SUBIDA + 1)
+            if len(datos) > _MAX_SUBIDA:
+                return None  # demasiado grande: se ignora, no se escribe
+            return datos
+
         for clave, archivo in subidos.items():
             if archivo is None:
                 continue
-            contenido = await archivo.read()
+            contenido = await _leer(archivo)
             if contenido:
                 (carpeta / INSUMOS[clave]).write_bytes(contenido)
 
         # El HTML de vistas es referencia visual: se persiste para consulta en
         # /revisar pero no alimenta al extractor.
         if vistas is not None:
-            contenido_vistas = await vistas.read()
+            contenido_vistas = await _leer(vistas)
             if contenido_vistas:
                 (carpeta / ARCHIVO_VISTAS).write_bytes(contenido_vistas)
 
@@ -286,7 +305,15 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         ruta = carpeta / ARCHIVO_VISTAS
         if not ruta.exists():
             return HTMLResponse("No se subió archivo de vistas.", status_code=404)
-        return HTMLResponse(ruta.read_text(encoding="utf-8"))
+        # El HTML lo sube el analista sin pasar por ningún saneamiento. Se sirve
+        # con CSP `sandbox`: la plataforma lo trata como origen opaco —sin
+        # scripts, sin acceso al mismo origen— así un mockup con `<script>` no
+        # puede leer otras sesiones ni ejecutar nada en el contexto del servidor.
+        return HTMLResponse(
+            ruta.read_text(encoding="utf-8"),
+            headers={"Content-Security-Policy": "sandbox; default-src 'none'; "
+                     "img-src data: blob:; style-src 'unsafe-inline'; font-src data:"},
+        )
 
     @app.get("/aprobacion/{sid}", response_class=HTMLResponse)
     def aprobacion(sid: str):

@@ -323,3 +323,17 @@ def test_no_ramifica_si_una_etiqueta_de_arista_no_es_un_valor(tmp_path):
     })
     r = extraer_expediente(carpeta)
     assert "FLU-01" in _cod(r)
+
+
+def test_un_md_en_latin1_no_revienta_la_extraccion(tmp_path):
+    """Un Diccionario guardado en Latin-1 (Word, editores viejos) se recuperaba
+    con un traceback criptico. Ahora se lee con reemplazo y el flujo sigue."""
+    carpeta = tmp_path / "exp"
+    carpeta.mkdir()
+    # 'ñ' y 'ó' existen en Latin-1 pero su byte 0xF1/0xF3 no es UTF-8 valido.
+    contenido = ("### Pantalla 1 - Solicitante - Datos\n\n"
+                 "| CURP | Texto | Input | Si | La CURP `@@curp` de la peticion, ano y nino |\n")
+    (carpeta / "5.-Diccionario de Datos.md").write_bytes(
+        contenido.replace("ano", "a\xf1o").replace("nino", "ni\xf1o").encode("latin-1"))
+    r = extraer_expediente(carpeta)
+    assert r.manifiesto is not None

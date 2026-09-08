@@ -8,6 +8,8 @@ compara byte a byte.
 import json
 from dataclasses import dataclass
 
+from gpmc.nucleo.limites import LIMITE_FORMULARIO_NOMBRE as _MAX_NOMBRE
+
 
 @dataclass
 class RUTS:
@@ -62,11 +64,10 @@ def campo(
     }
 
 
-# La columna 'nombre' de la plataforma tiene un limite: un nombre largo tumba el
-# import entero con "Data too long" (verificado 2026-08-31, proceso de Testamento,
-# ver planeacion/actas/). 60 es el mayor valor probado seguro. Ningun nombre que
-# emitimos puede romper una importacion, aunque el analista escriba uno larguisimo.
-_MAX_NOMBRE = 60
+# `_MAX_NOMBRE` = `LIMITE_FORMULARIO_NOMBRE` (nucleo/limites.py): la columna
+# 'nombre' de la plataforma tumba el import con "Data too long" si se pasa.
+# Ningun nombre que emitimos puede romper una importacion, aunque el analista
+# escriba uno larguisimo.
 
 
 def _cap(nombre):

@@ -16,6 +16,16 @@ from gpmc.nucleo.integraciones import resolver
 from gpmc.nucleo.manifiesto import Manifiesto
 from gpmc.simulador.analisis import analizar
 
+
+def _js(obj) -> str:
+    """JSON para incrustar en un <script>. Escapa '<' y los separadores de
+    linea U+2028/U+2029 para que un nombre de tarea con '</script>' o un
+    salto de linea Unicode no rompa la etiqueta ni el parseo."""
+    salida = json.dumps(obj, ensure_ascii=False).replace("<", "\\u003c")
+    salida = salida.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    return salida
+
+
 # Paleta muestreada de capturas reales de la plataforma de modelado:
 # guinda institucional #5e132c/#66132a, fondo #fff9f9, encabezado de tabla
 # #f0f0f0, verde de accion #11453d, nodo BPMN #330915.
@@ -68,6 +78,12 @@ button.sec{background:transparent;color:var(--guinda)}
 """
 
 _GUION = """
+// Todo lo que venga del manifiesto (nombres de tarea, etiquetas, valores de
+// catalogo) se escapa antes de entrar al DOM por innerHTML: un Diccionario con
+// '<br>' o '<img onerror=...>' en una etiqueta —cosa que ya se ha visto en
+// catalogos reales— no debe romper el render ni ejecutar nada.
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>(
+  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 const ir=(id)=>{ESTADO.tarea=id;ESTADO.rastro.push(id);pintar()};
 function valorActual(campo){const el=document.querySelector(`[name="${campo}"]`);return el?el.value:""}
 function avanzar(){
@@ -94,7 +110,7 @@ function pintarSidebar() {
     const t = TAREAS[id];
     if (t.nombre) {
         const activa = (id === ESTADO.tarea) ? "act" : "";
-        html += `<button class="sim-nav-item ${activa}" onclick="saltarA('${id}')">📄 ${t.nombre}</button>`;
+        html += `<button class="sim-nav-item ${activa}" onclick="saltarA('${id}')">📄 ${esc(t.nombre)}</button>`;
     }
   }
   html += '</div>';
@@ -114,8 +130,8 @@ function pintar(){
   const t=TAREAS[ESTADO.tarea];
   const cont=document.getElementById("lienzo");
   if(t.terminal){pintarSidebar();
-  cont.innerHTML=`<div class="tarjeta"><div class="encabezado"><strong>${t.nombre}</strong></div>
-    <p>El trámite concluyó. Recorrido: ${ESTADO.rastro.map(x=>TAREAS[x].nombre).join(" → ")}</p>
+  cont.innerHTML=`<div class="tarjeta"><div class="encabezado"><strong>${esc(t.nombre)}</strong></div>
+    <p>El trámite concluyó. Recorrido: ${ESTADO.rastro.map(x=>esc(TAREAS[x].nombre)).join(" → ")}</p>
     <div class="pie"><button class="sec" onclick="retroceder()">← Atrás</button>
     <button onclick="reiniciar()">Reiniciar</button></div></div>`;return}
   const pantallas=(t.pantallas||[]).map(pid=>PANTALLAS[pid]);
@@ -130,33 +146,33 @@ function pintar(){
     if (c.dependencia_tipo === "api_ajax") {
       api_badge = ` <span style="font-size:0.75rem;color:var(--guinda);background:var(--fondo);padding:0.1rem 0.4rem;border-radius:1rem;border:1px solid var(--guinda)">⚡ API AJAX</span>`;
     } else if (c.dependencia_tipo === "campo") {
-      api_badge = ` <span style="font-size:0.75rem;color:var(--tinta);background:var(--suave);padding:0.1rem 0.4rem;border-radius:1rem;">Depende de: ${c.dependencia_campo}</span>`;
+      api_badge = ` <span style="font-size:0.75rem;color:var(--tinta);background:var(--suave);padding:0.1rem 0.4rem;border-radius:1rem;">Depende de: ${esc(c.dependencia_campo)}</span>`;
     }
-    
+
     if (c.tipo === "select" || (c.catalogo && c.catalogo.length)) {
       // Un desplegable se dibuja como desplegable aunque no se pueda poblar:
       // deshabilitado dice la verdad, una caja de texto no.
       if (c.catalogo && c.catalogo.length) {
-        const opts = c.catalogo.map(o => `<option value="${o.valor}">${o.etiqueta}</option>`).join("");
-        return `<label><span>${c.etiqueta}${req}${api_badge}</span><select name="${c.nombre}">
+        const opts = c.catalogo.map(o => `<option value="${esc(o.valor)}">${esc(o.etiqueta)}</option>`).join("");
+        return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span><select name="${c.nombre}">
           <option value="">— elegir —</option>${opts}</select></label>`;
       }
       if (c.catalogo_url) {
-        return `<label><span>${c.etiqueta}${req}${api_badge}</span>
+        return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span>
           <select name="${c.nombre}" disabled><option value="">(consultando…)</option></select></label>`;
       }
-      return `<label><span>${c.etiqueta}${req}${api_badge}</span>
+      return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span>
         <select name="${c.nombre}" disabled><option value="">(sin catálogo resoluble)</option></select></label>`;
     }
-    return `<label><span>${c.etiqueta}${req}${api_badge}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
+    return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
   }).join("")||"<p style='color:var(--gris)'>Esta tarea no muestra pantallas al usuario.</p>";
   pintarSidebar();
   cont.innerHTML=`<div class="tarjeta">${stepper}
-    <div class="encabezado"><strong>${t.nombre}</strong><span class="actor">${ACTORES[t.actor]||""}</span></div>
+    <div class="encabezado"><strong>${esc(t.nombre)}</strong><span class="actor">${esc(ACTORES[t.actor]||"")}</span></div>
     ${campos}
     <div class="pie"><button class="sec" onclick="retroceder()">← Atrás</button>
     <button onclick="avanzar()">Continuar →</button></div></div>
-    <div class="rastro">Recorrido: ${ESTADO.rastro.map(x=>TAREAS[x].nombre).join(" → ")}</div>`;
+    <div class="rastro">Recorrido: ${ESTADO.rastro.map(x=>esc(TAREAS[x].nombre)).join(" → ")}</div>`;
   conectarCatalogos(camposDeLaTarea);
 }
 // Los catalogos remotos se piden desde el navegador, no desde Python: es donde
@@ -169,15 +185,19 @@ async function poblar(campo,el,valorPadre){
   if(campo.depende_de){
     if(!valorPadre){
       el.disabled=true;
-      el.innerHTML=`<option value="">(elige ${campo.depende_de} primero)</option>`;
+      el.innerHTML=`<option value="">(elige ${esc(campo.depende_de)} primero)</option>`;
       return;
     }
     url=url.replace("{padre}",encodeURIComponent(valorPadre));
   }
   el.disabled=true;
   el.innerHTML='<option value="">(consultando…)</option>';
+  // Sin timeout, una API de gobierno colgada deja el desplegable en
+  // "(consultando…)" para siempre.
+  const ctrl=new AbortController();
+  const reloj=setTimeout(()=>ctrl.abort(),8000);
   try{
-    const res=await fetch(url);
+    const res=await fetch(url,{signal:ctrl.signal});
     // fetch() resuelve con 404 o 500. Sin esto, un error con cuerpo JSON caeria
     // en la lista vacia y el desplegable saldria habilitado y vacio, que un
     // analista no puede distinguir de un catalogo genuinamente vacio.
@@ -193,6 +213,8 @@ async function poblar(campo,el,valorPadre){
     el.disabled=false;
   }catch(err){
     el.innerHTML='<option value="">(no se pudo consultar el catálogo)</option>';
+  }finally{
+    clearTimeout(reloj);
   }
 }
 function conectarCatalogos(campos){
@@ -291,12 +313,12 @@ def generar(m: Manifiesto) -> str:
         )
 
     datos = (
-        f"const TAREAS={json.dumps(tareas, ensure_ascii=False)};\n"
-        f"const PANTALLAS={json.dumps(pantallas, ensure_ascii=False)};\n"
-        f"const ACTORES={json.dumps(actores, ensure_ascii=False)};\n"
-        f"const TRANSICIONES={json.dumps(a.transiciones, ensure_ascii=False)};\n"
-        f"const PASOS={json.dumps(pasos)};\n"
-        f"const INICIAL={json.dumps(inicial)};\n"
+        f"const TAREAS={_js(tareas)};\n"
+        f"const PANTALLAS={_js(pantallas)};\n"
+        f"const ACTORES={_js(actores)};\n"
+        f"const TRANSICIONES={_js(a.transiciones)};\n"
+        f"const PASOS={_js(pasos)};\n"
+        f"const INICIAL={_js(inicial)};\n"
         "const ESTADO={tarea:INICIAL,rastro:[INICIAL],datos:{}};\n"
     )
 

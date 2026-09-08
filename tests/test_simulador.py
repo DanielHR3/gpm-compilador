@@ -247,3 +247,24 @@ def test_un_fallo_http_del_catalogo_se_reporta_como_fallo():
     indistinguible de un catalogo genuinamente vacio."""
     html = generar(_m(**_CON_CATALOGOS))
     assert "res.ok" in html
+
+
+def test_no_deja_escapar_de_la_etiqueta_script_ni_inyectar_por_innerHTML():
+    """Un nombre de tarea con '</script>' rompería el <script>; uno con '<img
+    onerror>' se ejecutaría al pintarse por innerHTML. El JSON escapa '<' y el
+    render pasa por esc()."""
+    d = json.loads(json.dumps(BASE))
+    d["flujo"]["tareas"][0]["nombre"] = "</script><img src=x onerror=alert(1)>"
+    d["pantallas"][0]["campos"][0]["etiqueta"] = '<b>"CURP"</b>'
+    html = generar(Manifiesto.model_validate(d))
+    assert "</script><img" not in html          # no se cierra el <script>
+    assert "\\u003c/script>" in html            # va escapado en el JSON
+    assert "function esc(" in html              # el render escapa
+    assert "${esc(t.nombre)}" in html
+    assert "${esc(c.etiqueta)}" in html
+
+
+def test_el_fetch_del_catalogo_tiene_timeout():
+    html = generar(_m(**_CON_CATALOGOS))
+    assert "AbortController" in html
+    assert "signal:ctrl.signal" in html

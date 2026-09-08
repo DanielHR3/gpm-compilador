@@ -35,6 +35,8 @@ _COMPARACION = re.compile(
     r"@@(?P<campo>\w+)\s*(?:->value\s*)?(?P<op>===|==|!==|!=)\s*'(?P<valor>[^']*)'"
 )
 _CAMPO = re.compile(r"@@(\w+)")
+# '&&' que NO cae dentro de un literal 'con comillas'.
+_SEPARADOR_AND = re.compile(r"&&(?=(?:[^']*'[^']*')*[^']*$)")
 
 
 def emitir(cond: "Condicion") -> str:
@@ -68,7 +70,10 @@ def evaluar(regla: str, valores: dict[str, str]) -> bool:
     if not regla:
         return True
 
-    partes = [p.strip() for p in re.split(r"&&", regla)]
+    # Se parte por '&&' solo fuera de las comillas: un valor como
+    # 'Smith && Sons' no es un separador de condiciones. El lookahead exige un
+    # número par de comillas por delante (no estamos dentro de un literal).
+    partes = [p.strip() for p in _SEPARADOR_AND.split(regla)]
     resultados = []
     for parte in partes:
         m = _COMPARACION.fullmatch(parte)

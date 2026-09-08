@@ -237,6 +237,25 @@ extractor partía solo por `<br>` y emitía **3 opciones basura** — `Soltero  
   espacios en el texto se reporta — red de seguridad para un `.gpm` compilado antes del
   arreglo o un manifiesto escrito a mano. No bloqueante: la lista existe, solo está mal partida.
 
+### Endurecimiento de la auditoría (2026-09-08)
+
+- **Simulador (`simulador/html.py`):** todo dato del manifiesto que entra al DOM por
+  `innerHTML` pasa por `esc()` (un `<br>` o un `<img onerror>` en una etiqueta —visto en
+  catálogos reales— no rompe el render ni ejecuta nada). El JSON incrustado en el `<script>`
+  se emite con `_js()`, que escapa `<` para que un nombre con `</script>` no cierre la
+  etiqueta. `fetch()` de catálogos remotos con `AbortController` a 8 s.
+- **Asistente web (`web/app.py`):** cabeceras `X-Content-Type-Options: nosniff` /
+  `X-Frame-Options: SAMEORIGIN` en toda respuesta; `GET /vistas/{sid}` sirve el HTML subido
+  con `Content-Security-Policy: sandbox` (origen opaco, sin scripts, sin mismo origen); las
+  subidas se cortan a `_MAX_SUBIDA` (10 MB) por archivo.
+- **`nucleo/reglas.py`:** el `&&` se parte solo fuera de las comillas (`_SEPARADOR_AND`), así
+  un valor `'Smith && Sons'` no se toma como separador de condiciones.
+- **`nucleo/limites.py`:** los topes de columna de la plataforma (`LIMITE_CAMPO_NOMBRE` = 30,
+  `LIMITE_FORMULARIO_NOMBRE` = 60) viven en un solo lugar; `esquema`, `validador`, `diccionario`
+  y `expediente` lo importan.
+- **`extractores/expediente.py`:** un `.md` en Latin-1/Windows-1252 se lee con `errors="replace"`
+  en vez de reventar con un traceback.
+
 ## Tests
 
 - Cada módulo tiene su `tests/test_<modulo>.py`. Antes de escribir código, escribe la prueba que

@@ -15,6 +15,7 @@ from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.integraciones import resolver as _resolver_catalogo
+from gpmc.nucleo.limites import LIMITE_FORMULARIO_NOMBRE as _CAP_NOMBRE
 from gpmc.nucleo.manifiesto import (
     Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, Tarea,
 )
@@ -124,7 +125,7 @@ def _flujo_ramificado(rm, pantallas):
     for n in nodos_tarea:
         p = mapa[n.id]
         tareas.append(Tarea(
-            id=n.id, nombre=(p.nombre or n.texto)[:60], actor=p.actor,
+            id=n.id, nombre=(p.nombre or n.texto)[:_CAP_NOMBRE], actor=p.actor,
             inicial=(n.id in entra_if or n.id not in entra),
             terminal=(n.id in sale_if or n.id not in sale),
             pantallas=[p.id],
@@ -195,6 +196,11 @@ def _leer(ruta: Path) -> str:
     macOS a algo accionable para un analista."""
     try:
         return ruta.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        # Un .md guardado en Latin-1 / Windows-1252 (Word, editores viejos).
+        # Se recupera con reemplazo en vez de reventar con un traceback: el
+        # extractor sigue y lo que no se lea bien saldrá como hueco.
+        return ruta.read_text(encoding="utf-8", errors="replace")
     except PermissionError as exc:
         raise SinPermiso(
             f"macOS no permite leer '{ruta}'.\n\n"
@@ -378,7 +384,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
 
     if not flujo_ramificado_exitoso:
         tareas = [
-            Tarea(id=f"t_{p.id}", nombre=p.nombre[:60], actor=p.actor,
+            Tarea(id=f"t_{p.id}", nombre=p.nombre[:_CAP_NOMBRE], actor=p.actor,
                   inicial=(i == 0), pantallas=[p.id])
             for i, p in enumerate(pantallas)
         ]

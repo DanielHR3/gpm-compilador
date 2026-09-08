@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 
 from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
 from gpmc.nucleo.huecos import Hueco
+from gpmc.nucleo.limites import LIMITE_CAMPO_NOMBRE as LIMITE_NOMBRE_CAMPO
 
 # Acepta ### y ####: los expedientes que siguen la regla fija 16 anidan las
 # pantallas bajo un encabezado "### Paso N del stepper".
@@ -44,10 +45,8 @@ _ENDPOINT = re.compile(r"`?([\w/-]+)`?")
 # La columna 'campo.nombre' de la plataforma corta los nombres tecnicos largos y
 # tumba el import entero con "Data too long for column 'nombre'" (verificado
 # 2026-09-02: expediente de Prorroga con `@@fecha_vencimiento_certificado_anterior`,
-# 38 chars). Los exports autenticos no pasan de 31. 30 es el tope que ya usaba la
-# ruta de nombre propuesto; ahora se aplica tambien al nombre que el analista
-# declara a mano (columna Variable o `@@` en la Descripcion).
-LIMITE_NOMBRE_CAMPO = 30
+# 38 chars). El tope vive en nucleo/limites.py (LIMITE_CAMPO_NOMBRE); aquí se
+# aplica tanto al nombre propuesto como al que el analista declara a mano.
 
 
 def _capar_nombre(nombre: str) -> "tuple[str, bool]":

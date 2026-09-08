@@ -35,6 +35,17 @@ def test_campo_ausente_evalua_falso():
     assert reglas.evaluar("@@x=='a'", {}) is False
 
 
+def test_un_valor_con_ampersands_no_se_parte_como_condicion():
+    """'Smith && Sons' es el valor, no un separador de condiciones. Antes esto
+    reventaba con ValueError al partir por '&&' sin respetar las comillas."""
+    assert reglas.evaluar("@@apellido=='Smith && Sons'", {"apellido": "Smith && Sons"}) is True
+    assert reglas.evaluar("@@apellido=='Smith && Sons'", {"apellido": "otro"}) is False
+    assert reglas.evaluar(
+        "@@apellido=='Smith && Sons' && @@ok=='si'",
+        {"apellido": "Smith && Sons", "ok": "si"},
+    ) is True
+
+
 def test_extrae_los_campos_de_una_regla():
     assert reglas.campos_de("@@x=='a' && @@y!='b'") == ["x", "y"]
     assert reglas.campos_de("@@correcto->value === 'si'") == ["correcto"]
