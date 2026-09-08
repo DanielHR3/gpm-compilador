@@ -566,6 +566,26 @@ def test_catalogo_separado_por_br():
     assert [o.etiqueta for o in sexo.catalogo] == ["Soltero", "Casado", "Viudo"]
 
 
+def test_catalogo_con_corridas_de_espacios_se_despega_en_varios_valores():
+    """El Diccionario de Testamento trae 'Estado Civil' así:
+    '(Catálogo: Soltero        casado       <br>Divorciado  Viudo <br>Unión Libre)'
+    — separadores irregulares: corridas de espacios además del <br>. Salía como
+    3 opciones basura ('Soltero        casado', 'Divorciado  Viudo', 'Unión
+    Libre') y el validador la daba por buena. Una corrida de 2+ espacios por
+    dentro de una opción son dos valores que perdieron el separador; un espacio
+    simple ('Unión Libre') es una etiqueta legítima."""
+    texto = MUESTRA.replace(
+        "Hombre · Mujer",
+        "(Catálogo: Soltero        casado       <br>Divorciado  Viudo <br>Unión Libre)",
+    )
+    sexo = extraer(texto).pantallas[0].campos[1]
+    assert [o.etiqueta for o in sexo.catalogo] == [
+        "Soltero", "casado", "Divorciado", "Viudo", "Unión Libre",
+    ]
+    # y el valor técnico no arrastra corridas de guiones bajos
+    assert all("__" not in o.valor for o in sexo.catalogo)
+
+
 def test_un_campo_booleano_sin_catalogo_explicito_usa_si_no():
     """'Tipo de Dato = Boolean' con 'Sí-No' en Límite y sin lista en Catálogo:
     el dominio es {Sí, No}. Salía sin opciones -> foreach() en la vista

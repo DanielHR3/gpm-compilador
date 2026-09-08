@@ -212,6 +212,20 @@ atrapaba salieron en pantalla al importar:
 - **PLAT-9** — un «Selector de fecha (calendario)» se clasificaba como `select` porque «select»
   es subcadena de «selector». `selector de fecha`/`calendario` → `date`.
 
+### Degradación silenciosa de catálogos — `EST-07`
+
+`Estado Civil` de Testamento venía `(Catálogo: Soltero        casado       <br>Divorciado
+Viudo <br>Unión Libre)`: separadores irregulares (corridas de espacios además del `<br>`). El
+extractor partía solo por `<br>` y emitía **3 opciones basura** — `Soltero        casado`,
+`Divorciado  Viudo`, `Unión Libre` — y el `.gpm` compilaba **sin un solo hallazgo**.
+
+- `extractores/diccionario.py` (`_despegar`): tras partir por el separador, una corrida de 2+
+  espacios/tabs por dentro de una opción se trata como separador perdido (`Soltero  casado` →
+  `Soltero`, `casado`). Un espacio simple (`Unión Libre`) se respeta.
+- `validador/reglas.py` (`EST-07`, aviso): una opción de `select`/`radio` con una corrida de
+  espacios en el texto se reporta — red de seguridad para un `.gpm` compilado antes del
+  arreglo o un manifiesto escrito a mano. No bloqueante: la lista existe, solo está mal partida.
+
 ## Tests
 
 - Cada módulo tiene su `tests/test_<modulo>.py`. Antes de escribir código, escribe la prueba que

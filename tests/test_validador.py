@@ -185,3 +185,33 @@ def test_un_select_con_lista_vacia_es_solo_aviso():
     ]}]
     hallazgos = [h for h in revisar(g) if h.codigo == "EST-06"]
     assert hallazgos and all(h.gravedad == "aviso" for h in hallazgos)
+
+
+def test_una_opcion_con_corrida_de_espacios_dispara_EST_07():
+    """'Estado Civil' de Testamento compiló con una opción 'Soltero  casado'
+    — dos valores que perdieron el separador en el Diccionario. El compilador
+    lo emitía sin un solo hallazgo. EST-07 lo hace visible (aviso, no
+    bloqueante: la lista existe, solo está mal partida)."""
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "estado_civil", "tipo": "select",
+         "datos": '[{"etiqueta": "Soltero        casado", "valor": "soltero________casado"}, '
+                  '{"etiqueta": "Uni\\u00f3n Libre", "valor": "union_libre"}]',
+         "extra": '{"catalog_type": "manual", "catalog_url": ""}'},
+    ]}]
+    hallazgos = [h for h in revisar(g) if h.codigo == "EST-07"]
+    assert hallazgos, revisar(g)
+    assert all(h.gravedad == "aviso" for h in hallazgos)
+    assert "Soltero" in hallazgos[0].mensaje
+
+
+def test_un_catalogo_limpio_no_dispara_EST_07():
+    """'Unión Libre' tiene un espacio legítimo: no es un hallazgo."""
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "estado_civil", "tipo": "select",
+         "datos": '[{"etiqueta": "Soltero", "valor": "soltero"}, '
+                  '{"etiqueta": "Uni\\u00f3n Libre", "valor": "union_libre"}]',
+         "extra": '{"catalog_type": "manual", "catalog_url": ""}'},
+    ]}]
+    assert "EST-07" not in _codigos(revisar(g))

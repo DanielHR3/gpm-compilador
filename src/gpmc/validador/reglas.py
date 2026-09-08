@@ -124,6 +124,31 @@ def _revisar_campos(g: dict) -> list[Hallazgo]:
                         f"plataforma lo renderiza como lista vacia",
                         ubic,
                     ))
+
+            # EST-07: una opcion cuyo texto trae una corrida de 2+ espacios o
+            # tabs casi siempre son dos valores que perdieron el separador en el
+            # Diccionario (verificado 2026-09-02, 'Estado Civil' de Testamento:
+            # 'Soltero      casado' salio como una sola opcion y el .gpm compilo
+            # sin un solo hallazgo). El extractor ya intenta despegarlas; esta
+            # regla es la red para un .gpm que compilo antes del arreglo o un
+            # manifiesto escrito a mano. Aviso, no bloqueante: la lista existe.
+            if c.get("tipo") in ("select", "radio"):
+                try:
+                    opciones = json.loads(c.get("datos") or "[]")
+                except (json.JSONDecodeError, TypeError):
+                    opciones = []
+                for o in opciones if isinstance(opciones, list) else []:
+                    if not isinstance(o, dict):
+                        continue
+                    texto = str(o.get("etiqueta") or o.get("label") or "")
+                    if re.search(r"\S[ \t]{2,}\S", texto):
+                        hallazgos.append(Hallazgo(
+                            "EST-07", "aviso",
+                            f"la opcion '{texto}' del catalogo de '{nombre}' trae una "
+                            f"corrida de espacios: parece dos valores mal separados en "
+                            f"el Diccionario (el separador debe ser ' · ')",
+                            ubic,
+                        ))
     return hallazgos
 
 

@@ -162,12 +162,24 @@ def _partir_opciones(crudo: str) -> list[str]:
         if p.strip()
     ]
     if len(inequivoco) >= 2:
-        return inequivoco
+        return _despegar(inequivoco)
     for patron in (r"\s*,\s*", r"\s+/\s+"):
         partes = [p.strip() for p in re.split(patron, crudo) if p.strip()]
         if 2 <= len(partes) <= 40 and all(len(p) <= 60 for p in partes):
-            return partes
+            return _despegar(partes)
     return []
+
+
+def _despegar(partes: list[str]) -> list[str]:
+    """Una corrida de 2+ espacios o tabs por dentro de una opcion casi siempre
+    son dos valores que perdieron su separador al pegarse de una tabla o Excel
+    (verificado 2026-09-02, 'Estado Civil' de Testamento: 'Soltero      casado'
+    salia como una sola opcion). Un espacio simple ('Union Libre') es una
+    etiqueta legitima y se respeta."""
+    salida = []
+    for p in partes:
+        salida += [t.strip() for t in re.split(r"\s{2,}", p) if t.strip()]
+    return salida
 
 
 def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
