@@ -255,7 +255,9 @@ extractor partía solo por `<br>` y emitía **3 opciones basura** — `Soltero  
 - **Asistente web (`web/app.py`):** cabeceras `X-Content-Type-Options: nosniff` /
   `X-Frame-Options: SAMEORIGIN` en toda respuesta; `GET /vistas/{sid}` sirve el HTML subido
   con `Content-Security-Policy: sandbox` (origen opaco, sin scripts, sin mismo origen); las
-  subidas se cortan a `_MAX_SUBIDA` (10 MB) por archivo.
+  subidas se cortan a `_MAX_SUBIDA` (10 MB) por archivo. `_purgar_sesiones()` borra las
+  carpetas de sesión sin tocar hace más de `_TTL_SESION_DIAS` (7) — al arrancar y en cada
+  `/extraer`, sin cron; solo mira carpetas con nombre de sesión válido, nunca borra otra cosa.
 - **`nucleo/reglas.py`:** el `&&` se parte solo fuera de las comillas (`_SEPARADOR_AND`), así
   un valor `'Smith && Sons'` no se toma como separador de condiciones.
 - **`nucleo/limites.py`:** los topes de columna de la plataforma (`LIMITE_CAMPO_NOMBRE` = 30,

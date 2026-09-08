@@ -345,3 +345,47 @@ def test_un_archivo_gigante_no_se_escribe(cliente):
     # el .md se ignora por tamaño → no hay Diccionario → no se produce manifiesto
     assert r.status_code == 200
     assert "no se pudo" in r.text.lower() or "diccionario" in r.text.lower()
+
+
+# ── Purga de sesiones viejas (fuga de disco) ────────────────────────
+
+def test_purga_borra_sesiones_viejas_y_respeta_las_recientes(tmp_path):
+    import time, os
+    from gpmc.web.app import _purgar_sesiones, crear_app
+    from fastapi.testclient import TestClient
+
+    raiz = tmp_path / "almacen"
+    raiz.mkdir()
+    vieja = raiz / ("a" * 16)
+    vieja.mkdir()
+    (vieja / "manifiesto.yaml").write_text("x", encoding="utf-8")
+    fresca = raiz / ("b" * 16)
+    fresca.mkdir()
+    ajena = raiz / "no-es-sesion"          # nombre que no casa: no se toca
+    ajena.mkdir()
+
+    viejo = time.time() - 8 * 86400
+    os.utime(vieja, (viejo, viejo))
+    os.utime(ajena, (viejo, viejo))
+
+    _purgar_sesiones(raiz, dias=7)
+    assert not vieja.exists()
+    assert fresca.exists()
+    assert ajena.exists()
+
+
+def test_extraer_dispara_la_purga(tmp_path):
+    import time, os
+    from fastapi.testclient import TestClient
+    from gpmc.web.app import crear_app
+
+    raiz = tmp_path / "alm"
+    raiz.mkdir()
+    vieja = raiz / ("c" * 16)
+    vieja.mkdir()
+    viejo = time.time() - 30 * 86400
+    os.utime(vieja, (viejo, viejo))
+
+    cli = TestClient(crear_app(almacen=raiz))
+    cli.post("/extraer", files={"diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown")})
+    assert not vieja.exists()

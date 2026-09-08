@@ -11,7 +11,9 @@ import importlib.resources
 import json
 import re
 import secrets
+import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, File, Request, UploadFile, Form
@@ -46,10 +48,34 @@ ARCHIVO_VISTAS = "Vistas.html"
 # GB que agotaría la memoria del proceso (lee el archivo entero en RAM).
 _MAX_SUBIDA = 10 * 1024 * 1024
 
+# El asistente corre permanente (launchd KeepAlive) y cada /extraer deja una
+# carpeta de sesión. Sin limpieza se acumulan hasta llenar el disco. No hay
+# cron ni scheduler: se barren las viejas al arrancar y en cada /extraer.
+_TTL_SESION_DIAS = 7
+
+
+def _purgar_sesiones(raiz: Path, dias: int = _TTL_SESION_DIAS) -> None:
+    """Borra las carpetas de sesión sin tocar hace más de `dias`. Solo mira
+    carpetas con nombre de sesión válido (16 hex), así nunca borra otra cosa
+    del almacén. Nunca propaga un error: una limpieza fallida no tumba nada."""
+    limite = time.time() - dias * 86400
+    try:
+        candidatas = list(raiz.iterdir())
+    except OSError:
+        return
+    for d in candidatas:
+        try:
+            if (d.is_dir() and _SESION_VALIDA.match(d.name)
+                    and d.stat().st_mtime < limite):
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
+
 
 def crear_app(almacen: Optional[Path] = None) -> FastAPI:
     raiz = Path(almacen) if almacen else Path(tempfile.mkdtemp(prefix="gpmc-"))
     raiz.mkdir(parents=True, exist_ok=True)
+    _purgar_sesiones(raiz)
     app = FastAPI(title="Compilador GPM")
 
     @app.middleware("http")
@@ -141,6 +167,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         diccionario: UploadFile = File(...),
         vistas: UploadFile = File(None),
     ):
+        _purgar_sesiones(raiz)
         subidos = {"as_is": as_is, "to_be": to_be, "diccionario": diccionario}
         sid = secrets.token_hex(8)
         carpeta = raiz / sid

@@ -45,6 +45,17 @@ o contenedor interno siempre encendido.
 Mientras eso llega, la laptop sirve para que el equipo lo pruebe y dé retroalimentación — pero
 sin repartir la liga de forma amplia hasta tener dirección estable.
 
+## Limpieza de sesiones
+
+Cada archivo que sube el equipo deja una carpeta bajo `tempfile.mkdtemp(prefix="gpmc-")`. El
+asistente ya **borra solo** las carpetas de sesión sin tocar hace más de 7 días
+(`_purgar_sesiones`, al arrancar y en cada `/extraer`), así que no hace falta cron. Si aun así
+quieres una red extra en el servidor:
+
+```bash
+find "${TMPDIR:-/tmp}"/gpmc-* -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null
+```
+
 ## Nota técnica
 
 El `plist` fija `PATH` y `PYTHONUNBUFFERED`. Sin ellos el servicio arranca, aparece como
