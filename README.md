@@ -29,17 +29,20 @@ el simulador y el reporte de huecos.
 ```bash
 # Del expediente a un manifiesto YAML
 gpmc extraer ruta/al/expediente -o tramite.yaml
+gpmc extraer ruta/al/expediente -o tramite.yaml --estricto  # no escribe si quedan huecos que bloquean
 
 # Revisar y corregir a mano los huecos que reporte el paso anterior
 
 gpmc estimar  tramite.yaml                   # complejidad y tiempo de ciclo
 gpmc simular  tramite.yaml -o simulador.html # recorrer el trámite
+gpmc aprobar  tramite.yaml -o aprobacion.html # HTML para que firme la dependencia
 gpmc compilar tramite.yaml -o tramite.gpm    # archivo importable
+gpmc compilar --desde-expediente ruta/al/expediente -o tramite.gpm  # re-extrae y aplica la puerta del linter
 gpmc validar  otro.gpm                       # revisar uno existente
 gpmc planear  proyectar --cantidad 35 --analistas 3
 ```
 
-Códigos de salida: `0` correcto · `1` hallazgos bloqueantes · `2` error de uso.
+Códigos de salida: `0` correcto · `1` hallazgos bloqueantes · `2` error de uso, o huecos sin resolver con `--estricto` / `--desde-expediente`.
 
 ## Empezar un trámite nuevo
 
@@ -97,7 +100,7 @@ código:
 
 | Arquetipo | Qué garantiza |
 | --- | --- |
-| `folio` | Bloqueo transaccional sobre la columna `contador`. Nunca `count()` ni `rand()` |
+| `folio` | Bloqueo transaccional sobre `dato_seguimiento.valor`, llaveado por el nombre de la variable y sin `proceso_id`. Nunca `count()` ni `rand()` |
 | `documento` | Toda variable de usuario envuelta en `htmlspecialchars` |
 | `notificacion` | Destinatario obligatorio, tomado del manifiesto |
 
