@@ -85,7 +85,10 @@ _GUION = """
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>(
   {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 const ir=(id)=>{ESTADO.tarea=id;ESTADO.rastro.push(id);pintar()};
-function valorActual(campo){const el=document.querySelector(`[name="${campo}"]`);return el?el.value:""}
+// Los nombres de campo van por CSS.escape en los selectores y por esc() en los
+// atributos: hoy son \\w+ de <=30, pero la defensa va en el punto de uso.
+function porNombre(n){return document.querySelector(`[name="${CSS.escape(n)}"]`)}
+function valorActual(campo){const el=porNombre(campo);return el?el.value:""}
 function avanzar(){
   const t=TRANSICIONES[ESTADO.tarea];
   if(!t){return}
@@ -110,12 +113,16 @@ function pintarSidebar() {
     const t = TAREAS[id];
     if (t.nombre) {
         const activa = (id === ESTADO.tarea) ? "act" : "";
-        html += `<button class="sim-nav-item ${activa}" onclick="saltarA('${id}')">📄 ${esc(t.nombre)}</button>`;
+        // data-id + delegación en vez de onclick="saltarA('${id}')": un id con
+        // comilla rompería el string JS del atributo.
+        html += `<button class="sim-nav-item ${activa}" data-id="${esc(id)}">📄 ${esc(t.nombre)}</button>`;
     }
   }
   html += '</div>';
   html += `<div style="margin-top:auto"><button class="sim-nav-item" style="color:var(--guinda);border:1px solid var(--guinda)" onclick="window.history.back()">← Salir del Simulador</button></div>`;
   cont.innerHTML = html;
+  cont.querySelectorAll("[data-id]").forEach(b =>
+    b.addEventListener("click", () => saltarA(b.dataset.id)));
 }
 
 function saltarA(id) {
@@ -154,17 +161,17 @@ function pintar(){
       // deshabilitado dice la verdad, una caja de texto no.
       if (c.catalogo && c.catalogo.length) {
         const opts = c.catalogo.map(o => `<option value="${esc(o.valor)}">${esc(o.etiqueta)}</option>`).join("");
-        return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span><select name="${c.nombre}">
+        return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span><select name="${esc(c.nombre)}">
           <option value="">— elegir —</option>${opts}</select></label>`;
       }
       if (c.catalogo_url) {
         return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span>
-          <select name="${c.nombre}" disabled><option value="">(consultando…)</option></select></label>`;
+          <select name="${esc(c.nombre)}" disabled><option value="">(consultando…)</option></select></label>`;
       }
       return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span>
-        <select name="${c.nombre}" disabled><option value="">(sin catálogo resoluble)</option></select></label>`;
+        <select name="${esc(c.nombre)}" disabled><option value="">(sin catálogo resoluble)</option></select></label>`;
     }
-    return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span><input name="${c.nombre}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
+    return `<label><span>${esc(c.etiqueta)}${req}${api_badge}</span><input name="${esc(c.nombre)}" ${c.solo_lectura?"readonly value='(autocompletado)'":""}></label>`
   }).join("")||"<p style='color:var(--gris)'>Esta tarea no muestra pantallas al usuario.</p>";
   pintarSidebar();
   cont.innerHTML=`<div class="tarjeta">${stepper}
@@ -219,10 +226,10 @@ async function poblar(campo,el,valorPadre){
 }
 function conectarCatalogos(campos){
   campos.forEach(c=>{
-    const el=document.querySelector(`[name="${c.nombre}"]`);
+    const el=porNombre(c.nombre);
     if(!el||!c.catalogo_url){return}
     if(c.depende_de){
-      const padre=document.querySelector(`[name="${c.depende_de}"]`);
+      const padre=porNombre(c.depende_de);
       if(padre){padre.addEventListener("change",()=>poblar(c,el,padre.value))}
       poblar(c,el,padre?padre.value:"");
     }else{

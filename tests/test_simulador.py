@@ -264,6 +264,18 @@ def test_no_deja_escapar_de_la_etiqueta_script_ni_inyectar_por_innerHTML():
     assert "${esc(c.etiqueta)}" in html
 
 
+def test_los_nombres_de_campo_y_los_ids_van_escapados_en_atributos_y_selectores():
+    """Segundo pase de la auditoría: c.nombre entraba crudo en name="…" y el id
+    de tarea en onclick="saltarA('…')". Ahora esc() en el atributo, CSS.escape
+    en el selector, y data-id + delegación en vez de onclick."""
+    html = generar(_m())
+    assert 'name="${esc(c.nombre)}"' in html
+    assert 'sim-nav-item ${activa}" data-id="${esc(id)}"' in html   # data-id, no onclick con arg
+    assert "b.addEventListener(\"click\", () => saltarA(b.dataset.id))" in html
+    assert "CSS.escape(" in html
+    assert 'querySelector(`[name="${c.nombre}"]`)' not in html
+
+
 def test_el_fetch_del_catalogo_tiene_timeout():
     html = generar(_m(**_CON_CATALOGOS))
     assert "AbortController" in html

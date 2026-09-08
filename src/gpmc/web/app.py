@@ -213,7 +213,13 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
     async def reconocer(sid: str, request: Request):
         """Marca un hueco 'falta_dato' como "lo configuro a mano en la
         plataforma". No cambia el manifiesto ni el .gpm; solo levanta la puerta
-        del linter para ese hueco, dejando constancia de la decisión."""
+        del linter para ese hueco, dejando constancia de la decisión.
+
+        Deuda técnica: este handler (y /resolver) hace read-modify-write sobre
+        reconocidos.json / huecos.json sin candado. Hoy no hay carrera —un
+        analista por sesión, uvicorn async monoproceso—; si se pasa a
+        `--workers > 1` o a un pool de hilos, hay que serializar por `sid`.
+        """
         carpeta = _carpeta(sid)
         if carpeta is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
