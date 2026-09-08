@@ -241,9 +241,11 @@ extractor partía solo por `<br>` y emitía **3 opciones basura** — `Soltero  
 
 - **Simulador (`simulador/html.py`):** todo dato del manifiesto que entra al DOM por
   `innerHTML` pasa por `esc()` (un `<br>` o un `<img onerror>` en una etiqueta —visto en
-  catálogos reales— no rompe el render ni ejecuta nada). El JSON incrustado en el `<script>`
-  se emite con `_js()`, que escapa `<` para que un nombre con `</script>` no cierre la
-  etiqueta. `fetch()` de catálogos remotos con `AbortController` a 8 s.
+  catálogos reales— no rompe el render ni ejecuta nada) — incluidos `c.nombre` en los
+  atributos `name="…"` y el id de tarea (que pasó de `onclick="saltarA('…')"` a `data-id` +
+  delegación). Los `querySelector([name=…])` van por `CSS.escape` (`porNombre`). El JSON
+  incrustado en el `<script>` se emite con `_js()`, que escapa `<` para que un nombre con
+  `</script>` no cierre la etiqueta. `fetch()` de catálogos remotos con `AbortController` a 8 s.
 - **Asistente web (`web/app.py`):** cabeceras `X-Content-Type-Options: nosniff` /
   `X-Frame-Options: SAMEORIGIN` en toda respuesta; `GET /vistas/{sid}` sirve el HTML subido
   con `Content-Security-Policy: sandbox` (origen opaco, sin scripts, sin mismo origen); las
