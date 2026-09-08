@@ -241,3 +241,78 @@ def test_descargar_plantilla_responde_con_contenido(cliente):
     assert r.status_code == 200
     assert r.content
     assert "Diccionario de Datos" in r.text
+
+
+# ── Linter: la puerta de /descargar/{sid}/gpm ───────────────────────
+
+_TOBE_LINEAL = """# Propuesta TO-BE — Trámite Mínimo
+
+```mermaid
+flowchart TD
+    classDef solicitante fill:#eee
+    A([Inicio]):::solicitante --> B[Solicitante: Datos]:::solicitante
+    B --> C([Fin]):::solicitante
+```
+"""
+
+
+def _sid_de(r):
+    return r.headers["location"].rsplit("/", 1)[-1]
+
+
+def test_descargar_gpm_bloqueado_por_huecos_devuelve_409(cliente):
+    """Solo Diccionario: falta el TO-BE (INS-01, bloqueante). El .gpm no se
+    entrega."""
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+    }, follow_redirects=False)
+    sid = _sid_de(r)
+    g = cliente.get(f"/descargar/{sid}/gpm")
+    assert g.status_code == 409
+    assert "INS-01" in g.text
+
+
+def test_reconocer_los_huecos_levanta_la_puerta_y_permite_descargar(cliente):
+    """Diccionario + TO-BE lineal: los únicos bloqueantes son META-01 y META-02
+    (falta_dato). Tras reconocer cada uno, el .gpm se descarga."""
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+        "to_be": ("tb.md", _TOBE_LINEAL.encode("utf-8"), "text/markdown"),
+    }, follow_redirects=False)
+    sid = _sid_de(r)
+
+    assert cliente.get(f"/descargar/{sid}/gpm").status_code == 409
+
+    for codigo in ("META-01", "META-02"):
+        resp = cliente.post(f"/reconocer/{sid}", data={"reconocer": f"{codigo}|metadatos"},
+                            follow_redirects=False)
+        assert resp.status_code == 303
+
+    g = cliente.get(f"/descargar/{sid}/gpm")
+    assert g.status_code == 200, g.text
+    assert g.headers["content-type"].startswith("application/")
+
+
+_DICC_CON_DIC07 = """### Pantalla 1 — Solicitante — Datos
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 | N/A | X | [Captura] `@@curp` |
+| Tipo | Select | Lista desplegable (select) | Sí | Siempre visible | N/A | Valores definidos | Uno | [Captura] `@@tipo` |
+"""
+
+
+def test_la_revision_ofrece_configurar_a_mano_los_huecos_no_interactivos(cliente):
+    """DIC-07 (un select sin catálogo) no se resuelve en el asistente: la
+    revisión ofrece 'Lo configuro a mano', y tras marcarlo queda constancia."""
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_CON_DIC07.encode("utf-8"), "text/markdown"),
+        "to_be": ("tb.md", _TOBE_LINEAL.encode("utf-8"), "text/markdown"),
+    }, follow_redirects=False)
+    sid = _sid_de(r)
+    pagina = cliente.get(f"/revisar/{sid}").text
+    assert f'formaction="/reconocer/{sid}"' in pagina
+    assert 'value="DIC-07|p1"' in pagina
+
+    cliente.post(f"/reconocer/{sid}", data={"reconocer": "DIC-07|p1"})
+    pagina2 = cliente.get(f"/revisar/{sid}").text
+    assert "lo configuraré a mano" in pagina2

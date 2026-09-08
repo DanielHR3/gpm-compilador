@@ -11,7 +11,7 @@ from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.nucleo.formato import escribir
-from gpmc.nucleo.huecos import NIVELES
+from gpmc.nucleo.huecos import NIVELES, bloquean
 from gpmc.nucleo.manifiesto import guardar
 from gpmc.planeacion.proyeccion import proyectar
 from gpmc.planeacion.registro import Registro, capacidad, estado, sembrar_desde_wiki
@@ -67,7 +67,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub = parser.add_subparsers(dest="orden")
 
     c = sub.add_parser("compilar", help="manifiesto YAML -> archivo .gpm")
-    c.add_argument("manifiesto", type=Path)
+    c.add_argument("manifiesto", type=Path, nargs="?",
+                   help="manifiesto YAML; omítelo si pasas --desde-expediente")
     c.add_argument("-o", "--salida", type=Path, required=True)
     # Vacío por omisión: compilar() deriva el proceso_id del nombre del trámite,
     # igual que el asistente web. La plataforma lo reasigna al importar (PLAT-4),
@@ -76,6 +77,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     c.add_argument("--proceso-id", default="")
     c.add_argument("--modo-pruebas", action="store_true",
                    help="agrupa todas las pantallas en una sola Tarea Inicial (Test UI)")
+    c.add_argument("--desde-expediente", type=Path, default=None,
+                   help="re-extrae del expediente y aplica la puerta del linter "
+                        "(huecos bloqueantes o de falta de datos) antes de compilar")
 
     v = sub.add_parser("validar", help="revisa un .gpm existente")
     v.add_argument("archivo", type=Path)
@@ -88,6 +92,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     e.add_argument("--nombre", default="",
                    help="nombre del trámite cuando no hay AS-IS (P-03); "
                         "el asistente web lo pide en la portada")
+    e.add_argument("--estricto", action="store_true",
+                   help="no escribe el manifiesto si quedan huecos bloqueantes o "
+                        "de falta de datos; sale con código 2 y lista lo que falta")
 
     s_ = sub.add_parser("estimar", help="complejidad y tiempo de ciclo de un manifiesto")
     s_.add_argument("manifiesto", type=Path)
@@ -126,10 +133,34 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 2
 
     if args.orden == "compilar":
-        try:
-            manifiesto = cargar(args.manifiesto)
-        except (ValidationError, ValueError) as e:
-            print(f"Error al leer el manifiesto:\n{e}", file=sys.stderr)
+        if args.desde_expediente is not None:
+            # La puerta del linter, tambien fuera del navegador: re-extrae del
+            # expediente y no compila si quedan huecos sin resolver.
+            try:
+                r = extraer_expediente(args.desde_expediente)
+            except SinPermiso as exc:
+                print(f"\n{exc}\n", file=sys.stderr)
+                return 2
+            if r.manifiesto is None:
+                print("No se pudo producir un manifiesto del expediente.\n", file=sys.stderr)
+                for h in r.huecos:
+                    print(f"  - {h}", file=sys.stderr)
+                return 2
+            faltan = bloquean(r.huecos)
+            if faltan:
+                print(f"No se genero el archivo: {len(faltan)} hueco(s) del "
+                      f"expediente sin resolver.\n", file=sys.stderr)
+                _imprimir_huecos(r.huecos, completo=True)
+                return 2
+            manifiesto = r.manifiesto
+        elif args.manifiesto is not None:
+            try:
+                manifiesto = cargar(args.manifiesto)
+            except (ValidationError, ValueError) as e:
+                print(f"Error al leer el manifiesto:\n{e}", file=sys.stderr)
+                return 2
+        else:
+            print("Falta el manifiesto (o --desde-expediente).", file=sys.stderr)
             return 2
         gpm = compilar(manifiesto, proceso_id=args.proceso_id, modo_pruebas=args.modo_pruebas)
         hallazgos = revisar(gpm)
@@ -158,6 +189,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         # proceso_id. --nombre lo suple, como la portada del asistente web.
         if args.nombre and args.nombre.strip():
             r.manifiesto.tramite.nombre = args.nombre.strip()
+        if args.estricto:
+            faltan = bloquean(r.huecos)
+            if faltan:
+                print(f"No se escribio el manifiesto: {len(faltan)} hueco(s) "
+                      f"sin resolver.\n", file=sys.stderr)
+                _imprimir_huecos(r.huecos, completo=True)
+                return 2
         guardar(r.manifiesto, args.salida)
         print(f"Generado: {args.salida}")
         print(f"  {len(r.manifiesto.pantallas)} pantallas, "

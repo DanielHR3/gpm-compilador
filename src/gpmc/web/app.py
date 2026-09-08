@@ -21,7 +21,7 @@ from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.nucleo.formato import serializar
-from gpmc.nucleo.huecos import Hueco
+from gpmc.nucleo.huecos import Hueco, bloquean
 from gpmc.nucleo.manifiesto import cargar, guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.simulador.html import generar as generar_simulador
@@ -61,6 +61,20 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             return None
         ruta = carpeta / "manifiesto.yaml"
         return cargar(ruta) if ruta.exists() else None
+
+    def _huecos_vivos(carpeta: Path) -> list:
+        ruta = carpeta / "huecos.json"
+        if not ruta.exists():
+            return []
+        return [Hueco(**d) for d in json.loads(ruta.read_text(encoding="utf-8"))]
+
+    def _reconocidos(carpeta: Path) -> set:
+        """Huecos 'falta_dato' que una persona marcó como "los configuro a mano
+        en la plataforma". Cada entrada es (codigo, ubicacion)."""
+        ruta = carpeta / "reconocidos.json"
+        if not ruta.exists():
+            return set()
+        return {tuple(x) for x in json.loads(ruta.read_text(encoding="utf-8"))}
 
     @app.get("/", response_class=HTMLResponse)
     def portada():
@@ -168,13 +182,32 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         if m is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
         carpeta = _carpeta(sid)
-        datos = json.loads((carpeta / "huecos.json").read_text(encoding="utf-8"))
-        huecos = [Hueco(**d) for d in datos]
+        huecos = _huecos_vivos(carpeta)
         tiene_vistas = (carpeta / ARCHIVO_VISTAS).exists()
         return plantillas.revision(
             m, huecos, analizar(m).problemas, estimar(m), sid,
             tiene_vistas=tiene_vistas,
+            reconocidos=_reconocidos(carpeta),
         )
+
+    @app.post("/reconocer/{sid}")
+    async def reconocer(sid: str, request: Request):
+        """Marca un hueco 'falta_dato' como "lo configuro a mano en la
+        plataforma". No cambia el manifiesto ni el .gpm; solo levanta la puerta
+        del linter para ese hueco, dejando constancia de la decisión."""
+        carpeta = _carpeta(sid)
+        if carpeta is None:
+            return HTMLResponse("Sesión no encontrada.", status_code=404)
+        form = await request.form()
+        marca = str(form.get("reconocer") or "")
+        if "|" in marca:
+            codigo, ubicacion = marca.split("|", 1)
+            rec = _reconocidos(carpeta)
+            rec.add((codigo, ubicacion))
+            (carpeta / "reconocidos.json").write_text(
+                json.dumps(sorted(rec), ensure_ascii=False), encoding="utf-8"
+            )
+        return RedirectResponse(f"/revisar/{sid}", status_code=303)
 
     @app.post("/resolver/{sid}")
     async def resolver(sid: str, request: Request):
@@ -271,6 +304,20 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         base = re.sub(r"[^A-Za-z0-9._-]+", "-", m.tramite.nombre)[:60] or "tramite"
 
         if que == "gpm":
+            # Puerta del linter: no se entrega el .gpm mientras quede un hueco
+            # bloqueante, o uno de falta_dato que nadie resolvió (por /resolver)
+            # ni reconoció ("lo configuro a mano"). Se mira el estado vivo de la
+            # sesión, que ya refleja lo resuelto en /resolver.
+            carpeta = _carpeta(sid)
+            faltan = bloquean(_huecos_vivos(carpeta), _reconocidos(carpeta))
+            if faltan:
+                lineas = "\n".join(f"  [{h.codigo}] {h.ubicacion} {h.mensaje}" for h in faltan)
+                return Response(
+                    f"No se puede descargar el .gpm: {len(faltan)} hueco(s) sin "
+                    f"resolver ni reconocer.\n\n{lineas}\n",
+                    status_code=409,
+                    media_type="text/plain; charset=utf-8",
+                )
             return Response(
                 serializar(compilar(m)),
                 media_type="application/octet-stream",

@@ -215,9 +215,11 @@ def portada(error: str = "") -> str:
 insumos lo reporta como hueco para que una persona lo resuelva antes de compilar.</p>""", 1)
 
 
-def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = False) -> str:
+def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = False,
+             reconocidos=frozenset()) -> str:
     e = _h.escape
     k = estimacion.metricas
+    reconocidos = set(reconocidos)
 
     # Un bloque plegable por nivel, en el orden canónico de NIVELES: de lo que
     # impide compilar a lo que solo conviene revisar. 'por_confirmar' arranca
@@ -267,7 +269,27 @@ def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = Fa
             else:
                 texto_amigable = f"{(e(h.ubicacion) + ': ') if h.ubicacion else ''}{e(h.mensaje)}"
                 control = ""
-                
+                # falta_dato que no se resuelve en el asistente: o se corrige el
+                # expediente y se vuelve a subir, o la persona reconoce que lo
+                # configurará a mano en la plataforma. El linter no entrega el
+                # .gpm mientras quede alguno sin decidir.
+                if nivel == "falta_dato":
+                    if (h.codigo, h.ubicacion) in reconocidos:
+                        control = ('<div style="margin-top:0.5rem;font-size:0.85rem;'
+                                   'color:var(--verde);font-weight:600">'
+                                   '✓ lo configuraré a mano en la plataforma</div>')
+                    else:
+                        marca = f"{e(h.codigo)}|{e(h.ubicacion)}"
+                        control = (
+                            f'<div style="margin-top:0.5rem">'
+                            f'<button type="submit" formaction="/reconocer/{e(sid)}" '
+                            f'name="reconocer" value="{marca}" '
+                            f'style="background:#fff;color:var(--gris);'
+                            f'border:1px solid var(--linea);font-size:0.8rem;'
+                            f'padding:0.35rem 0.75rem">Lo configuro a mano</button>'
+                            f'</div>'
+                        )
+
             lis += (
                 f"<li style='margin-bottom:1.25rem; background: var(--suave); padding: 1rem; border-radius: var(--radio-peq); border: 1px solid var(--linea);'>"
                 f"<div style='font-size:0.8rem; color:var(--gris); margin-bottom:0.25rem; font-family:monospace'>Código interno: {e(h.codigo)}</div>"

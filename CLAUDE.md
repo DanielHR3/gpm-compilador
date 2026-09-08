@@ -66,15 +66,26 @@ estado de sesión. Esa separación es la que permite que la CLI y las pruebas ex
 
 | Orden | Hace |
 |---|---|
-| `compilar` | manifiesto YAML → `.gpm`. `--modo-pruebas` agrupa todas las pantallas en una tarea inicial sintética para recorrer las vistas sin compuertas |
+| `compilar` | manifiesto YAML → `.gpm`. `--modo-pruebas` agrupa todas las pantallas en una tarea inicial sintética para recorrer las vistas sin compuertas. `--desde-expediente <carpeta>` re-extrae y aplica la puerta del linter antes de compilar (omite el manifiesto posicional) |
 | `validar` | revisa un `.gpm` existente |
-| `extraer` | carpeta de expediente → manifiesto YAML + huecos. `--nombre` cuando no hay AS-IS (P-03) |
+| `extraer` | carpeta de expediente → manifiesto YAML + huecos. `--nombre` cuando no hay AS-IS (P-03). `--estricto` no escribe el manifiesto si quedan huecos bloqueantes o de falta de datos (código 2) |
 | `estimar` | seis métricas de complejidad y tiempo de ciclo |
 | `simular` | manifiesto → simulador navegable en HTML |
 | `aprobar` | manifiesto → HTML estático de aprobación para la dependencia |
 | `planear` | mide y proyecta el ciclo (`iniciar`/`hito`/`cerrar`/`estado`/`capacidad`/`proyectar`/`sembrar`) |
 | `servir` | levanta el asistente web |
 | `diagnostico` | `--sintaxis` genera los archivos de la prueba empírica de sintaxis en plataforma |
+
+### La puerta del linter (`nucleo/huecos.bloquean`)
+
+`bloquean(huecos, reconocidos)` decide qué huecos impiden entregar un `.gpm`: los
+`bloqueante` siempre; los `falta_dato` salvo que estén *reconocidos* — una persona marcó "lo
+configuro a mano en la plataforma"; los `por_confirmar` nunca. La usan `gpmc extraer
+--estricto`, `gpmc compilar --desde-expediente`, y en el asistente web `GET
+/descargar/{sid}/gpm` (409 mientras quede un hueco sin resolver ni reconocer; `POST
+/reconocer/{sid}` levanta la puerta para uno, dejando constancia en `reconocidos.json`). El
+objetivo no es que `falta_dato` sea infranqueable: es que nadie mande un expediente sin haber
+visto y decidido sobre cada hueco.
 
 ## Reglas de código
 

@@ -1,7 +1,9 @@
 # Diseño — Linter de expediente bloqueante y ramificación del flujo
 
 Fecha: 2026-09-03
-Estado: propuesta (no implementado)
+Estado: **Parte 1 implementada el 2026-09-08** (`nucleo/huecos.bloquean`, `gpmc extraer
+--estricto`, `gpmc compilar --desde-expediente`, puerta en `GET /descargar/{sid}/gpm` +
+`POST /reconocer/{sid}`). Parte 2 (ramificación): sigue como esbozo, sin implementar.
 Contexto: bitácora `2026-09-02 - Lote de reingenieria …` y commits `16dc52c`, `4027b80`.
 
 ---
