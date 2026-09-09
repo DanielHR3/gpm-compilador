@@ -8,6 +8,8 @@ Diccionario) que una persona debe resolver antes de compilar.
 from dataclasses import dataclass
 from typing import Optional
 
+from pydantic import BaseModel
+
 # El orden es deliberado: de lo que impide compilar a lo que solo conviene mirar.
 NIVELES = ("bloqueante", "falta_dato", "por_confirmar")
 ORDEN_NIVEL = {nivel: i for i, nivel in enumerate(NIVELES)}
@@ -47,3 +49,17 @@ def bloquean(huecos, reconocidos=()):
         elif h.nivel == "falta_dato" and (h.codigo, h.ubicacion) not in rec:
             fuera.append(h)
     return fuera
+
+
+class HuecoOut(BaseModel):
+    """Vista serializable de Hueco para las respuestas de /api/v1."""
+    nivel: str
+    codigo: str
+    ubicacion: str
+    mensaje: str
+    propuesta: Optional[str] = None
+
+    @classmethod
+    def desde(cls, h: "Hueco") -> "HuecoOut":
+        return cls(nivel=h.nivel, codigo=h.codigo, ubicacion=h.ubicacion,
+                   mensaje=h.mensaje, propuesta=h.propuesta)

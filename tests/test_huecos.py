@@ -29,3 +29,13 @@ def test_orden_nivel_prioriza_bloqueante():
     ]
     huecos.sort(key=lambda h: ORDEN_NIVEL[h.nivel])
     assert [h.nivel for h in huecos] == ["bloqueante", "falta_dato", "por_confirmar"]
+
+
+def test_HuecoOut_serializa_un_Hueco():
+    from gpmc.nucleo.huecos import Hueco, HuecoOut
+    h = Hueco("falta_dato", "META-01", "metadatos", "falta el tiempo", propuesta=None)
+    out = HuecoOut.desde(h)
+    assert out.model_dump() == {
+        "nivel": "falta_dato", "codigo": "META-01", "ubicacion": "metadatos",
+        "mensaje": "falta el tiempo", "propuesta": None,
+    }
