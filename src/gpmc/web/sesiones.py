@@ -7,6 +7,8 @@ funciones de módulo que reciben `raiz` (o `carpeta`) como argumento, para que
 
 import json
 import re
+import shutil
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -14,6 +16,46 @@ from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.manifiesto import cargar
 
 _SESION_VALIDA = re.compile(r"\A[0-9a-f]{16}\Z")
+
+INSUMOS = {
+    "as_is": "Análisis AS-IS.md",
+    "to_be": "Propuesta TO-BE.md",
+    "diccionario": "Diccionario de Datos.md",
+}
+
+# El HTML de vistas es referencia visual, no insumo de extraccion. Se guarda
+# en la sesion para que el analista lo consulte durante la revision, pero no
+# alimenta al extractor ni al compilador: el origen de verdad de las pantallas
+# sigue siendo el Diccionario de Datos.
+ARCHIVO_VISTAS = "Vistas.html"
+
+
+# Un .md de trámite pesa unos KB; 10 MB es holgado y frena una subida de varios
+# GB que agotaría la memoria del proceso (lee el archivo entero en RAM).
+_MAX_SUBIDA = 10 * 1024 * 1024
+
+# El asistente corre permanente (launchd KeepAlive) y cada /extraer deja una
+# carpeta de sesión. Sin limpieza se acumulan hasta llenar el disco. No hay
+# cron ni scheduler: se barren las viejas al arrancar y en cada /extraer.
+_TTL_SESION_DIAS = 7
+
+
+def _purgar_sesiones(raiz: Path, dias: int = _TTL_SESION_DIAS) -> None:
+    """Borra las carpetas de sesión sin tocar hace más de `dias`. Solo mira
+    carpetas con nombre de sesión válido (16 hex), así nunca borra otra cosa
+    del almacén. Nunca propaga un error: una limpieza fallida no tumba nada."""
+    limite = time.time() - dias * 86400
+    try:
+        candidatas = list(raiz.iterdir())
+    except OSError:
+        return
+    for d in candidatas:
+        try:
+            if (d.is_dir() and _SESION_VALIDA.match(d.name)
+                    and d.stat().st_mtime < limite):
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
 
 
 def carpeta_de(raiz: Path, sid: str) -> Optional[Path]:

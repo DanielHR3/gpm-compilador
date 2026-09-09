@@ -13,7 +13,6 @@ import re
 import secrets
 import shutil
 import tempfile
-import time
 from pathlib import Path
 
 from fastapi import FastAPI, File, Request, UploadFile, Form
@@ -35,47 +34,14 @@ from gpmc.web.sesiones import (
     reconocidos_de,
     escribir_reconocidos,
     _SESION_VALIDA,
+    # Movidos a sesiones.py en Task 3: api.py los necesita y app.py importa
+    # api.py de forma local dentro de crear_app; tenerlos aqui crearia el
+    # ciclo api.py -> app.py -> api.py.
+    INSUMOS,
+    ARCHIVO_VISTAS,
+    _MAX_SUBIDA,
+    _purgar_sesiones,
 )
-
-INSUMOS = {
-    "as_is": "Análisis AS-IS.md",
-    "to_be": "Propuesta TO-BE.md",
-    "diccionario": "Diccionario de Datos.md",
-}
-
-# El HTML de vistas es referencia visual, no insumo de extraccion. Se guarda
-# en la sesion para que el analista lo consulte durante la revision, pero no
-# alimenta al extractor ni al compilador: el origen de verdad de las pantallas
-# sigue siendo el Diccionario de Datos.
-ARCHIVO_VISTAS = "Vistas.html"
-
-
-# Un .md de trámite pesa unos KB; 10 MB es holgado y frena una subida de varios
-# GB que agotaría la memoria del proceso (lee el archivo entero en RAM).
-_MAX_SUBIDA = 10 * 1024 * 1024
-
-# El asistente corre permanente (launchd KeepAlive) y cada /extraer deja una
-# carpeta de sesión. Sin limpieza se acumulan hasta llenar el disco. No hay
-# cron ni scheduler: se barren las viejas al arrancar y en cada /extraer.
-_TTL_SESION_DIAS = 7
-
-
-def _purgar_sesiones(raiz: Path, dias: int = _TTL_SESION_DIAS) -> None:
-    """Borra las carpetas de sesión sin tocar hace más de `dias`. Solo mira
-    carpetas con nombre de sesión válido (16 hex), así nunca borra otra cosa
-    del almacén. Nunca propaga un error: una limpieza fallida no tumba nada."""
-    limite = time.time() - dias * 86400
-    try:
-        candidatas = list(raiz.iterdir())
-    except OSError:
-        return
-    for d in candidatas:
-        try:
-            if (d.is_dir() and _SESION_VALIDA.match(d.name)
-                    and d.stat().st_mtime < limite):
-                shutil.rmtree(d, ignore_errors=True)
-        except OSError:
-            pass
 
 
 def crear_app(almacen: Optional[Path] = None) -> FastAPI:
@@ -83,6 +49,11 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
     raiz.mkdir(parents=True, exist_ok=True)
     _purgar_sesiones(raiz)
     app = FastAPI(title="Compilador GPM")
+
+    # Import local (no top-level): api.py importa de gpmc.web.sesiones, y app.py
+    # es quien incluye el router. El import aqui dentro evita el ciclo de modulos.
+    from gpmc.web.api import crear_router
+    app.include_router(crear_router(raiz))
 
     @app.middleware("http")
     async def _cabeceras_seguras(request, call_next):
