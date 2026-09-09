@@ -12,18 +12,21 @@ quien incluye este router, con un import local, para no cerrar el ciclo.
 
 import dataclasses
 import json
+import re
 import secrets
 import shutil
 from pathlib import Path
 from typing import List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, File, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
+from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
-from gpmc.nucleo.huecos import HuecoOut
+from gpmc.nucleo.formato import serializar
+from gpmc.nucleo.huecos import HuecoOut, bloquean
 from gpmc.nucleo.manifiesto import guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.web.sesiones import (
@@ -260,6 +263,52 @@ def crear_router(raiz: Path) -> APIRouter:
         return EstadoReconocer(
             huecos=[HuecoOut.desde(h) for h in huecos_vivos(carpeta)],
             reconocidos=[list(t) for t in sorted(rec)],
+        )
+
+    @r.get("/expedientes/{sid}/gpm")
+    async def descargar_gpm(sid: str, modo: str = "produccion"):
+        """Porta `GET /descargar/{sid}/gpm` (y `gpm-pruebas`) de `app.py`.
+
+        Puerta del linter: no se entrega el .gpm mientras quede un hueco
+        bloqueante, o uno de `falta_dato` que nadie resolvio (por `/resolver`)
+        ni reconocio ("lo configuro a mano"). Se mira el estado vivo de la
+        sesion. `modo="pruebas"` compila con `modo_pruebas=True`; a `409` se le
+        responde JSON `{"bloqueantes": [...]}` en vez del `text/plain` del HTML.
+        """
+        m = manifiesto_de(raiz, sid)
+        if m is None:
+            return JSONResponse(status_code=404,
+                                content={"error": "sesión no encontrada"})
+        carpeta = carpeta_de(raiz, sid)
+        faltan = bloquean(huecos_vivos(carpeta), reconocidos_de(carpeta))
+        if faltan:
+            return JSONResponse(status_code=409, content={"bloqueantes": [
+                {"codigo": h.codigo, "ubicacion": h.ubicacion,
+                 "mensaje": h.mensaje}
+                for h in faltan
+            ]})
+        base = re.sub(r"[^A-Za-z0-9._-]+", "-", m.tramite.nombre)[:60] or "tramite"
+        nombre = f"{base}-test-ui.gpm" if modo == "pruebas" else f"{base}.gpm"
+        return Response(
+            serializar(compilar(m, modo_pruebas=(modo == "pruebas"))),
+            media_type="application/octet-stream",
+            headers={"content-disposition": f'attachment; filename="{nombre}"'},
+        )
+
+    @r.get("/expedientes/{sid}/manifiesto")
+    async def descargar_manifiesto(sid: str):
+        """Sirve `manifiesto.yaml` inline (la SPA lo consume por `fetch`).
+
+        Porta `GET /descargar/{sid}/manifiesto` de `app.py`, con `text/yaml`
+        (no `application/x-yaml`) y sin `Content-Disposition`.
+        """
+        m = manifiesto_de(raiz, sid)
+        if m is None:
+            return JSONResponse(status_code=404,
+                                content={"error": "sesión no encontrada"})
+        return Response(
+            (carpeta_de(raiz, sid) / "manifiesto.yaml").read_text(encoding="utf-8"),
+            media_type="text/yaml",
         )
 
     return r
