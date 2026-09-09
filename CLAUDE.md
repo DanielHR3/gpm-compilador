@@ -266,6 +266,24 @@ extractor partía solo por `<br>` y emitía **3 opciones basura** — `Soltero  
 - **`extractores/expediente.py`:** un `.md` en Latin-1/Windows-1252 se lee con `errors="replace"`
   en vez de reventar con un traceback.
 
+## Frontend (SPA React) — SP1 en curso
+
+`frontend/` es un proyecto Vite + React + TS + Tailwind (v4) + shadcn/ui. El diseño
+sale de `hidalgo-design-token-system` (dependencia de GitHub:
+`github:VManuelSM/hidalgo-design-token-system`; no está en npm). Node/npm **solo en
+build** (`npm run build` -> `frontend/dist/`, que NO se comitea). FastAPI sirve
+`dist/` (hoy en `/app`, tras el corte en `/`). Desarrollo: `cd frontend && npm run
+dev` (:5173, proxy `/api` a :8000) + `gpmc servir` (:8000). Chequeo:
+`bash scripts/check-frontend.sh` (tsc -b --noEmit -> vitest run -> npm run build).
+
+- Los tokens del paquete se materializan en `src/tokens.css` (salida de
+  `generateCssVariables()` de `src/lib/tokens.ts`, que replica el `tokens.web.ts`
+  del paquete sobre su `tokens.json`). `src/index.css` mapea las variables de
+  shadcn (`--primary`, `--background`, `--ring`, `--radius`, …) a esos tokens.
+- Montserrat (la tipografía del sistema de diseño) va **self-hosted** vía
+  `@fontsource/montserrat` para respetar la CSP `default-src 'self'`: nada de
+  Google Fonts / CDN.
+
 ## Tests
 
 - Cada módulo tiene su `tests/test_<modulo>.py`. Antes de escribir código, escribe la prueba que

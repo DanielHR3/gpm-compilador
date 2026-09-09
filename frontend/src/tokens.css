@@ -1,0 +1,105 @@
+/*
+ * Variables CSS del sistema de diseño `hidalgo-design-token-system`
+ * (github:VManuelSM/hidalgo-design-token-system).
+ *
+ * NO editar a mano: es la salida materializada de `generateCssVariables()` de
+ * `src/lib/tokens.ts`, que a su vez replica el `tokens.web.ts` del paquete sobre
+ * su `tokens.json`. Si el paquete cambia sus tokens, regenerar este bloque desde
+ * esa función. El mapeo a las variables que espera shadcn/ui vive en `index.css`.
+ */
+:root {
+  /* Brand */
+  --brand-primary: #a02142;
+  --brand-secondary: #bc955b;
+  --brand-accent: #6f7271;
+
+  /* Status generales */
+  --status-active: #22c55e;
+  --status-processing: #3b82f6;
+  --status-pending: #eab308;
+  --status-failed: #ef4444;
+  --status-attention: #f97316;
+  --status-highlight: #8b5cf6;
+  --status-inactive: #94a3b8;
+  --status-completed: #14b8a6;
+
+  /* Alertas (color de borde/texto/icono) */
+  --alert-warning: #eab308;
+  --alert-info: #3b82f6;
+  --alert-error: #ef4444;
+  --alert-success: #22c55e;
+
+  /* Superficies */
+  --surface-app: #f9fafb;
+  --surface-card: #ffffff;
+  --surface-modal: #ffffff;
+  --surface-overlay: rgba(0, 0, 0, 0.5);
+  --surface-popover: #ffffff;
+  --surface-toast: #1f2937;
+  --surface-alert-bg-warning: #fef9c3;
+  --surface-alert-bg-error: #fee2e2;
+  --surface-alert-bg-success: #dcfce7;
+  --surface-alert-bg-info: #dbeafe;
+
+  /* Textos */
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-disabled: #9ca3af;
+  --text-inverse: #ffffff;
+  --text-brand: #a02142;
+
+  /* Bordes */
+  --border-default: #d1d5db;
+  --border-hover: #9ca3af;
+  --border-focus: #a02142;
+  --border-disabled: #e5e7eb;
+  --border-error: #ef4444;
+  --border-success: #22c55e;
+
+  /* Acciones (botones, links) */
+  --action-primary: #a02142;
+  --action-primary-hover: #821a35;
+  --action-secondary: #bc955b;
+  --action-secondary-hover: #a3804c;
+  --action-disabled: #f3f4f6;
+  --action-disabled-text: #9ca3af;
+
+  /* Grises neutros */
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+
+  /* Tipografía */
+  --font-main: "Montserrat";
+
+  /* Opacidad */
+  --opacity-0: 0;
+  --opacity-25: 0.25;
+  --opacity-50: 0.5;
+  --opacity-75: 0.75;
+  --opacity-100: 1;
+
+  /* Tamaños de iconos */
+  --icon-sm: 16px;
+  --icon-md: 24px;
+  --icon-lg: 32px;
+  --icon-xl: 48px;
+
+  /* Transiciones */
+  --transition-duration-fast: 150ms;
+  --transition-duration-normal: 300ms;
+  --transition-duration-slow: 500ms;
+  --transition-easing-linear: linear;
+  --transition-easing-ease: ease;
+  --transition-easing-in: cubic-bezier(0.4, 0, 1, 1);
+  --transition-easing-out: cubic-bezier(0, 0, 0.2, 1);
+  --transition-easing-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
