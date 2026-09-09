@@ -118,6 +118,25 @@ Esto **matiza** el doc de referencia, que proponía "todo en memoria de React, s
 
 Vite + React + TypeScript + Tailwind + `shadcn/ui` (preset de Vite de su CLI; los componentes se copian al repo bajo `frontend/src/components/ui/`, sin dependencia de runtime). Componentes iniciales: `button`, `card`, `input`, `select`, `progress`, `tabs`, `dialog`, `sonner`.
 
+### Sistema de diseño — `hidalgo-design-token-system`
+
+**Requisito:** el diseño y los colores del frontend salen del paquete
+`hidalgo-design-token-system@latest`, no de valores elegidos a mano ni de la
+guinda muestreada del HTML actual. Se instala como dependencia
+(`npm i hidalgo-design-token-system@latest`) y sus tokens (colores, radios,
+tipografía, espaciado) se cablean al `tailwind.config` y/o al CSS global, de modo
+que los componentes de `shadcn/ui` los consuman por variables CSS.
+
+**A confirmar en el primer paso del plan** (antes de construir cualquier
+componente): (1) el registro — npm público o privado con `.npmrc`; (2) qué
+exporta — variables CSS, un preset de Tailwind, JSON de tokens, o una hoja de
+estilos; (3) si trae modo claro/oscuro. La forma de la integración
+(`tailwind.config` preset vs `@import` de CSS vars) depende de eso.
+
+**Fallback:** si el paquete no está disponible o su forma bloquea, se arranca con
+la paleta guinda actual (`#5e132c`/`#66132a`) como variables CSS con los mismos
+nombres que espera `shadcn`, y se cambia al paquete después sin tocar componentes.
+
 ### Build
 
 ```
@@ -149,7 +168,7 @@ Se añade al pipeline: `tsc --noEmit`, `vite build`, `vitest run`. `pytest` sigu
 Cada paso deja la suite verde y la app usable.
 
 1. **`api.py` con `/api/v1`** + `HuecoOut`. Pruebas `pytest`/`TestClient` de cada endpoint: formas JSON, gate del linter (`409`), ida-y-vuelta de `resolver`/`reconocer`, `413` de archivo grande, `404` de sesión inexistente. **El HTML viejo intacto.**
-2. **Scaffold `frontend/`** (Vite+React+TS+Tailwind+shadcn). Montado temporalmente en `/app` para verificar el build y el *fallback*.
+2. **Scaffold `frontend/`** (Vite+React+TS+Tailwind+shadcn). **Primero:** verificar e integrar `hidalgo-design-token-system@latest` (registro, exports, claro/oscuro) — sus tokens al `tailwind.config`/CSS global antes de construir cualquier componente; si no está disponible, el fallback de la §6. Montado temporalmente en `/app` para verificar el build y el *fallback*.
 3. **Pantalla de carga de insumos en React** — drag-drop que asigna `input.files`, validación de tamaño con el mensaje del backend, contra `POST /api/v1/expedientes`. Tests `vitest`.
 4. **Wizard de resolución de huecos en React** — una `Card` por hueco, estado en React, `Progress`, los cuatro controles interactivos y el "lo configuro a mano" (por diseño de SPA ya no recarga ni pierde lo capturado). Paridad funcional con `/revisar`. Tests `vitest`.
 5. **Corte:** la SPA toma `/` y `/revisar/*`; se eliminan de `app.py` los handlers `portada` y `revisar`. `plantillas.portada`/`revision` quedan sin usar (los borra SP3). `/simulador`, `/aprobacion`, `/historial`, `/vistas`, `/descargar-plantilla` siguen en HTML; la SPA enlaza a ellas.
@@ -167,6 +186,7 @@ Cada paso deja la suite verde y la app usable.
 |---|---|
 | El corte de `/` rompe enlaces guardados a `/revisar/{sid}` | La SPA rutea `/revisar/:sid` en cliente y hace `GET /api/v1/expedientes/{sid}` al montar. Si el `sid` no existe (purgado o inválido) → pantalla "La sesión expiró; vuelve a subir los insumos" con botón a `/`. Nunca un 404 en blanco. |
 | `shadcn/ui` asume Next en varios ejemplos | Se usa el preset de Vite de su CLI. Los componentes son código propio en `frontend/src/components/ui/`, no una dependencia. En el paso 2 se agrega **un** componente (`button`) y se confirma que compila antes de seguir. |
+| `hidalgo-design-token-system@latest` de forma o registro desconocido | El paso 2 lo verifica **antes** de construir componentes: registro (`npm view` / `.npmrc`), qué exporta (CSS vars / preset Tailwind / JSON), modo claro-oscuro. Si no está disponible → fallback documentado (paleta guinda actual como CSS vars con los nombres que espera shadcn) y se cambia después sin tocar componentes. |
 | `frontend/dist/` sin construir en un servidor nuevo | FastAPI detecta la ausencia y responde `503` con la instrucción exacta. `instalar-servicio.sh` incluye `npm ci && npm run build`. `frontend/README.md` lo documenta. |
 | Doble fuente de verdad (React vs disco) | El servidor manda. Cada `resolver`/`reconocer` devuelve el estado nuevo **completo**; React lo **reemplaza**, sin merge en cliente. No hay escritura optimista que reconciliar. |
 | Regresión en las pantallas HTML que se quedan | No se tocan hasta SP3. Sus pruebas actuales (`test_web.py`) siguen corriendo en cada paso. El paso 5 solo **elimina** los dos handlers migrados; el resto de `app.py` no cambia. |
