@@ -13,3 +13,6 @@ scratch/
 # Borradores de un solo uso: editar archivos directamente, no con scripts
 fix_*.py
 dummy*.md
+
+# worktrees de trabajo aislado (SDD)
+.worktrees/
