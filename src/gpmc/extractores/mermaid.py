@@ -169,7 +169,8 @@ def extraer(bloque: str) -> Resultado:
         if n.actor is None and n.clase_nodo not in ("inicio_fin", "nota"):
             r.huecos.append(Hueco(
                 "falta_dato", "MMD-03", n.id,
-                "no declara carril (:::clase); no se puede saber qué actor lo ejecuta",
+                f"la tarea «{n.texto}» no declara carril (:::clase); no se "
+                "puede saber qué actor la ejecuta",
             ))
         if n.clase_nodo == "compuerta" and not n.campos:
             r.huecos.append(Hueco(

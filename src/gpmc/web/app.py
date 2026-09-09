@@ -173,10 +173,13 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         carpeta = raiz / sid
         carpeta.mkdir(parents=True, exist_ok=True)
 
+        grandes: list[str] = []
+
         async def _leer(archivo) -> Optional[bytes]:
             datos = await archivo.read(_MAX_SUBIDA + 1)
             if len(datos) > _MAX_SUBIDA:
-                return None  # demasiado grande: se ignora, no se escribe
+                grandes.append(archivo.filename or "sin nombre")
+                return None
             return datos
 
         for clave, archivo in subidos.items():
@@ -192,6 +195,17 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             contenido_vistas = await _leer(vistas)
             if contenido_vistas:
                 (carpeta / ARCHIVO_VISTAS).write_bytes(contenido_vistas)
+
+        # Un archivo que excede el tope se descartaba en silencio y el extractor
+        # se quejaba de "falta el Diccionario". Ahora se dice qué pasó.
+        if grandes:
+            shutil.rmtree(carpeta, ignore_errors=True)
+            lista = ", ".join(f"«{n}»" for n in grandes)
+            mb = _MAX_SUBIDA // (1024 * 1024)
+            return HTMLResponse(plantillas.portada(
+                error=f"El archivo {lista} supera el límite de {mb} MB. "
+                      f"Quítale imágenes embebidas o divídelo, y vuelve a subirlo."
+            ))
 
         try:
             r = extraer_expediente(carpeta)

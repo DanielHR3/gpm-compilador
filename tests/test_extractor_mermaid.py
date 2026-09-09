@@ -70,6 +70,14 @@ def test_reporta_hueco_cuando_un_nodo_no_declara_carril():
     assert mmd03[0].nivel == "falta_dato"
 
 
+def test_el_mensaje_de_MMD_03_nombra_la_tarea_no_su_id():
+    """El asistente mostraba «A» (el id del nodo) en vez de 'Revisar documentos'.
+    El mensaje debe traer el texto de la tarea para que sea accionable."""
+    r = extraer("flowchart TD\n  A[Revisar documentos] --> B[Fin]:::c")
+    mmd03 = next(h for h in r.huecos if h.codigo == "MMD-03")
+    assert "Revisar documentos" in mmd03.mensaje
+
+
 def test_todos_los_huecos_de_mermaid_son_Hueco():
     r = extraer("flowchart TD\n  A[Sin clase] --> B[Fin]:::c")
     assert all(isinstance(h, Hueco) for h in r.huecos)

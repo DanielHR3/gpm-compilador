@@ -204,9 +204,18 @@ def portada(error: str = "") -> str:
   
   <script>
     document.querySelectorAll('.dropzone').forEach(dz => {{
+      const input = dz.querySelector('input[type=file]');
+      const texto = dz.querySelector('.dropzone-text');
       dz.addEventListener('dragover', e => {{ e.preventDefault(); dz.classList.add('dragover'); }});
       dz.addEventListener('dragleave', e => {{ e.preventDefault(); dz.classList.remove('dragover'); }});
-      dz.addEventListener('drop', e => {{ dz.classList.remove('dragover'); }});
+      dz.addEventListener('drop', e => {{
+        e.preventDefault();
+        dz.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files.length) {{
+          input.files = e.dataTransfer.files;
+          texto.textContent = input.files[0].name;
+        }}
+      }});
     }});
   </script>
 </form>
@@ -305,12 +314,17 @@ def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = Fa
             f"<ul style='list-style:none;padding-left:0;margin-top:1.5rem'>{lis}</ul></details>"
         )
         
-    # Botón flotante para guardar cambios si hay resolubles
+    # Botón pegajoso: en un trámite con muchos huecos, el submit quedaba al
+    # fondo y el analista no veía cómo guardar mientras resolvía.
     if any(h.codigo in ("MMD-03", "META-01", "META-02", "API-03") for h in huecos):
         bloque_huecos += (
-            f'<div style="text-align:right; margin-bottom:1.5rem;">'
-            f'<button type="submit" style="background:var(--verde);border-color:var(--verde)">Guardar y Recompilar</button>'
-            f'</div>'
+            '<div style="position:sticky; bottom:1rem; z-index:20; text-align:right; '
+            'margin:1.5rem 0; padding:0.75rem; background:rgba(255,255,255,0.9); '
+            'backdrop-filter:blur(6px); border-radius:var(--radio-peq); '
+            'box-shadow:0 4px 14px rgba(0,0,0,0.12);">'
+            '<button type="submit" style="background:var(--verde);border-color:var(--verde)">'
+            'Guardar y Recompilar</button>'
+            '</div>'
         )
     bloque_huecos += "</form>"
 
@@ -371,7 +385,28 @@ def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = Fa
 
 <p class="nota">El flujo propuesto es <strong>lineal</strong>, una tarea por pantalla. Las
 compuertas del diagrama TO-BE se cuentan y se reportan arriba, pero no se reproducen: hay que
-ramificarlas a mano en el manifiesto. La importación a la plataforma también es manual.</p>""", 2, sid=sid)
+ramificarlas a mano en el manifiesto. La importación a la plataforma también es manual.</p>
+
+<script>
+// "Lo configuro a mano" hacía un POST completo del formulario y descartaba los
+// select/input ya llenados que iban a /resolver. Ahora se manda por detrás y
+// solo se oculta ese hueco, sin recargar ni perder lo capturado.
+document.querySelectorAll('button[formaction^="/reconocer/"]').forEach(b => {{
+  b.addEventListener('click', async e => {{
+    e.preventDefault();
+    b.disabled = true;
+    try {{
+      const r = await fetch(b.getAttribute('formaction'), {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
+        body: 'reconocer=' + encodeURIComponent(b.value)
+      }});
+      if (r.ok) {{ const li = b.closest('li'); if (li) li.hidden = true; }}
+      else {{ b.disabled = false; }}
+    }} catch (_) {{ b.disabled = false; }}
+  }});
+}});
+</script>""", 2, sid=sid)
 
 def historial(archivos) -> str:
     lista = ""

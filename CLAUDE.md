@@ -309,3 +309,16 @@ Cuando un nombre de variable excede los 30 caracteres (el límite de la base de 
 
 ### 3. Autocompletado `api_ajax` (Pendiente)
 Aún se mantiene el hueco `API-04` que degrada el componente a captura manual. Implementarlo requiere un ejemplo validado del JSON esperado por la plataforma en el arreglo `extra` del campo, y no contamos con esa estructura en este momento.
+
+### 4. Pulido de UX del asistente (2026-09-09)
+Seis hotfixes de las pruebas de escritorio, sin tocar arquitectura:
+- `web/plantilla-diccionario.md` (lo que da "↓ Descargar plantilla"): reescrito sin jerga
+  (`DIC-05`, "Opción 1 vs 2", internals del parser) — ahora es un ejemplo de "Constancia de
+  Residencia" para copiar y reemplazar, coherente con `ejemplos/expedientes/constancia-de-residencia/`.
+- `mermaid.py`: el hueco `MMD-03` incrusta el nombre de la tarea (`«Revisar documentos»`), no su id.
+- `web/app.py`: un archivo que supera `_MAX_SUBIDA` deja de descartarse en silencio — se
+  renderiza la portada con el nombre y el motivo en rojo.
+- `web/plantillas.py`: el `drop` de la portada asigna `input.files` (antes solo cambiaba el
+  color); el botón "Guardar y Recompilar" va en un contenedor `position:sticky`; "Lo configuro
+  a mano" se manda por `fetch()` y oculta el `<li>` sin recargar (conserva lo ya capturado en
+  el formulario de `/resolver`).

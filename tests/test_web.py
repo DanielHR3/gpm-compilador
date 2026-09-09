@@ -337,14 +337,47 @@ def test_vistas_se_sirve_en_sandbox(cliente):
     assert "sandbox" in v.headers.get("content-security-policy", "")
 
 
-def test_un_archivo_gigante_no_se_escribe(cliente):
+def test_un_archivo_gigante_da_un_error_visible_con_el_nombre(cliente):
     grande = b"x" * (11 * 1024 * 1024)  # 11 MB > tope de 10
     r = cliente.post("/extraer", files={
-        "diccionario": ("dd.md", grande, "text/markdown"),
+        "diccionario": ("enorme.md", grande, "text/markdown"),
     }, follow_redirects=False)
-    # el .md se ignora por tamaño → no hay Diccionario → no se produce manifiesto
     assert r.status_code == 200
-    assert "no se pudo" in r.text.lower() or "diccionario" in r.text.lower()
+    # Antes se descartaba en silencio y se quejaba de "falta el Diccionario".
+    assert "supera el límite de 10 MB" in r.text
+    assert "enorme.md" in r.text
+
+
+def test_la_portada_intercepta_el_drop_y_asigna_el_archivo(cliente):
+    """El drop solo cambiaba el color; el archivo no se adjuntaba (o el navegador
+    lo abría en otra pestaña). Ahora el handler asigna input.files."""
+    html = cliente.get("/").text
+    assert "e.preventDefault()" in html and "input.files = e.dataTransfer.files" in html
+
+
+def test_la_revision_manda_el_reconocer_por_fetch_sin_recargar(cliente):
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+    })
+    sid = r.url.path.rsplit("/", 1)[-1]
+    html = cliente.get(f"/revisar/{sid}").text
+    assert 'button[formaction^="/reconocer/"]' in html   # el script intercepta el clic
+    assert "li.hidden = true" in html                    # oculta sin recargar
+
+
+def test_el_boton_guardar_y_recompilar_es_pegajoso(cliente):
+    """Con un hueco interactivo (MMD-03: nodo del TO-BE sin carril), el submit
+    verde va dentro de un contenedor sticky para no perderse al hacer scroll."""
+    tobe = ("# Propuesta TO-BE\n\n```mermaid\nflowchart TD\n"
+            "  A([Inicio]) --> B[Solicitante: Datos]\n  B --> C([Fin])\n```\n")
+    r = cliente.post("/extraer", files={
+        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
+        "to_be": ("tb.md", tobe.encode("utf-8"), "text/markdown"),
+    })
+    sid = r.url.path.rsplit("/", 1)[-1]
+    html = cliente.get(f"/revisar/{sid}").text
+    assert "Guardar y Recompilar" in html
+    assert "position:sticky; bottom:1rem" in html
 
 
 # ── Purga de sesiones viejas (fuga de disco) ────────────────────────
