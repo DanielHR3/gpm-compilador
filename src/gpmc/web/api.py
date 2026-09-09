@@ -15,7 +15,7 @@ import json
 import secrets
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse
@@ -32,8 +32,10 @@ from gpmc.web.sesiones import (
     _MAX_SUBIDA,
     _purgar_sesiones,
     carpeta_de,
+    escribir_reconocidos,
     huecos_vivos,
     manifiesto_de,
+    reconocidos_de,
 )
 
 
@@ -46,6 +48,52 @@ class EstadoExpediente(BaseModel):
     estimacion: dict
     problemas: List[str]
     tiene_vistas: bool
+
+
+# Mismo mapeo tipo->codigo que usa el HTML `POST /resolver` para limpiar
+# `huecos.json`: cada resolucion tacha el hueco `(codigo, ubicacion)`.
+_TIPO_A_CODIGO = {
+    "mmd03": "MMD-03",
+    "meta01": "META-01",
+    "meta02": "META-02",
+    "api03": "API-03",
+}
+
+
+class ResolucionIn(BaseModel):
+    """Una resolucion de hueco: donde aplicarla y con que valor."""
+
+    tipo: Literal["mmd03", "meta01", "meta02", "api03"]
+    ubicacion: str
+    valor: str
+
+
+class ResolverIn(BaseModel):
+    """Cuerpo de `POST /api/v1/expedientes/{sid}/resolver`."""
+
+    resoluciones: List[ResolucionIn]
+
+
+class ReconocerIn(BaseModel):
+    """Cuerpo de `POST /api/v1/expedientes/{sid}/reconocer`."""
+
+    codigo: str
+    ubicacion: str
+
+
+class EstadoResolver(BaseModel):
+    """Respuesta 200 de `/resolver`: manifiesto ya guardado + huecos vivos."""
+
+    manifiesto: dict
+    huecos: List[HuecoOut]
+
+
+class EstadoReconocer(BaseModel):
+    """Respuesta 200 de `/reconocer`: huecos vivos + los `(codigo, ubicacion)`
+    marcados como "se configuran a mano en la plataforma"."""
+
+    huecos: List[HuecoOut]
+    reconocidos: List[List[str]]
 
 
 def _estado(sid: str, carpeta: Path, manifiesto) -> EstadoExpediente:
@@ -141,5 +189,77 @@ def crear_router(raiz: Path) -> APIRouter:
             return JSONResponse(status_code=404,
                                 content={"error": "sesión no encontrada"})
         return _estado(sid, carpeta, m)
+
+    @r.post("/expedientes/{sid}/resolver", response_model=EstadoResolver)
+    async def resolver_expediente(sid: str, cuerpo: ResolverIn):
+        """Porta el bucle de `POST /resolver` de `app.py` a un cuerpo JSON.
+
+        Cada `{tipo, ubicacion, valor}` toca el manifiesto en un sitio; tras
+        aplicarlas se guarda `manifiesto.yaml` y se tachan de `huecos.json` los
+        `(codigo, ubicacion)` resueltos. Devuelve el estado nuevo.
+        """
+        carpeta = carpeta_de(raiz, sid)
+        m = manifiesto_de(raiz, sid)
+        if carpeta is None or m is None:
+            return JSONResponse(status_code=404,
+                                content={"error": "sesión no encontrada"})
+
+        # `mmd03`/`api03` tachan el hueco por su ubicacion real (id de tarea /
+        # nombre de campo, como `tarea_id` / `campo_nombre` en `app.py`).
+        # `meta01`/`meta02` siempre se emiten con ubicacion "metadatos": el
+        # handler HTML de referencia la fija a mano (`app.py` lineas 245, 250),
+        # asi que aqui se ignora la `ubicacion` del cliente para la purga.
+        resueltos = []  # type: List[Tuple[str, str]]
+        for res in cuerpo.resoluciones:
+            if not res.valor:
+                continue
+            codigo = _TIPO_A_CODIGO[res.tipo]
+            if res.tipo == "mmd03":
+                for t in m.flujo.tareas:
+                    if t.id == res.ubicacion:
+                        t.actor = res.valor
+                        resueltos.append((codigo, res.ubicacion))
+            elif res.tipo == "meta01":
+                m.tramite.ruts.tiempo_entrega = res.valor
+                resueltos.append((codigo, "metadatos"))
+            elif res.tipo == "meta02":
+                m.tramite.dependencia = res.valor
+                resueltos.append((codigo, "metadatos"))
+            elif res.tipo == "api03":
+                campo = m.campo_por_nombre(res.ubicacion)
+                if campo:
+                    campo.dependencia_campo = res.valor
+                    resueltos.append((codigo, res.ubicacion))
+
+        guardar(m, carpeta / "manifiesto.yaml")
+
+        ruta_huecos = carpeta / "huecos.json"
+        if ruta_huecos.exists():
+            datos = json.loads(ruta_huecos.read_text(encoding="utf-8"))
+            datos = [h for h in datos
+                     if (h.get("codigo"), h.get("ubicacion")) not in resueltos]
+            ruta_huecos.write_text(json.dumps(datos, ensure_ascii=False),
+                                   encoding="utf-8")
+
+        return EstadoResolver(
+            manifiesto=m.model_dump(mode="json"),
+            huecos=[HuecoOut.desde(h) for h in huecos_vivos(carpeta)],
+        )
+
+    @r.post("/expedientes/{sid}/reconocer", response_model=EstadoReconocer)
+    async def reconocer_expediente(sid: str, cuerpo: ReconocerIn):
+        """Marca un hueco `falta_dato` como "se configura a mano en la
+        plataforma": no toca el manifiesto, solo deja constancia."""
+        carpeta = carpeta_de(raiz, sid)
+        if carpeta is None:
+            return JSONResponse(status_code=404,
+                                content={"error": "sesión no encontrada"})
+        rec = reconocidos_de(carpeta)
+        rec.add((cuerpo.codigo, cuerpo.ubicacion))
+        escribir_reconocidos(carpeta, rec)
+        return EstadoReconocer(
+            huecos=[HuecoOut.desde(h) for h in huecos_vivos(carpeta)],
+            reconocidos=[list(t) for t in sorted(rec)],
+        )
 
     return r
