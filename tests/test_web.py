@@ -422,3 +422,51 @@ def test_extraer_dispara_la_purga(tmp_path):
     cli = TestClient(crear_app(almacen=raiz))
     cli.post("/extraer", files={"diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown")})
     assert not vieja.exists()
+
+
+def test_sin_dist_construido_la_ruta_app_da_503(cliente, monkeypatch, tmp_path):
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(tmp_path / "no-existe"))
+    from gpmc.web.app import crear_app
+    from fastapi.testclient import TestClient
+    c = TestClient(crear_app(almacen=tmp_path))
+    r = c.get("/app")
+    assert r.status_code == 503
+    assert "npm run build" in r.text
+
+
+def test_con_dist_falso_la_ruta_app_sirve_index(monkeypatch, tmp_path):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>SPA</title>", encoding="utf-8")
+    (dist / "assets").mkdir()
+    (dist / "assets" / "x.js").write_text("console.log(1)", encoding="utf-8")
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(dist))
+    from gpmc.web.app import crear_app
+    from fastapi.testclient import TestClient
+    c = TestClient(crear_app(almacen=tmp_path))
+    assert c.get("/app").status_code == 200
+    assert "SPA" in c.get("/app").text
+    assert c.get("/app/assets/x.js").status_code == 200
+    assert c.get("/app").headers["content-security-policy"].startswith("default-src 'self'")
+
+
+def test_la_ruta_app_no_permite_salir_de_dist(monkeypatch, tmp_path):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>SPA</title>", encoding="utf-8")
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(dist))
+    from gpmc.web.app import crear_app
+    from fastapi.testclient import TestClient
+    c = TestClient(crear_app(almacen=tmp_path))
+
+    # Percent-encoded `..`: no debe entregar un fichero de fuera de dist; cae
+    # al fallback de index.html como cualquier ruta de cliente desconocida.
+    r = c.get("/app/%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd")
+    assert r.status_code == 200
+    assert "SPA" in r.text
+    assert "root:" not in r.text
+
+    # Variante `../` en claro (el cliente puede colapsarla; da igual: el
+    # resultado no debe contener el fichero ajeno).
+    r = c.get("/app/../../../etc/passwd", follow_redirects=True)
+    assert "root:" not in r.text

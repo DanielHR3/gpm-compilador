@@ -9,6 +9,7 @@ sin navegador.
 from typing import Optional
 import importlib.resources
 import json
+import os
 import re
 import secrets
 import shutil
@@ -16,7 +17,13 @@ import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI, File, Request, UploadFile, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 
 from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
@@ -357,6 +364,51 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
                 headers={"content-disposition": f'attachment; filename="{base}.yaml"'},
             )
         return Response("Salida no reconocida.", status_code=404)
+
+    # SPA React compilada (Task 6). Montada en /app de forma temporal: Task 11
+    # la mueve a /. `dist` se resuelve una vez al crear la app; la variable de
+    # entorno gana para que las pruebas apunten a un arbol falso.
+    dist = Path(os.environ.get(
+        "GPMC_FRONTEND_DIST",
+        Path(__file__).resolve().parents[3] / "frontend" / "dist",
+    ))
+
+    def _servir_spa(ruta: str = ""):
+        if not (dist / "index.html").exists():
+            return PlainTextResponse(
+                "El frontend no está compilado. Corre "
+                "`cd frontend && npm ci && npm run build`.",
+                status_code=503,
+            )
+        # Contencion: `ruta` viene del cliente sin sanear y puede traer `..`
+        # (incluso percent-encoded). Se resuelve el candidato y se exige que
+        # cuelgue de `dist`; si se sale, cae al fallback de index.html igual
+        # que cualquier ruta de cliente desconocida.
+        dist_r = dist.resolve()
+        cand_r = (dist / ruta).resolve()
+        dentro = cand_r == dist_r or dist_r in cand_r.parents
+        if ruta and dentro and cand_r.is_file():
+            return FileResponse(cand_r)
+        resp = FileResponse(dist / "index.html")
+        # CSP propia del SPA: mas laxa que el `sandbox` de /vistas porque aqui
+        # el HTML lo generamos nosotros. Se fija sobre la respuesta ya que el
+        # middleware de cabeceras seguras no toca Content-Security-Policy.
+        resp.headers["Content-Security-Policy"] = (
+            "default-src 'self'; img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+        )
+        return resp
+
+    # Dos rutas: `/app` a secas (sin barra) y `/app/<lo-que-sea>`. Starlette no
+    # hace coincidir `/app` con `/app/{ruta:path}` sin un 307 de por medio; la
+    # ruta explicita evita ese redirect.
+    @app.get("/app")
+    def _spa_raiz():
+        return _servir_spa("")
+
+    @app.get("/app/{ruta:path}")
+    def _spa(ruta: str = ""):
+        return _servir_spa(ruta)
 
     return app
 
