@@ -23,13 +23,19 @@ from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.nucleo.formato import serializar
-from gpmc.nucleo.huecos import Hueco, bloquean
+from gpmc.nucleo.huecos import bloquean
 from gpmc.nucleo.manifiesto import cargar, guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.simulador.html import generar as generar_simulador
 from gpmc.web import plantillas
-
-_SESION_VALIDA = re.compile(r"\A[0-9a-f]{16}\Z")
+from gpmc.web.sesiones import (
+    carpeta_de,
+    manifiesto_de,
+    huecos_vivos,
+    reconocidos_de,
+    escribir_reconocidos,
+    _SESION_VALIDA,
+)
 
 INSUMOS = {
     "as_is": "Análisis AS-IS.md",
@@ -85,35 +91,6 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
         return resp
-
-    def _carpeta(sid: str) -> Optional[Path]:
-        """Resuelve la sesion. El identificador se valida contra un patron
-        estricto: nunca se interpola en una ruta sin comprobarlo."""
-        if not _SESION_VALIDA.match(sid or ""):
-            return None
-        destino = raiz / sid
-        return destino if destino.is_dir() else None
-
-    def _manifiesto(sid: str):
-        carpeta = _carpeta(sid)
-        if carpeta is None:
-            return None
-        ruta = carpeta / "manifiesto.yaml"
-        return cargar(ruta) if ruta.exists() else None
-
-    def _huecos_vivos(carpeta: Path) -> list:
-        ruta = carpeta / "huecos.json"
-        if not ruta.exists():
-            return []
-        return [Hueco(**d) for d in json.loads(ruta.read_text(encoding="utf-8"))]
-
-    def _reconocidos(carpeta: Path) -> set:
-        """Huecos 'falta_dato' que una persona marcó como "los configuro a mano
-        en la plataforma". Cada entrada es (codigo, ubicacion)."""
-        ruta = carpeta / "reconocidos.json"
-        if not ruta.exists():
-            return set()
-        return {tuple(x) for x in json.loads(ruta.read_text(encoding="utf-8"))}
 
     @app.get("/", response_class=HTMLResponse)
     def portada():
@@ -238,16 +215,16 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
 
     @app.get("/revisar/{sid}", response_class=HTMLResponse)
     def revisar(sid: str):
-        m = _manifiesto(sid)
+        m = manifiesto_de(raiz, sid)
         if m is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
-        carpeta = _carpeta(sid)
-        huecos = _huecos_vivos(carpeta)
+        carpeta = carpeta_de(raiz, sid)
+        huecos = huecos_vivos(carpeta)
         tiene_vistas = (carpeta / ARCHIVO_VISTAS).exists()
         return plantillas.revision(
             m, huecos, analizar(m).problemas, estimar(m), sid,
             tiene_vistas=tiene_vistas,
-            reconocidos=_reconocidos(carpeta),
+            reconocidos=reconocidos_de(carpeta),
         )
 
     @app.post("/reconocer/{sid}")
@@ -261,23 +238,21 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         analista por sesión, uvicorn async monoproceso—; si se pasa a
         `--workers > 1` o a un pool de hilos, hay que serializar por `sid`.
         """
-        carpeta = _carpeta(sid)
+        carpeta = carpeta_de(raiz, sid)
         if carpeta is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
         form = await request.form()
         marca = str(form.get("reconocer") or "")
         if "|" in marca:
             codigo, ubicacion = marca.split("|", 1)
-            rec = _reconocidos(carpeta)
+            rec = reconocidos_de(carpeta)
             rec.add((codigo, ubicacion))
-            (carpeta / "reconocidos.json").write_text(
-                json.dumps(sorted(rec), ensure_ascii=False), encoding="utf-8"
-            )
+            escribir_reconocidos(carpeta, rec)
         return RedirectResponse(f"/revisar/{sid}", status_code=303)
 
     @app.post("/resolver/{sid}")
     async def resolver(sid: str, request: Request):
-        m = _manifiesto(sid)
+        m = manifiesto_de(raiz, sid)
         if m is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
             
@@ -313,7 +288,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
                     
         # Persistir los cambios si hubo alguno
         if resueltos:
-            carpeta = _carpeta(sid)
+            carpeta = carpeta_de(raiz, sid)
             guardar(m, carpeta / "manifiesto.yaml")
             
             # Limpiar los huecos que ya se resolvieron
@@ -333,7 +308,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
 
     @app.get("/simulador/{sid}", response_class=HTMLResponse)
     def simulador(sid: str):
-        m = _manifiesto(sid)
+        m = manifiesto_de(raiz, sid)
         if m is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
         return generar_simulador(m)
@@ -346,7 +321,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         una pestana aparte para que el analista compare sus pantallas
         propuestas contra lo que el extractor produjo del Diccionario.
         """
-        carpeta = _carpeta(sid)
+        carpeta = carpeta_de(raiz, sid)
         if carpeta is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
         ruta = carpeta / ARCHIVO_VISTAS
@@ -364,7 +339,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
 
     @app.get("/aprobacion/{sid}", response_class=HTMLResponse)
     def aprobacion(sid: str):
-        m = _manifiesto(sid)
+        m = manifiesto_de(raiz, sid)
         if m is None:
             return HTMLResponse("Sesión no encontrada.", status_code=404)
         from gpmc.compilador.aprobacion import generar_aprobacion
@@ -372,7 +347,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
 
     @app.get("/descargar/{sid}/{que}")
     def descargar(sid: str, que: str):
-        m = _manifiesto(sid)
+        m = manifiesto_de(raiz, sid)
         if m is None:
             return Response("Sesión no encontrada.", status_code=404)
         base = re.sub(r"[^A-Za-z0-9._-]+", "-", m.tramite.nombre)[:60] or "tramite"
@@ -382,8 +357,8 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             # bloqueante, o uno de falta_dato que nadie resolvió (por /resolver)
             # ni reconoció ("lo configuro a mano"). Se mira el estado vivo de la
             # sesión, que ya refleja lo resuelto en /resolver.
-            carpeta = _carpeta(sid)
-            faltan = bloquean(_huecos_vivos(carpeta), _reconocidos(carpeta))
+            carpeta = carpeta_de(raiz, sid)
+            faltan = bloquean(huecos_vivos(carpeta), reconocidos_de(carpeta))
             if faltan:
                 lineas = "\n".join(f"  [{h.codigo}] {h.ubicacion} {h.mensaje}" for h in faltan)
                 return Response(
@@ -404,7 +379,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
                 headers={"content-disposition": f'attachment; filename="{base}-test-ui.gpm"'},
             )
         if que == "manifiesto":
-            destino = _carpeta(sid) / "manifiesto.yaml"
+            destino = carpeta_de(raiz, sid) / "manifiesto.yaml"
             return Response(
                 destino.read_text(encoding="utf-8"),
                 media_type="application/x-yaml",
