@@ -1,8 +1,8 @@
 # Expedientes de ejemplo — conformes a la plantilla
 
 Cada carpeta aquí es un expediente **completo y bien formado**: AS-IS, TO-BE y
-Diccionario de Datos escritos contra `PLANTILLA - Diccionario de Datos.md` (raíz
-del repo). Sirven para dos cosas:
+Diccionario de Datos escritos contra `ejemplos/PLANTILLA - Diccionario de Datos.md`.
+Sirven para dos cosas:
 
 1. **Referencia para el equipo de Simplificación** — copiar la estructura, no
    partir de cero.
