@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from gpmc.web.app import crear_app
 from tests.test_extractor_diccionario import _VIS
+from tests.test_extractor_expediente import _DICC_RAMA, _TOBE_RAMA
 
 _DICC = ("### Pantalla 1 — Solicitante — Datos\n\n"
          "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
@@ -155,6 +156,41 @@ def test_resolver_dic08_condicion_con_clausula_y_no_declarada_da_422(tmp_path):
     assert r.status_code == 422, r.text
     assert "error" in r.json()
     assert "campo_fantasma" in r.json()["error"]
+
+
+# TO-BE con la compuerta G sin @@campo (variante MMD-04 de _TOBE_RAMA, igual
+# que test_no_ramifica_si_la_compuerta_no_nombra_campo en
+# test_extractor_expediente.py): el Diccionario declara "procede" en la
+# Pantalla 2, así que "mmd04campo" con ese campo puede reensamblar el flujo.
+_TOBE_MMD04 = _TOBE_RAMA.replace("{¿@@procede == 'si'?}", "{¿Procede?}")
+_INSUMOS_CON_MMD04 = {
+    "diccionario": ("dd.md", _DICC_RAMA.encode("utf-8"), "text/markdown"),
+    "to_be": ("tobe.md", _TOBE_MMD04.encode("utf-8"), "text/markdown"),
+}
+
+
+def test_resolver_mmd04campo_reensambla_y_quita_el_hueco(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD04).json()
+    sid = est["sid"]
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "mmd04campo", "ubicacion": gate, "campo": "procede"}]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert not any(h["codigo"] == "MMD-04" for h in body["huecos"])
+    assert any(cx.get("cuando", {}).get("campo") == "procede"
+               for cx in body["manifiesto"]["flujo"]["conexiones"])
+
+
+def test_resolver_mmd04campo_campo_inexistente_da_422(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD04).json()
+    sid = est["sid"]
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "mmd04campo", "ubicacion": gate, "campo": "no_existe"}]})
+    assert r.status_code == 422
 
 
 def test_reconocer_marca_el_hueco_y_lo_devuelve(tmp_path):

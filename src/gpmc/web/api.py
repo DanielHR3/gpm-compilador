@@ -29,12 +29,15 @@ from gpmc.nucleo.formato import serializar
 from gpmc.nucleo.huecos import HuecoOut, bloquean
 from gpmc.nucleo.manifiesto import Condicion, guardar
 from gpmc.simulador.analisis import analizar
+from gpmc.web.reensamblado import reensamblar_flujo
 from gpmc.web.sesiones import (
     ARCHIVO_VISTAS,
     INSUMOS,
     _MAX_SUBIDA,
     _purgar_sesiones,
     carpeta_de,
+    compuertas_de,
+    escribir_compuertas,
     escribir_reconocidos,
     huecos_vivos,
     manifiesto_de,
@@ -79,11 +82,23 @@ class ResolucionDic08(BaseModel):
     condicion: Condicion
 
 
+class ResolucionMmd04Campo(BaseModel):
+    """Resolucion del hueco MMD-04: fija el `@@campo` de una compuerta que
+    el TO-BE no nombro, y dispara el reensamblado del flujo."""
+
+    tipo: Literal["mmd04campo"]
+    ubicacion: str  # id de la compuerta (gate id) en el Mermaid del TO-BE
+    campo: str
+
+
 class ResolverIn(BaseModel):
     """Cuerpo de `POST /api/v1/expedientes/{sid}/resolver`."""
 
     resoluciones: List[
-        Annotated[Union[ResolucionIn, ResolucionDic08], Field(discriminator="tipo")]
+        Annotated[
+            Union[ResolucionIn, ResolucionDic08, ResolucionMmd04Campo],
+            Field(discriminator="tipo"),
+        ]
     ]
 
 
@@ -248,6 +263,20 @@ def crear_router(raiz: Path) -> APIRouter:
                                      f"declarado: {cc}"})
                 campo.condicion_visible = res.condicion
                 resueltos.append(("DIC-08", res.ubicacion))
+                continue
+            if res.tipo == "mmd04campo":
+                campos_declarados = {c.nombre for p in m.pantallas for c in p.campos}
+                if res.campo not in campos_declarados:
+                    return JSONResponse(status_code=422, content={
+                        "error": f"campo no declarado en el manifiesto: {res.campo}"})
+                d = compuertas_de(carpeta)
+                d[res.ubicacion] = res.campo
+                escribir_compuertas(carpeta, d)
+                m = reensamblar_flujo(carpeta, m)
+                resueltos.append(("MMD-04", res.ubicacion))
+                if any(cx.cuando for cx in m.flujo.conexiones):
+                    resueltos.append(("FLU-01", "flujo"))
+                    resueltos.append(("FLU-02", "flujo"))
                 continue
             if not res.valor:
                 continue
