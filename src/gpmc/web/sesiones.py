@@ -94,3 +94,18 @@ def reconocidos_de(carpeta: Path) -> set:
 def escribir_reconocidos(carpeta: Path, rec: set) -> None:
     (carpeta / "reconocidos.json").write_text(
         json.dumps(sorted(rec), ensure_ascii=False), encoding="utf-8")
+
+
+def compuertas_de(carpeta: Path) -> dict:
+    """Overrides de campo por compuerta ({id_compuerta: nombre_campo}) que una
+    persona fijó a mano para compuertas que el diagrama TO-BE no ramificó
+    solo. Alimenta `_flujo_ramificado(overrides=...)` vía `reensamblar_flujo`."""
+    ruta = carpeta / "compuertas.json"
+    if not ruta.exists():
+        return {}
+    return json.loads(ruta.read_text(encoding="utf-8"))
+
+
+def escribir_compuertas(carpeta: Path, d: dict) -> None:
+    (carpeta / "compuertas.json").write_text(
+        json.dumps(d, ensure_ascii=False), encoding="utf-8")

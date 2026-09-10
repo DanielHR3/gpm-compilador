@@ -27,3 +27,10 @@ def test_huecos_vivos_y_reconocidos_ida_y_vuelta(tmp_path):
     assert reconocidos_de(d) == set()
     escribir_reconocidos(d, {("DIC-07", "p1")})
     assert reconocidos_de(d) == {("DIC-07", "p1")}
+
+
+def test_compuertas_json_round_trip(tmp_path):
+    from gpmc.web.sesiones import compuertas_de, escribir_compuertas
+    assert compuertas_de(tmp_path) == {}
+    escribir_compuertas(tmp_path, {"g1": "procede"})
+    assert compuertas_de(tmp_path) == {"g1": "procede"}
