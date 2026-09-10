@@ -16,6 +16,7 @@ dummy*.md
 
 # worktrees de trabajo aislado (SDD)
 .worktrees/
+.superpowers/
 
 # SPA React (Task 6): se compila localmente, nunca se versiona
 frontend/node_modules/
