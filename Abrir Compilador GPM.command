@@ -17,6 +17,17 @@ if [ ! -d ".venv" ]; then
   echo
 fi
 
+# La SPA React se sirve desde / (frontend/dist/). Se recompila al abrir para
+# arrancar con la versión actual; si no hay npm, se usa el dist/ que exista.
+if command -v npm >/dev/null 2>&1; then
+  echo "Compilando el frontend…"
+  ( cd "./frontend" && npm ci && npm run build ) || { echo "Falló el build del frontend."; read -r; exit 1; }
+  echo
+else
+  echo "AVISO: npm no está; se sirve el frontend/dist/ existente (o 503 si no hay)."
+  echo
+fi
+
 PUERTO=8000
 while lsof -ti:$PUERTO >/dev/null 2>&1; do PUERTO=$((PUERTO+1)); done
 

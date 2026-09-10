@@ -266,15 +266,30 @@ extractor partía solo por `<br>` y emitía **3 opciones basura** — `Soltero  
 - **`extractores/expediente.py`:** un `.md` en Latin-1/Windows-1252 se lee con `errors="replace"`
   en vez de reventar con un traceback.
 
-## Frontend (SPA React) — SP1 en curso
+## Frontend (SPA React) — SP1 completo
 
 `frontend/` es un proyecto Vite + React + TS + Tailwind (v4) + shadcn/ui. El diseño
 sale de `hidalgo-design-token-system` (dependencia de GitHub:
 `github:VManuelSM/hidalgo-design-token-system`; no está en npm). Node/npm **solo en
-build** (`npm run build` -> `frontend/dist/`, que NO se comitea). FastAPI sirve
-`dist/` (hoy en `/app`, tras el corte en `/`). Desarrollo: `cd frontend && npm run
-dev` (:5173, proxy `/api` a :8000) + `gpmc servir` (:8000). Chequeo:
-`bash scripts/check-frontend.sh` (tsc -b --noEmit -> vitest run -> npm run build).
+build** (`npm run build` -> `frontend/dist/`, que NO se comitea; `vite.config.ts`
+tiene `base: "/"`). Desarrollo: `cd frontend && npm run dev` (:5173, proxy `/api` a
+:8000) + `gpmc servir` (:8000). Chequeo: `bash scripts/check-frontend.sh`
+(tsc -b --noEmit -> vitest run -> npm run build).
+
+- **La SPA se sirve desde `/`** (Task 11). `GET /` y `GET /revisar/{sid}` (y
+  cualquier otra ruta desconocida) devuelven `dist/index.html`; el enrutado del
+  deep-link `/revisar/:sid` lo hace el cliente. `POST /extraer` sigue redirigiendo
+  (303) a `/revisar/{sid}`, que ahora aterriza en la SPA. Sin `dist/` compilado,
+  `/` responde `503`. `GPMC_FRONTEND_DIST` reapunta la carpeta `dist/`.
+- La catch-all `@app.get("/{ruta:path}")` está declarada **al final**, así que las
+  rutas exactas ganan. Un typo bajo un prefijo de handler real
+  (`api`, `simulador`, `aprobacion`, `historial`, `vistas`, `descargar`,
+  `descargar-plantilla`, `extraer`, `resolver`, `reconocer`) devuelve `404`, no el
+  `index.html`.
+- `/simulador/{sid}` y `/aprobacion/{sid}` (y `/historial`, `/vistas/{sid}`, las
+  descargas) **siguen en HTML del servidor** hasta SP3.
+- `plantillas.portada` y `plantillas.revision` quedaron **sin uso** tras el corte
+  (SP3 los borra junto con `simulador/html.py` de servidor).
 
 - Los tokens del paquete se materializan en `src/tokens.css` (salida de
   `generateCssVariables()` de `src/lib/tokens.ts`, que replica el `tokens.web.ts`

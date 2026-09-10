@@ -17,6 +17,15 @@ if [ ! -d "$RAIZ/.venv" ]; then
   "$RAIZ/.venv/bin/pip" install --quiet -e "$RAIZ[web]"
 fi
 
+# La SPA React se sirve desde / (frontend/dist/). Se recompila en cada
+# instalación para que el servicio arranque con la versión actual.
+if command -v npm >/dev/null 2>&1; then
+  echo "Compilando el frontend…"
+  ( cd "$RAIZ/frontend" && npm ci && npm run build )
+else
+  echo "AVISO: npm no está; se sirve el frontend/dist/ existente (o 503 si no hay)."
+fi
+
 mkdir -p "$HOME/Library/LaunchAgents"
 sed "s|__RUTA__|$RAIZ|g" "$RAIZ/despliegue/$ETIQUETA.plist" > "$DESTINO"
 

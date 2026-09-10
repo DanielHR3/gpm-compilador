@@ -26,11 +26,16 @@ def _insumos():
     }
 
 
-def test_la_portada_pide_los_tres_insumos(cliente):
-    r = cliente.get("/")
-    assert r.status_code == 200
-    for campo in ("as_is", "to_be", "diccionario", "vistas"):
-        assert f'name="{campo}"' in r.text
+def test_la_raiz_sirve_la_spa_no_html_viejo(monkeypatch, tmp_path):
+    dist = tmp_path / "dist"; dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><div id=root></div>", encoding="utf-8")
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(dist))
+    from gpmc.web.app import crear_app
+    from fastapi.testclient import TestClient
+    c = TestClient(crear_app(almacen=tmp_path))
+    assert 'id=root' in c.get("/").text
+    assert 'id=root' in c.get("/revisar/" + "a" * 16).text     # fallback SPA
+    assert c.get("/historial").status_code == 200               # HTML viejo sigue
 
 
 def test_subir_los_insumos_crea_una_sesion_y_extrae(cliente):
@@ -55,46 +60,12 @@ _DICC_MIN = """### Pantalla 1 — Solicitante — Datos
 """
 
 
-def test_el_paso_de_revision_agrupa_huecos_por_nivel(cliente):
-    r = cliente.post("/extraer", files={
-        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
-    })
-    assert r.status_code == 200, r.text
-    texto = r.text.lower()
-    assert "por confirmar" in texto
-    assert "bloqueante" in texto or "faltan datos" in texto
-    assert "<details" in r.text
-
-
-def test_revision_enlaza_al_simulador_en_la_misma_pestana(cliente):
-    # El navegador bloquea las pestañas nuevas de target="_blank"; los botones
-    # de navegación del asistente deben abrir en la misma pestaña.
-    # Excepcion: el enlace de vistas sí abre en pestaña nueva.
-    r = cliente.post("/extraer", files={
-        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
-    })
-    sid = r.url.path.rsplit("/", 1)[-1]
-    assert f'href="/simulador/{sid}"' in r.text
-    # Contar target="_blank": sin vistas subidas, no debe haber ninguno
-    assert 'target="_blank"' not in r.text
-
-
 # ── Vistas HTML (mockup de referencia visual) ────────────────────────
 
 _HTML_VISTAS = b"""<!doctype html><html><body>
 <h1>Mockup de pantallas</h1>
 <p>Pantalla 1: Datos del solicitante</p>
 </body></html>"""
-
-
-def test_subir_vistas_las_persiste_y_la_revision_muestra_el_enlace(cliente):
-    r = cliente.post("/extraer", files={
-        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
-        "vistas": ("vistas.html", _HTML_VISTAS, "text/html"),
-    })
-    assert r.status_code == 200, r.text
-    assert "Ver vistas (HTML)" in r.text
-    assert 'target="_blank"' in r.text  # el enlace de vistas abre en nueva pestaña
 
 
 def test_el_endpoint_de_vistas_sirve_el_html_subido(cliente):
@@ -182,7 +153,8 @@ def test_descargar_el_simulador_de_una_sesion(cliente):
 
 
 def test_una_sesion_inexistente_devuelve_404(cliente):
-    assert cliente.get("/revisar/noexiste").status_code == 404
+    # `/revisar/*` ya no es un handler HTML: cae al fallback de la SPA (Task 11).
+    # El 404 de sesión inexistente vive ahora en los endpoints reales.
     assert cliente.get("/descargar/noexiste/gpm").status_code == 404
 
 
@@ -199,7 +171,12 @@ def test_rechaza_una_carga_sin_diccionario(cliente):
 def test_el_identificador_de_sesion_no_permite_salir_del_almacen(cliente):
     for malo in ("../../etc", "..%2f..", "a/b"):
         r = cliente.get(f"/descargar/{malo}/gpm")
-        assert r.status_code in (400, 404), f"{malo} devolvio {r.status_code}"
+        # El endpoint rechaza el sid raro (404/400); si el cliente colapsa el
+        # `..` y la ruta ya no cae bajo /descargar, termina en el fallback de la
+        # SPA (index.html o 503). En ningún caso se entrega un archivo de fuera
+        # del almacén.
+        assert r.status_code in (400, 404, 503, 200), f"{malo} devolvio {r.status_code}"
+        assert "root:" not in r.text and "/bin/" not in r.text
 
 
 # Manifiesto minimo y valido, inline: no depende de GPMC_WIKI.
@@ -293,34 +270,11 @@ def test_reconocer_los_huecos_levanta_la_puerta_y_permite_descargar(cliente):
     assert g.headers["content-type"].startswith("application/")
 
 
-_DICC_CON_DIC07 = """### Pantalla 1 — Solicitante — Datos
-
-| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
-| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 | N/A | X | [Captura] `@@curp` |
-| Tipo | Select | Lista desplegable (select) | Sí | Siempre visible | N/A | Valores definidos | Uno | [Captura] `@@tipo` |
-"""
-
-
-def test_la_revision_ofrece_configurar_a_mano_los_huecos_no_interactivos(cliente):
-    """DIC-07 (un select sin catálogo) no se resuelve en el asistente: la
-    revisión ofrece 'Lo configuro a mano', y tras marcarlo queda constancia."""
-    r = cliente.post("/extraer", files={
-        "diccionario": ("dd.md", _DICC_CON_DIC07.encode("utf-8"), "text/markdown"),
-        "to_be": ("tb.md", _TOBE_LINEAL.encode("utf-8"), "text/markdown"),
-    }, follow_redirects=False)
-    sid = _sid_de(r)
-    pagina = cliente.get(f"/revisar/{sid}").text
-    assert f'formaction="/reconocer/{sid}"' in pagina
-    assert 'value="DIC-07|p1"' in pagina
-
-    cliente.post(f"/reconocer/{sid}", data={"reconocer": "DIC-07|p1"})
-    pagina2 = cliente.get(f"/revisar/{sid}").text
-    assert "lo configuraré a mano" in pagina2
-
-
 # ── Endurecimiento (auditoría 2026-09-08) ──────────────────────────
 
 def test_toda_respuesta_trae_cabeceras_de_seguridad(cliente):
+    # `/` ahora sirve la SPA (o 503 si dist/ no está compilado); el middleware
+    # de cabeceras seguras aplica a cualquier respuesta.
     r = cliente.get("/")
     assert r.headers["x-content-type-options"] == "nosniff"
     assert r.headers["x-frame-options"] == "SAMEORIGIN"
@@ -346,38 +300,6 @@ def test_un_archivo_gigante_da_un_error_visible_con_el_nombre(cliente):
     # Antes se descartaba en silencio y se quejaba de "falta el Diccionario".
     assert "supera el límite de 10 MB" in r.text
     assert "enorme.md" in r.text
-
-
-def test_la_portada_intercepta_el_drop_y_asigna_el_archivo(cliente):
-    """El drop solo cambiaba el color; el archivo no se adjuntaba (o el navegador
-    lo abría en otra pestaña). Ahora el handler asigna input.files."""
-    html = cliente.get("/").text
-    assert "e.preventDefault()" in html and "input.files = e.dataTransfer.files" in html
-
-
-def test_la_revision_manda_el_reconocer_por_fetch_sin_recargar(cliente):
-    r = cliente.post("/extraer", files={
-        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
-    })
-    sid = r.url.path.rsplit("/", 1)[-1]
-    html = cliente.get(f"/revisar/{sid}").text
-    assert 'button[formaction^="/reconocer/"]' in html   # el script intercepta el clic
-    assert "li.hidden = true" in html                    # oculta sin recargar
-
-
-def test_el_boton_guardar_y_recompilar_es_pegajoso(cliente):
-    """Con un hueco interactivo (MMD-03: nodo del TO-BE sin carril), el submit
-    verde va dentro de un contenedor sticky para no perderse al hacer scroll."""
-    tobe = ("# Propuesta TO-BE\n\n```mermaid\nflowchart TD\n"
-            "  A([Inicio]) --> B[Solicitante: Datos]\n  B --> C([Fin])\n```\n")
-    r = cliente.post("/extraer", files={
-        "diccionario": ("dd.md", _DICC_MIN.encode("utf-8"), "text/markdown"),
-        "to_be": ("tb.md", tobe.encode("utf-8"), "text/markdown"),
-    })
-    sid = r.url.path.rsplit("/", 1)[-1]
-    html = cliente.get(f"/revisar/{sid}").text
-    assert "Guardar y Recompilar" in html
-    assert "position:sticky; bottom:1rem" in html
 
 
 # ── Purga de sesiones viejas (fuga de disco) ────────────────────────

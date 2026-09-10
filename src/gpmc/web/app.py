@@ -26,12 +26,10 @@ from fastapi.responses import (
 )
 
 from gpmc.compilador.a_gpm import compilar
-from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.nucleo.formato import serializar
 from gpmc.nucleo.huecos import bloquean
 from gpmc.nucleo.manifiesto import cargar, guardar
-from gpmc.simulador.analisis import analizar
 from gpmc.simulador.html import generar as generar_simulador
 from gpmc.web import plantillas
 from gpmc.web.sesiones import (
@@ -69,10 +67,6 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
         return resp
-
-    @app.get("/", response_class=HTMLResponse)
-    def portada():
-        return plantillas.portada()
 
     @app.get("/descargar-plantilla")
     def descargar_plantilla():
@@ -190,20 +184,6 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             json.dumps(huecos_serializables, ensure_ascii=False), encoding="utf-8"
         )
         return RedirectResponse(f"/revisar/{sid}", status_code=303)
-
-    @app.get("/revisar/{sid}", response_class=HTMLResponse)
-    def revisar(sid: str):
-        m = manifiesto_de(raiz, sid)
-        if m is None:
-            return HTMLResponse("Sesión no encontrada.", status_code=404)
-        carpeta = carpeta_de(raiz, sid)
-        huecos = huecos_vivos(carpeta)
-        tiene_vistas = (carpeta / ARCHIVO_VISTAS).exists()
-        return plantillas.revision(
-            m, huecos, analizar(m).problemas, estimar(m), sid,
-            tiene_vistas=tiene_vistas,
-            reconocidos=reconocidos_de(carpeta),
-        )
 
     @app.post("/reconocer/{sid}")
     async def reconocer(sid: str, request: Request):
@@ -365,13 +345,25 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             )
         return Response("Salida no reconocida.", status_code=404)
 
-    # SPA React compilada (Task 6). Montada en /app de forma temporal: Task 11
-    # la mueve a /. `dist` se resuelve una vez al crear la app; la variable de
-    # entorno gana para que las pruebas apunten a un arbol falso.
+    # SPA React compilada (Task 6). Task 11 la movió de /app a / y a la
+    # catch-all `/{ruta:path}`, registrada al final para que las rutas exactas
+    # (/api, /simulador, /historial, …) ganen precedencia. `dist` se resuelve
+    # una vez al crear la app; la variable de entorno gana para que las pruebas
+    # apunten a un arbol falso.
     dist = Path(os.environ.get(
         "GPMC_FRONTEND_DIST",
         Path(__file__).resolve().parents[3] / "frontend" / "dist",
     ))
+
+    # Primer segmento de ruta que pertenece a un handler HTML/JSON, no a la SPA.
+    # La catch-all está declarada al final, así que estas rutas ya se resuelven
+    # antes por su handler exacto; pero un typo bajo un prefijo conocido
+    # (p. ej. `/historial-xyz`, `/simuladorr/x`) caería aquí. En ese caso es un
+    # 404 legítimo, no el index.html de la SPA.
+    _PREFIJOS_NO_SPA = {
+        "api", "simulador", "aprobacion", "historial", "vistas",
+        "descargar", "descargar-plantilla", "extraer", "resolver", "reconocer",
+    }
 
     def _servir_spa(ruta: str = ""):
         if not (dist / "index.html").exists():
@@ -389,6 +381,9 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         dentro = cand_r == dist_r or dist_r in cand_r.parents
         if ruta and dentro and cand_r.is_file():
             return FileResponse(cand_r)
+        # Typo bajo un prefijo de handler real: 404, no fallback SPA.
+        if ruta and ruta.split("/")[0] in _PREFIJOS_NO_SPA:
+            return PlainTextResponse("No encontrado.", status_code=404)
         resp = FileResponse(dist / "index.html")
         # CSP propia del SPA: mas laxa que el `sandbox` de /vistas porque aqui
         # el HTML lo generamos nosotros. Se fija sobre la respuesta ya que el
@@ -399,14 +394,15 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         )
         return resp
 
-    # Dos rutas: `/app` a secas (sin barra) y `/app/<lo-que-sea>`. Starlette no
-    # hace coincidir `/app` con `/app/{ruta:path}` sin un 307 de por medio; la
-    # ruta explicita evita ese redirect.
-    @app.get("/app")
+    # Catch-all de la SPA, declarada al final: `/` y `/<lo-que-sea>`. Las rutas
+    # exactas de arriba (/api, /simulador, /historial, …) se resuelven primero;
+    # todo lo demás cae aquí y sirve el index.html (client-side routing), salvo
+    # un archivo real de dist/ o un typo bajo un prefijo conocido (→ 404).
+    @app.get("/")
     def _spa_raiz():
         return _servir_spa("")
 
-    @app.get("/app/{ruta:path}")
+    @app.get("/{ruta:path}")
     def _spa(ruta: str = ""):
         return _servir_spa(ruta)
 

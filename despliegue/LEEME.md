@@ -23,6 +23,25 @@ launchctl bootout gui/$(id -u)/local.gpmc.servidor # detener
 ./despliegue/instalar-servicio.sh                      # reinstalar tras actualizar
 ```
 
+## Frontend (SPA React)
+
+Desde SP1 la pantalla de carga y el asistente de huecos son una SPA React que el
+servidor sirve **desde `/`** (y `/revisar/{sid}` cae al mismo `index.html`, con
+enrutado en el cliente). Esa SPA vive compilada en `frontend/dist/`, que **no se
+versiona**: hay que construirla.
+
+- `instalar-servicio.sh` y `Abrir Compilador GPM.command` corren
+  `cd frontend && npm ci && npm run build` automáticamente **si hay `npm`**. Si no
+  lo hay, avisan y usan el `frontend/dist/` que ya exista (y si no existe ninguno,
+  `/` responde `503` con instrucciones).
+- Build manual: `cd frontend && npm ci && npm run build`.
+- `GPMC_FRONTEND_DIST` — variable de entorno opcional que apunta el servidor a
+  otra carpeta `dist/` (por defecto `frontend/dist/` junto al repo). Útil para
+  servir un build hecho en otra máquina o ruta.
+
+`/simulador/{sid}`, `/aprobacion/{sid}`, `/historial`, `/vistas/{sid}` y las
+descargas siguen siendo HTML del servidor hasta SP3.
+
 ## La limitación que hay que resolver
 
 **La liga depende de la IP de la máquina, y esa IP cambia.** Durante estas pruebas cambió de

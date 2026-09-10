@@ -7,7 +7,7 @@ import { defineConfig } from "vite";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: "/app/", // Task 11 lo cambia a "/"
+  base: "/", // la SPA se sirve desde la raíz (Task 11)
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
