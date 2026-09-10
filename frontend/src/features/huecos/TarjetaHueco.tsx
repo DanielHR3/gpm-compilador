@@ -14,6 +14,7 @@ import BotonReconocer from "./controles/BotonReconocer";
 import ControlActor, { type Actor } from "./controles/ControlActor";
 import ControlCampoPadre, { type Campo } from "./controles/ControlCampoPadre";
 import ControlTexto from "./controles/ControlTexto";
+import ControlVisibilidad from "./controles/ControlVisibilidad";
 
 /**
  * Forma de la respuesta de `resolver`/`reconocer` que el wizard fusiona en su
@@ -118,6 +119,15 @@ export default function TarjetaHueco({
         hueco={hueco}
         campos={leerCampos(manifiesto)}
         onConfirmar={(v) => resolverCon("api03", v)}
+      />
+    );
+  } else if (hueco.codigo === "DIC-08") {
+    control = (
+      <ControlVisibilidad
+        hueco={hueco}
+        sid={sid}
+        manifiesto={manifiesto}
+        onResuelto={onResuelto}
       />
     );
   } else if (hueco.nivel === "falta_dato") {
