@@ -6,18 +6,20 @@ import type { Hueco } from "@/lib/types";
 
 /**
  * Etiqueta accesible del campo segun el codigo del hueco. Debe contener
- * "tiempo" para `META-01` y "dependencia" para `META-02` (los controles se
- * localizan en las pruebas por `getByLabelText`).
+ * "tiempo" para `META-01`, "dependencia" para `META-02` y "nombre" para
+ * `META-04` (los controles se localizan en las pruebas por `getByLabelText`).
  */
 function etiquetaDe(hueco: Hueco): string {
   if (hueco.codigo === "META-01") return "Tiempo de resolucion";
   if (hueco.codigo === "META-02") return "Dependencia (campo del que depende)";
+  if (hueco.codigo === "META-04") return "Nombre del tramite";
   return hueco.mensaje || "Valor";
 }
 
 /**
- * Control de texto libre para `META-01` (tiempo de resolucion) y `META-02`
- * (dependencia). "Guardar" queda inhabilitado mientras el campo esta vacio.
+ * Control de texto libre para `META-01` (tiempo de resolucion), `META-02`
+ * (dependencia) y `META-04` (nombre del tramite). "Guardar" queda
+ * inhabilitado mientras el campo esta vacio.
  */
 export default function ControlTexto({
   hueco,

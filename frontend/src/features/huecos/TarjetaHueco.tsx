@@ -128,6 +128,13 @@ export default function TarjetaHueco({
         onConfirmar={(v) => resolverCon("meta02", v)}
       />
     );
+  } else if (hueco.codigo === "META-04") {
+    control = (
+      <ControlTexto
+        hueco={hueco}
+        onConfirmar={(v) => resolverCon("meta04", v)}
+      />
+    );
   } else if (hueco.codigo === "API-03") {
     control = (
       <ControlCampoPadre

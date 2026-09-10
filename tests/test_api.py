@@ -63,6 +63,25 @@ _ASIS_SIN_TIEMPO = ("---\ndependencia: Secretaria X\n---\n\n"
                     "Texto sin tiempo de respuesta declarado.\n")
 
 
+def test_resolver_aplica_meta04_y_devuelve_el_estado_nuevo(tmp_path):
+    """META-04: no se pudo determinar el nombre del tramite (sin AS-IS/TO-BE
+    con titulo reconocible). El resolver de la SPA nunca tuvo un tipo `meta04`
+    -- TarjetaHueco.tsx caia al boton generico de reconocer (sin control real
+    para escribir el nombre), a diferencia de META-01/META-02 que si tienen
+    ControlTexto. Este test fija el contrato que el frontend necesita."""
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+    assert any(h["codigo"] == "META-04"
+               for h in c.get(f"/api/v1/expedientes/{sid}").json()["huecos"])
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={
+        "resoluciones": [{"tipo": "meta04", "ubicacion": "metadatos",
+                          "valor": "Constancia de residencia"}]})
+    assert r.status_code == 200
+    assert not any(h["codigo"] == "META-04" for h in r.json()["huecos"])
+    assert r.json()["manifiesto"]["tramite"]["nombre"] == "Constancia de residencia"
+
+
 def test_resolver_meta01_purga_el_hueco_aunque_la_ubicacion_no_sea_metadatos(tmp_path):
     c = _cli(tmp_path)
     sid = c.post("/api/v1/expedientes", files={

@@ -67,6 +67,7 @@ _TIPO_A_CODIGO = {
     "mmd03": "MMD-03",
     "meta01": "META-01",
     "meta02": "META-02",
+    "meta04": "META-04",
     "api03": "API-03",
 }
 
@@ -82,7 +83,7 @@ def _campos_declarados(m: Manifiesto) -> set:
 class ResolucionIn(BaseModel):
     """Una resolucion de hueco: donde aplicarla y con que valor."""
 
-    tipo: Literal["mmd03", "meta01", "meta02", "api03"]
+    tipo: Literal["mmd03", "meta01", "meta02", "meta04", "api03"]
     ubicacion: str
     valor: str
 
@@ -497,6 +498,9 @@ def crear_router(raiz: Path) -> APIRouter:
                 resueltos.append((codigo, "metadatos"))
             elif res.tipo == "meta02":
                 m.tramite.dependencia = res.valor
+                resueltos.append((codigo, "metadatos"))
+            elif res.tipo == "meta04":
+                m.tramite.nombre = res.valor
                 resueltos.append((codigo, "metadatos"))
             elif res.tipo == "api03":
                 campo = m.campo_por_nombre(res.ubicacion)
