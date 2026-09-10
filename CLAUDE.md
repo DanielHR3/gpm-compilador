@@ -355,3 +355,33 @@ Seis hotfixes de las pruebas de escritorio, sin tocar arquitectura:
   color); el botón "Guardar y Recompilar" va en un contenedor `position:sticky`; "Lo configuro
   a mano" se manda por `fetch()` y oculta el `<li>` sin recargar (conserva lo ya capturado en
   el formulario de `/resolver`).
+
+### 5. Constructor visual de reglas — SP2 (2026-09-10)
+
+El asistente web ya resuelve en el wizard, con un constructor visual de
+condiciones (`ConstructorRegla` + `ControlVisibilidad`/`ControlCompuerta`),
+los dos huecos que antes exigían editar el manifiesto a mano:
+
+- **`DIC-08`** (condición de visibilidad no interpretable): se arma la
+  `Condicion` (campo/operador/valor, con cláusulas `Y`) con un constructor de
+  reglas en la propia tarjeta del hueco; `POST /resolver` la fija en
+  `condicion_visible` sin recargar la página.
+- **`MMD-04`** (compuerta sin `@@campo`): se elige el campo que decide la
+  compuerta (o, si no basta, se arma una `Condicion` por rama) y el backend
+  reensambla el flujo (`reensamblar_flujo`); cuando el reensamblado produce
+  al menos una `Conexion.cuando`, también se tacha `FLU-01`/`FLU-02` para esa
+  compuerta.
+
+Cada control conserva un enlace de escape "o lo configuro a mano" que cae al
+mismo `POST /reconocer` de siempre (deja constancia y no bloquea el `.gpm`)
+para cuando el caso no encaja en el constructor visual.
+
+Fuera de alcance de este sub-proyecto, siguen siendo **"a mano"**:
+
+- **`FLU-01`** cuando la causa NO es una compuerta sin `@@campo` (nodo que no
+  casa 1:1 con una pantalla, etiqueta de arista que no resuelve a un valor
+  del catálogo, o compuerta mal alimentada) — el wizard solo cubre el caso de
+  `MMD-04`, no los otros tres.
+- **`API-05`** (endpoint autenticado con token) — se resuelve con una Acción
+  PHP escrita a mano en la plataforma, fuera de alcance del compilador (ver
+  la sección de `Api variable` arriba).
