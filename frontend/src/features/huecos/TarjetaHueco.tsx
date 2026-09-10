@@ -124,21 +124,39 @@ export default function TarjetaHueco({
     );
   } else if (hueco.codigo === "DIC-08") {
     control = (
-      <ControlVisibilidad
-        hueco={hueco}
-        sid={sid}
-        manifiesto={manifiesto}
-        onResuelto={onResuelto}
-      />
+      <div className="flex flex-col gap-2">
+        <ControlVisibilidad
+          hueco={hueco}
+          sid={sid}
+          manifiesto={manifiesto}
+          onResuelto={onResuelto}
+        />
+        <button
+          type="button"
+          className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+          onClick={reconocerHueco}
+        >
+          o lo configuro a mano
+        </button>
+      </div>
     );
   } else if (hueco.codigo === "MMD-04") {
     control = (
-      <ControlCompuerta
-        hueco={hueco}
-        sid={sid}
-        manifiesto={manifiesto}
-        onResuelto={onResuelto}
-      />
+      <div className="flex flex-col gap-2">
+        <ControlCompuerta
+          hueco={hueco}
+          sid={sid}
+          manifiesto={manifiesto}
+          onResuelto={onResuelto}
+        />
+        <button
+          type="button"
+          className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+          onClick={reconocerHueco}
+        >
+          o lo configuro a mano
+        </button>
+      </div>
     );
   } else if (hueco.nivel === "falta_dato") {
     control = <BotonReconocer hueco={hueco} onReconocer={reconocerHueco} />;

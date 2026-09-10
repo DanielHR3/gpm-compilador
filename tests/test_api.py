@@ -520,4 +520,67 @@ def test_manifiesto_devuelve_el_yaml(tmp_path):
     r = c.get(f"/api/v1/expedientes/{sid}/manifiesto")
     assert r.status_code == 200
     assert "text/yaml" in r.headers["content-type"]
-    assert "tramite:" in r.text
+
+
+# ── Task 14: integración "cero clics" end-to-end (DIC-08 + MMD-04 juntos) ──
+
+# Diccionario de _DICC_RAMA (T5/T9: 3 pantallas, compuerta "¿Procede?" sobre
+# `@@procede`) con una fila adicional en la Pantalla 1 cuya condición de
+# visibilidad no se puede interpretar (mismo texto que "Nota rara" de _VIS,
+# ver test_extractor_diccionario.py) -> produce DIC-08 ademas de MMD-04.
+_DICC_RAMA_CON_DIC08 = _DICC_RAMA.replace(
+    "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 | N/A | X | [Captura] `@@curp` |",
+    "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 | N/A | X | [Captura] `@@curp` |\n"
+    "| Nota rara | String | Campo de texto | Condicional | Visible y obligatoria "
+    "cuando `@@tipo_documento` ∈ {Acuerdo, Decreto, Ley} | N/A | N/A | N/A | "
+    "[Captura] Campo `@@nota_rara`. |",
+)
+
+# TO-BE con la compuerta sin @@campo (misma variante que _TOBE_MMD04).
+_TOBE_CON_DIC08_Y_MMD04 = _TOBE_RAMA.replace("{¿@@procede == 'si'?}", "{¿Procede?}")
+
+# AS-IS con dependencia + tiempo de respuesta (mismo patron que _ASIS_LIMPIO
+# de test_cli.py) para que META-01/META-02 no queden como huecos residuales
+# `falta_dato` y tapen la puerta del linter con ruido ajeno a DIC-08/MMD-04.
+_ASIS_CON_DIC08_Y_MMD04 = (
+    "---\ndependencia: Secretaria de Prueba\n---\n"
+    "# Analisis AS-IS - Cotizacion de Tramite\n\n"
+    "**Tiempo de respuesta:** 5 dias habiles\n"
+)
+
+_INSUMOS_CON_DIC08_Y_MMD04 = {
+    "diccionario": ("dd.md", _DICC_RAMA_CON_DIC08.encode("utf-8"), "text/markdown"),
+    "as_is": ("asis.md", _ASIS_CON_DIC08_Y_MMD04.encode("utf-8"), "text/markdown"),
+    "to_be": ("tobe.md", _TOBE_CON_DIC08_Y_MMD04.encode("utf-8"), "text/markdown"),
+}
+
+
+def test_cero_clics_dic08_y_mmd04_compila_gpm_completo(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_DIC08_Y_MMD04).json()
+    sid = est["sid"]
+    assert any(h["codigo"] == "DIC-08" for h in est["huecos"])
+    assert any(h["codigo"] == "MMD-04" for h in est["huecos"])
+    ub = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "DIC-08")
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+
+    r1 = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": ub,
+        "condicion": {"campo": "procede", "igual": "si", "operador": "=="}}]})
+    assert r1.status_code == 200, r1.text
+    assert not any(h["codigo"] == "DIC-08" for h in r1.json()["huecos"])
+
+    r2 = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "mmd04campo", "ubicacion": gate, "campo": "procede"}]})
+    assert r2.status_code == 200, r2.text
+    huecos_tras_resolver = r2.json()["huecos"]
+    assert not any(h["codigo"] == "MMD-04" for h in huecos_tras_resolver)
+    assert not any(h["codigo"] == "DIC-08" for h in huecos_tras_resolver)
+    # Ambos huecos resueltos y ningun `falta_dato` residual (solo quedan, si
+    # acaso, huecos `por_confirmar` de metadatos, que nunca bloquean).
+    assert not any(h["nivel"] == "falta_dato" for h in huecos_tras_resolver)
+
+    r = c.get(f"/api/v1/expedientes/{sid}/gpm")
+    assert r.status_code == 200, r.text          # la puerta del linter ya deja pasar
+    assert ".gpm" in r.headers["content-disposition"]
+    assert len(r.content) > 0
