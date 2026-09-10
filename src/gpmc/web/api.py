@@ -24,12 +24,17 @@ from pydantic import BaseModel, Field
 
 from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
-from gpmc.extractores.expediente import SinPermiso, extraer_expediente
+from gpmc.extractores.expediente import (
+    SinPermiso,
+    _mapear_nodos_a_pantallas,
+    extraer_expediente,
+    ramas_de_compuerta,
+)
 from gpmc.nucleo.formato import serializar
 from gpmc.nucleo.huecos import HuecoOut, bloquean
-from gpmc.nucleo.manifiesto import Condicion, guardar
+from gpmc.nucleo.manifiesto import Conexion, Condicion, Manifiesto, guardar
 from gpmc.simulador.analisis import analizar
-from gpmc.web.reensamblado import reensamblar_flujo
+from gpmc.web.reensamblado import reensamblar_flujo, rm_de_tobe
 from gpmc.web.sesiones import (
     ARCHIVO_VISTAS,
     INSUMOS,
@@ -66,6 +71,14 @@ _TIPO_A_CODIGO = {
 }
 
 
+def _campos_declarados(m: Manifiesto) -> set:
+    """Nombres de todos los campos declarados en el manifiesto (todas las
+    pantallas). Usado por las ramas `dic08`, `mmd04campo` y `mmd04rama` de
+    `resolver_expediente` para validar que una `Condicion` (o el `campo` de
+    `mmd04campo`) no referencie uno inexistente (spec 5.1 / Ruling 5)."""
+    return {c.nombre for p in m.pantallas for c in p.campos}
+
+
 class ResolucionIn(BaseModel):
     """Una resolucion de hueco: donde aplicarla y con que valor."""
 
@@ -91,12 +104,29 @@ class ResolucionMmd04Campo(BaseModel):
     campo: str
 
 
+class RamaResuelta(BaseModel):
+    """Una rama de compuerta con la `Condicion` que la persona eligio a mano
+    (respaldo cuando `mmd04campo` no basta: ver `ramas_de_compuerta`)."""
+
+    a: str  # id del nodo destino en el Mermaid del TO-BE (de `ramas_de_compuerta`)
+    condicion: Condicion
+
+
+class ResolucionMmd04Rama(BaseModel):
+    """Resolucion del hueco MMD-04 por rama: fija una `Condicion` por cada
+    arista que sale de la compuerta, en vez de un solo `@@campo`."""
+
+    tipo: Literal["mmd04rama"]
+    ubicacion: str  # id de la compuerta (gate id) en el Mermaid del TO-BE
+    ramas: List[RamaResuelta]
+
+
 class ResolverIn(BaseModel):
     """Cuerpo de `POST /api/v1/expedientes/{sid}/resolver`."""
 
     resoluciones: List[
         Annotated[
-            Union[ResolucionIn, ResolucionDic08, ResolucionMmd04Campo],
+            Union[ResolucionIn, ResolucionDic08, ResolucionMmd04Campo, ResolucionMmd04Rama],
             Field(discriminator="tipo"),
         ]
     ]
@@ -221,6 +251,24 @@ def crear_router(raiz: Path) -> APIRouter:
                                 content={"error": "sesión no encontrada"})
         return _estado(sid, carpeta, m)
 
+    @r.get("/expedientes/{sid}/compuerta/{gate_id}")
+    async def leer_compuerta(sid: str, gate_id: str):
+        """Estructura de una compuerta (respaldo por rama del hueco MMD-04):
+        re-parsea el Mermaid del TO-BE de la sesion (mismo criterio que
+        `reensamblar_flujo`) y expone `ramas_de_compuerta`, sin re-extraer el
+        Diccionario ni tocar el manifiesto persistido."""
+        carpeta = carpeta_de(raiz, sid)
+        m = manifiesto_de(raiz, sid)
+        if carpeta is None or m is None:
+            return JSONResponse(status_code=404,
+                                content={"error": "sesión no encontrada"})
+        rm = rm_de_tobe(carpeta)
+        est = ramas_de_compuerta(rm, m.pantallas, gate_id) if rm is not None else None
+        if est is None:
+            return JSONResponse(status_code=404, content={
+                "error": f"compuerta no encontrada: {gate_id}"})
+        return est
+
     @r.post("/expedientes/{sid}/resolver", response_model=EstadoResolver)
     async def resolver_expediente(sid: str, cuerpo: ResolverIn):
         """Porta el bucle de `POST /resolver` de `app.py` a un cuerpo JSON.
@@ -253,7 +301,7 @@ def crear_router(raiz: Path) -> APIRouter:
                 if campo is None:
                     return JSONResponse(status_code=422, content={
                         "error": f"campo no encontrado: {res.ubicacion}"})
-                campos_declarados = {c.nombre for p in m.pantallas for c in p.campos}
+                campos_declarados = _campos_declarados(m)
                 campos_condicion = [res.condicion.campo] + [
                     cl.campo for cl in res.condicion.y]
                 for cc in campos_condicion:
@@ -265,7 +313,7 @@ def crear_router(raiz: Path) -> APIRouter:
                 resueltos.append(("DIC-08", res.ubicacion))
                 continue
             if res.tipo == "mmd04campo":
-                campos_declarados = {c.nombre for p in m.pantallas for c in p.campos}
+                campos_declarados = _campos_declarados(m)
                 if res.campo not in campos_declarados:
                     return JSONResponse(status_code=422, content={
                         "error": f"campo no declarado en el manifiesto: {res.campo}"})
@@ -277,6 +325,57 @@ def crear_router(raiz: Path) -> APIRouter:
                 if any(cx.cuando for cx in m.flujo.conexiones):
                     resueltos.append(("FLU-01", "flujo"))
                     resueltos.append(("FLU-02", "flujo"))
+                continue
+            if res.tipo == "mmd04rama":
+                rm = rm_de_tobe(carpeta)
+                est = (ramas_de_compuerta(rm, m.pantallas, res.ubicacion)
+                       if rm is not None else None)
+                if est is None:
+                    return JSONResponse(status_code=422, content={
+                        "error": f"compuerta no encontrada: {res.ubicacion}"})
+                ids_validos = {r["a"] for r in est["ramas"]}
+                for rama in res.ramas:
+                    if rama.a not in ids_validos:
+                        return JSONResponse(status_code=422, content={
+                            "error": f"'{rama.a}' no es una rama de la "
+                                     f"compuerta '{res.ubicacion}'"})
+                campos_declarados = _campos_declarados(m)
+                for rama in res.ramas:
+                    campos_condicion = [rama.condicion.campo] + [
+                        cl.campo for cl in rama.condicion.y]
+                    for cc in campos_condicion:
+                        if cc not in campos_declarados:
+                            return JSONResponse(status_code=422, content={
+                                "error": f"la condicion referencia un campo "
+                                         f"no declarado: {cc}"})
+
+                # `est["predecesora"]`/`rama.a` son ids de nodo del Mermaid del
+                # TO-BE (p.ej. "T1"). Si la compuerta sigue sin ramificar, el
+                # flujo del manifiesto es el respaldo lineal de
+                # `extraer_expediente`, que usa sus propios ids de Tarea
+                # ("t_<pantalla>", no los del diagrama) — hay que traducir
+                # antes de tocar `m.flujo.conexiones`, o quedarían conexiones
+                # colgando de tareas inexistentes.
+                nodos_tarea = [n for n in rm.nodos if n.clase_nodo == "tarea"]
+                mapa_pantallas = _mapear_nodos_a_pantallas(nodos_tarea, m.pantallas) or {}
+
+                def _tarea_id(mermaid_id):
+                    p = mapa_pantallas.get(mermaid_id)
+                    if p is None:
+                        return mermaid_id
+                    return next(
+                        (t.id for t in m.flujo.tareas
+                         if p.id in [pp.id for pp in t.pantallas]),
+                        mermaid_id,
+                    )
+
+                predecesora_id = _tarea_id(est["predecesora"])
+                m.flujo.conexiones = [
+                    cx for cx in m.flujo.conexiones if cx.de != predecesora_id]
+                for rama in res.ramas:
+                    m.flujo.conexiones.append(Conexion(
+                        de=predecesora_id, a=_tarea_id(rama.a), cuando=rama.condicion))
+                resueltos.append(("MMD-04", res.ubicacion))
                 continue
             if not res.valor:
                 continue

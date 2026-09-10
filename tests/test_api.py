@@ -193,6 +193,83 @@ def test_resolver_mmd04campo_campo_inexistente_da_422(tmp_path):
     assert r.status_code == 422
 
 
+# ── Task 9: GET /compuerta/{gate_id} + resolver tipo mmd04rama ──
+
+
+def test_leer_compuerta_devuelve_predecesora_y_ramas(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD04).json()
+    sid = est["sid"]
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+    r = c.get(f"/api/v1/expedientes/{sid}/compuerta/{gate}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["predecesora"]
+    assert len(body["ramas"]) >= 2 and all("a_nombre" in x for x in body["ramas"])
+    assert c.get(f"/api/v1/expedientes/{sid}/compuerta/no_existe").status_code == 404
+
+
+def test_leer_compuerta_sid_inexistente_da_404(tmp_path):
+    r = _cli(tmp_path).get("/api/v1/expedientes/0123456789abcdef/compuerta/g1")
+    assert r.status_code == 404
+    assert "error" in r.json()
+
+
+def test_resolver_mmd04rama_inyecta_condiciones_y_quita_el_hueco(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD04).json()
+    sid = est["sid"]
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+    ramas = c.get(f"/api/v1/expedientes/{sid}/compuerta/{gate}").json()["ramas"]
+    payload = {"tipo": "mmd04rama", "ubicacion": gate, "ramas": [
+        {"a": ramas[0]["a"], "condicion": {"campo": "procede", "igual": "si"}},
+        {"a": ramas[1]["a"], "condicion": {"campo": "procede", "igual": "no"}},
+    ]}
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [payload]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert not any(h["codigo"] == "MMD-04" for h in body["huecos"])
+    cx = body["manifiesto"]["flujo"]["conexiones"]
+    assert sum(1 for x in cx if x.get("cuando")) >= 2
+
+
+def test_resolver_mmd04rama_rama_invalida_da_422(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD04).json()
+    sid = est["sid"]
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "mmd04rama", "ubicacion": gate, "ramas": [
+            {"a": "no_es_una_rama", "condicion": {"campo": "procede", "igual": "si"}},
+        ]}]})
+    assert r.status_code == 422, r.text
+    assert "error" in r.json()
+    assert "no_es_una_rama" in r.json()["error"]
+    # el hueco MMD-04 sigue vivo: la resolucion invalida no se aplico
+    assert any(h["codigo"] == "MMD-04" and h["ubicacion"] == gate
+               for h in c.get(f"/api/v1/expedientes/{sid}").json()["huecos"])
+
+
+def test_resolver_mmd04rama_condicion_con_campo_no_declarado_da_422(tmp_path):
+    # Ruling 5 (spec 5.1): una Condicion por rama que referencia un campo no
+    # declarado en el manifiesto -> 422, sin mutar el flujo ni tachar el hueco.
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD04).json()
+    sid = est["sid"]
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+    ramas = c.get(f"/api/v1/expedientes/{sid}/compuerta/{gate}").json()["ramas"]
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "mmd04rama", "ubicacion": gate, "ramas": [
+            {"a": ramas[0]["a"], "condicion": {"campo": "campo_fantasma", "igual": "si"}},
+            {"a": ramas[1]["a"], "condicion": {"campo": "procede", "igual": "no"}},
+        ]}]})
+    assert r.status_code == 422, r.text
+    assert "error" in r.json()
+    assert "campo_fantasma" in r.json()["error"]
+    assert any(h["codigo"] == "MMD-04" and h["ubicacion"] == gate
+               for h in c.get(f"/api/v1/expedientes/{sid}").json()["huecos"])
+
+
 def test_reconocer_marca_el_hueco_y_lo_devuelve(tmp_path):
     c = _cli(tmp_path)
     sid = c.post("/api/v1/expedientes", files={
