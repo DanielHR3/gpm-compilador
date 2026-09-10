@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  camposDelManifiesto,
   crearExpediente,
   ErrorApi,
+  leerCompuerta,
   leerExpediente,
   resolver,
+  resolverCompuertaCampo,
+  resolverCompuertaRamas,
+  resolverDic08,
   urlGpm,
 } from "./api";
 import type { Resolucion } from "./types";
@@ -89,5 +94,97 @@ describe("urlGpm", () => {
     expect(urlGpm("x".repeat(16), "pruebas")).toBe(
       "/api/v1/expedientes/xxxxxxxxxxxxxxxx/gpm?modo=pruebas");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolverDic08", () => {
+  it("postea la resolucion con la condicion", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ manifiesto: {}, huecos: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await resolverDic08("a".repeat(16), "p1::estado",
+      { campo: "estado", igual: "hidalgo", operador: "!=", y: [] });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/expedientes/aaaaaaaaaaaaaaaa/resolver");
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.resoluciones[0]).toMatchObject(
+      { tipo: "dic08", ubicacion: "p1::estado" });
+  });
+});
+
+describe("resolverCompuertaCampo", () => {
+  it("postea tipo mmd04campo con el gate id y el campo", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ manifiesto: {}, huecos: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await resolverCompuertaCampo("a".repeat(16), "g1", "procede");
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.resoluciones[0]).toEqual(
+      { tipo: "mmd04campo", ubicacion: "g1", campo: "procede" });
+  });
+});
+
+describe("resolverCompuertaRamas", () => {
+  it("postea tipo mmd04rama con las ramas resueltas", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ manifiesto: {}, huecos: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const ramas = [
+      { a: "t2", condicion: { campo: "procede", igual: "si", operador: "==" as const, y: [] } },
+      { a: "t3", condicion: { campo: "procede", igual: "no", operador: "==" as const, y: [] } },
+    ];
+    await resolverCompuertaRamas("a".repeat(16), "g1", ramas);
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.resoluciones[0]).toEqual(
+      { tipo: "mmd04rama", ubicacion: "g1", ramas });
+  });
+});
+
+describe("leerCompuerta", () => {
+  it("hace GET a /compuerta/{gateId} y devuelve la estructura", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ predecesora: "t1", ramas: [
+        { a: "t2", a_nombre: "Aprobar", etiqueta: "si" }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const est = await leerCompuerta("a".repeat(16), "g1");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/expedientes/aaaaaaaaaaaaaaaa/compuerta/g1", undefined);
+    expect(est).toEqual({ predecesora: "t1", ramas: [
+      { a: "t2", a_nombre: "Aprobar", etiqueta: "si" }] });
+  });
+});
+
+describe("camposDelManifiesto", () => {
+  it("aplana pantallas y catalogos", () => {
+    const m = { pantallas: [{ campos: [
+      { nombre: "estado", etiqueta: "Estado",
+        catalogo: [{ etiqueta: "Hidalgo", valor: "hidalgo" }] }] }] };
+    const cs = camposDelManifiesto(m as unknown as Record<string, unknown>);
+    expect(cs).toEqual([{ nombre: "estado", etiqueta: "Estado",
+      catalogo: [{ etiqueta: "Hidalgo", valor: "hidalgo" }] }]);
+  });
+
+  it("usa catalogo vacio si el campo no lo trae, y tolera formas raras", () => {
+    const m = { pantallas: [
+      { campos: [{ nombre: "folio", etiqueta: "Folio" }] },
+      { campos: "no es un arreglo" },
+      "no es un objeto",
+    ] };
+    const cs = camposDelManifiesto(m as unknown as Record<string, unknown>);
+    expect(cs).toEqual([{ nombre: "folio", etiqueta: "Folio", catalogo: [] }]);
+  });
+
+  it("devuelve [] si el manifiesto no trae pantallas", () => {
+    expect(camposDelManifiesto({} as Record<string, unknown>)).toEqual([]);
   });
 });

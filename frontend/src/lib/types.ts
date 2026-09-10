@@ -58,3 +58,48 @@ export type Bloqueante = {
   ubicacion: string;
   mensaje: string;
 };
+
+/**
+ * Una clausula "Y" de una `Condicion` (`src/gpmc/nucleo/manifiesto.py::Clausula`).
+ */
+export type Clausula = {
+  campo: string;
+  igual: string;
+  operador: "==" | "!=";
+};
+
+/**
+ * Condicion de visibilidad/transicion, con clausulas "Y" opcionales
+ * (`src/gpmc/nucleo/manifiesto.py::Condicion`). `y` siempre viaja explicito
+ * (nunca `undefined`) para que el cliente no tenga que distinguir "sin Y" de
+ * "todavia no se cargo".
+ */
+export type Condicion = Clausula & { y: Clausula[] };
+
+/**
+ * Una rama de compuerta, tal como la expone
+ * `GET /api/v1/expedientes/{sid}/compuerta/{gate_id}`
+ * (`src/gpmc/extractores/expediente.py::ramas_de_compuerta`).
+ */
+export type RamaCompuerta = {
+  a: string;
+  a_nombre: string;
+  etiqueta: string;
+};
+
+/** Cuerpo 200 de `GET /api/v1/expedientes/{sid}/compuerta/{gate_id}`. */
+export type EstructuraCompuerta = {
+  predecesora: string;
+  ramas: RamaCompuerta[];
+};
+
+/**
+ * Un campo del manifiesto, aplanado desde `manifiesto.pantallas[].campos[]`
+ * por `camposDelManifiesto` (`api.ts`). `catalogo` es `[]` si el campo no
+ * trae uno.
+ */
+export type CampoManifiesto = {
+  nombre: string;
+  etiqueta: string;
+  catalogo: { etiqueta: string; valor: string }[];
+};
