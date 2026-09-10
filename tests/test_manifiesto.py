@@ -77,6 +77,34 @@ def test_condicion_referencia_un_campo_declarado():
         Manifiesto.model_validate(malo)
 
 
+def test_una_clausula_y_con_campo_no_declarado_falla():
+    malo = {
+        **MINIMO,
+        "flujo": {
+            **MINIMO["flujo"],
+            "conexiones": [{"de": "t1", "a": "t2", "cuando": {
+                "campo": "curp", "igual": "1",
+                "y": [{"campo": "no_existe", "igual": "9"}]}}],
+        },
+    }
+    with pytest.raises(ValidationError, match="no_existe"):
+        Manifiesto.model_validate(malo)
+
+
+def test_una_clausula_y_con_campos_declarados_pasa():
+    con_cond_y = {
+        **MINIMO,
+        "flujo": {
+            **MINIMO["flujo"],
+            "conexiones": [{"de": "t1", "a": "t2", "cuando": {
+                "campo": "curp", "igual": "1",
+                "y": [{"campo": "curp", "igual": "2"}]}}],
+        },
+    }
+    m = Manifiesto.model_validate(con_cond_y)
+    assert m.flujo.conexiones[0].cuando.y[0].campo == "curp"
+
+
 def test_ida_y_vuelta_por_yaml(tmp_path):
     m = Manifiesto.model_validate(MINIMO)
     destino = tmp_path / "m.yaml"
