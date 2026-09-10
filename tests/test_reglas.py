@@ -66,3 +66,22 @@ def test_emite_la_forma_de_desigualdad():
 def test_emite_desigualdad_en_forma_estricta(monkeypatch):
     monkeypatch.setattr(reglas, "SINTAXIS_ESTRICTA", True)
     assert reglas.emitir(Condicion(campo="x", igual="a", operador="!=")) == "@@x->value !== 'a'"
+
+
+def test_emitir_una_sola_clausula_no_cambia():
+    from gpmc.nucleo.reglas import emitir
+    from gpmc.nucleo.manifiesto import Condicion
+    assert emitir(Condicion(campo="procede", igual="si")) == "@@procede=='si'"
+    assert emitir(Condicion(campo="t", igual="u", operador="!=")) == "@@t!='u'"
+
+
+def test_emitir_une_las_clausulas_y_con_and():
+    from gpmc.nucleo.reglas import emitir, evaluar
+    from gpmc.nucleo.manifiesto import Condicion, Clausula
+    c = Condicion(campo="estado", igual="hidalgo", operador="!=",
+                  y=[Clausula(campo="tipo", igual="foraneo")])
+    regla = emitir(c)
+    assert regla == "@@estado!='hidalgo'&&@@tipo=='foraneo'"
+    assert evaluar(regla, {"estado": "puebla", "tipo": "foraneo"}) is True
+    assert evaluar(regla, {"estado": "hidalgo", "tipo": "foraneo"}) is False
+    assert evaluar(regla, {"estado": "puebla", "tipo": "local"}) is False

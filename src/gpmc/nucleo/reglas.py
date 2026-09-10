@@ -39,17 +39,27 @@ _CAMPO = re.compile(r"@@(\w+)")
 _SEPARADOR_AND = re.compile(r"&&(?=(?:[^']*'[^']*')*[^']*$)")
 
 
+def _emitir_clausula(campo: str, operador: str, igual: str) -> str:
+    desigual = operador == "!="
+    if SINTAXIS_ESTRICTA:
+        op = "!==" if desigual else "==="
+        return f"@@{campo}->value {op} '{igual}'"
+    op = "!=" if desigual else "=="
+    return f"@@{campo}{op}'{igual}'"
+
+
 def emitir(cond: "Condicion") -> str:
     """Traduce una condicion del manifiesto a la sintaxis de regla del .gpm.
 
-    El operador puede ser '==' o '!=': la desigualdad la usan las condiciones de
-    visibilidad ('@@tipo_solicitante != \"usuario\"' en busqueda-de-testamento)."""
-    desigual = getattr(cond, "operador", "==") == "!="
-    if SINTAXIS_ESTRICTA:
-        op = "!==" if desigual else "==="
-        return f"@@{cond.campo}->value {op} '{cond.igual}'"
-    op = "!=" if desigual else "=="
-    return f"@@{cond.campo}{op}'{cond.igual}'"
+    Une la clausula base y las de `cond.y` con '&&' (conjuncion). El operador de
+    cada clausula puede ser '==' o '!='.
+    """
+    base = _emitir_clausula(cond.campo, getattr(cond, "operador", "=="), cond.igual)
+    extra = [
+        _emitir_clausula(c.campo, c.operador, c.igual)
+        for c in getattr(cond, "y", [])
+    ]
+    return "&&".join([base, *extra])
 
 
 def campos_de(regla: str) -> list[str]:
