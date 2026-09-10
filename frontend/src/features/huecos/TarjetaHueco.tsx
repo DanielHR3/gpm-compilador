@@ -13,6 +13,7 @@ import type { Hueco, Resolucion } from "@/lib/types";
 import BotonReconocer from "./controles/BotonReconocer";
 import ControlActor, { type Actor } from "./controles/ControlActor";
 import ControlCampoPadre, { type Campo } from "./controles/ControlCampoPadre";
+import ControlCompuerta from "./controles/ControlCompuerta";
 import ControlTexto from "./controles/ControlTexto";
 import ControlVisibilidad from "./controles/ControlVisibilidad";
 
@@ -124,6 +125,15 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "DIC-08") {
     control = (
       <ControlVisibilidad
+        hueco={hueco}
+        sid={sid}
+        manifiesto={manifiesto}
+        onResuelto={onResuelto}
+      />
+    );
+  } else if (hueco.codigo === "MMD-04") {
+    control = (
+      <ControlCompuerta
         hueco={hueco}
         sid={sid}
         manifiesto={manifiesto}
