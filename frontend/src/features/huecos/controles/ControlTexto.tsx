@@ -1,0 +1,52 @@
+import { useId, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { Hueco } from "@/lib/types";
+
+/**
+ * Etiqueta accesible del campo segun el codigo del hueco. Debe contener
+ * "tiempo" para `META-01` y "dependencia" para `META-02` (los controles se
+ * localizan en las pruebas por `getByLabelText`).
+ */
+function etiquetaDe(hueco: Hueco): string {
+  if (hueco.codigo === "META-01") return "Tiempo de resolucion";
+  if (hueco.codigo === "META-02") return "Dependencia (campo del que depende)";
+  return hueco.mensaje || "Valor";
+}
+
+/**
+ * Control de texto libre para `META-01` (tiempo de resolucion) y `META-02`
+ * (dependencia). "Guardar" queda inhabilitado mientras el campo esta vacio.
+ */
+export default function ControlTexto({
+  hueco,
+  onConfirmar,
+}: {
+  hueco: Hueco;
+  onConfirmar: (valor: string) => void | Promise<void>;
+}) {
+  const [valor, setValor] = useState<string>("");
+  const id = useId();
+  const etiqueta = etiquetaDe(hueco);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="text-sm font-medium">
+        {etiqueta}
+      </label>
+      <Input
+        id={id}
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+      />
+      <Button
+        type="button"
+        disabled={!valor.trim()}
+        onClick={() => onConfirmar(valor)}
+      >
+        Guardar
+      </Button>
+    </div>
+  );
+}
