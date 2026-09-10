@@ -16,18 +16,18 @@ import re
 import secrets
 import shutil
 from pathlib import Path
-from typing import List, Literal, Optional, Tuple
+from typing import Annotated, List, Literal, Optional, Tuple, Union
 
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.nucleo.formato import serializar
 from gpmc.nucleo.huecos import HuecoOut, bloquean
-from gpmc.nucleo.manifiesto import guardar
+from gpmc.nucleo.manifiesto import Condicion, guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.web.sesiones import (
     ARCHIVO_VISTAS,
@@ -71,10 +71,20 @@ class ResolucionIn(BaseModel):
     valor: str
 
 
+class ResolucionDic08(BaseModel):
+    """Resolucion del hueco DIC-08: fija `condicion_visible` en un campo."""
+
+    tipo: Literal["dic08"]
+    ubicacion: str
+    condicion: Condicion
+
+
 class ResolverIn(BaseModel):
     """Cuerpo de `POST /api/v1/expedientes/{sid}/resolver`."""
 
-    resoluciones: List[ResolucionIn]
+    resoluciones: List[
+        Annotated[Union[ResolucionIn, ResolucionDic08], Field(discriminator="tipo")]
+    ]
 
 
 class ReconocerIn(BaseModel):
@@ -217,6 +227,20 @@ def crear_router(raiz: Path) -> APIRouter:
         # asi que aqui se ignora la `ubicacion` del cliente para la purga.
         resueltos = []  # type: List[Tuple[str, str]]
         for res in cuerpo.resoluciones:
+            if res.tipo == "dic08":
+                if "::" not in res.ubicacion:
+                    return JSONResponse(status_code=422, content={
+                        "error": f"ubicacion invalida: {res.ubicacion}"})
+                pantalla_id, campo_nombre = res.ubicacion.split("::", 1)
+                pantalla = next((p for p in m.pantallas if p.id == pantalla_id), None)
+                campo = (next((c for c in pantalla.campos if c.nombre == campo_nombre), None)
+                         if pantalla else None)
+                if campo is None:
+                    return JSONResponse(status_code=422, content={
+                        "error": f"campo no encontrado: {res.ubicacion}"})
+                campo.condicion_visible = res.condicion
+                resueltos.append(("DIC-08", res.ubicacion))
+                continue
             if not res.valor:
                 continue
             codigo = _TIPO_A_CODIGO[res.tipo]

@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from gpmc.web.app import crear_app
+from tests.test_extractor_diccionario import _VIS
 
 _DICC = ("### Pantalla 1 — Solicitante — Datos\n\n"
          "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
@@ -78,6 +79,38 @@ def test_resolver_meta01_purga_el_hueco_aunque_la_ubicacion_no_sea_metadatos(tmp
     assert not any(h["codigo"] == "META-01" for h in r.json()["huecos"])
     assert not any(h["codigo"] == "META-01"
                    for h in c.get(f"/api/v1/expedientes/{sid}").json()["huecos"])
+
+
+def test_resolver_dic08_pone_la_condicion_y_quita_el_hueco(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _VIS.encode("utf-8"), "text/markdown")}).json()
+    sid = est["sid"]
+    ubic = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "DIC-08")
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": ubic,
+        "condicion": {"campo": "tipo_documento", "igual": "acuerdo", "operador": "==",
+                      "y": [{"campo": "es_persona_moral", "igual": "si"}]},
+    }]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert not any(h["codigo"] == "DIC-08" and h["ubicacion"] == ubic
+                   for h in body["huecos"])
+    pantalla_id, campo = ubic.split("::", 1)
+    p = next(pp for pp in body["manifiesto"]["pantallas"] if pp["id"] == pantalla_id)
+    cv = next(cc for cc in p["campos"] if cc["nombre"] == campo)["condicion_visible"]
+    assert cv["campo"] == "tipo_documento"
+    assert cv["y"][0]["campo"] == "es_persona_moral"
+
+
+def test_resolver_dic08_campo_inexistente_da_422(tmp_path):
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _VIS.encode("utf-8"), "text/markdown")}).json()["sid"]
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": "p1::no_existe",
+        "condicion": {"campo": "x", "igual": "y"}}]})
+    assert r.status_code == 422 and "error" in r.json()
 
 
 def test_reconocer_marca_el_hueco_y_lo_devuelve(tmp_path):
