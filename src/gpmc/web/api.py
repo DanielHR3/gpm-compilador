@@ -398,6 +398,13 @@ def crear_router(raiz: Path) -> APIRouter:
 
                 nuevas_conexiones = {}  # (de, a) -> Conexion, para deduplicar
                 ids_tocados = set()  # ids de Tarea (traducidos) tocados aguas abajo
+                # T9c: ids de Tarea (traducidos) cuyo unico destino real
+                # aguas abajo es "Fin" (mismo criterio que
+                # `_flujo_ramificado` en extractores/expediente.py:
+                # `terminal=(n.id in sale_if or n.id not in sale)`) — no
+                # generan Conexion saliente, asi que hay que marcarlas
+                # terminal=True o quedan como callejon sin salida.
+                ids_terminales_reales = set()
 
                 for rama in res.ramas:
                     nodo_inicio = nodos_por_id.get(rama.a)
@@ -416,12 +423,14 @@ def crear_router(raiz: Path) -> APIRouter:
                     visitados = {rama.a}
                     cola = [rama.a]
                     aristas_utiles = []
+                    ids_terminales_mermaid_rama = set()
                     while cola:
                         actual = cola.pop(0)
                         for a in rm.aristas:
                             if a.de != actual:
                                 continue
                             if a.a in ids_if:
+                                ids_terminales_mermaid_rama.add(a.de)
                                 continue
                             destino = nodos_por_id.get(a.a)
                             if (destino is not None
@@ -449,6 +458,11 @@ def crear_router(raiz: Path) -> APIRouter:
                         ids_traducidos[v] = tid
 
                     ids_tocados.update(ids_traducidos.values())
+                    # `ids_terminales_mermaid_rama` ⊆ `visitados` (a.de
+                    # siempre es un nodo ya visitado), asi que ya esta en
+                    # `ids_traducidos` — sin riesgo de KeyError.
+                    ids_terminales_reales.update(
+                        ids_traducidos[v] for v in ids_terminales_mermaid_rama)
                     nuevas_conexiones[(predecesora_id, ids_traducidos[rama.a])] = (
                         Conexion(de=predecesora_id, a=ids_traducidos[rama.a],
                                  cuando=rama.condicion))
@@ -461,6 +475,13 @@ def crear_router(raiz: Path) -> APIRouter:
                     cx for cx in m.flujo.conexiones
                     if cx.de != predecesora_id and cx.de not in ids_tocados]
                 m.flujo.conexiones.extend(nuevas_conexiones.values())
+                # T9c: marca terminal=True en las tareas cuyo unico destino
+                # real aguas abajo es "Fin" (no se les genero ninguna
+                # Conexion de salida) — sin tocar el flag de ninguna otra
+                # Tarea, incluida la t_fin sintetica del armado lineal.
+                for t in m.flujo.tareas:
+                    if t.id in ids_terminales_reales:
+                        t.terminal = True
                 resueltos.append(("MMD-04", res.ubicacion))
                 continue
             if not res.valor:

@@ -413,6 +413,55 @@ def test_resolver_mmd04rama_no_deja_residuo_entre_ramas_hermanas(tmp_path):
             _tarea_de_pantalla("Notifica rechazo")) in pares
 
 
+# ── T9c: tareas cuyo unico destino real es "Fin" deben quedar terminal=True ──
+
+
+def test_resolver_mmd04rama_marca_terminal_las_tareas_sin_salida_real(tmp_path):
+    # Hallazgo pendiente de T9b (confirmado Important por el reviewer): el
+    # BFS aguas abajo hace `continue` sin generar Conexion cuando una arista
+    # real llega a un nodo inicio_fin ("Fin"), pero no marca la Tarea de
+    # origen como terminal=True. Resultado: esa Tarea queda sin ninguna
+    # Conexion saliente Y con terminal=False (conserva el flag del armado
+    # lineal original) — un callejon sin salida que pasa Manifiesto.
+    # model_validate, compilar() y reglas.revisar() sin ningun aviso (la
+    # tarea terminal sintetica t_fin, desconectada del grafo real, sigue
+    # satisfaciendo la unica regla que exige "alguna" tarea terminal).
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD04_RAMA2).json()
+    sid = est["sid"]
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+    ramas = c.get(f"/api/v1/expedientes/{sid}/compuerta/{gate}").json()["ramas"]
+    payload = {"tipo": "mmd04rama", "ubicacion": gate, "ramas": [
+        {"a": ramas[0]["a"], "condicion": {"campo": "procede", "igual": "si"}},
+        {"a": ramas[1]["a"], "condicion": {"campo": "procede", "igual": "no"}},
+    ]}
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [payload]})
+    assert r.status_code == 200, r.text
+    m = r.json()["manifiesto"]
+
+    tareas = m["flujo"]["tareas"]
+    conexiones = m["flujo"]["conexiones"]
+    ids_con_salida = {cx["de"] for cx in conexiones}
+
+    # Invariante general: toda tarea alcanzable sin conexion saliente debe
+    # ser terminal (nadie queda en un callejon sin salida).
+    for t in tareas:
+        if t["id"] not in ids_con_salida:
+            assert t["terminal"] is True, (
+                f"tarea '{t['id']}' ({t['nombre']}) no tiene conexion "
+                f"saliente y no esta marcada terminal")
+
+    # Assert explicito y nombrado: las dos tareas reales que terminan cada
+    # rama ("Notifica aprobacion", "Notifica rechazo") van directo a Fin en
+    # el diagrama, asi que deben quedar terminal=True.
+    def _tarea_de_pantalla(nombre_pantalla):
+        pid = next(p["id"] for p in m["pantallas"] if p["nombre"] == nombre_pantalla)
+        return next(t for t in tareas if pid in [pp["id"] for pp in t["pantallas"]])
+
+    assert _tarea_de_pantalla("Notifica aprobacion")["terminal"] is True
+    assert _tarea_de_pantalla("Notifica rechazo")["terminal"] is True
+
+
 def test_reconocer_marca_el_hueco_y_lo_devuelve(tmp_path):
     c = _cli(tmp_path)
     sid = c.post("/api/v1/expedientes", files={
