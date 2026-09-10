@@ -520,6 +520,7 @@ def test_manifiesto_devuelve_el_yaml(tmp_path):
     r = c.get(f"/api/v1/expedientes/{sid}/manifiesto")
     assert r.status_code == 200
     assert "text/yaml" in r.headers["content-type"]
+    assert "tramite:" in r.text
 
 
 # ── Task 14: integración "cero clics" end-to-end (DIC-08 + MMD-04 juntos) ──
