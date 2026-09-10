@@ -355,3 +355,22 @@ def test_el_html_arma_la_clave_compuesta_para_condiciones_con_clausula_y():
     html = generar(_m(**_CON_CLAUSULA_Y))
     assert "t.campos" in html
     assert "JSON.stringify" in html
+
+
+# Mismos dos campos que _CON_CLAUSULA_Y, pero cada rama declara un campo
+# distinto como "base" -- nada en ConstructorRegla obliga a que las dos ramas
+# de una compuerta usen el mismo campo en la primera fila. Comparar por tupla
+# ordenada (en vez de por conjunto) dejaria caer esta rama en silencio.
+_CON_CLAUSULA_Y_ORDEN_DISTINTO = json.loads(json.dumps(_CON_CLAUSULA_Y))
+_CON_CLAUSULA_Y_ORDEN_DISTINTO["flujo"]["conexiones"][2]["cuando"] = {
+    "campo": "prioridad", "igual": "alta", "y": [{"campo": "ok", "igual": "no"}]}
+
+
+def test_dos_ramas_con_los_mismos_campos_en_distinto_orden_no_se_pierden():
+    a = analizar(_m(**_CON_CLAUSULA_Y_ORDEN_DISTINTO))
+    t2 = a.transiciones["t2"]
+    assert a.problemas == [], (
+        "mismo conjunto de campos en las dos ramas -- no deberia reportarse "
+        "como 'conjuntos de campos distintos'"
+    )
+    assert set(t2["destinos"].values()) == {"t3", "t1"}, t2["destinos"]

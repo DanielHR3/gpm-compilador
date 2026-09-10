@@ -70,11 +70,17 @@ def analizar(m: Manifiesto) -> Analisis:
         # Campos que participan en cada rama (el campo base de `cuando` MAS
         # los de sus clausulas `y`), en el mismo orden en que `reglas.emitir`
         # los concatena con '&&' -- ese orden es lo que hace reproducible la
-        # clave compuesta que arma `html.py` del lado del navegador.
+        # clave compuesta que arma `html.py` del lado del navegador. Para
+        # decidir si dos ramas comparten "el mismo conjunto de campos" se
+        # compara como CONJUNTO (frozenset), no como tupla ordenada: nada
+        # obliga a que el constructor visual declare el mismo campo como base
+        # en todas las ramas de una misma compuerta (T15, hallazgo de review:
+        # comparar por tupla dejaba caer en silencio una rama valida cuyo
+        # unico "defecto" era listar los mismos dos campos en otro orden).
         campos_por_rama = {
             id(c): tuple(reglas.campos_de(reglas.emitir(c.cuando))) for c in con_regla
         }
-        conjuntos = {campos_por_rama[id(c)] for c in con_regla}
+        conjuntos = {frozenset(campos_por_rama[id(c)]) for c in con_regla}
         if len(conjuntos) > 1:
             vistos = sorted({campo for conjunto in conjuntos for campo in conjunto})
             a.problemas.append(
@@ -83,10 +89,11 @@ def analizar(m: Manifiesto) -> Analisis:
                 "bifurcaciones consistentes y usa la primera rama como referencia"
             )
         campos_tarea = campos_por_rama[id(con_regla[0])]
+        conjunto_tarea = frozenset(campos_tarea)
 
         destinos = {}
         for c in con_regla:
-            if campos_por_rama[id(c)] != campos_tarea:
+            if frozenset(campos_por_rama[id(c)]) != conjunto_tarea:
                 continue  # rama con otro conjunto de campos: ya se aviso arriba
 
             valores = {c.cuando.campo: c.cuando.igual}
