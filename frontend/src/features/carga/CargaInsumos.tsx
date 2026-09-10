@@ -1,8 +1,10 @@
 import { useState } from "react";
 import type { DragEvent } from "react";
+import { ArrowRight, FileText, UploadCloud } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "cn";
 import { crearExpediente, ErrorApi } from "@/lib/api";
 import type { EstadoExpediente } from "@/lib/types";
 
@@ -63,6 +65,7 @@ export default function CargaInsumos({
   const [slots, setSlots] = useState<Slots>(SLOTS_VACIOS);
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [sobrevolando, setSobrevolando] = useState<CampoInsumo | null>(null);
 
   const asignar = (campo: CampoInsumo, archivo: File | null) => {
     setSlots((prev) => ({ ...prev, [campo]: archivo }));
@@ -71,6 +74,7 @@ export default function CargaInsumos({
   const alSoltar =
     (campo: CampoInsumo) => (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      setSobrevolando(null);
       const archivo = e.dataTransfer.files[0];
       if (archivo) asignar(campo, archivo);
     };
@@ -98,12 +102,12 @@ export default function CargaInsumos({
   };
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-3xl flex-col gap-6 bg-background p-8 text-foreground">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Carga de insumos</h1>
-        <p className="text-sm text-muted-foreground">
+    <main className="mx-auto flex min-h-svh max-w-3xl flex-col gap-8 bg-background p-8 text-foreground">
+      <header className="flex flex-col gap-1.5">
+        <h1 className="text-2xl font-bold tracking-tight">Carga de insumos</h1>
+        <p className="max-w-md text-sm text-muted-foreground">
           Arrastra un archivo sobre cada zona o eligelo con el selector. El
-          Diccionario es obligatorio.
+          Diccionario es obligatorio; el resto ayuda a extraer más completo.
         </p>
       </header>
 
@@ -111,46 +115,100 @@ export default function CargaInsumos({
         {CAMPOS.map(({ campo, etiqueta, obligatorio, ayuda }) => {
           const inputId = `insumo-${campo}`;
           const archivo = slots[campo];
+          const activa = sobrevolando === campo;
           return (
-            <Card key={campo}>
-              <CardHeader>
-                <CardTitle>
+            <Card
+              key={campo}
+              className={cn(
+                "gap-3 transition-shadow",
+                obligatorio && "ring-2 ring-primary/30",
+              )}
+            >
+              <CardHeader className="flex items-center justify-between gap-2 space-y-0">
+                <CardTitle className="flex items-center gap-2">
                   {etiqueta}
-                  {obligatorio ? " *" : ""}
                 </CardTitle>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    obligatorio
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {obligatorio ? "Obligatorio" : "Opcional"}
+                </span>
               </CardHeader>
               <CardContent>
+                {/* `label`/`input` van como hermanos explícitos (htmlFor/id,
+                    NO label-envuelve-input): las pruebas ubican la zona con
+                    `getByLabelText(...).closest("div")`, que resuelve al
+                    input y sube al div más cercano -- si el input quedara
+                    anidado dentro de otro elemento no-div, ese `closest`
+                    dejaría de encontrar la zona con los manejadores de
+                    arrastre. */}
                 <div
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setSobrevolando(campo);
+                  }}
+                  onDragLeave={() => setSobrevolando(null)}
                   onDrop={alSoltar(campo)}
-                  className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-4 text-sm"
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-sm transition-colors",
+                    activa
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40 hover:bg-muted/40",
+                  )}
                 >
-                  <label htmlFor={inputId} className="font-medium">
-                    {etiqueta}
-                  </label>
-                  <span className="text-muted-foreground">{ayuda}</span>
-                  {campo === "diccionario" ? (
-                    <a
-                      className="text-primary underline"
-                      href="/descargar-plantilla"
+                  {archivo ? (
+                    <FileText
+                      aria-hidden
+                      className="size-6 text-primary"
+                      strokeWidth={1.75}
+                    />
+                  ) : (
+                    <UploadCloud
+                      aria-hidden
+                      className="size-6 text-muted-foreground"
+                      strokeWidth={1.75}
+                    />
+                  )}
+                  <span
+                    data-testid={`nombre-${campo}`}
+                    className="max-w-full truncate font-medium text-foreground"
+                  >
+                    {archivo ? archivo.name : "Sin archivo"}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {ayuda}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Elegir{" "}
+                    <label
+                      htmlFor={inputId}
+                      className="cursor-pointer font-medium text-primary underline underline-offset-2"
                     >
-                      Descargar plantilla de ejemplo
-                    </a>
-                  ) : null}
+                      {etiqueta}
+                    </label>
+                  </span>
                   <input
                     id={inputId}
                     type="file"
+                    className="sr-only"
                     onChange={(e) =>
                       asignar(campo, e.target.files?.[0] ?? null)
                     }
                   />
-                  <span
-                    data-testid={`nombre-${campo}`}
-                    className="break-all text-foreground"
-                  >
-                    {archivo ? archivo.name : "Sin archivo"}
-                  </span>
                 </div>
+                {campo === "diccionario" ? (
+                  <a
+                    className="mt-2 inline-block text-xs text-primary underline underline-offset-2"
+                    href="/descargar-plantilla"
+                  >
+                    Descargar plantilla de ejemplo
+                  </a>
+                ) : null}
               </CardContent>
             </Card>
           );
@@ -183,14 +241,17 @@ export default function CargaInsumos({
 
       <Button
         type="button"
+        size="lg"
         onClick={enviar}
         disabled={slots.diccionario === null || enviando}
+        className="h-11 text-base"
       >
         Extraer
+        <ArrowRight aria-hidden className="size-4" />
       </Button>
 
       <footer className="text-sm text-muted-foreground">
-        <a className="text-primary underline" href="/historial">
+        <a className="text-primary underline underline-offset-2" href="/historial">
           Ver expedientes anteriores
         </a>
       </footer>

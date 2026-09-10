@@ -1,14 +1,28 @@
 import type { ReactNode } from "react";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "cn";
 import { reconocer, resolver } from "@/lib/api";
 import type { Hueco, Resolucion } from "@/lib/types";
+
+/** Color de acento por severidad -- solo estos tres niveles existen hoy. */
+const ACENTO_NIVEL: Record<Hueco["nivel"], string> = {
+  bloqueante: "border-l-destructive",
+  falta_dato: "border-l-amber-500",
+  por_confirmar: "border-l-muted-foreground/30",
+};
+
+const ETIQUETA_NIVEL: Record<Hueco["nivel"], string> = {
+  bloqueante: "Bloqueante",
+  falta_dato: "Falta un dato",
+  por_confirmar: "Por confirmar",
+};
+
+const BADGE_NIVEL: Record<Hueco["nivel"], string> = {
+  bloqueante: "bg-destructive/10 text-destructive",
+  falta_dato: "bg-amber-50 text-amber-700",
+  por_confirmar: "bg-muted text-muted-foreground",
+};
 
 import BotonReconocer from "./controles/BotonReconocer";
 import ControlActor, { type Actor } from "./controles/ControlActor";
@@ -170,13 +184,27 @@ export default function TarjetaHueco({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{hueco.codigo}</CardTitle>
-        <CardDescription>{hueco.nivel}</CardDescription>
+    <Card
+      className={cn(
+        "border-l-4",
+        ACENTO_NIVEL[hueco.nivel] ?? "border-l-border",
+      )}
+    >
+      <CardHeader className="flex items-center justify-between gap-2 space-y-0">
+        <CardTitle className="font-mono text-sm tracking-tight text-muted-foreground">
+          {hueco.codigo}
+        </CardTitle>
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-xs font-medium",
+            BADGE_NIVEL[hueco.nivel] ?? "bg-muted text-muted-foreground",
+          )}
+        >
+          {ETIQUETA_NIVEL[hueco.nivel] ?? hueco.nivel}
+        </span>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p>{hueco.mensaje}</p>
+        <p className="text-sm font-medium text-foreground">{hueco.mensaje}</p>
         {hueco.propuesta ? (
           <p className="text-sm text-muted-foreground">
             Propuesta: {hueco.propuesta}
