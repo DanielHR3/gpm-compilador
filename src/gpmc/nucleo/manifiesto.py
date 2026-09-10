@@ -50,11 +50,19 @@ class OpcionCatalogo(BaseModel):
     valor: str
 
 
+class Clausula(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    campo: str
+    igual: str
+    operador: Literal["==", "!="] = "=="
+
+
 class Condicion(BaseModel):
     model_config = ConfigDict(extra="forbid")
     campo: str
     igual: str
     operador: Literal["==", "!="] = "=="
+    y: list[Clausula] = []
 
 
 class Campo(BaseModel):
