@@ -1,10 +1,16 @@
 from pathlib import Path
+import re
 
 import pytest
 
 from tests.conftest import WIKI, legible as _legible
 
-from gpmc.extractores.expediente import extraer_expediente
+from gpmc.extractores import mermaid as ext_mmd
+from gpmc.extractores.diccionario import extraer as extraer_dicc
+from gpmc.extractores.expediente import (
+    extraer_expediente, _flujo_ramificado, ramas_de_compuerta,
+)
+from gpmc.nucleo.manifiesto import Pantalla
 
 
 
@@ -323,6 +329,43 @@ def test_no_ramifica_si_una_etiqueta_de_arista_no_es_un_valor(tmp_path):
     })
     r = extraer_expediente(carpeta)
     assert "FLU-01" in _cod(r)
+
+
+def _rm_pantallas(tobe_md, dicc_md=_DICC_RAMA):
+    rd = extraer_dicc(dicc_md)
+    pantallas = [Pantalla(id=p.id, nombre=p.nombre, actor="x", campos=p.campos)
+                 for p in rd.pantallas]
+    mmd = re.search(r"```mermaid(.*?)```", tobe_md, re.S).group(1)
+    return ext_mmd.extraer(mmd), pantallas
+
+
+def test_flujo_ramificado_usa_el_override_de_compuerta():
+    tobe = _TOBE_RAMA.replace("{¿@@procede == 'si'?}", "{¿Procede?}")
+    rm, pantallas = _rm_pantallas(tobe)
+    assert _flujo_ramificado(rm, pantallas) is None            # sin override => MMD-04
+    salida = _flujo_ramificado(rm, pantallas, overrides={"G": "procede"})
+    assert salida is not None
+    _tareas, conexiones, _parejas = salida
+    con_cond = [c for c in conexiones if c.cuando is not None]
+    assert len(con_cond) == 2
+    assert {(c.cuando.campo, c.cuando.igual) for c in con_cond} == {("procede", "si"), ("procede", "no")}
+
+
+def test_flujo_ramificado_override_a_campo_inexistente_sigue_none():
+    tobe = _TOBE_RAMA.replace("{¿@@procede == 'si'?}", "{¿Procede?}")
+    rm, pantallas = _rm_pantallas(tobe)
+    assert _flujo_ramificado(rm, pantallas, overrides={"G": "no_existe"}) is None
+
+
+def test_ramas_de_compuerta_devuelve_predecesora_y_ramas():
+    tobe = _TOBE_RAMA.replace("{¿@@procede == 'si'?}", "{¿Procede?}")
+    rm, pantallas = _rm_pantallas(tobe)
+    est = ramas_de_compuerta(rm, pantallas, "G")
+    assert est["predecesora"] == "T1"
+    assert len(est["ramas"]) == 2
+    assert all(set(r) == {"a", "a_nombre", "etiqueta"} for r in est["ramas"])
+    assert {r["a"] for r in est["ramas"]} == {"T2", "T3"}
+    assert ramas_de_compuerta(rm, pantallas, "no_existe") is None
 
 
 def test_un_md_en_latin1_no_revienta_la_extraccion(tmp_path):

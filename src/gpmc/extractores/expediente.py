@@ -59,10 +59,15 @@ def _valor_de_arista(etiqueta, campo):
     return None
 
 
-def _flujo_ramificado(rm, pantallas):
+def _flujo_ramificado(rm, pantallas, overrides=None):
     """Construye tareas y conexiones NO lineales desde el Mermaid, y solo si es
     seguro (spec 2026-09-03, Parte 2). Devuelve (tareas, conexiones, parejas) o
     None — y entonces el flujo sigue saliendo lineal, como antes.
+
+    `overrides` es un dict opcional {id_compuerta: nombre_campo}: si una compuerta
+    no nombra ningun `@@campo`, ese campo se usa igualmente para decidir la rama.
+    Es una copia local; `rm` no se toca. Con `overrides=None`/`{}` el
+    comportamiento es identico al de siempre.
 
     Condiciones, todas obligatorias:
       1. Cada nodo 'tarea' casa 1:1 por nombre con una pantalla del Diccionario.
@@ -73,6 +78,8 @@ def _flujo_ramificado(rm, pantallas):
          (no a inicio/fin ni a otra compuerta).
     Si algo falla, se devuelve None: no se adivina.
     """
+    overrides = overrides or {}
+
     nodos_tarea = [n for n in rm.nodos if n.clase_nodo == "tarea"]
     mapa = _mapear_nodos_a_pantallas(nodos_tarea, pantallas)
     if mapa is None:
@@ -83,7 +90,8 @@ def _flujo_ramificado(rm, pantallas):
     campos = {c.nombre: c for p in pantallas for c in p.campos}
 
     for g in compuertas.values():
-        if len(set(g.campos)) != 1 or g.campos[0] not in campos:
+        campos_gate = [overrides[g.id]] if g.id in overrides else list(g.campos)
+        if len(set(campos_gate)) != 1 or campos_gate[0] not in campos:
             return None
 
     utiles = [a for a in rm.aristas if a.de not in ids_if and a.a not in ids_if]
@@ -103,7 +111,11 @@ def _flujo_ramificado(rm, pantallas):
         if a.de in compuertas:
             if a.a not in mapa:
                 return None  # rama de compuerta a inicio/fin u otra compuerta
-            campo = campos[compuertas[a.de].campos[0]]
+            campo_efectivo = overrides.get(
+                a.de,
+                compuertas[a.de].campos[0] if compuertas[a.de].campos else None,
+            )
+            campo = campos[campo_efectivo]
             valor = _valor_de_arista(a.etiqueta, campo)
             if valor is None:
                 return None
@@ -136,6 +148,48 @@ def _flujo_ramificado(rm, pantallas):
 
     parejas = [(n.id, mapa[n.id].nombre) for n in nodos_tarea]
     return tareas, conexiones, parejas
+
+
+def ramas_de_compuerta(rm, pantallas, gate_id):
+    """Expone la estructura de ramas de una compuerta para el fallback de la UI.
+
+    Devuelve {"predecesora": <id de la tarea previa>,
+              "ramas": [{"a", "a_nombre", "etiqueta"}]}
+    o None si `gate_id` no es una compuerta, o si no la alimenta ninguna tarea
+    (sin predecesora no hay donde colgar las ramas). Funcion pura: no muta `rm`
+    ni hace E/S.
+    """
+    compuerta = next(
+        (n for n in rm.nodos
+         if n.id == gate_id and n.clase_nodo == "compuerta"),
+        None,
+    )
+    if compuerta is None:
+        return None
+
+    nodos = {n.id: n for n in rm.nodos}
+    ids_tarea = {n.id for n in rm.nodos if n.clase_nodo == "tarea"}
+    nodos_tarea = [n for n in rm.nodos if n.clase_nodo == "tarea"]
+    mapa = _mapear_nodos_a_pantallas(nodos_tarea, pantallas) or {}
+
+    def _nombre(nid):
+        if nid in mapa:
+            return mapa[nid].nombre
+        n = nodos.get(nid)
+        return n.texto if n is not None else nid
+
+    predecesora = next(
+        (a.de for a in rm.aristas if a.a == gate_id and a.de in ids_tarea),
+        None,
+    )
+    if predecesora is None:
+        return None
+
+    ramas = [
+        {"a": a.a, "a_nombre": _nombre(a.a), "etiqueta": a.etiqueta or ""}
+        for a in rm.aristas if a.de == gate_id
+    ]
+    return {"predecesora": predecesora, "ramas": ramas}
 
 
 @dataclass
