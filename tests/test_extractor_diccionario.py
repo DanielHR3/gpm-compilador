@@ -667,3 +667,13 @@ def test_condicion_no_interpretable_reporta_DIC_08():
     assert dic08, r.huecos
     assert "nota_rara" in dic08[0].mensaje.lower() or "Nota rara" in dic08[0].mensaje
     assert _campo(r, "nota_rara").condicion_visible is None
+
+
+def test_dic08_lleva_pantalla_y_campo_en_la_ubicacion():
+    r = extraer(_VIS)
+    dic08 = [h for h in r.huecos if h.codigo == "DIC-08"]
+    assert dic08, r.huecos
+    assert "::" in dic08[0].ubicacion
+    pantalla, campo = dic08[0].ubicacion.split("::", 1)
+    assert pantalla and campo
+    assert dic08[0].ubicacion == "p1::nota_rara"
