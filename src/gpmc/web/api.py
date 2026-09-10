@@ -356,25 +356,111 @@ def crear_router(raiz: Path) -> APIRouter:
                 # ("t_<pantalla>", no los del diagrama) — hay que traducir
                 # antes de tocar `m.flujo.conexiones`, o quedarían conexiones
                 # colgando de tareas inexistentes.
+                #
+                # T9b / Hallazgo 1 (review de T9): si el mapeo nodo->pantalla
+                # falla, o si CUALQUIER id no traduce a una Tarea real, no hay
+                # fallback silencioso al id crudo: 422 antes de mutar nada.
                 nodos_tarea = [n for n in rm.nodos if n.clase_nodo == "tarea"]
-                mapa_pantallas = _mapear_nodos_a_pantallas(nodos_tarea, m.pantallas) or {}
+                mapa_pantallas = _mapear_nodos_a_pantallas(nodos_tarea, m.pantallas)
 
                 def _tarea_id(mermaid_id):
+                    # None si no se puede traducir (mapeo ausente, o ningun
+                    # nodo/Tarea casa) — el llamador decide fallar con 422.
+                    if mapa_pantallas is None:
+                        return None
                     p = mapa_pantallas.get(mermaid_id)
                     if p is None:
-                        return mermaid_id
+                        return None
                     return next(
                         (t.id for t in m.flujo.tareas
                          if p.id in [pp.id for pp in t.pantallas]),
-                        mermaid_id,
+                        None,
                     )
 
                 predecesora_id = _tarea_id(est["predecesora"])
-                m.flujo.conexiones = [
-                    cx for cx in m.flujo.conexiones if cx.de != predecesora_id]
+                if predecesora_id is None:
+                    return JSONResponse(status_code=422, content={
+                        "error": f"no se pudo traducir el id '{est['predecesora']}' "
+                                 f"del diagrama a una tarea real del manifiesto; "
+                                 f"sincroniza el texto del nodo con el nombre de "
+                                 f"la pantalla"})
+
+                # T9b / Hallazgo 2 (review de T9): el respaldo lineal conecta
+                # TODAS las pantallas en el orden del Diccionario, ignorando el
+                # grafo Mermaid real — quitar solo la conexion que salia de la
+                # predecesora deja un tramo residual entre ramas hermanas. Se
+                # reconstruye, por rama, el tramo aguas abajo real caminando
+                # `rm.aristas` desde `rama.a`, y se quita cualquier conexion
+                # existente cuyo `.de` sea una de las tareas tocadas por ese
+                # recorrido (no solo la de la predecesora).
+                nodos_por_id = {n.id: n for n in rm.nodos}
+                ids_if = {n.id for n in rm.nodos if n.clase_nodo == "inicio_fin"}
+
+                nuevas_conexiones = {}  # (de, a) -> Conexion, para deduplicar
+                ids_tocados = set()  # ids de Tarea (traducidos) tocados aguas abajo
+
                 for rama in res.ramas:
-                    m.flujo.conexiones.append(Conexion(
-                        de=predecesora_id, a=_tarea_id(rama.a), cuando=rama.condicion))
+                    nodo_inicio = nodos_por_id.get(rama.a)
+                    if (nodo_inicio is not None
+                            and nodo_inicio.clase_nodo == "compuerta"
+                            and rama.a != res.ubicacion):
+                        return JSONResponse(status_code=422, content={
+                            "error": f"hay una compuerta sin resolver aguas "
+                                     f"abajo de la rama '{rama.a}'"})
+
+                    # BFS desde rama.a por rm.aristas, siguiendo solo aristas
+                    # cuyo .de ya fue visitado. Un nodo inicio_fin ("Fin") es
+                    # terminal para el recorrido: la arista que llega a el no
+                    # genera Conexion (no hay Tarea real para "Fin"), y el
+                    # recorrido no continua mas alla.
+                    visitados = {rama.a}
+                    cola = [rama.a]
+                    aristas_utiles = []
+                    while cola:
+                        actual = cola.pop(0)
+                        for a in rm.aristas:
+                            if a.de != actual:
+                                continue
+                            if a.a in ids_if:
+                                continue
+                            destino = nodos_por_id.get(a.a)
+                            if (destino is not None
+                                    and destino.clase_nodo == "compuerta"
+                                    and a.a != res.ubicacion):
+                                return JSONResponse(status_code=422, content={
+                                    "error": f"hay una compuerta sin resolver "
+                                             f"aguas abajo de la rama "
+                                             f"'{rama.a}'"})
+                            aristas_utiles.append(a)
+                            if a.a not in visitados:
+                                visitados.add(a.a)
+                                cola.append(a.a)
+
+                    ids_traducidos = {}
+                    for v in visitados:
+                        tid = _tarea_id(v)
+                        if tid is None:
+                            return JSONResponse(status_code=422, content={
+                                "error": f"no se pudo traducir el id '{v}' "
+                                         f"del diagrama a una tarea real del "
+                                         f"manifiesto; sincroniza el texto "
+                                         f"del nodo con el nombre de la "
+                                         f"pantalla"})
+                        ids_traducidos[v] = tid
+
+                    ids_tocados.update(ids_traducidos.values())
+                    nuevas_conexiones[(predecesora_id, ids_traducidos[rama.a])] = (
+                        Conexion(de=predecesora_id, a=ids_traducidos[rama.a],
+                                 cuando=rama.condicion))
+                    for a in aristas_utiles:
+                        nuevas_conexiones[(ids_traducidos[a.de], ids_traducidos[a.a])] = (
+                            Conexion(de=ids_traducidos[a.de], a=ids_traducidos[a.a],
+                                     cuando=None))
+
+                m.flujo.conexiones = [
+                    cx for cx in m.flujo.conexiones
+                    if cx.de != predecesora_id and cx.de not in ids_tocados]
+                m.flujo.conexiones.extend(nuevas_conexiones.values())
                 resueltos.append(("MMD-04", res.ubicacion))
                 continue
             if not res.valor:
