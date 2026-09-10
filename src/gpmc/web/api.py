@@ -238,6 +238,14 @@ def crear_router(raiz: Path) -> APIRouter:
                 if campo is None:
                     return JSONResponse(status_code=422, content={
                         "error": f"campo no encontrado: {res.ubicacion}"})
+                campos_declarados = {c.nombre for p in m.pantallas for c in p.campos}
+                campos_condicion = [res.condicion.campo] + [
+                    cl.campo for cl in res.condicion.y]
+                for cc in campos_condicion:
+                    if cc not in campos_declarados:
+                        return JSONResponse(status_code=422, content={
+                            "error": f"la condicion referencia un campo no "
+                                     f"declarado: {cc}"})
                 campo.condicion_visible = res.condicion
                 resueltos.append(("DIC-08", res.ubicacion))
                 continue

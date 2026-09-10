@@ -87,9 +87,14 @@ def test_resolver_dic08_pone_la_condicion_y_quita_el_hueco(tmp_path):
         "diccionario": ("dd.md", _VIS.encode("utf-8"), "text/markdown")}).json()
     sid = est["sid"]
     ubic = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "DIC-08")
+    # NOTA (Task 7b / Ruling 5): el campo base de la condicion debe estar
+    # declarado en el manifiesto de _VIS ("tipo_solicitante", no el
+    # "tipo_documento" original — ese nombre no lo declara ningun campo de
+    # _VIS y con la validacion de Task 7b pasaria a dar 422, que es
+    # justamente el caso que cubre test_resolver_dic08_condicion_con_campo_base_no_declarado_da_422).
     r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
         "tipo": "dic08", "ubicacion": ubic,
-        "condicion": {"campo": "tipo_documento", "igual": "acuerdo", "operador": "==",
+        "condicion": {"campo": "tipo_solicitante", "igual": "persona_moral", "operador": "==",
                       "y": [{"campo": "es_persona_moral", "igual": "si"}]},
     }]})
     assert r.status_code == 200, r.text
@@ -99,7 +104,7 @@ def test_resolver_dic08_pone_la_condicion_y_quita_el_hueco(tmp_path):
     pantalla_id, campo = ubic.split("::", 1)
     p = next(pp for pp in body["manifiesto"]["pantallas"] if pp["id"] == pantalla_id)
     cv = next(cc for cc in p["campos"] if cc["nombre"] == campo)["condicion_visible"]
-    assert cv["campo"] == "tipo_documento"
+    assert cv["campo"] == "tipo_solicitante"
     assert cv["y"][0]["campo"] == "es_persona_moral"
 
 
@@ -111,6 +116,45 @@ def test_resolver_dic08_campo_inexistente_da_422(tmp_path):
         "tipo": "dic08", "ubicacion": "p1::no_existe",
         "condicion": {"campo": "x", "igual": "y"}}]})
     assert r.status_code == 422 and "error" in r.json()
+
+
+def test_resolver_dic08_condicion_con_campo_base_no_declarado_da_422(tmp_path):
+    # La Condicion referencia un campo que NO esta declarado en el manifiesto
+    # (spec 5.1: "422 ... si una Condicion referencia un campo no declarado").
+    # No debe fijarse condicion_visible ni tacharse el hueco.
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _VIS.encode("utf-8"), "text/markdown")}).json()
+    sid = est["sid"]
+    ubic = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "DIC-08")
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": ubic,
+        "condicion": {"campo": "campo_fantasma", "igual": "x"},
+    }]})
+    assert r.status_code == 422, r.text
+    assert "error" in r.json()
+    assert "campo_fantasma" in r.json()["error"]
+    # el hueco DIC-08 sigue vivo: la resolucion invalida no se aplico
+    assert any(h["codigo"] == "DIC-08" and h["ubicacion"] == ubic
+               for h in c.get(f"/api/v1/expedientes/{sid}").json()["huecos"])
+
+
+def test_resolver_dic08_condicion_con_clausula_y_no_declarada_da_422(tmp_path):
+    # El campo base SI esta declarado, pero una clausula `y` referencia un
+    # campo que no lo esta.
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _VIS.encode("utf-8"), "text/markdown")}).json()
+    sid = est["sid"]
+    ubic = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "DIC-08")
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": ubic,
+        "condicion": {"campo": "es_persona_moral", "igual": "si",
+                      "y": [{"campo": "campo_fantasma", "igual": "x"}]},
+    }]})
+    assert r.status_code == 422, r.text
+    assert "error" in r.json()
+    assert "campo_fantasma" in r.json()["error"]
 
 
 def test_reconocer_marca_el_hueco_y_lo_devuelve(tmp_path):
