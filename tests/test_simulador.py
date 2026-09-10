@@ -280,3 +280,78 @@ def test_el_fetch_del_catalogo_tiene_timeout():
     html = generar(_m(**_CON_CATALOGOS))
     assert "AbortController" in html
     assert "signal:ctrl.signal" in html
+
+
+# --- Task 15: condiciones con clausulas Y (SP2) -----------------------------
+# `t2 -> t3` cuando ok=='si' Y prioridad=='alta'; `t2 -> t1` en otro caso
+# (ok=='no', sin clausula y -- mismo conjunto de UN campo que la base no
+# alcanzaria a cubrir si solo se mirara el campo base de la otra rama, pero
+# aqui las DOS ramas declaran el mismo conjunto {ok, prioridad} para que la
+# tabla de transiciones sea consistente).
+_CON_CLAUSULA_Y = {
+    "pantallas": [
+        {"id": "p1", "nombre": "Solicitud", "actor": "ciudadano", "paso_ciudadano": 1,
+         "campos": [{"nombre": "curp", "etiqueta": "CURP", "tipo": "text", "obligatorio": True}]},
+        {"id": "p2", "nombre": "Revisión", "actor": "func",
+         "campos": [
+             {"nombre": "ok", "etiqueta": "¿Correcto?", "tipo": "radio",
+              "catalogo": [{"etiqueta": "Sí", "valor": "si"}, {"etiqueta": "No", "valor": "no"}]},
+             {"nombre": "prioridad", "etiqueta": "Prioridad", "tipo": "radio",
+              "catalogo": [{"etiqueta": "Alta", "valor": "alta"}, {"etiqueta": "Baja", "valor": "baja"}]},
+         ]},
+    ],
+    "flujo": {
+        "tareas": [
+            {"id": "t1", "nombre": "Capturar", "actor": "ciudadano", "inicial": True, "pantallas": ["p1"]},
+            {"id": "t2", "nombre": "Revisar", "actor": "func", "pantallas": ["p2"]},
+            {"id": "t3", "nombre": "Fin", "terminal": True},
+        ],
+        "conexiones": [
+            {"de": "t1", "a": "t2"},
+            {"de": "t2", "a": "t3", "cuando": {
+                "campo": "ok", "igual": "si",
+                "y": [{"campo": "prioridad", "igual": "alta"}]}},
+            {"de": "t2", "a": "t1", "cuando": {
+                "campo": "ok", "igual": "no",
+                "y": [{"campo": "prioridad", "igual": "alta"}]}},
+        ],
+    },
+}
+
+
+def test_una_condicion_con_clausula_y_llega_a_su_destino():
+    """Antes de Task 15, reglas.evaluar(reglas.emitir(cuando), {campo: valor})
+    solo pasaba el campo base -- la clausula 'y' quedaba sin valor, la
+    comparacion de ese pedazo daba falso siempre, y la rama desaparecia de
+    'destinos' en silencio (sin ningun problema reportado)."""
+    a = analizar(_m(**_CON_CLAUSULA_Y))
+    t2 = a.transiciones["t2"]
+    assert t2["campo"] is None, "con varios campos no hay un 'campo' singular"
+    assert t2["campos"] == ["ok", "prioridad"]
+    clave_si = json.dumps(["si", "alta"], separators=(",", ":"))
+    clave_no = json.dumps(["no", "alta"], separators=(",", ":"))
+    assert t2["destinos"][clave_si] == "t3"
+    assert t2["destinos"][clave_no] == "t1"
+    assert a.problemas == []
+
+
+def test_una_condicion_con_clausula_y_valida_catalogo_de_todos_los_campos():
+    d = json.loads(json.dumps(_CON_CLAUSULA_Y))
+    d["flujo"]["conexiones"][1]["cuando"]["y"][0]["igual"] = "urgentisima"
+    p = analizar(_m(**d)).problemas
+    assert any("urgentisima" in x and "prioridad" in x for x in p), p
+
+
+def test_un_solo_campo_sin_clausula_y_no_cambia_de_forma():
+    """Retrocompatibilidad estricta: el caso comun (sin 'y') conserva
+    exactamente la forma de siempre -- el JS de html.py no cambia para el."""
+    a = analizar(_m())
+    t2 = a.transiciones["t2"]
+    assert set(t2.keys()) == {"campo", "destinos", "siguiente"}
+    assert t2["campo"] == "ok"
+
+
+def test_el_html_arma_la_clave_compuesta_para_condiciones_con_clausula_y():
+    html = generar(_m(**_CON_CLAUSULA_Y))
+    assert "t.campos" in html
+    assert "JSON.stringify" in html

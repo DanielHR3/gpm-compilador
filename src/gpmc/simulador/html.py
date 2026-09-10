@@ -100,6 +100,18 @@ function avanzar(){
     alert("Ninguna rama corresponde al valor «"+(v||"(vacío)")+"». En la plataforma el trámite quedaría detenido aquí.");
     return;
   }
+  if(t.campos){
+    // Bifurcacion sobre varios campos (condicion con clausulas Y): la clave
+    // de "destinos" es JSON.stringify() de los valores capturados, en el
+    // mismo orden que "campos" -- ver analisis.py, misma codificacion.
+    const vals=t.campos.map(c=>ESTADO.datos[c]);
+    const clave=JSON.stringify(vals);
+    const destino=t.destinos[clave];
+    if(destino){return ir(destino)}
+    const desc=t.campos.map((c,i)=>c+"="+(vals[i]||"(vacío)")).join(", ");
+    alert("Ninguna rama corresponde a «"+desc+"». En la plataforma el trámite quedaría detenido aquí.");
+    return;
+  }
   if(t.siguiente){ir(t.siguiente)}
 }
 function retroceder(){if(ESTADO.rastro.length>1){ESTADO.rastro.pop();ESTADO.tarea=ESTADO.rastro[ESTADO.rastro.length-1];pintar()}}
