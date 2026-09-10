@@ -4,12 +4,12 @@ import { describe, expect, it } from "vitest";
 import App from "./App";
 import { generateCssVariables, tokensWeb } from "@/lib/tokens";
 
-describe("App (andamiaje SP1)", () => {
-  it("muestra el botón 'Compilador GPM' (cadena React + shadcn + jsdom)", () => {
+describe("App (SPA SP1)", () => {
+  it("arranca en la pantalla de carga de insumos ('Extraer' deshabilitado sin Diccionario)", () => {
     render(<App />);
-    expect(
-      screen.getByRole("button", { name: "Compilador GPM" }),
-    ).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /extraer/i });
+    expect(btn).toBeInTheDocument();
+    expect(btn).toBeDisabled();
   });
 
   it("los tokens salen de hidalgo-design-token-system (guinda #A02142)", () => {

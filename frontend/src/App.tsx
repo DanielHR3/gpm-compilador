@@ -1,15 +1,15 @@
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+
+import CargaInsumos from "@/features/carga/CargaInsumos";
+import type { EstadoExpediente } from "@/lib/types";
 
 /**
- * Andamiaje SP1 Task 7: pantalla mínima que ejercita la cadena completa
- * React + shadcn/ui + Tailwind v4 + tokens de `hidalgo-design-token-system`.
- * El contenido real de la SPA llega en tareas posteriores.
+ * Raiz de la SPA. SP1: sin router (llega en Task 11). Mientras no haya
+ * expediente se muestra la carga de insumos; al crearlo se guarda el estado y
+ * se deja un marcador `<pre>` que Task 10 sustituye por `WizardHuecos`.
  */
 export default function App() {
-  return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-4 bg-background p-8 text-foreground">
-      <h1 className="text-2xl font-semibold">Compilador GPM</h1>
-      <Button>Compilador GPM</Button>
-    </main>
-  );
+  const [est, setEst] = useState<EstadoExpediente | null>(null);
+  if (!est) return <CargaInsumos onListo={setEst} />;
+  return <pre data-testid="estado-cargado">{est.sid}</pre>;
 }
