@@ -48,6 +48,15 @@ from gpmc.web.sesiones import (
     _purgar_sesiones,
 )
 
+# CSP del SPA React: mas laxa que el `sandbox` de /vistas porque aqui el HTML lo
+# generamos nosotros. Se aplica a TODA respuesta HTML de `_servir_spa` (incluido
+# `GET /index.html`, que es un archivo real de dist/ y entra por la rama de
+# FileResponse). No la fija el middleware de cabeceras seguras.
+_CSP_SPA = (
+    "default-src 'self'; img-src 'self' data:; "
+    "style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+)
+
 
 def crear_app(almacen: Optional[Path] = None) -> FastAPI:
     raiz = Path(almacen) if almacen else Path(tempfile.mkdtemp(prefix="gpmc-"))
@@ -135,7 +144,10 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             if archivo is None:
                 continue
             contenido = await _leer(archivo)
-            if contenido:
+            # `_leer` devuelve None sólo si el archivo excede el tope. Un archivo
+            # de 0 bytes es `b""`: se persiste para que el extractor emita un
+            # hueco en vez de descartarlo en silencio.
+            if contenido is not None:
                 (carpeta / INSUMOS[clave]).write_bytes(contenido)
 
         # El HTML de vistas es referencia visual: se persiste para consulta en
@@ -357,9 +369,12 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
 
     # Primer segmento de ruta que pertenece a un handler HTML/JSON, no a la SPA.
     # La catch-all está declarada al final, así que estas rutas ya se resuelven
-    # antes por su handler exacto; pero un typo bajo un prefijo conocido
-    # (p. ej. `/historial-xyz`, `/simuladorr/x`) caería aquí. En ese caso es un
-    # 404 legítimo, no el index.html de la SPA.
+    # antes por su handler exacto. La comprobación de abajo es por segmento
+    # exacto (`ruta.split("/")[0] in _PREFIJOS_NO_SPA`): sólo un prefijo conocido
+    # seguido de `/...` (p. ej. `/api/bogus`, `/historial/x`) da 404. Un typo
+    # como `/historial-xyz` o `/simuladorr/x` NO casa y cae al shell del SPA con
+    # 200 + index.html — comportamiento estándar de una SPA (cualquier ruta
+    # desconocida la resuelve el router de cliente).
     _PREFIJOS_NO_SPA = {
         "api", "simulador", "aprobacion", "historial", "vistas",
         "descargar", "descargar-plantilla", "extraer", "resolver", "reconocer",
@@ -380,18 +395,18 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
         cand_r = (dist / ruta).resolve()
         dentro = cand_r == dist_r or dist_r in cand_r.parents
         if ruta and dentro and cand_r.is_file():
-            return FileResponse(cand_r)
+            resp = FileResponse(cand_r)
+            # `index.html` es un archivo real de dist/, así que `GET /index.html`
+            # entra por aquí: sin esto serviría el mismo SPA sin CSP. Los assets
+            # (.js/.css/.woff2) no necesitan la política del documento.
+            if cand_r.suffix == ".html":
+                resp.headers["Content-Security-Policy"] = _CSP_SPA
+            return resp
         # Typo bajo un prefijo de handler real: 404, no fallback SPA.
         if ruta and ruta.split("/")[0] in _PREFIJOS_NO_SPA:
             return PlainTextResponse("No encontrado.", status_code=404)
         resp = FileResponse(dist / "index.html")
-        # CSP propia del SPA: mas laxa que el `sandbox` de /vistas porque aqui
-        # el HTML lo generamos nosotros. Se fija sobre la respuesta ya que el
-        # middleware de cabeceras seguras no toca Content-Security-Policy.
-        resp.headers["Content-Security-Policy"] = (
-            "default-src 'self'; img-src 'self' data:; "
-            "style-src 'self' 'unsafe-inline'; font-src 'self' data:"
-        )
+        resp.headers["Content-Security-Policy"] = _CSP_SPA
         return resp
 
     # Catch-all de la SPA, declarada al final: `/` y `/<lo-que-sea>`. Las rutas

@@ -14,7 +14,7 @@
     "@fontsource/montserrat": "^5.3.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.6",
-    "hidalgo-design-token-system": "github:VManuelSM/hidalgo-design-token-system",
+    "hidalgo-design-token-system": "git+https://github.com/VManuelSM/hidalgo-design-token-system.git#de9b254cfd2919b9202d4d95634e0fefafa4451e",
     "lucide-react": "^1.43.0",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",

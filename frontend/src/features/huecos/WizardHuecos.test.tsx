@@ -20,8 +20,46 @@ const estado = {
 
 it("una tarjeta por hueco y barra de progreso", () => {
   render(<WizardHuecos estado={estado as any} onEstado={() => {}} />);
-  expect(screen.getByText(/falta el tiempo/)).toBeInTheDocument();
+  // El mensaje aparece en la tarjeta y (al bloquear) en el motivo de bloqueo.
+  expect(screen.getAllByText(/falta el tiempo/).length).toBeGreaterThan(0);
   expect(screen.getByRole("progressbar")).toBeInTheDocument();
+});
+
+it("un bloqueante de codigo desconocido no deja sin salida: lista el motivo y conserva el simulador, sin enlace al .gpm", () => {
+  const est = {
+    ...estado,
+    huecos: [
+      {
+        nivel: "bloqueante",
+        codigo: "INS-01",
+        ubicacion: "",
+        mensaje: "no se encontro la Propuesta TO-BE",
+        propuesta: null,
+      },
+    ],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  // El motivo del bloqueo se explica en pantalla.
+  expect(
+    screen.getByText(/Faltan 1 huecos por resolver antes de descargar el \.gpm/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getAllByText(/no se encontro la Propuesta TO-BE/).length,
+  ).toBeGreaterThan(0);
+  // Hay salida: el simulador sigue enlazado.
+  expect(
+    screen.getByRole("link", { name: /simulador/i }),
+  ).toHaveAttribute("href", "/simulador/" + "a".repeat(16));
+  // El .gpm SI esta cerrado.
+  expect(screen.queryByRole("link", { name: /\.gpm/i })).toBeNull();
+});
+
+it("pinta los avisos del analisis de flujo (problemas[])", () => {
+  const est = { ...estado, problemas: ["ciclo sin salida en la tarea 3"] };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  expect(
+    screen.getByText(/ciclo sin salida en la tarea 3/),
+  ).toBeInTheDocument();
 });
 
 it("META-01 se resuelve por la API y sube el estado, sin recargar", async () => {

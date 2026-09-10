@@ -29,6 +29,13 @@ it("muestra el error de tamano cuando la API lanza 413", async () => {
   expect(screen.getByText(/10 MB/i)).toBeInTheDocument();
 });
 
+it("ofrece el enlace a la plantilla de ejemplo", () => {
+  render(<CargaInsumos onListo={() => {}} />);
+  expect(
+    screen.getByRole("link", { name: /plantilla de ejemplo/i }),
+  ).toHaveAttribute("href", "/descargar-plantilla");
+});
+
 it("un drop real asigna el archivo y muestra su nombre en la zona", () => {
   render(<CargaInsumos onListo={() => {}} />);
   const zona = screen.getByLabelText(/^to be$/i).closest("div") as HTMLElement;

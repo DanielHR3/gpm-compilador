@@ -392,3 +392,20 @@ def test_la_ruta_app_no_permite_salir_de_dist(monkeypatch, tmp_path):
     # resultado no debe contener el fichero ajeno).
     r = c.get("/app/../../../etc/passwd", follow_redirects=True)
     assert "root:" not in r.text
+
+
+def test_index_html_directo_lleva_csp(monkeypatch, tmp_path):
+    # `index.html` es un archivo real de dist/, así que `GET /index.html` entra
+    # por la rama de FileResponse: debe llevar la misma CSP que `/`.
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text(
+        "<!doctype html><title>SPA</title>", encoding="utf-8"
+    )
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(dist))
+    from gpmc.web.app import crear_app
+    from fastapi.testclient import TestClient
+    c = TestClient(crear_app(almacen=tmp_path))
+    r = c.get("/index.html")
+    assert r.status_code == 200
+    assert r.headers["content-security-policy"].startswith("default-src 'self'")

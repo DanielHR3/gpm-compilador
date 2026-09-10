@@ -32,6 +32,8 @@ export type EstadoExpediente = {
   sid: string;
   manifiesto: Record<string, unknown>;
   huecos: Hueco[];
+  // TODO(SP2): full estimacion card + grouped problemas view. SP1 solo pinta
+  // `problemas` como lista y una linea con `estimacion.nivel`/`dias`.
   estimacion: Estimacion;
   problemas: string[];
   tieneVistas: boolean;

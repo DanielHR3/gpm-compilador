@@ -129,6 +129,14 @@ export default function CargaInsumos({
                     {etiqueta}
                   </label>
                   <span className="text-muted-foreground">{ayuda}</span>
+                  {campo === "diccionario" ? (
+                    <a
+                      className="text-primary underline"
+                      href="/descargar-plantilla"
+                    >
+                      Descargar plantilla de ejemplo
+                    </a>
+                  ) : null}
                   <input
                     id={inputId}
                     type="file"
@@ -180,6 +188,12 @@ export default function CargaInsumos({
       >
         Extraer
       </Button>
+
+      <footer className="text-sm text-muted-foreground">
+        <a className="text-primary underline" href="/historial">
+          Ver expedientes anteriores
+        </a>
+      </footer>
     </main>
   );
 }

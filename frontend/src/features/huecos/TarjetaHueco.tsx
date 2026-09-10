@@ -122,6 +122,13 @@ export default function TarjetaHueco({
     );
   } else if (hueco.nivel === "falta_dato") {
     control = <BotonReconocer hueco={hueco} onReconocer={reconocerHueco} />;
+  } else if (hueco.nivel === "bloqueante") {
+    control = (
+      <p className="text-sm text-muted-foreground">
+        Este hueco se corrige en los insumos: vuelve a subirlos con el archivo
+        que falta.
+      </p>
+    );
   }
 
   return (

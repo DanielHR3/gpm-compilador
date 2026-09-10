@@ -140,7 +140,10 @@ def crear_router(raiz: Path) -> APIRouter:
             if archivo is None:
                 continue
             contenido = await _leer(archivo)
-            if contenido:
+            # `_leer` devuelve None sólo si el archivo excede el tope (ya anotado
+            # en `grandes`). Un archivo de 0 bytes es `b""`: se persiste para que
+            # el extractor emita un hueco en vez de "no se subió".
+            if contenido is not None:
                 (carpeta / INSUMOS[clave]).write_bytes(contenido)
 
         # El HTML de vistas es referencia visual: se persiste para consulta pero

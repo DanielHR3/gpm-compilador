@@ -47,7 +47,13 @@ export class ErrorApi extends Error {
       typeof cuerpo === "object" && cuerpo !== null
         ? (cuerpo as Record<string, unknown>)
         : {};
-    const error = typeof o.error === "string" ? o.error : `HTTP ${status}`;
+    // `error` es la clave primaria de `/api/v1`; los 422 de FastAPI traen
+    // `{"detail": [...]}` (o `detail` string en un `HTTPException`), asi que se
+    // usa como respaldo antes de caer al generico `HTTP <status>`.
+    const error =
+      typeof o.error === "string"
+        ? o.error
+        : mensajeDeDetail(o.detail) ?? `HTTP ${status}`;
     const archivos = Array.isArray(o.archivos)
       ? (o.archivos as string[])
       : undefined;
@@ -56,6 +62,28 @@ export class ErrorApi extends Error {
       : undefined;
     return new ErrorApi(status, error, { archivos, bloqueantes });
   }
+}
+
+/**
+ * Extrae un mensaje legible del `detail` de un 422 de FastAPI: string directo,
+ * o array de `{ msg }`. Devuelve `null` si no hay nada aprovechable.
+ */
+function mensajeDeDetail(detail: unknown): string | null {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((d) =>
+        d && typeof d === "object" &&
+        typeof (d as Record<string, unknown>).msg === "string"
+          ? ((d as Record<string, unknown>).msg as string)
+          : typeof d === "string"
+            ? d
+            : null,
+      )
+      .filter((m): m is string => m !== null);
+    if (msgs.length > 0) return msgs.join("; ");
+  }
+  return null;
 }
 
 /** `fetch` + `res.json()`; lanza `ErrorApi` en cualquier `!res.ok`. */
