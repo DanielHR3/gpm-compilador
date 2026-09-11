@@ -489,10 +489,49 @@ def crear_router(raiz: Path) -> APIRouter:
                 continue
             codigo = _TIPO_A_CODIGO[res.tipo]
             if res.tipo == "mmd03":
-                for t in m.flujo.tareas:
-                    if t.id == res.ubicacion:
-                        t.actor = res.valor
-                        resueltos.append((codigo, res.ubicacion))
+                tarea = next((t for t in m.flujo.tareas if t.id == res.ubicacion), None)
+                if tarea is None:
+                    # `res.ubicacion` puede ser el id del nodo en el diagrama
+                    # Mermaid, no el id real de Tarea del manifiesto: si el
+                    # flujo sigue en el respaldo lineal (compuertas sin
+                    # @@campo, etiquetas que no casan, etc.), las Tareas usan
+                    # sus propios ids por pantalla ("t_p1"), no los del
+                    # diagrama ("T1") -- buscar por igualdad directa nunca
+                    # casaba, y el handler devolvia 200 sin cambiar nada ni
+                    # tachar el hueco (hallazgo post-sprint T15, "MMD-03
+                    # placebo"). Se traduce via pantalla antes de rendirse,
+                    # mismo patron que `_tarea_id` en la rama `mmd04rama`.
+                    rm = rm_de_tobe(carpeta)
+                    nodos_tarea = [n for n in rm.nodos if n.clase_nodo == "tarea"] if rm else []
+                    mapa_pantallas = (
+                        _mapear_nodos_a_pantallas(nodos_tarea, m.pantallas)
+                        if rm else None
+                    )
+                    p = mapa_pantallas.get(res.ubicacion) if mapa_pantallas else None
+                    if p is not None:
+                        tarea = next(
+                            (t for t in m.flujo.tareas
+                             if p.id in [pp.id for pp in t.pantallas]),
+                            None,
+                        )
+                if tarea is not None:
+                    tarea.actor = res.valor
+                    resueltos.append((codigo, res.ubicacion))
+                elif rm is not None and any(
+                    n.id == res.ubicacion and n.clase_nodo == "compuerta"
+                    for n in rm.nodos
+                ):
+                    # Una compuerta es un punto de decision, no una tarea: no
+                    # tiene actor que guardar en el modelo compilado. Aceptar
+                    # y tachar el hueco es honesto (no hay nada que escribir,
+                    # pero tampoco es un error del usuario); lo contrario
+                    # seria repetir el mismo hallazgo con otro disfraz.
+                    resueltos.append((codigo, res.ubicacion))
+                else:
+                    return JSONResponse(status_code=422, content={
+                        "error": f"no se encontro la tarea '{res.ubicacion}' "
+                                 f"en el manifiesto ni se pudo traducir desde "
+                                 f"el diagrama a una pantalla real"})
             elif res.tipo == "meta01":
                 m.tramite.ruts.tiempo_entrega = res.valor
                 resueltos.append((codigo, "metadatos"))

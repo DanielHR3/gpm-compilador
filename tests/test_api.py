@@ -187,6 +187,69 @@ _INSUMOS_CON_MMD04 = {
     "to_be": ("tobe.md", _TOBE_MMD04.encode("utf-8"), "text/markdown"),
 }
 
+# Variante de _TOBE_MMD04 sin `:::clase` en T1 (tarea) ni en G (compuerta):
+# ambos disparan MMD-03. Con el gate sin @@campo, el flujo se queda en el
+# respaldo lineal -- ahi la Tarea real de T1 es "t_p1" (por pantalla), no
+# "T1" (el id del diagrama). Hallazgo post-sprint: resolver "mmd03" con
+# ubicacion="T1" buscaba `t.id == "T1"` en `m.flujo.tareas`, nunca casaba, y
+# devolvia 200 sin cambiar nada ni tachar el hueco -- un "exito" falso.
+_TOBE_MMD03 = (
+    _TOBE_MMD04
+    .replace("T1[Solicitante: Captura la solicitud]:::solicitante",
+             "T1[Solicitante: Captura la solicitud]")
+    .replace("G{¿Procede?}:::area", "G{¿Procede?}")
+)
+_INSUMOS_CON_MMD03 = {
+    "diccionario": ("dd.md", _DICC_RAMA.encode("utf-8"), "text/markdown"),
+    "to_be": ("tobe.md", _TOBE_MMD03.encode("utf-8"), "text/markdown"),
+}
+
+
+def test_resolver_mmd03_traduce_el_id_del_diagrama_a_la_tarea_real(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD03).json()
+    sid = est["sid"]
+    assert any(h["codigo"] == "MMD-03" and h["ubicacion"] == "T1"
+               for h in est["huecos"]), est["huecos"]
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "mmd03", "ubicacion": "T1", "valor": "solicitante"}]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # El hueco de T1 debe desaparecer de verdad, no solo devolver 200.
+    assert not any(h["codigo"] == "MMD-03" and h["ubicacion"] == "T1"
+                   for h in body["huecos"]), body["huecos"]
+    tarea = next(t for t in body["manifiesto"]["flujo"]["tareas"]
+                 if t["id"] == "t_p1")
+    assert tarea["actor"] == "solicitante"
+
+
+def test_resolver_mmd03_sobre_una_compuerta_cierra_el_hueco_sin_actor(tmp_path):
+    """Una compuerta no tiene actor en el modelo compilado (es un punto de
+    decision, no una tarea) -- resolver 'mmd03' sobre ella no puede escribir
+    nada, pero tampoco debe quedarse como un 200 vacio: se acepta como
+    cerrado (el hueco se tacha) en vez de repetir el hallazgo con otro
+    disfraz."""
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD03).json()
+    sid = est["sid"]
+    assert any(h["codigo"] == "MMD-03" and h["ubicacion"] == "G"
+               for h in est["huecos"]), est["huecos"]
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "mmd03", "ubicacion": "G", "valor": "area"}]})
+    assert r.status_code == 200, r.text
+    assert not any(h["codigo"] == "MMD-03" and h["ubicacion"] == "G"
+                   for h in r.json()["huecos"])
+
+
+def test_resolver_mmd03_id_desconocido_da_422(tmp_path):
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD03).json()
+    sid = est["sid"]
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "mmd03", "ubicacion": "no_existe", "valor": "solicitante"}]})
+    assert r.status_code == 422
+    assert "no_existe" in r.json()["error"]
+
 
 def test_resolver_mmd04campo_reensambla_y_quita_el_hueco(tmp_path):
     c = _cli(tmp_path)
