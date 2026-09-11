@@ -220,6 +220,14 @@ def test_descargar_plantilla_responde_con_contenido(cliente):
     assert "Diccionario de Datos" in r.text
 
 
+def test_descargar_plantilla_tobe_responde_con_contenido(cliente):
+    r = cliente.get("/descargar-plantilla-tobe")
+    assert r.status_code == 200
+    assert r.content
+    assert "```mermaid" in r.text
+    assert ":::actor" in r.text
+
+
 # ── Linter: la puerta de /descargar/{sid}/gpm ───────────────────────
 
 _TOBE_LINEAL = """# Propuesta TO-BE — Trámite Mínimo

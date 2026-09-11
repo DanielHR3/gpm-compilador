@@ -16,6 +16,11 @@ type DefCampo = {
   etiqueta: string;
   obligatorio: boolean;
   ayuda: string;
+  /** Ruta de la plantilla de ejemplo para este insumo, si tiene una. Los
+   * insumos con formato propenso a error (TO-BE: carriles/`@@campo` en el
+   * Mermaid; Diccionario: catálogos, nombres técnicos) llevan un ejemplo
+   * descargable — As Is/Vistas no tienen un formato tan rígido que enseñar. */
+  plantilla?: string;
 };
 
 const CAMPOS: readonly DefCampo[] = [
@@ -30,12 +35,14 @@ const CAMPOS: readonly DefCampo[] = [
     etiqueta: "To Be",
     obligatorio: false,
     ayuda: "Proceso objetivo (opcional).",
+    plantilla: "/descargar-plantilla-tobe",
   },
   {
     campo: "diccionario",
     etiqueta: "Diccionario",
     obligatorio: true,
     ayuda: "Diccionario de datos (obligatorio).",
+    plantilla: "/descargar-plantilla",
   },
   {
     campo: "vistas",
@@ -112,7 +119,7 @@ export default function CargaInsumos({
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {CAMPOS.map(({ campo, etiqueta, obligatorio, ayuda }) => {
+        {CAMPOS.map(({ campo, etiqueta, obligatorio, ayuda, plantilla }) => {
           const inputId = `insumo-${campo}`;
           const archivo = slots[campo];
           const activa = sobrevolando === campo;
@@ -201,12 +208,12 @@ export default function CargaInsumos({
                     }
                   />
                 </div>
-                {campo === "diccionario" ? (
+                {plantilla ? (
                   <a
                     className="mt-2 inline-block text-xs text-primary underline underline-offset-2"
-                    href="/descargar-plantilla"
+                    href={plantilla}
                   >
-                    Descargar plantilla de ejemplo
+                    Descargar plantilla de ejemplo ({etiqueta})
                   </a>
                 ) : null}
               </CardContent>

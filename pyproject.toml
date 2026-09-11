@@ -17,7 +17,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"gpmc.web" = ["plantilla-diccionario.md"]
+"gpmc.web" = ["plantilla-diccionario.md", "plantilla-tobe.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
