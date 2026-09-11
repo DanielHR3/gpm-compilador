@@ -1,7 +1,9 @@
 import { useId, useState } from "react";
+import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "cn";
 import type { CampoManifiesto, Clausula, Condicion } from "@/lib/types";
 
 /**
@@ -89,7 +91,7 @@ export default function ConstructorRegla({
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col rounded-lg border border-border bg-muted/30 p-3">
       {filas.map((fila, i) => {
         const n = i + 1;
         const campoId = `${idBase}-campo-${i}`;
@@ -99,91 +101,106 @@ export default function ConstructorRegla({
         const tieneCatalogo = !!campoElegido && campoElegido.catalogo.length > 0;
 
         return (
-          <div key={i} className="flex flex-wrap items-end gap-2">
-            <div className="flex flex-col gap-1">
-              <label htmlFor={campoId} className="text-sm font-medium">
-                Campo {n}
-              </label>
-              <select
-                id={campoId}
-                className={claseSelect}
-                value={fila.campo}
-                onChange={(e) =>
-                  actualizarFila(i, { campo: e.target.value, igual: "" })
-                }
-              >
-                <option value="">Elige un campo</option>
-                {campos.map((c) => (
-                  <option key={c.nombre} value={c.nombre}>
-                    {c.etiqueta}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor={operadorId} className="text-sm font-medium">
-                Operador {n}
-              </label>
-              <select
-                id={operadorId}
-                className={claseSelect}
-                value={fila.operador}
-                onChange={(e) =>
-                  actualizarFila(i, {
-                    operador: e.target.value as "==" | "!=",
-                  })
-                }
-              >
-                <option value="==">==</option>
-                <option value="!=">!=</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor={valorId} className="text-sm font-medium">
-                Valor {n}
-              </label>
-              {tieneCatalogo ? (
+          <div key={i}>
+            {i > 0 ? (
+              <div className="flex items-center gap-2 py-1.5 text-xs font-semibold tracking-wide text-primary">
+                <span className="h-px flex-1 bg-primary/20" />Y<span className="h-px flex-1 bg-primary/20" />
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-end gap-2 rounded-md bg-card p-2.5 ring-1 ring-foreground/5">
+              <div className="flex min-w-32 flex-1 flex-col gap-1">
+                <label htmlFor={campoId} className="text-xs font-medium text-muted-foreground">
+                  Campo {n}
+                </label>
                 <select
-                  id={valorId}
+                  id={campoId}
                   className={claseSelect}
-                  value={fila.igual}
-                  onChange={(e) => actualizarFila(i, { igual: e.target.value })}
+                  value={fila.campo}
+                  onChange={(e) =>
+                    actualizarFila(i, { campo: e.target.value, igual: "" })
+                  }
                 >
-                  <option value="">Elige un valor</option>
-                  {campoElegido!.catalogo.map((opcion) => (
-                    <option key={opcion.valor} value={opcion.valor}>
-                      {opcion.etiqueta}
+                  <option value="">Elige un campo</option>
+                  {campos.map((c) => (
+                    <option key={c.nombre} value={c.nombre}>
+                      {c.etiqueta}
                     </option>
                   ))}
                 </select>
-              ) : (
-                <Input
-                  id={valorId}
-                  value={fila.igual}
-                  onChange={(e) => actualizarFila(i, { igual: e.target.value })}
-                />
-              )}
-            </div>
+              </div>
 
-            {i > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={`Quitar fila ${n}`}
-                onClick={() => quitarFila(i)}
-              >
-                ×
-              </Button>
-            ) : null}
+              <div className="flex w-36 flex-col gap-1">
+                <label htmlFor={operadorId} className="text-xs font-medium text-muted-foreground">
+                  Operador {n}
+                </label>
+                <select
+                  id={operadorId}
+                  className={claseSelect}
+                  value={fila.operador}
+                  onChange={(e) =>
+                    actualizarFila(i, {
+                      operador: e.target.value as "==" | "!=",
+                    })
+                  }
+                >
+                  <option value="==">Es igual a</option>
+                  <option value="!=">Es distinto de</option>
+                </select>
+              </div>
+
+              <div className="flex min-w-32 flex-1 flex-col gap-1">
+                <label htmlFor={valorId} className="text-xs font-medium text-muted-foreground">
+                  Valor {n}
+                </label>
+                {tieneCatalogo ? (
+                  <select
+                    id={valorId}
+                    className={claseSelect}
+                    value={fila.igual}
+                    onChange={(e) => actualizarFila(i, { igual: e.target.value })}
+                  >
+                    <option value="">Elige un valor</option>
+                    {campoElegido!.catalogo.map((opcion) => (
+                      <option key={opcion.valor} value={opcion.valor}>
+                        {opcion.etiqueta}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Input
+                    id={valorId}
+                    value={fila.igual}
+                    onChange={(e) => actualizarFila(i, { igual: e.target.value })}
+                  />
+                )}
+              </div>
+
+              {i > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Quitar fila ${n}`}
+                  onClick={() => quitarFila(i)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <X aria-hidden className="size-4" />
+                </Button>
+              ) : null}
+            </div>
           </div>
         );
       })}
 
-      <Button type="button" variant="outline" onClick={anadirFila}>
-        Añadir Y
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={anadirFila}
+        className={cn("mt-2 self-start", filas.length > 0 && "border-primary/30 text-primary")}
+      >
+        <Plus aria-hidden className="size-3.5" />
+        Añadir condición Y
       </Button>
     </div>
   );

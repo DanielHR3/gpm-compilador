@@ -211,7 +211,14 @@ export default function TarjetaHueco({
         </span>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-foreground">{hueco.mensaje}</p>
+        {/* DIC-08 muestra `hueco.mensaje` dentro de su propio control (la
+            frase cruda que no se pudo interpretar es el punto de partida del
+            constructor de reglas) -- repetirlo aqui arriba lo duplicaria en
+            pantalla. Ver ControlVisibilidad.test.tsx, que exige el mensaje
+            visible en su render aislado. */}
+        {hueco.codigo !== "DIC-08" ? (
+          <p className="text-sm font-medium text-foreground">{hueco.mensaje}</p>
+        ) : null}
         {hueco.propuesta ? (
           <p className="text-sm text-muted-foreground">
             Propuesta: {hueco.propuesta}

@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { ArrowRight, Check, GitBranch } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +9,7 @@ import {
   resolverCompuertaCampo,
   resolverCompuertaRamas,
 } from "@/lib/api";
+import { cn } from "cn";
 import type { Condicion, EstructuraCompuerta, Hueco } from "@/lib/types";
 
 import ConstructorRegla from "./ConstructorRegla";
@@ -121,6 +123,30 @@ export default function ControlCompuerta({
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span
+          className={cn(
+            "flex size-5 items-center justify-center rounded-full font-semibold",
+            "bg-primary text-primary-foreground",
+          )}
+        >
+          1
+        </span>
+        Elegir campo
+        <span className="h-px w-4 bg-border" />
+        <span
+          className={cn(
+            "flex size-5 items-center justify-center rounded-full font-semibold",
+            fase === 2
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          2
+        </span>
+        Condición por rama
+      </div>
+
       {fase === 1 ? (
         <>
           <div className="flex flex-col gap-1">
@@ -145,20 +171,32 @@ export default function ControlCompuerta({
             type="button"
             disabled={!campoElegido || guardando}
             onClick={usarEsteCampo}
+            className="self-start"
           >
             Usar este campo
+            <ArrowRight aria-hidden className="size-4" />
           </Button>
         </>
       ) : (
         <>
-          <p>
-            El campo elegido y sus etiquetas no resolvieron solas todas las
-            ramas: arma la condición de cada una a mano.
-          </p>
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <GitBranch aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-600" />
+            <p>
+              El campo elegido y sus etiquetas no resolvieron solas todas las
+              ramas: arma la condición de cada una a mano.
+            </p>
+          </div>
           {estructura?.ramas.map((rama) => (
-            <div key={rama.a} className="flex flex-col gap-2">
-              <p>
-                → {rama.a_nombre} (etiqueta &quot;{rama.etiqueta}&quot;)
+            <div
+              key={rama.a}
+              className="flex flex-col gap-2 rounded-lg border border-border p-3"
+            >
+              <p className="text-sm font-medium">
+                <ArrowRight aria-hidden className="mr-1 inline size-3.5 text-primary" />
+                {rama.a_nombre}
+                <span className="ml-1 font-normal text-muted-foreground">
+                  (etiqueta &quot;{rama.etiqueta}&quot;)
+                </span>
               </p>
               <ConstructorRegla
                 campos={campos}
@@ -173,7 +211,9 @@ export default function ControlCompuerta({
             type="button"
             disabled={!todasLasRamasListas || guardando}
             onClick={guardarRamas}
+            className="self-start"
           >
+            <Check aria-hidden className="size-4" />
             Guardar ramas
           </Button>
         </>

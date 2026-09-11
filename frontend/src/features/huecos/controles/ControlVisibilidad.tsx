@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Check, Quote } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { camposDelManifiesto, ErrorApi, resolverDic08 } from "@/lib/api";
@@ -49,7 +50,13 @@ export default function ControlVisibilidad({
 
   return (
     <div className="flex flex-col gap-3">
-      <p>{hueco.mensaje}</p>
+      <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+        <Quote aria-hidden className="mt-0.5 size-4 shrink-0 text-primary/60" />
+        <p>{hueco.mensaje}</p>
+      </div>
+      <p className="text-sm font-medium">
+        Arma la condición que decide cuándo se muestra este campo:
+      </p>
       <ConstructorRegla campos={campos} value={null} onChange={setCondicion} />
       {error ? (
         <div
@@ -63,7 +70,9 @@ export default function ControlVisibilidad({
         type="button"
         disabled={!condicion || guardando}
         onClick={guardar}
+        className="self-start"
       >
+        <Check aria-hidden className="size-4" />
         Guardar
       </Button>
     </div>
