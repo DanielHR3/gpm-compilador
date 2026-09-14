@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "cn";
 import { reconocer, resolver } from "@/lib/api";
+
+import { tituloDeCodigo } from "./lenguaje";
 import type { Hueco, Resolucion } from "@/lib/types";
 
 /** Color de acento por severidad -- solo estos tres niveles existen hoy. */
@@ -213,8 +215,14 @@ export default function TarjetaHueco({
       )}
     >
       <CardHeader className="flex items-center justify-between gap-2 space-y-0">
-        <CardTitle className="font-mono text-sm tracking-tight text-muted-foreground">
-          {hueco.codigo}
+        {/* El codigo de validacion no dice nada a quien documenta un tramite;
+            vive en el detalle tecnico de cada control. */}
+        <CardTitle
+          role="heading"
+          aria-level={3}
+          className="text-sm font-semibold tracking-tight text-foreground"
+        >
+          {tituloDeCodigo(hueco.codigo)}
         </CardTitle>
         <span
           className={cn(

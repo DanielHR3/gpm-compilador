@@ -84,15 +84,15 @@ it("fase 2: si el campo no basta, aparece el constructor por rama", async () => 
   // una fila de constructor por rama (Aprobar / Rechazar)
   expect(await screen.findByText(/Aprobar/)).toBeInTheDocument();
   await userEvent.selectOptions(
-    screen.getAllByLabelText(/campo 1/i)[0],
+    screen.getAllByLabelText(/Campo de la condición 1/i)[0],
     "procede",
   );
-  await userEvent.type(screen.getAllByLabelText(/valor 1/i)[0], "si");
+  await userEvent.type(screen.getAllByLabelText(/Valor de la condición 1/i)[0], "si");
   await userEvent.selectOptions(
-    screen.getAllByLabelText(/campo 1/i)[1],
+    screen.getAllByLabelText(/Campo de la condición 1/i)[1],
     "procede",
   );
-  await userEvent.type(screen.getAllByLabelText(/valor 1/i)[1], "no");
+  await userEvent.type(screen.getAllByLabelText(/Valor de la condición 1/i)[1], "no");
   await userEvent.click(
     screen.getByRole("button", { name: /guardar ramas/i }),
   );

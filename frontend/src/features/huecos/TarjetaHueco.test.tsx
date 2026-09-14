@@ -140,3 +140,25 @@ it("META-04: mientras guarda, el boton lo dice y se anuncia como ocupado", async
 
   soltar({ manifiesto: {}, huecos: [] });
 });
+
+it("encabeza la tarjeta con el titulo en castellano, no con el codigo", () => {
+  render(
+    <TarjetaHueco
+      hueco={{
+        nivel: "falta_dato",
+        codigo: "MMD-03",
+        ubicacion: "t-07",
+        mensaje: "la tarea no dice quien la hace",
+        propuesta: null,
+      }}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Responsable de una tarea" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("MMD-03")).toBeNull();
+});
