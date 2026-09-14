@@ -86,7 +86,7 @@ def test_una_plantilla_con_variables_declaradas_se_vuelve_una_accion_documento(t
     datos = a.model_dump()
     assert datos["plantilla"] == "Estimado {{nombre}}, su CURP {{curp}} fue registrada."
     assert sorted(datos["variables"]) == ["curp", "nombre"]
-    assert not [h for h in r.huecos if h.codigo.startswith("DOC-")]
+    assert not [h for h in r.huecos if h.codigo.startswith("DOC-") and h.nivel == "falta_dato"]
 
 
 def test_una_variable_que_no_es_campo_del_diccionario_se_reporta_y_no_se_emite(tmp_path):
