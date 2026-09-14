@@ -124,4 +124,48 @@ describe("useFoco", () => {
 
     expect(result.current.actual?.codigo).toBe("B");
   });
+
+  test("al cerrar el hueco en foco, siguientePendiente salta al proximo que sigue abierto", () => {
+    // Con la numeracion estable, la tarjeta resuelta se queda en su sitio: el
+    // foco tiene que moverse a proposito o el analista se queda mirando una
+    // palomita verde.
+    const { result, rerender } = renderHook(
+      ({ resueltas }) => useFoco(lista, resueltas),
+      { initialProps: { resueltas: new Set<string>() } },
+    );
+    act(() => result.current.irA(k("A")));
+
+    rerender({ resueltas: new Set([k("A")]) });
+    act(() => result.current.siguientePendiente());
+
+    expect(result.current.actual?.codigo).toBe("B");
+  });
+
+  test("si no queda nada pendiente hacia adelante, vuelve al primero pendiente hacia atras", () => {
+    // Terminar el ultimo no debe dejar al analista en una palomita mientras
+    // arriba siguen huecos abiertos.
+    const { result, rerender } = renderHook(
+      ({ resueltas }) => useFoco(lista, resueltas),
+      { initialProps: { resueltas: new Set([k("B")]) } },
+    );
+    act(() => result.current.irA(k("C")));
+
+    rerender({ resueltas: new Set([k("B"), k("C")]) });
+    act(() => result.current.siguientePendiente());
+
+    expect(result.current.actual?.codigo).toBe("A");
+  });
+
+  test("si ya no queda ninguno pendiente, se queda donde esta sin reventar", () => {
+    const { result, rerender } = renderHook(
+      ({ resueltas }) => useFoco(lista, resueltas),
+      { initialProps: { resueltas: new Set([k("A"), k("B")]) } },
+    );
+    act(() => result.current.irA(k("C")));
+
+    rerender({ resueltas: new Set([k("A"), k("B"), k("C")]) });
+    act(() => result.current.siguientePendiente());
+
+    expect(result.current.actual?.codigo).toBe("C");
+  });
 });

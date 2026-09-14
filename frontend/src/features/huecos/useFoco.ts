@@ -77,12 +77,32 @@ export function useFoco(huecos: Hueco[], resueltas: Set<string>) {
     [huecos, indice, fijar, resueltas],
   );
 
+  /**
+   * Tras cerrar el hueco en foco: el proximo que siga abierto.
+   *
+   * Con la numeracion estable la tarjeta resuelta se queda en su sitio, asi
+   * que el foco no se mueve solo: hay que moverlo a proposito o el analista
+   * se queda mirando una palomita verde. Primero hacia adelante; si ya no hay
+   * nada, hacia atras, para no dejar huecos abiertos arriba; si no queda
+   * ninguno, se queda donde esta.
+   */
+  const siguientePendiente = useCallback(() => {
+    const abierto = (i: number) => !resueltas.has(claveDe(huecos[i]));
+    for (let i = indice + 1; i < huecos.length; i += 1) {
+      if (abierto(i)) { fijar(huecos, i); return; }
+    }
+    for (let i = indice - 1; i >= 0; i -= 1) {
+      if (abierto(i)) { fijar(huecos, i); return; }
+    }
+  }, [huecos, indice, fijar, resueltas]);
+
   return {
     actual,
     indice,
     total: huecos.length,
     siguiente: useCallback(() => mover(1), [mover]),
     anterior: useCallback(() => mover(-1), [mover]),
+    siguientePendiente,
     irA: useCallback(
       (k: string) => {
         const i = huecos.findIndex((h) => claveDe(h) === k);

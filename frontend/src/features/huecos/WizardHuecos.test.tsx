@@ -232,6 +232,11 @@ it("al volver a la pantalla, lo ya reconocido cuenta como resuelto", () => {
 const textoDe = (frase: string) => (_: string, el: Element | null) =>
   el?.textContent?.replace(/\s+/g, " ").trim() === frase;
 
+/** Como textoDe, pero por el inicio: el contador anade «· N cerrados» al final. */
+const empiezaCon = (frase: string) => (_: string, el: Element | null) =>
+  el?.tagName === "P" &&
+  (el.textContent ?? "").replace(/\s+/g, " ").trim().startsWith(frase);
+
 const conHuecos = (n: number) => ({
   ...estado,
   huecos: Array.from({ length: n }, (_, i) => ({
@@ -272,4 +277,25 @@ it("en foco, avanzar mueve al hueco siguiente", async () => {
   await userEvent.click(screen.getByRole("button", { name: /siguiente/i }));
 
   expect(screen.getByText(textoDe("Hueco 2 de 30"))).toBeInTheDocument();
+});
+
+it("en foco, guardar salta solo al siguiente hueco pendiente", async () => {
+  // Con la numeracion estable la tarjeta resuelta se queda en su sitio, en
+  // verde; si el foco no se mueve, el analista tiene que pulsar "Siguiente"
+  // despues de cada guardado.
+  const { resolver } = await import("@/lib/api");
+  const est = conHuecos(30);
+  vi.mocked(resolver).mockResolvedValue({
+    manifiesto: est.manifiesto,
+    huecos: est.huecos.slice(1),
+  } as any);
+
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  expect(screen.getByText(textoDe("Hueco 1 de 30"))).toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText(/tiempo de resolucion/i), "5 dias");
+  await userEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+  // Tras guardar, el contador dice «Hueco 2 de 30 · 1 cerrados».
+  expect(await screen.findByText(empiezaCon("Hueco 2 de 30"))).toBeInTheDocument();
 });

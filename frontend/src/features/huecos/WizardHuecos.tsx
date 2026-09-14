@@ -80,6 +80,15 @@ export default function WizardHuecos({
   const desbloqueado = bloqueantes.length === 0;
 
   const problemas = estado.problemas ?? [];
+  // Cerrado = ya no vive en la lista del servidor, o esta reconocido.
+  const vivos = new Set(huecos.map(clave));
+  const cerradas = new Set(
+    huecosOriginales
+      .map(clave)
+      .filter((k) => !vivos.has(k) || reconocidos.has(k)),
+  );
+  const foco = useFoco(huecosOriginales, cerradas);
+
   /** "Quedan 3 huecos" / "Queda 1 hueco" / "No queda ninguno". */
   const frasePendientes = (n: number): string => {
     if (n === 0) return "No queda ningun hueco pendiente.";
@@ -119,17 +128,14 @@ export default function WizardHuecos({
     toast.success(`${resuelto.codigo} resuelto`, {
       description: frasePendientes(faltan),
     });
+
+    // Con la numeracion estable la tarjeta resuelta se queda en su sitio, en
+    // verde: si el foco no se mueve, hay que pulsar "Siguiente" tras cada
+    // guardado. Se avanza al siguiente pendiente. En lista no hay foco.
+    if (modo === "foco") foco.siguientePendiente();
   };
 
   const grupos = agruparPorNivel(enPantalla.map((e) => e.item));
-  // Cerrado = ya no vive en la lista del servidor, o esta reconocido.
-  const vivos = new Set(huecos.map(clave));
-  const cerradas = new Set(
-    huecosOriginales
-      .map(clave)
-      .filter((k) => !vivos.has(k) || reconocidos.has(k)),
-  );
-  const foco = useFoco(huecosOriginales, cerradas);
   const salientes = new Set(
     enPantalla.filter((e) => e.saliendo).map((e) => clave(e.item)),
   );
