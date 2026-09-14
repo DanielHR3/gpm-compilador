@@ -405,7 +405,10 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     if to_be:
         bloques = _BLOQUE_MERMAID.findall(to_be)
         if bloques:
-            rm = ext_mmd.extraer(bloques[0])
+            # Los nombres del Diccionario permiten que una compuerta escrita
+            # en español —sin la sintaxis @@— resuelva sola su campo.
+            declarados = [c.nombre for p_ in pantallas for c in p_.campos]
+            rm = ext_mmd.extraer(bloques[0], campos_declarados=declarados)
             r.huecos += rm.huecos
 
             tareas_mmd = [n for n in rm.nodos if n.clase_nodo == "tarea"]

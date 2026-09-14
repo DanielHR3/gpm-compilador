@@ -10,6 +10,7 @@ que una persona lo resuelva.
 
 from typing import Optional
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from gpmc.nucleo.huecos import Hueco
@@ -114,7 +115,63 @@ def _limpiar(texto: str) -> tuple[str, Optional[str]]:
     return t[m.end():].strip(), prefijo or None
 
 
-def extraer(bloque: str) -> Resultado:
+def _clave(texto: str) -> str:
+    """Normaliza a minusculas sin acentos y con guion bajo entre palabras."""
+    t = unicodedata.normalize("NFD", (texto or "").lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-z0-9]+", "_", t).strip("_")
+
+
+def campo_de_compuerta(texto: str, campos: "list[str]") -> Optional[str]:
+    """El campo del formulario que una compuerta consulta, o None.
+
+    MMD-04 exigia la sintaxis `@@campo` dentro del nodo. Si no la veia se
+    rendia, aunque el nombre del campo estuviera escrito en español dos
+    palabras despues: en Publicacion en el Periodico Oficial las 6 compuertas lo
+    nombran («¿Modalidad de pago?» -> `modalidad_pago`).
+
+    Tres formas, de la mas explicita a la mas debil. Ante un empate se devuelve
+    None: adivinar cual de dos campos gobierna una bifurcacion de un tramite de
+    gobierno es peor que preguntar.
+    """
+    if not texto or not campos:
+        return None
+
+    # 1) El texto lo nombra entre parentesis: «¿Qué trámite? (procedencia)».
+    for bruto in re.findall(r"\(([^()]*)\)", texto):
+        cand = _clave(bruto).lstrip("_")
+        if cand in campos:
+            return cand
+
+    t = _clave(texto)
+
+    # 2) El nombre del campo aparece completo dentro del texto.
+    #
+    # Solo nombres de dos o mas palabras: uno de una sola —«procede» dentro de
+    # «¿Procede?»— es evidencia demasiado debil para decidir por donde se
+    # bifurca un tramite de gobierno. Para esos hace falta el parentesis
+    # explicito de la regla 1.
+    dentro = [c for c in campos if c and c in t and "_" in c]
+    if dentro:
+        mejor = max(len(c) for c in dentro)
+        empatados = [c for c in dentro if len(c) == mejor]
+        return empatados[0] if len(empatados) == 1 else None
+
+    # 3) Todas las palabras del campo estan en el texto, en cualquier orden.
+    palabras = set(t.split("_"))
+    cubiertos = [
+        c for c in campos
+        if c and set(c.split("_")) <= palabras and len(set(c.split("_"))) > 1
+    ]
+    if cubiertos:
+        mejor = max(len(c) for c in cubiertos)
+        empatados = [c for c in cubiertos if len(c) == mejor]
+        return empatados[0] if len(empatados) == 1 else None
+
+    return None
+
+
+def extraer(bloque: str, campos_declarados: "Optional[list[str]]" = None) -> Resultado:
     r = Resultado()
     r.carriles = [normalizar_actor(c) for c in _CLASSDEF.findall(bloque)]
 
@@ -212,11 +269,18 @@ def extraer(bloque: str) -> Resultado:
                 "puede saber qué actor la ejecuta",
             ))
         if n.clase_nodo == "compuerta" and not n.campos:
-            r.huecos.append(Hueco(
-                "falta_dato", "MMD-04", n.id,
-                f"la compuerta ({n.texto[:50]}) no nombra ningún campo @@; "
-                "la condición debe capturarse a mano",
-            ))
+            # Antes de preguntar: la compuerta casi siempre nombra su campo en
+            # español («¿Modalidad de pago?» -> modalidad_pago), aunque no use
+            # la sintaxis @@. Si hay empate no se adivina.
+            inferido = campo_de_compuerta(n.texto, campos_declarados or [])
+            if inferido:
+                n.campos = [inferido]
+            else:
+                r.huecos.append(Hueco(
+                    "falta_dato", "MMD-04", n.id,
+                    f"la compuerta ({n.texto[:50]}) no nombra ningún campo @@; "
+                    "la condición debe capturarse a mano",
+                ))
 
     r.aristas = [a for a in r.aristas if a.de in ids and a.a in ids]
     return r

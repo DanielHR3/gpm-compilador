@@ -238,3 +238,41 @@ def test_el_carril_declarado_gana_sobre_el_prefijo():
 def test_sin_carril_y_sin_prefijo_el_hueco_sigue_ahi():
     r = extraer("flowchart TD\n    A[Revisar expediente]\n")
     assert [h.codigo for h in r.huecos if h.codigo == "MMD-03"] == ["MMD-03"]
+
+
+# ── La compuerta que nombra su campo en español ─────────────────────────────
+#
+# MMD-04 exigia la sintaxis @@campo dentro del nodo. Si no la veia se rendia,
+# aunque el nombre del campo estuviera escrito dos palabras despues: en
+# Publicacion en el Periodico Oficial, las 6 compuertas lo nombran.
+
+def test_la_compuerta_que_dice_su_campo_entre_parentesis_no_pregunta():
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta(
+        "¿Qué trámite deseas realizar? (procedencia)", ["procedencia", "curp"],
+    ) == "procedencia"
+
+
+def test_la_compuerta_cuyo_texto_contiene_el_nombre_del_campo():
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta(
+        "¿Tiene observaciones?", ["tiene_observaciones", "observaciones"],
+    ) == "tiene_observaciones"
+
+
+def test_la_compuerta_cuyas_palabras_cubren_el_campo():
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta(
+        "¿Modalidad de pago?", ["modalidad_pago", "curp"],
+    ) == "modalidad_pago"
+
+
+def test_una_compuerta_ambigua_prefiere_preguntar():
+    """Si dos campos casan igual de bien, adivinar es peor que el hueco."""
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta("¿Pago?", ["pago_linea", "pago_banco"]) is None
+
+
+def test_una_compuerta_sin_relacion_con_ningun_campo_sigue_siendo_hueco():
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta("¿Procede?", ["curp", "rfc"]) is None

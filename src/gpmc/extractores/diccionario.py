@@ -190,6 +190,22 @@ def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
     m = re.match(r"^\(\s*cat[aá]logo\s*:\s*(.+?)\s*\)?\s*$", crudo, re.I)
     if m:
         crudo = m.group(1).rstrip(")").strip()
+    # La otra forma del mismo envoltorio, con la palabra DELANTE del parentesis:
+    # 'Catálogo (A, B, C)'. Publicacion en el Periodico Oficial la usa, y sin
+    # esto la primera opcion salia como 'Catálogo (A' y la ultima como 'C)' —
+    # no un hueco, sino un .gpm con las opciones corruptas.
+    #
+    # El parentesis tiene que abrir justo tras la palabra y cerrar al final:
+    # 'En línea (validación automática) · Banco...' es una lista con notas, no
+    # un envoltorio, y desenvolverla se comeria la segunda opcion.
+    m = re.match(
+        r"^(?:cat[aá]logo|valores|lista|opciones)\s*[:\-]?\s*\((.+)\)\s*$",
+        crudo, re.I,
+    )
+    # Los parentesis del contenido tienen que quedar balanceados: si no, lo que
+    # se recorto no era un envoltorio.
+    if m and m.group(1).count("(") == m.group(1).count(")"):
+        crudo = m.group(1).strip()
     if not crudo or crudo.upper() == "N/A":
         return [], False
     if any(m in _babel(crudo) for m in MARCAS_PENDIENTE):
@@ -251,6 +267,60 @@ def _parsear_condicion_visible(texto: str):
     return m["ref"].strip().strip('"').strip("`"), op, val
 
 
+_RE_CONJUNTO = re.compile(
+    r"(?P<salvo>salvo\s+cuando|no\s+aplica\s+cuando|cuando|solo\s+si|si)\s*"
+    r"`?@@(?P<campo>\w+)`?\s*∈\s*\{(?P<valores>[^}]*)\}",
+    re.I,
+)
+
+
+def _condicion_desde_conjunto(texto: str, indice: dict):
+    """«salvo cuando @@c ∈ {A, B}» -> «≠A Y ≠B». None si no aplica.
+
+    El Diccionario escribe la pertenencia a un conjunto con ∈, y hasta ahora el
+    parser se rendia en cuanto veia ese simbolo: cada frase asi era un DIC-08
+    que el analista tenia que rearmar a mano.
+
+    La forma NEGADA es la unica que se puede traducir: «no estar en {A, B}» es
+    «≠A Y ≠B», y la conjuncion es justo lo que el modelo sabe expresar desde
+    SP2. La forma positiva —«∈ {A, B}»— es una disyuncion, y `Condicion` no
+    tiene O: convertirla en «=A Y =B» daria una condicion que no se cumple
+    nunca, asi que se deja como hueco y lo decide una persona.
+    """
+    from gpmc.nucleo.manifiesto import Clausula, Condicion
+
+    m = _RE_CONJUNTO.search(texto or "")
+    if not m:
+        return None
+    if not re.match(r"salvo|no\s+aplica", _babel(m["salvo"])):
+        return None
+
+    campo = m["campo"]
+    if campo not in indice["campos"]:
+        return None
+    catalogo = indice["campos"][campo].catalogo
+
+    valores = []
+    for bruto in m["valores"].split(","):
+        v = _babel(bruto)
+        if not v:
+            continue
+        hallado = next((o.valor for o in catalogo if _babel(o.etiqueta) == v), None)
+        if hallado is None:
+            # Un solo valor que no casa deja la condicion incompleta, y una
+            # condicion incompleta es peor que preguntar.
+            return None
+        valores.append(hallado)
+
+    if not valores:
+        return None
+    primero, resto = valores[0], valores[1:]
+    return Condicion(
+        campo=campo, operador="!=", igual=primero,
+        y=[Clausula(campo=campo, operador="!=", igual=v) for v in resto],
+    )
+
+
 def _resolver_condicion_visible(
     ref_crudo: str, operador: str, valor_crudo: str, indice: dict,
 ) -> "Optional[object]":
@@ -278,7 +348,20 @@ def _resolver_condicion_visible(
             (o.valor for o in ref_campo.catalogo if _babel(o.etiqueta) == v), None
         )
         if igual is None:
-            return None
+            # El Diccionario declara la opcion con una nota —«En línea
+            # (validación automática)»— y la condicion la cita por su parte
+            # util: «= En línea». Exigir la cadena completa dejaba el campo sin
+            # condicion y emitia un DIC-08 por una diferencia de redaccion.
+            #
+            # Solo se acepta si UNA opcion casa: si la cita fuera ambigua entre
+            # dos, adivinar seria peor que preguntar.
+            def _sin_nota(et: str) -> str:
+                return _babel(re.sub(r"\s*\([^()]*\)\s*$", "", et or "")).strip()
+
+            candidatas = [o for o in ref_campo.catalogo if _sin_nota(o.etiqueta) == v]
+            if len(candidatas) != 1:
+                return None
+            igual = candidatas[0].valor
     return Condicion(campo=ref_nombre, igual=igual, operador=operador)
 
 
@@ -488,11 +571,18 @@ def _extraer_campos(
                     f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
                 ))
         elif _parece_condicion(vis_cruda):
-            r.huecos.append(Hueco(
-                "falta_dato", "DIC-08", f"{pantalla.id}::{nombre}",
-                f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
-                f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
-            ))
+            # Antes de rendirse: «salvo cuando @@c ∈ {A, B}» es «≠A Y ≠B», que
+            # el modelo si sabe expresar. La forma positiva sigue siendo hueco
+            # porque pide una disyuncion y `Condicion` no tiene O.
+            cond = _condicion_desde_conjunto(vis_cruda, indice)
+            if cond is not None:
+                campo.condicion_visible = cond
+            else:
+                r.huecos.append(Hueco(
+                    "falta_dato", "DIC-08", f"{pantalla.id}::{nombre}",
+                    f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
+                    f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
+                ))
 
         indice["campos"][nombre] = campo
         if declarado and capado:

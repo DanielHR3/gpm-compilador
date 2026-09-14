@@ -677,3 +677,121 @@ def test_dic08_lleva_pantalla_y_campo_en_la_ubicacion():
     pantalla, campo = dic08[0].ubicacion.split("::", 1)
     assert pantalla and campo
     assert dic08[0].ubicacion == "p1::nota_rara"
+
+
+from gpmc.extractores.diccionario import _catalogo_de
+
+
+# ── Envoltorios del catalogo y valores con anotacion ────────────────────────
+#
+# Estos dos no producian un hueco: producian un .gpm MAL. La plataforma
+# importaba una opcion llamada literalmente "Catálogo (Dependencia u organismo".
+
+def test_el_envoltorio_catalogo_con_parentesis_no_contamina_la_primera_opcion():
+    """El Diccionario de Publicacion escribe: «Catálogo (A, B, C)». Ya se
+    trataba la forma «(catálogo: A, B, C)» —comentario de 2026-09-02— pero no
+    esta, con la palabra delante del parentesis."""
+    opciones, pendiente = _catalogo_de(
+        "Catálogo (Dependencia u organismo, Municipio, Público en general)"
+    )
+
+    assert [o.etiqueta for o in opciones] == [
+        "Dependencia u organismo", "Municipio", "Público en general",
+    ]
+    assert not pendiente
+
+
+def test_una_lista_con_anotaciones_entre_parentesis_no_se_desenvuelve():
+    """«En línea (validación automática) · Banco...» es una lista con notas, no
+    un envoltorio: desenvolverla se comeria la segunda opcion."""
+    opciones, _ = _catalogo_de(
+        "En línea (validación automática) · Banco o transferencia (con comprobante)"
+    )
+
+    assert [o.etiqueta for o in opciones] == [
+        "En línea (validación automática)", "Banco o transferencia (con comprobante)",
+    ]
+
+
+def test_el_valor_casa_aunque_la_opcion_lleve_una_nota_entre_parentesis():
+    """El Diccionario declara la opcion «En línea (validación automática)» y la
+    condicion la cita como «= En línea». Exigir la cadena completa dejaba el
+    campo sin condicion y emitia un DIC-08 por una diferencia de redaccion."""
+    from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+    from gpmc.extractores.diccionario import _resolver_condicion_visible
+
+    campo = Campo(
+        nombre="modalidad_pago", etiqueta="Modalidad de Pago", tipo="select",
+        catalogo=[
+            OpcionCatalogo(etiqueta="En línea (validación automática)", valor="en_linea"),
+            OpcionCatalogo(etiqueta="Banco o transferencia (con comprobante)", valor="banco"),
+        ],
+    )
+    indice = {"campos": {"modalidad_pago": campo}, "por_etiqueta": {}}
+
+    cond = _resolver_condicion_visible("@@modalidad_pago", "==", "En línea", indice)
+
+    assert cond is not None
+    assert cond.igual == "en_linea"
+
+
+def test_un_valor_que_no_existe_en_el_catalogo_sigue_sin_resolver():
+    """La tolerancia no puede convertirse en adivinanza."""
+    from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+    from gpmc.extractores.diccionario import _resolver_condicion_visible
+
+    campo = Campo(
+        nombre="modalidad_pago", etiqueta="Modalidad de Pago", tipo="select",
+        catalogo=[OpcionCatalogo(etiqueta="En línea (validación automática)", valor="en_linea")],
+    )
+    indice = {"campos": {"modalidad_pago": campo}, "por_etiqueta": {}}
+
+    assert _resolver_condicion_visible("@@modalidad_pago", "==", "Efectivo", indice) is None
+
+
+def test_salvo_cuando_esta_en_un_conjunto_se_vuelve_una_cadena_de_distintos():
+    """«salvo cuando @@c ∈ {A, B}» es «≠A Y ≠B»: la conjuncion que el modelo ya
+    sabe expresar desde SP2. No hace falta añadir O para este caso."""
+    from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+    from gpmc.extractores.diccionario import _condicion_desde_conjunto
+
+    campo = Campo(
+        nombre="tipo_documento", etiqueta="Tipo de Documento", tipo="select",
+        catalogo=[
+            OpcionCatalogo(etiqueta="Convocatoria", valor="convocatoria"),
+            OpcionCatalogo(etiqueta="Edicto", valor="edicto"),
+            OpcionCatalogo(etiqueta="Ley", valor="ley"),
+        ],
+    )
+    indice = {"campos": {"tipo_documento": campo}, "por_etiqueta": {}}
+
+    cond = _condicion_desde_conjunto(
+        "Visible y obligatoria salvo cuando `@@tipo_documento` ∈ {Convocatoria, Edicto}",
+        indice,
+    )
+
+    assert cond is not None
+    assert (cond.campo, cond.operador, cond.igual) == ("tipo_documento", "!=", "convocatoria")
+    assert [(c.campo, c.operador, c.igual) for c in cond.y] == [
+        ("tipo_documento", "!=", "edicto"),
+    ]
+
+
+def test_un_conjunto_en_positivo_no_se_inventa_una_conjuncion():
+    """«@@c ∈ {A, B}» es una disyuncion: el modelo solo tiene Y. Convertirla en
+    «=A Y =B» seria una condicion que nunca se cumple."""
+    from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+    from gpmc.extractores.diccionario import _condicion_desde_conjunto
+
+    campo = Campo(
+        nombre="procedencia", etiqueta="Procedencia", tipo="select",
+        catalogo=[
+            OpcionCatalogo(etiqueta="Dependencia", valor="dependencia"),
+            OpcionCatalogo(etiqueta="Municipio", valor="municipio"),
+        ],
+    )
+    indice = {"campos": {"procedencia": campo}, "por_etiqueta": {}}
+
+    assert _condicion_desde_conjunto(
+        "Visible solo cuando `@@procedencia` ∈ {Dependencia, Municipio}", indice,
+    ) is None
