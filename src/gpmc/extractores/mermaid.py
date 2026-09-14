@@ -40,10 +40,19 @@ _NODO = re.compile(
 # (`A -- texto --> B`, `A -- |texto| --> B`) o despues (`A -->|texto| B`).
 # Los expedientes del equipo usan la primera; la plantilla del Diccionario
 # prescribe la segunda para las compuertas. Se aceptan las dos.
+#
+# `et2` (forma sin pipes) usa un lookahead negativo en vez de una clase de
+# caracteres excluidos: antes excluia literalmente '>' (entre otros), asi que
+# una etiqueta con un '<br/>' -real en expedientes del equipo, ver
+# test_una_etiqueta_de_arista_con_br_no_se_confunde_con_un_nodo- rompia el
+# match completo; el codigo caia a `_ARISTA_SIMPLE` (sin manejo de etiquetas)
+# y esa recortaba un fragmento de la etiqueta como si fuera un nodo real,
+# generando un MMD-02 fantasma. El lookahead solo se detiene ante la flecha
+# completa `-->` o un `|` suelto (para no chocar con la forma con pipes).
 _ARISTA = re.compile(
     r"(?P<de>\w+)\s*"
     r"(?:"
-    r"--\s*(?:\|(?P<et1>[^|]*)\||(?P<et2>[^->|]+?))?\s*-->"
+    r"--\s*(?:\|(?P<et1>[^|]*)\||(?P<et2>(?:(?!-->|\|).)+?))?\s*-->"
     r"|"
     r"-->\s*\|(?P<et3>[^|]*)\|"
     r")"
@@ -147,7 +156,10 @@ def extraer(bloque: str) -> Resultado:
 
     ocupadas = set()
     for m in _ARISTA.finditer(plano):
-        et = (m["et1"] or m["et2"] or m["et3"] or "").strip() or None
+        crudo_et = m["et1"] or m["et2"] or m["et3"] or ""
+        # Solo el '<br/>' -> espacio: a diferencia de _limpiar (texto de
+        # nodo), una etiqueta de arista no lleva prefijo de actor que quitar.
+        et = re.sub(r"\s+", " ", re.sub(r"<br\s*/?>", " ", crudo_et)).strip() or None
         r.aristas.append(Arista(de=m["de"], a=m["a"], etiqueta=et))
         ocupadas.add(m.span())
     for m in _ARISTA_SIMPLE.finditer(plano):

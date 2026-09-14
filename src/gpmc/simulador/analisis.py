@@ -8,6 +8,7 @@ El precalculo de transiciones existe para que el simulador no interprete
 reglas por su cuenta: la autoridad sigue siendo nucleo/reglas.
 """
 
+import json
 from dataclasses import dataclass, field
 
 from gpmc.nucleo import reglas
@@ -66,42 +67,84 @@ def analizar(m: Manifiesto) -> Analisis:
             a.transiciones[tid] = {"campo": None, "destinos": {}, "siguiente": conexiones[0].a}
             continue
 
-        campos = {c.cuando.campo for c in con_regla}
-        if len(campos) > 1:
+        # Campos que participan en cada rama (el campo base de `cuando` MAS
+        # los de sus clausulas `y`), en el mismo orden en que `reglas.emitir`
+        # los concatena con '&&' -- ese orden es lo que hace reproducible la
+        # clave compuesta que arma `html.py` del lado del navegador. Para
+        # decidir si dos ramas comparten "el mismo conjunto de campos" se
+        # compara como CONJUNTO (frozenset), no como tupla ordenada: nada
+        # obliga a que el constructor visual declare el mismo campo como base
+        # en todas las ramas de una misma compuerta (T15, hallazgo de review:
+        # comparar por tupla dejaba caer en silencio una rama valida cuyo
+        # unico "defecto" era listar los mismos dos campos en otro orden).
+        campos_por_rama = {
+            id(c): tuple(reglas.campos_de(reglas.emitir(c.cuando))) for c in con_regla
+        }
+        conjuntos = {frozenset(campos_por_rama[id(c)]) for c in con_regla}
+        if len(conjuntos) > 1:
+            vistos = sorted({campo for conjunto in conjuntos for campo in conjunto})
             a.problemas.append(
-                f"la tarea '{tid}' bifurca sobre mas de un campo ({', '.join(sorted(campos))}); "
-                "el simulador solo recorre bifurcaciones de un campo"
+                f"la tarea '{tid}' bifurca con conjuntos de campos distintos entre "
+                f"sus ramas ({', '.join(vistos)}); el simulador solo recorre "
+                "bifurcaciones consistentes y usa la primera rama como referencia"
             )
-        campo = sorted(campos)[0]
+        campos_tarea = campos_por_rama[id(con_regla[0])]
+        conjunto_tarea = frozenset(campos_tarea)
 
         destinos = {}
         for c in con_regla:
-            valor = c.cuando.igual
+            if frozenset(campos_por_rama[id(c)]) != conjunto_tarea:
+                continue  # rama con otro conjunto de campos: ya se aviso arriba
+
+            valores = {c.cuando.campo: c.cuando.igual}
+            valores.update({cl.campo: cl.igual for cl in getattr(c.cuando, "y", [])})
+
             # Se usa el evaluador compartido, no una comparacion propia.
-            if reglas.evaluar(reglas.emitir(c.cuando), {campo: valor}):
-                destinos[valor] = c.a
+            if reglas.evaluar(reglas.emitir(c.cuando), valores):
+                if len(campos_tarea) == 1:
+                    destinos[valores[campos_tarea[0]]] = c.a
+                else:
+                    clave = json.dumps(
+                        [valores[campo] for campo in campos_tarea],
+                        separators=(",", ":"), ensure_ascii=False,
+                    )
+                    destinos[clave] = c.a
 
-            valores_validos = catalogo_de.get(campo)
-            if valores_validos and valor not in valores_validos:
-                a.problemas.append(
-                    f"la tarea '{tid}' bifurca cuando '{campo}' vale '{valor}', pero ese valor "
-                    f"no esta en su catalogo ({', '.join(sorted(valores_validos))}): "
-                    "esa rama nunca se cumple"
-                )
+            for campo, valor in valores.items():
+                valores_validos = catalogo_de.get(campo)
+                if valores_validos and valor not in valores_validos:
+                    a.problemas.append(
+                        f"la tarea '{tid}' bifurca cuando '{campo}' vale '{valor}', pero ese "
+                        f"valor no esta en su catalogo ({', '.join(sorted(valores_validos))}): "
+                        "esa rama nunca se cumple"
+                    )
 
-            capturado_en = a.orden_captura.get(campo)
-            if capturado_en is not None and capturado_en > orden_tarea.get(tid, 0) + 1:
-                a.problemas.append(
-                    f"la tarea '{tid}' usa el campo '{campo}' en una condicion, pero ese campo "
-                    "se captura despues en el flujo"
-                )
+                capturado_en = a.orden_captura.get(campo)
+                if capturado_en is not None and capturado_en > orden_tarea.get(tid, 0) + 1:
+                    a.problemas.append(
+                        f"la tarea '{tid}' usa el campo '{campo}' en una condicion, pero ese "
+                        "campo se captura despues en el flujo"
+                    )
 
         sin_salida = [c.a for c in conexiones if not c.cuando]
-        a.transiciones[tid] = {
-            "campo": campo,
-            "destinos": destinos,
-            "siguiente": sin_salida[0] if sin_salida else None,
-        }
+        if len(campos_tarea) == 1:
+            # Forma identica a la de siempre -- el JS del simulador (html.py)
+            # no cambia para el caso de un solo campo.
+            a.transiciones[tid] = {
+                "campo": campos_tarea[0],
+                "destinos": destinos,
+                "siguiente": sin_salida[0] if sin_salida else None,
+            }
+        else:
+            # Bifurcacion sobre varios campos (clausulas `y`, Task 15): sin
+            # "campo" singular -- el JS arma la clave compuesta desde
+            # "campos" y hace JSON.stringify() de los valores en ese orden.
+            a.transiciones[tid] = {
+                "campo": None,
+                "campos": list(campos_tarea),
+                "destinos": destinos,
+                "siguiente": sin_salida[0] if sin_salida else None,
+            }
 
     alcanzables = _alcanzables(m)
     for t in m.flujo.tareas:

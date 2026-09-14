@@ -595,3 +595,45 @@ def test_condicion_visible_con_desigualdad_en_dependiente_campo():
 
 def test_campo_sin_condicion_visible_no_pone_dependiente_campo():
     assert _campos_visibilidad()["es_persona_moral"]["dependiente_campo"] == ""
+
+
+# --- emitir une clausulas Y con && ---
+
+_CON_CLAUSULAS_Y = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: estado, etiqueta: Estado, tipo: select, catalogo: [{etiqueta: Hidalgo, valor: hidalgo}]}
+  - {nombre: tipo, etiqueta: Tipo, tipo: select, catalogo: [{etiqueta: Foraneo, valor: foraneo}]}
+  - {nombre: mensaje, etiqueta: Mensaje, condicion_visible: {campo: estado, igual: hidalgo, y: [{campo: tipo, igual: foraneo}]}}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: t2, nombre: T2, actor: u, terminal: true}
+  conexiones: [{de: t1, a: t2, cuando: {campo: estado, igual: hidalgo, y: [{campo: tipo, igual: foraneo}]}}]
+"""
+
+
+def _compilar_con_clausulas_y():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_CLAUSULAS_Y)))
+    return g
+
+
+def test_emitir_une_clausulas_y_en_dependiente_campo():
+    g = _compilar_con_clausulas_y()
+    campos = {c["nombre"]: c for c in g["Formularios"][0]["Campos"]}
+    mensaje = campos["mensaje"]
+    assert mensaje["dependiente_campo"] == "@@estado=='hidalgo'&&@@tipo=='foraneo'"
+
+
+def test_emitir_une_clausulas_y_en_conexion_regla():
+    g = _compilar_con_clausulas_y()
+    conexiones_con_regla = [c for c in g["Conexiones"] if c["regla"]]
+    assert len(conexiones_con_regla) == 1
+    assert conexiones_con_regla[0]["regla"] == "@@estado=='hidalgo'&&@@tipo=='foraneo'"

@@ -10,7 +10,10 @@
 
 import type {
   Bloqueante,
+  CampoManifiesto,
+  Condicion,
   EstadoExpediente,
+  EstructuraCompuerta,
   Hueco,
   Resolucion,
 } from "./types";
@@ -155,6 +158,117 @@ export async function resolver(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ resoluciones }),
   });
+}
+
+/** Cuerpo de respuesta comun a `resolverDic08`/`resolverCompuertaCampo`/`resolverCompuertaRamas`. */
+type EstadoResolver = { manifiesto: Record<string, unknown>; huecos: Hueco[] };
+
+/**
+ * `POST /api/v1/expedientes/{sid}/resolver` con `tipo: "dic08"` — fija
+ * `condicion_visible` en el campo de `ubicacion` (`"pantalla::campo"`).
+ */
+export async function resolverDic08(
+  sid: string,
+  ubicacion: string,
+  condicion: Condicion,
+): Promise<EstadoResolver> {
+  return pedirJson(`${BASE}/expedientes/${sid}/resolver`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      resoluciones: [{ tipo: "dic08", ubicacion, condicion }],
+    }),
+  });
+}
+
+/**
+ * `POST /api/v1/expedientes/{sid}/resolver` con `tipo: "mmd04campo"` — fija
+ * el `@@campo` de la compuerta `gateId` y dispara el reensamblado del flujo.
+ */
+export async function resolverCompuertaCampo(
+  sid: string,
+  gateId: string,
+  campo: string,
+): Promise<EstadoResolver> {
+  return pedirJson(`${BASE}/expedientes/${sid}/resolver`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      resoluciones: [{ tipo: "mmd04campo", ubicacion: gateId, campo }],
+    }),
+  });
+}
+
+/**
+ * `POST /api/v1/expedientes/{sid}/resolver` con `tipo: "mmd04rama"` — fija
+ * una `Condicion` por cada rama de la compuerta `gateId` (respaldo cuando
+ * `resolverCompuertaCampo` no basta).
+ */
+export async function resolverCompuertaRamas(
+  sid: string,
+  gateId: string,
+  ramas: { a: string; condicion: Condicion }[],
+): Promise<EstadoResolver> {
+  return pedirJson(`${BASE}/expedientes/${sid}/resolver`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      resoluciones: [{ tipo: "mmd04rama", ubicacion: gateId, ramas }],
+    }),
+  });
+}
+
+/**
+ * `GET /api/v1/expedientes/{sid}/compuerta/{gate_id}` — estructura de una
+ * compuerta (predecesora + ramas) para el respaldo por rama de `MMD-04`.
+ */
+export async function leerCompuerta(
+  sid: string,
+  gateId: string,
+): Promise<EstructuraCompuerta> {
+  return pedirJson(`${BASE}/expedientes/${sid}/compuerta/${gateId}`);
+}
+
+/**
+ * Aplana `manifiesto.pantallas[].campos[]` en la lista de campos que consume
+ * `ConstructorRegla`. El manifiesto llega del servidor como JSON no tipado
+ * fuerte (`Record<string, unknown>`), asi que cada nivel se valida con
+ * narrowing antes de leerlo; cualquier forma inesperada se descarta en vez de
+ * lanzar. Un campo sin `catalogo` (o con uno mal formado) recibe `[]`.
+ */
+export function camposDelManifiesto(
+  manifiesto: Record<string, unknown>,
+): CampoManifiesto[] {
+  const pantallas = manifiesto.pantallas;
+  if (!Array.isArray(pantallas)) return [];
+
+  const resultado: CampoManifiesto[] = [];
+  for (const pantalla of pantallas) {
+    if (typeof pantalla !== "object" || pantalla === null) continue;
+    const campos = (pantalla as Record<string, unknown>).campos;
+    if (!Array.isArray(campos)) continue;
+
+    for (const campo of campos) {
+      if (typeof campo !== "object" || campo === null) continue;
+      const c = campo as Record<string, unknown>;
+      if (typeof c.nombre !== "string") continue;
+      const etiqueta = typeof c.etiqueta === "string" ? c.etiqueta : "";
+      const catalogoRaw = Array.isArray(c.catalogo) ? c.catalogo : [];
+      const catalogo = catalogoRaw
+        .filter(
+          (e): e is Record<string, unknown> =>
+            typeof e === "object" && e !== null &&
+            typeof (e as Record<string, unknown>).etiqueta === "string" &&
+            typeof (e as Record<string, unknown>).valor === "string",
+        )
+        .map((e) => ({
+          etiqueta: e.etiqueta as string,
+          valor: e.valor as string,
+        }));
+      resultado.push({ nombre: c.nombre, etiqueta, catalogo });
+    }
+  }
+  return resultado;
 }
 
 /**

@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { CircleAlert, CircleCheck, Download } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
+import { cn } from "cn";
 import { urlGpm, urlManifiesto } from "@/lib/api";
 import type { EstadoExpediente, Hueco } from "@/lib/types";
 
@@ -73,17 +75,23 @@ export default function WizardHuecos({
   return (
     <main className="mx-auto flex min-h-svh max-w-3xl flex-col gap-6 bg-background p-8 text-foreground">
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Resolucion de huecos</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Resolución de huecos
+        </h1>
         <Progress value={progreso} />
         <p className="text-sm text-muted-foreground">
-          {resueltos} de {totalInicial} resueltos
+          <span className="font-medium text-foreground">{resueltos}</span> de{" "}
+          {totalInicial} resueltos
         </p>
       </header>
 
       {problemas.length > 0 ? (
-        <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
-          <h2 className="text-lg font-medium">Avisos del analisis de flujo</h2>
-          <ul className="list-disc pl-5 text-sm text-muted-foreground">
+        <section className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+            <CircleAlert aria-hidden className="size-4" />
+            Avisos del análisis de flujo
+          </h2>
+          <ul className="list-disc pl-5 text-sm text-amber-900/80">
             {problemas.map((p, i) => (
               <li key={i}>{p}</li>
             ))}
@@ -107,28 +115,40 @@ export default function WizardHuecos({
         ))}
       </div>
 
-      <section className="flex flex-col gap-3 rounded-lg border border-border p-4">
+      <section
+        className={cn(
+          "flex flex-col gap-3 rounded-lg border p-4",
+          desbloqueado
+            ? "border-emerald-200 bg-emerald-50"
+            : "border-border bg-card",
+        )}
+      >
         {desbloqueado ? (
           <>
-            <h2 className="text-lg font-medium">Todo listo para entregar</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
+              <CircleCheck aria-hidden className="size-4" />
+              Todo listo para entregar
+            </h2>
             <div className="flex flex-wrap gap-4 text-sm">
               <a
-                className="text-primary underline"
+                className="inline-flex items-center gap-1.5 text-primary underline underline-offset-2"
                 href={urlGpm(estado.sid, "produccion")}
               >
-                Descargar .gpm (produccion)
+                <Download aria-hidden className="size-3.5" />
+                Descargar .gpm (producción)
               </a>
               <a
-                className="text-primary underline"
+                className="inline-flex items-center gap-1.5 text-primary underline underline-offset-2"
                 href={urlGpm(estado.sid, "pruebas")}
               >
+                <Download aria-hidden className="size-3.5" />
                 Descargar .gpm (pruebas)
               </a>
             </div>
           </>
         ) : (
           <>
-            <h2 className="text-lg font-medium">
+            <h2 className="text-sm font-semibold text-foreground">
               Faltan {bloqueantes.length} huecos por resolver antes de descargar
               el .gpm
             </h2>
@@ -142,28 +162,28 @@ export default function WizardHuecos({
           </>
         )}
 
-        <div className="flex flex-wrap gap-4 text-sm">
+        <div className="flex flex-wrap gap-4 border-t border-border/60 pt-3 text-sm">
           <a
-            className="text-primary underline"
+            className="text-primary underline underline-offset-2"
             href={urlManifiesto(estado.sid)}
           >
             Descargar manifiesto
           </a>
           <a
-            className="text-primary underline"
+            className="text-primary underline underline-offset-2"
             href={`/simulador/${estado.sid}`}
           >
             Abrir simulador
           </a>
           <a
-            className="text-primary underline"
+            className="text-primary underline underline-offset-2"
             href={`/aprobacion/${estado.sid}`}
           >
-            Abrir aprobacion
+            Abrir aprobación
           </a>
           {estado.tieneVistas ? (
             <a
-              className="text-primary underline"
+              className="text-primary underline underline-offset-2"
               href={`/vistas/${estado.sid}`}
               target="_blank"
               rel="noreferrer"

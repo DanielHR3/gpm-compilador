@@ -74,6 +74,25 @@ it("META-01 se resuelve por la API y sube el estado, sin recargar", async () => 
   expect(onEstado).toHaveBeenCalled();
 });
 
+it("META-04 (nombre del tramite) se resuelve con un ControlTexto real, no solo el boton de reconocer", async () => {
+  const { resolver } = await import("@/lib/api");
+  const est = {
+    ...estado,
+    huecos: [
+      { nivel: "falta_dato", codigo: "META-04", ubicacion: "metadatos",
+        mensaje: "no se pudo determinar el nombre del tramite", propuesta: null },
+    ],
+  };
+  (resolver as any).mockResolvedValue({ ...est, huecos: [] });
+  const onEstado = vi.fn();
+  render(<WizardHuecos estado={est as any} onEstado={onEstado} />);
+  await userEvent.type(screen.getByLabelText(/nombre/i), "Constancia de residencia");
+  await userEvent.click(screen.getByRole("button", { name: /guardar/i }));
+  expect(resolver).toHaveBeenCalledWith("a".repeat(16),
+    [{ tipo: "meta04", ubicacion: "metadatos", valor: "Constancia de residencia" }]);
+  expect(onEstado).toHaveBeenCalled();
+});
+
 it("MMD-03 muestra un ControlActor con los actores del manifiesto", async () => {
   const est = {
     ...estado,

@@ -77,6 +77,34 @@ def test_condicion_referencia_un_campo_declarado():
         Manifiesto.model_validate(malo)
 
 
+def test_una_clausula_y_con_campo_no_declarado_falla():
+    malo = {
+        **MINIMO,
+        "flujo": {
+            **MINIMO["flujo"],
+            "conexiones": [{"de": "t1", "a": "t2", "cuando": {
+                "campo": "curp", "igual": "1",
+                "y": [{"campo": "no_existe", "igual": "9"}]}}],
+        },
+    }
+    with pytest.raises(ValidationError, match="no_existe"):
+        Manifiesto.model_validate(malo)
+
+
+def test_una_clausula_y_con_campos_declarados_pasa():
+    con_cond_y = {
+        **MINIMO,
+        "flujo": {
+            **MINIMO["flujo"],
+            "conexiones": [{"de": "t1", "a": "t2", "cuando": {
+                "campo": "curp", "igual": "1",
+                "y": [{"campo": "curp", "igual": "2"}]}}],
+        },
+    }
+    m = Manifiesto.model_validate(con_cond_y)
+    assert m.flujo.conexiones[0].cuando.y[0].campo == "curp"
+
+
 def test_ida_y_vuelta_por_yaml(tmp_path):
     m = Manifiesto.model_validate(MINIMO)
     destino = tmp_path / "m.yaml"
@@ -95,3 +123,27 @@ def test_el_ejemplo_del_repo_es_valido():
     ruta = Path(__file__).parent.parent / "ejemplos" / "vinculacion-organismos.yaml"
     m = cargar(ruta)
     assert m.tramite.homoclave == "SEDECO/02"
+
+
+def test_condicion_con_clausulas_y_round_trip(tmp_path):
+    from gpmc.nucleo.manifiesto import Condicion, Clausula
+    c = Condicion(campo="estado", igual="hidalgo", operador="!=",
+                  y=[Clausula(campo="tipo", igual="foraneo")])
+    d = c.model_dump()
+    assert d["y"][0] == {"campo": "tipo", "igual": "foraneo", "operador": "=="}
+    assert Condicion.model_validate(d) == c
+
+
+def test_condicion_legada_sin_y_sigue_valida():
+    from gpmc.nucleo.manifiesto import Condicion
+    c = Condicion.model_validate({"campo": "x", "igual": "y"})
+    assert c.y == []
+    assert c.model_dump(exclude_defaults=True) == {"campo": "x", "igual": "y"}
+
+
+def test_clausula_no_admite_campo_extra():
+    import pytest
+    from pydantic import ValidationError
+    from gpmc.nucleo.manifiesto import Clausula
+    with pytest.raises(ValidationError):
+        Clausula(campo="x", igual="y", z=1)

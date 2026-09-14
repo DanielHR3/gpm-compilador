@@ -93,6 +93,20 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
             headers={"content-disposition": 'attachment; filename="plantilla-diccionario.md"'},
         )
 
+    @app.get("/descargar-plantilla-tobe")
+    def descargar_plantilla_tobe():
+        # Mismo patron que /descargar-plantilla, para la Propuesta TO-BE.
+        texto = (
+            importlib.resources.files("gpmc.web")
+            .joinpath("plantilla-tobe.md")
+            .read_text(encoding="utf-8")
+        )
+        return Response(
+            texto,
+            media_type="text/markdown",
+            headers={"content-disposition": 'attachment; filename="plantilla-tobe.md"'},
+        )
+
 
     @app.get("/historial", response_class=HTMLResponse)
     def historial():

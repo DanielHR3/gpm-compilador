@@ -56,6 +56,24 @@ def test_detecta_el_campo_referenciado_en_una_compuerta():
     assert d1.campos == ["datos_correctos"]
 
 
+def test_una_etiqueta_de_arista_con_br_no_se_confunde_con_un_nodo():
+    """Expediente real (Reposicion de Certificado de Verificacion Vehicular):
+    'D4 -- banco o<br/>transferencia --> DIR4'. El '>' de '<br/>' caia en el
+    conjunto excluido `[^->|]` del grupo de etiqueta -- la arista completa no
+    calzaba, y el regex de respaldo (`_ARISTA_SIMPLE`, sin manejo de
+    etiquetas) recortaba 'transferencia --> DIR4' como si 'transferencia'
+    fuera un nodo real, generando un MMD-02 fantasma."""
+    r = extraer(
+        "flowchart TD\n"
+        "  D4{¿Modalidad?}:::x -- banco o<br/>transferencia --> DIR4[Y]:::x\n"
+        "  D4 -- en linea --> C3[Z]:::x\n"
+    )
+    aristas = [(a.de, a.a, a.etiqueta) for a in r.aristas]
+    assert ("D4", "DIR4", "banco o transferencia") in aristas, aristas
+    assert not any(a.de == "transferencia" for a in r.aristas), aristas
+    assert not any(h.codigo == "MMD-02" for h in r.huecos), r.huecos
+
+
 def test_reporta_hueco_cuando_la_compuerta_no_nombra_campo():
     r = extraer("flowchart TD\n  A[X]:::c --> D{¿Procede?}:::c\n  D -- sí --> B[Y]:::c\n  D -- no --> A")
     mmd04 = [h for h in r.huecos if h.codigo == "MMD-04"]

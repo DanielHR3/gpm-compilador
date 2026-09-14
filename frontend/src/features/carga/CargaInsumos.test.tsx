@@ -29,11 +29,14 @@ it("muestra el error de tamano cuando la API lanza 413", async () => {
   expect(screen.getByText(/10 MB/i)).toBeInTheDocument();
 });
 
-it("ofrece el enlace a la plantilla de ejemplo", () => {
+it("ofrece plantilla de ejemplo para Diccionario y para To Be", () => {
   render(<CargaInsumos onListo={() => {}} />);
   expect(
-    screen.getByRole("link", { name: /plantilla de ejemplo/i }),
+    screen.getByRole("link", { name: /plantilla.*diccionario/i }),
   ).toHaveAttribute("href", "/descargar-plantilla");
+  expect(
+    screen.getByRole("link", { name: /plantilla.*to be/i }),
+  ).toHaveAttribute("href", "/descargar-plantilla-tobe");
 });
 
 it("un drop real asigna el archivo y muestra su nombre en la zona", () => {

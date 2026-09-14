@@ -483,13 +483,13 @@ def _extraer_campos(
                 campo.condicion_visible = cond
             else:
                 r.huecos.append(Hueco(
-                    "falta_dato", "DIC-08", pantalla.id,
+                    "falta_dato", "DIC-08", f"{pantalla.id}::{nombre}",
                     f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
                     f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
                 ))
         elif _parece_condicion(vis_cruda):
             r.huecos.append(Hueco(
-                "falta_dato", "DIC-08", pantalla.id,
+                "falta_dato", "DIC-08", f"{pantalla.id}::{nombre}",
                 f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
                 f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
             ))

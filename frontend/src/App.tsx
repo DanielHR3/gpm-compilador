@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import AppHeader from "@/components/AppHeader";
 import CargaInsumos from "@/features/carga/CargaInsumos";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
 import { leerExpediente } from "@/lib/api";
@@ -27,10 +28,9 @@ export default function App() {
       );
   }, []);
 
-  if (est) return <WizardHuecos estado={est} onEstado={setEst} />;
-
   return (
     <>
+      <AppHeader />
       {aviso ? (
         <p
           role="alert"
@@ -39,7 +39,11 @@ export default function App() {
           {aviso}
         </p>
       ) : null}
-      <CargaInsumos onListo={setEst} />
+      {est ? (
+        <WizardHuecos estado={est} onEstado={setEst} />
+      ) : (
+        <CargaInsumos onListo={setEst} />
+      )}
     </>
   );
 }

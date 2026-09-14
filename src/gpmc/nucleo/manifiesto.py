@@ -50,11 +50,19 @@ class OpcionCatalogo(BaseModel):
     valor: str
 
 
+class Clausula(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    campo: str
+    igual: str
+    operador: Literal["==", "!="] = "=="
+
+
 class Condicion(BaseModel):
     model_config = ConfigDict(extra="forbid")
     campo: str
     igual: str
     operador: Literal["==", "!="] = "=="
+    y: list[Clausula] = []
 
 
 class Campo(BaseModel):
@@ -191,10 +199,12 @@ class Manifiesto(BaseModel):
             for extremo in (cx.de, cx.a):
                 if extremo not in ids_tarea:
                     raise ValueError(f"la conexion apunta a una tarea inexistente: '{extremo}'")
-            if cx.cuando and cx.cuando.campo not in nombres_campo:
-                raise ValueError(
-                    f"la condicion de '{cx.de}' usa un campo no declarado: '{cx.cuando.campo}'"
-                )
+            if cx.cuando:
+                for campo in [cx.cuando.campo, *(c.campo for c in cx.cuando.y)]:
+                    if campo not in nombres_campo:
+                        raise ValueError(
+                            f"la condicion de '{cx.de}' usa un campo no declarado: '{campo}'"
+                        )
         return self
 
 
