@@ -6,6 +6,18 @@ import type { Hueco } from "@/lib/types";
 const claveDe = (h: Hueco): string => `${h.codigo}|${h.ubicacion}`;
 
 /**
+ * Donde abrir el recorrido: en el primer hueco que pida algo.
+ *
+ * Publicacion abre con META-05 (homoclave) y META-03 (costo), dos tarjetas de
+ * solo confirmar. Gastar ahi el primer golpe de vista del modo foco no ayuda:
+ * se arranca en el primero accionable. Si todos son de confirmar, el primero.
+ */
+function primeroAccionable(huecos: Hueco[]): number {
+  const i = huecos.findIndex((h) => h.nivel !== "por_confirmar");
+  return i >= 0 ? i : 0;
+}
+
+/**
  * Recorrido de un hueco a la vez.
  *
  * Con 65 huecos —Publicacion en el Periodico Oficial— la lista completa no
@@ -24,10 +36,11 @@ const claveDe = (h: Hueco): string => `${h.codigo}|${h.ubicacion}`;
  */
 export function useFoco(huecos: Hueco[]) {
   const [elegido, setElegido] = useState<{ clave: string; indice: number }>(
-    () => ({
-      clave: huecos.length > 0 ? claveDe(huecos[0]) : "",
-      indice: 0,
-    }),
+    () => {
+      if (huecos.length === 0) return { clave: "", indice: 0 };
+      const i = primeroAccionable(huecos);
+      return { clave: claveDe(huecos[i]), indice: i };
+    },
   );
 
   const vivo = huecos.findIndex((h) => claveDe(h) === elegido.clave);

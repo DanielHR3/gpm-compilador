@@ -160,5 +160,38 @@ it("encabeza la tarjeta con el titulo en castellano, no con el codigo", () => {
   expect(
     screen.getByRole("heading", { name: "Responsable de una tarea" }),
   ).toBeInTheDocument();
-  expect(screen.queryByText("MMD-03")).toBeNull();
+  // El codigo sigue existiendo, pero plegado en el detalle tecnico: lo que no
+  // debe llevarlo es el encabezado.
+  expect(screen.queryByRole("heading", { name: /MMD-03/ })).toBeNull();
+  expect(screen.getByText(/ver detalle técnico/i).closest("details")).toHaveTextContent(
+    "MMD-03",
+  );
+});
+
+it("MMD-03: el mensaje crudo no se repite encima de la pregunta del control", () => {
+  render(
+    <TarjetaHueco
+      hueco={{
+        nivel: "falta_dato",
+        codigo: "MMD-03",
+        ubicacion: "A",
+        mensaje:
+          "la tarea «📝 Usuario: Completar datos» no declara carril (:::clase); no se puede saber qué actor la ejecuta",
+        propuesta: null,
+      }}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  // La pregunta la hace el control; el texto del compilador vive en el
+  // detalle tecnico, no suelto encima.
+  expect(
+    screen.getByRole("heading", { name: /¿Quién hace «Completar datos»\?/ }),
+  ).toBeInTheDocument();
+  const sueltos = screen
+    .queryAllByText(/no declara carril/)
+    .filter((el) => el.closest("details") === null);
+  expect(sueltos).toHaveLength(0);
 });

@@ -5,6 +5,15 @@ import { cn } from "cn";
 import { reconocer, resolver } from "@/lib/api";
 
 import { tituloDeCodigo } from "./lenguaje";
+
+/**
+ * Codigos cuyo control redacta su propia pregunta a partir del mensaje.
+ *
+ * Para estos, pintar `hueco.mensaje` aqui arriba lo duplica en pantalla: se ve
+ * el texto crudo del compilador y justo debajo la misma idea bien dicha. El
+ * crudo no se pierde, vive en el detalle tecnico del propio control.
+ */
+const CONTROL_REDACTA_EL_MENSAJE = new Set(["DIC-08", "MMD-03"]);
 import type { Hueco, Resolucion } from "@/lib/types";
 
 /** Color de acento por severidad -- solo estos tres niveles existen hoy. */
@@ -234,12 +243,7 @@ export default function TarjetaHueco({
         </span>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {/* DIC-08 muestra `hueco.mensaje` dentro de su propio control (la
-            frase cruda que no se pudo interpretar es el punto de partida del
-            constructor de reglas) -- repetirlo aqui arriba lo duplicaria en
-            pantalla. Ver ControlVisibilidad.test.tsx, que exige el mensaje
-            visible en su render aislado. */}
-        {hueco.codigo !== "DIC-08" ? (
+        {!CONTROL_REDACTA_EL_MENSAJE.has(hueco.codigo) ? (
           <p className="text-sm font-medium text-foreground">{hueco.mensaje}</p>
         ) : null}
         {hueco.propuesta ? (

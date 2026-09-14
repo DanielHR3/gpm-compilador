@@ -5,6 +5,7 @@ import type { CampoManifiesto, Condicion } from "@/lib/types";
 import {
   describirCondicion,
   leerMensajeVisibilidad,
+  nombreDeTarea,
   pistaDeCodigo,
   tituloDeCodigo,
 } from "./lenguaje";
@@ -94,5 +95,35 @@ describe("pistaDeCodigo", () => {
 
   test("un codigo sin pista escrita devuelve null en vez de una frase hueca", () => {
     expect(pistaDeCodigo("ZZZ-99")).toBeNull();
+  });
+});
+
+describe("nombreDeTarea", () => {
+  test("saca el nombre de la tarea de entre las comillas", () => {
+    expect(
+      nombreDeTarea(
+        "la tarea «Consultar información del trámite» no declara carril (:::clase)",
+      ),
+    ).toBe("Consultar información del trámite");
+  });
+
+  test("quita el emoji y el prefijo de actor que trae el diagrama", () => {
+    expect(
+      nombreDeTarea(
+        "la tarea «🔍 Usuario: Consultar información del trámite» no declara carril",
+      ),
+    ).toBe("Consultar información del trámite");
+  });
+
+  test("recorta el detalle entre parentesis, que alarga sin aportar", () => {
+    expect(
+      nombreDeTarea(
+        "la tarea «🏛️ Periódico Oficial: Revisar expediente (cierre miércoles 14:30)» no declara carril",
+      ),
+    ).toBe("Revisar expediente");
+  });
+
+  test("un mensaje sin comillas devuelve null en vez de inventar", () => {
+    expect(nombreDeTarea("otra cosa cualquiera")).toBeNull();
   });
 });

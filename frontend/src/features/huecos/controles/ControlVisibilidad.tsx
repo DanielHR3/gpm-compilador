@@ -13,6 +13,7 @@ import {
 import { useAccion } from "../useAccion";
 
 import ConstructorRegla from "./ConstructorRegla";
+import DetalleTecnico from "./DetalleTecnico";
 
 /**
  * Control para `DIC-08`: el Diccionario declaró una condición de visibilidad
@@ -110,27 +111,19 @@ export default function ControlVisibilidad({
         {guardando ? "Guardando…" : "Guardar"}
       </Button>
 
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer select-none underline-offset-2 hover:underline">
-          Ver detalle técnico
-        </summary>
-        <dl className="mt-2 flex flex-col gap-1 rounded-md bg-muted/40 p-3">
-          <div className="flex gap-2">
-            <dt className="font-medium">Código:</dt>
-            <dd className="font-mono">{hueco.codigo}</dd>
-          </div>
-          {leido ? (
+      <DetalleTecnico
+        codigo={hueco.codigo}
+        ubicacion={hueco.ubicacion}
+        crudo={leido ? leido.frase : hueco.mensaje}
+        extra={
+          leido ? (
             <div className="flex gap-2">
               <dt className="font-medium">Nombre interno:</dt>
               <dd className="font-mono">{leido.interno}</dd>
             </div>
-          ) : null}
-          <div className="flex flex-col gap-0.5">
-            <dt className="font-medium">Se escribió en el Diccionario:</dt>
-            <dd className="italic">{leido ? leido.frase : hueco.mensaje}</dd>
-          </div>
-        </dl>
-      </details>
+          ) : null
+        }
+      />
     </div>
   );
 }

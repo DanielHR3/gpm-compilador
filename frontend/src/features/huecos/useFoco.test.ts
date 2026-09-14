@@ -5,8 +5,8 @@ import type { Hueco } from "@/lib/types";
 
 import { useFoco } from "./useFoco";
 
-const h = (codigo: string): Hueco =>
-  ({ nivel: "falta_dato", codigo, ubicacion: codigo, mensaje: "", propuesta: null }) as Hueco;
+const h = (codigo: string, nivel: Hueco["nivel"] = "falta_dato"): Hueco =>
+  ({ nivel, codigo, ubicacion: codigo, mensaje: "", propuesta: null }) as Hueco;
 
 const lista = [h("A"), h("B"), h("C")];
 
@@ -76,5 +76,23 @@ describe("useFoco", () => {
     expect(result.current.actual).toBeNull();
     act(() => result.current.siguiente());
     expect(result.current.actual).toBeNull();
+  });
+
+  test("arranca en el primer hueco accionable, no en uno de solo confirmar", () => {
+    // Publicacion abre con META-05 (homoclave), una tarjeta sin nada que hacer:
+    // gastar ahi el primer golpe de vista del modo foco no ayuda a nadie.
+    const { result } = renderHook(() =>
+      useFoco([h("META-05", "por_confirmar"), h("META-03", "por_confirmar"), h("DIC-08")]),
+    );
+
+    expect(result.current.actual?.codigo).toBe("DIC-08");
+  });
+
+  test("si todo es de solo confirmar, arranca en el primero y no se queda sin foco", () => {
+    const { result } = renderHook(() =>
+      useFoco([h("META-05", "por_confirmar"), h("META-03", "por_confirmar")]),
+    );
+
+    expect(result.current.actual?.codigo).toBe("META-05");
   });
 });

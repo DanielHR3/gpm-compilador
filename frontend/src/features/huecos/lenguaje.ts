@@ -162,3 +162,28 @@ const PISTAS: Record<string, Pista> = {
 export function pistaDeCodigo(codigo: string): Pista | null {
   return PISTAS[codigo] ?? null;
 }
+
+/**
+ * El nombre legible de la tarea que menciona un mensaje de `MMD-03`.
+ *
+ * El diagrama TO-BE escribe las tareas como «🔍 Usuario: Consultar información
+ * del trámite (requisitos, tarifas por modalidad…)»: un emoji de adorno, el
+ * carril delante y un parentesis con detalle operativo. Para preguntar «¿quién
+ * hace esto?» basta el verbo y su objeto; lo demas alarga la pregunta sin
+ * ayudar a responderla.
+ *
+ * Devuelve `null` si el mensaje no trae comillas, y entonces la tarjeta cae al
+ * texto crudo en vez de inventar un nombre.
+ */
+export function nombreDeTarea(mensaje: string): string | null {
+  const m = /«(.+?)»/s.exec(mensaje);
+  if (!m) return null;
+  let t = m[1].trim();
+  // Emoji(s) de adorno al principio, con o sin selector de variacion.
+  t = t.replace(/^(?:[\p{Extended_Pictographic}️‍]+\s*)+/u, "");
+  // Carril delante: «Usuario: …», «Periódico Oficial: …».
+  t = t.replace(/^[^:]{1,40}:\s*/u, "");
+  // Detalle operativo entre parentesis al final.
+  t = t.replace(/\s*\([^()]*\)\s*$/u, "");
+  return t.trim();
+}
