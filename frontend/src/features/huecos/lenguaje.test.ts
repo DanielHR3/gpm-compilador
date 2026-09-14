@@ -162,5 +162,6 @@ describe("codigos de documentos de salida", () => {
     expect(tituloDeCodigo("DOC-02")).toBe("Variable sin campo en un documento");
     expect(tituloDeCodigo("DOC-03")).toBe("Plantilla de documento ilegible");
     expect(pistaDeCodigo("DOC-02")?.instruccion).toMatch(/campo del Diccionario/i);
+    expect(pistaDeCodigo("DOC-03")?.instruccion).toMatch(/Word/);
   });
 });

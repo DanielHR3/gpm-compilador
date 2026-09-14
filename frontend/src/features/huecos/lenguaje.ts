@@ -169,7 +169,7 @@ const PISTAS: Record<string, Pista> = {
   },
   "DOC-03": {
     instruccion:
-      "Solo se leen plantillas .md con {{variables}}. Un oficio escaneado adjúntalo como documento de apoyo y escribe su texto como plantilla.",
+      "La plantilla se lee en Word, PDF con texto o .md, con {{variables}}. Un oficio escaneado o una foto no se pueden leer: adjúntalo como documento de apoyo y sube su texto en Word.",
   },
 };
 

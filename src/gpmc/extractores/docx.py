@@ -65,8 +65,8 @@ def _celda(texto: str) -> str:
     return texto.replace("|", "\\|")
 
 
-def a_markdown(contenido: bytes) -> str:
-    """El `.docx` como Markdown. `ValueError` si no es un documento de Word."""
+def _cuerpo(contenido: bytes):
+    """El `<w:body>` del documento. `ValueError` si no es un .docx de Word."""
     try:
         z = zipfile.ZipFile(BytesIO(contenido))
         xml = z.read("word/document.xml")
@@ -76,6 +76,24 @@ def a_markdown(contenido: bytes) -> str:
     cuerpo = ET.fromstring(xml).find(f"{_W}body")
     if cuerpo is None:
         raise ValueError("el archivo no parece un .docx de Word: no trae cuerpo")
+    return cuerpo
+
+
+def a_texto(contenido: bytes) -> str:
+    """Los parrafos del `.docx`, uno por linea, sin formato.
+
+    Es lo que necesita una plantilla de oficio: Word parte «{{folio}}» en
+    varios runs al teclearlo, y `_texto` los vuelve a juntar. Los parrafos
+    vacios se conservan como lineas en blanco para que el oficio respire igual.
+    """
+    lineas = [_texto(p) for p in _cuerpo(contenido).iter(f"{_W}p")]
+    texto = "\n".join(lineas)
+    return re.sub(r"\n{3,}", "\n\n", texto).strip()
+
+
+def a_markdown(contenido: bytes) -> str:
+    """El `.docx` como Markdown. `ValueError` si no es un documento de Word."""
+    cuerpo = _cuerpo(contenido)
 
     lineas: list[str] = []
     pantalla = 0

@@ -78,3 +78,10 @@ it("se pueden subir las plantillas de los documentos que genera el tramite", asy
   const fd = vi.mocked(crearExpediente).mock.calls.at(-1)![0] as FormData;
   expect(fd.getAll("documentos").map((f) => (f as File).name)).toEqual(["oficio.md"]);
 });
+
+it("la zona de plantillas acepta Word y PDF, no solo .md", () => {
+  render(<CargaInsumos onListo={vi.fn()} />);
+  const accept = screen.getByLabelText(/documentos que genera/i).getAttribute("accept") ?? "";
+  expect(accept).toContain(".docx");
+  expect(accept).toContain(".pdf");
+});

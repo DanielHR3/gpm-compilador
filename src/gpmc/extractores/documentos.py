@@ -12,6 +12,10 @@ entra al expediente como un `.md` en la carpeta `documentos/`:
     ---
     Se hace constar que {{nombre}} quedó registrado con la CURP {{curp}}.
 
+La plantilla puede venir tambien en Word (`.docx`) o en PDF con texto: se
+lee su texto corrido y se trata igual. Un PDF escaneado no se lee: el
+compilador lee, nunca adivina.
+
 Cada `{{variable}}` tiene que ser un campo del Diccionario: es de ahi de donde
 GPM saca el valor al generar el PDF. Una variable que no existe no se emite —
 reventaria al compilar— y se reporta con el nombre exacto para corregirla.
@@ -19,10 +23,21 @@ reventaria al compilar— y se reporta con el nombre exacto para corregirla.
 import re
 from pathlib import Path
 
+from gpmc.extractores import docx as ext_docx
+from gpmc.extractores import pdf as ext_pdf
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.manifiesto import Accion
 
 CARPETA = "documentos"
+
+# Como se saca el texto de cada formato de plantilla. Cualquier otro archivo
+# —una foto del oficio— no es una plantilla y se reporta.
+_LECTORES = {
+    ".md": lambda datos: datos.decode("utf-8"),
+    ".docx": ext_docx.a_texto,
+    ".pdf": ext_pdf.a_texto,
+}
+FORMATOS = tuple(_LECTORES)
 
 # Misma sintaxis que `compilador/acciones.php_documento`.
 _VARIABLE = re.compile(r"\{\{(\w+)\}\}")
@@ -58,18 +73,27 @@ def extraer_documentos(carpeta: Path, campos_declarados: "set[str]") -> "tuple[l
 
     acciones, huecos = [], []
     for archivo in sorted(p for p in d.iterdir() if p.is_file()):
-        if archivo.suffix.lower() != ".md":
-            # Un oficio escaneado en .docx no se puede leer como plantilla. Si
-            # se ignora en silencio, el analista cree que su documento entro.
+        leer = _LECTORES.get(archivo.suffix.lower())
+        if leer is None:
+            # Una foto del oficio no se puede leer como plantilla. Si se ignora
+            # en silencio, el analista cree que su documento entro.
             huecos.append(Hueco(
                 "falta_dato", "DOC-03", f"documentos/{archivo.name}",
                 f"el documento «{archivo.name}» no se puede usar como plantilla: "
-                f"solo se leen archivos .md con {{{{variables}}}}. Si es un oficio "
-                f"escaneado, adjúntalo como documento de apoyo y escribe la plantilla",
+                f"solo se leen {', '.join(FORMATOS)} con {{{{variables}}}}. Si es un "
+                f"oficio escaneado, adjúntalo como documento de apoyo y escribe la plantilla",
+            ))
+            continue
+        try:
+            texto = leer(archivo.read_bytes())
+        except (ValueError, UnicodeDecodeError) as e:
+            huecos.append(Hueco(
+                "falta_dato", "DOC-03", f"documentos/{archivo.name}",
+                f"no se pudo leer la plantilla «{archivo.name}»: {e}",
             ))
             continue
 
-        cabecera, cuerpo = _partir_cabecera(archivo.read_text(encoding="utf-8"))
+        cabecera, cuerpo = _partir_cabecera(texto)
         cuerpo = cuerpo.strip()
         usadas = sorted(set(_VARIABLE.findall(cuerpo)))
         desconocidas = [v for v in usadas if v not in campos_declarados]

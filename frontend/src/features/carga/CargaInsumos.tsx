@@ -295,15 +295,16 @@ export default function CargaInsumos({
           Documentos que genera el trámite
         </label>
         <p className="text-sm text-muted-foreground">
-          Oficios, acuses o constancias como plantilla <code>.md</code> con{" "}
-          <code>{"{{variables}}"}</code> que sean campos del Diccionario. El
-          compilador los convierte en documentos PDF del trámite.
+          Oficios, acuses o constancias en Word, PDF con texto o{" "}
+          <code>.md</code>, con <code>{"{{variables}}"}</code> que sean campos
+          del Diccionario. El compilador los convierte en documentos PDF del
+          trámite. Un PDF escaneado no se lee: súbelo como documento de apoyo.
         </p>
         <input
           id="documentos-plantillas"
           type="file"
           multiple
-          accept=".md,text/markdown"
+          accept=".md,.docx,.pdf,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground"
           onChange={(e) => setPlantillas(Array.from(e.target.files ?? []))}
         />

@@ -165,6 +165,36 @@ def a_markdown_desde_texto(texto: str) -> str:
     return "\n".join(salida) + "\n"
 
 
+def _paginas(contenido: bytes):
+    """Las paginas del PDF. `ValueError` si esta escaneado o no se puede abrir."""
+    if es_escaneado(contenido):
+        raise ValueError(
+            "el PDF está escaneado (es una imagen, no texto). "
+            "Adjúntalo como documento de apoyo y sube el texto en Word o Markdown"
+        )
+    try:
+        from pypdf import PdfReader
+    except ImportError as e:  # pragma: no cover - depende del extra [web]
+        raise ValueError(
+            "falta la dependencia para leer PDF; instala con: pip install -e '.[web]'"
+        ) from e
+    from io import BytesIO
+    try:
+        return PdfReader(BytesIO(contenido)).pages
+    except Exception as e:
+        raise ValueError("no se pudo abrir el PDF: ¿está corrupto?") from e
+
+
+def a_texto(contenido: bytes) -> str:
+    """El texto corrido de un `.pdf`, pagina tras pagina, sin buscar tablas.
+
+    Para una plantilla de oficio no hay columnas que reconstruir: basta el
+    texto tal cual, con sus {{variables}}.
+    """
+    paginas = [(p.extract_text() or "").strip() for p in _paginas(contenido)]
+    return "\n\n".join(p for p in paginas if p)
+
+
 def a_markdown(contenido: bytes) -> str:
     """Un `.pdf` con texto, como Markdown. `ValueError` si no se puede leer.
 
