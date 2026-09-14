@@ -259,7 +259,11 @@ def test_la_etiqueta_derivada_se_reporta_como_DIC_05():
     dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
     assert dic05, r.huecos
     assert dic05[0].nivel == "por_confirmar"
-    assert {h.propuesta for h in dic05} >= {"Estado sol", "Municipio sol"}
+    # Las etiquetas viajan al .gpm y se imprimen en el formulario publicado:
+    # "Estado sol" era la clave interna con un espacio.
+    assert {h.propuesta for h in dic05} >= {
+        "Estado del solicitante", "Municipio del solicitante",
+    }
 
 
 def test_hay_un_DIC_05_por_cada_etiqueta_derivada():
@@ -275,7 +279,7 @@ def test_la_ruta_estandar_tambien_reporta_DIC_05():
     dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
     assert dic05, r.huecos
     assert dic05[0].ubicacion == "p2"
-    assert dic05[0].propuesta == "Rfc sol"
+    assert dic05[0].propuesta == "RFC del solicitante"
 
 
 def test_el_diccionario_estandar_no_levanta_DIC_05():
@@ -818,3 +822,62 @@ def test_sin_cabeceras_de_pantalla_el_aviso_no_cierra_la_puerta_del_gpm():
     d4 = [h for h in r.huecos if h.codigo == "DIC-04"]
     assert len(d4) == 1
     assert d4[0].nivel == "por_confirmar"
+
+
+def test_un_select_toma_su_catalogo_de_la_descripcion_si_no_hay_columna():
+    """El Diccionario Hibrido no tiene columna 'Catálogo de Valores', pero
+    escribe las opciones entre parentesis en la descripcion: «Clasificación de
+    la Unidad de Transparencia (Entregable, Reservada, Inexistente)». El
+    compilador emitia DIC-07 con las opciones a la vista."""
+    texto = (
+        "# Diccionario Híbrido\n\n"
+        "| Variable | Tipo (GPM) | Comportamiento |\n"
+        "| :--- | :--- | :--- |\n"
+        "| `dictamen_ut` | select | Clasificación de la UT (Entregable, Reservada, Inexistente). |\n"
+    )
+
+    r = extraer(texto)
+
+    campo = r.pantallas[0].campos[0]
+    assert [o.etiqueta for o in campo.catalogo] == [
+        "Entregable", "Reservada", "Inexistente",
+    ]
+    assert not [h for h in r.huecos if h.codigo == "DIC-07"]
+
+
+def test_una_descripcion_con_un_parentesis_que_no_es_catalogo_no_inventa_opciones():
+    """«Validación regex (exact_length[5])» no es una lista de opciones: un solo
+    elemento no es un catalogo."""
+    texto = (
+        "# Diccionario Híbrido\n\n"
+        "| Variable | Tipo (GPM) | Comportamiento |\n"
+        "| :--- | :--- | :--- |\n"
+        "| `cp_sol` | select | Validación regex (exact_length[5]). |\n"
+    )
+
+    r = extraer(texto)
+
+    assert r.pantallas[0].campos[0].catalogo == []
+
+
+def test_la_etiqueta_propuesta_se_lee_en_castellano_no_en_clave():
+    """Cuando el Diccionario no trae etiqueta visible, la propuesta se emite AL
+    .gpm y el ciudadano la ve impresa en el formulario. 'Nombres sol' y 'Cp
+    sol' no son etiquetas de un tramite de gobierno."""
+    from gpmc.extractores.diccionario import etiqueta_desde_nombre
+
+    assert etiqueta_desde_nombre("nombres_sol") == "Nombres del solicitante"
+    assert etiqueta_desde_nombre("cp_sol") == "Código Postal del solicitante"
+    assert etiqueta_desde_nombre("curp_representante") == "CURP del representante"
+    assert etiqueta_desde_nombre("dictamen_ut") == "Dictamen de la Unidad de Transparencia"
+    assert etiqueta_desde_nombre("rfc_dependencia") == "RFC de la dependencia"
+    # «Paterno del solicitante» no es como se pide un apellido en un formulario.
+    assert etiqueta_desde_nombre("paterno_sol") == "Apellido paterno del solicitante"
+    assert etiqueta_desde_nombre("materno_sol") == "Apellido materno del solicitante"
+
+
+def test_un_nombre_que_no_conozco_al_menos_se_lee():
+    from gpmc.extractores.diccionario import etiqueta_desde_nombre
+
+    assert etiqueta_desde_nombre("motivo_rechazo") == "Motivo rechazo"
+    assert etiqueta_desde_nombre("curp") == "CURP"

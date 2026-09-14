@@ -321,6 +321,80 @@ def _condicion_desde_conjunto(texto: str, indice: dict):
     )
 
 
+# Siglas que se escriben en mayusculas en un documento de gobierno.
+_SIGLAS = {"curp", "rfc", "ine", "pdf", "api", "id", "url", "iva", "uma"}
+
+# Abreviaturas que el Diccionario usa dentro del nombre tecnico.
+_ABREVIATURAS = {"cp": "Código Postal", "dom": "Domicilio", "tel": "Teléfono",
+                 "num": "Número", "doc": "Documento", "fec": "Fecha",
+                 "paterno": "Apellido paterno", "materno": "Apellido materno"}
+
+# Sufijos de rol: van al final del nombre y piden su articulo. Se escriben
+# completos porque el genero lo decide la palabra, no una regla.
+_ROLES = {
+    "sol": "del solicitante", "solicitante": "del solicitante",
+    "rep": "del representante", "representante": "del representante",
+    "ut": "de la Unidad de Transparencia",
+    "dependencia": "de la dependencia",
+    "empresa": "de la empresa",
+}
+
+
+def etiqueta_desde_nombre(nombre: str) -> str:
+    """La etiqueta que vera el ciudadano, a partir del nombre tecnico.
+
+    Se emite AL .gpm y se imprime en el formulario publicado, asi que
+    'Nombres sol' o 'Cp sol' no valen: son la clave interna con un espacio.
+
+    Solo se expande lo que esta en las tablas de arriba. Un nombre que no
+    reconozco se deja legible —guiones bajos por espacios y mayuscula
+    inicial— en vez de inventarle un significado.
+    """
+    partes = [p for p in (nombre or "").split("_") if p]
+    if not partes:
+        return ""
+
+    cola = ""
+    if len(partes) > 1 and partes[-1].lower() in _ROLES:
+        cola = _ROLES[partes[-1].lower()]
+        partes = partes[:-1]
+
+    palabras = []
+    for i, p in enumerate(partes):
+        b = p.lower()
+        if b in _SIGLAS:
+            palabras.append(b.upper())
+        elif b in _ABREVIATURAS:
+            palabras.append(_ABREVIATURAS[b])
+        else:
+            palabras.append(p.capitalize() if i == 0 else p.lower())
+
+    cuerpo = " ".join(palabras)
+    return f"{cuerpo} {cola}".strip() if cola else cuerpo
+
+
+def _catalogo_en_la_descripcion(desc: str) -> "list[OpcionCatalogo]":
+    """Opciones escritas entre parentesis dentro de la descripcion, o [].
+
+    Se exige mas de un elemento: «Validación regex (exact_length[5])» lleva un
+    parentesis y no es un catalogo. Con un solo elemento no hay lista, y
+    convertirlo en un select de una opcion seria peor que dejar el hueco.
+    """
+    for bruto in re.findall(r"\(([^()]*)\)", desc or ""):
+        partes = [p.strip() for p in bruto.split(",")]
+        partes = [p for p in partes if p]
+        if len(partes) < 2:
+            continue
+        # Nada de listas tecnicas: rutas, llamadas, tipos.
+        if any(re.search(r"[`\[\]{}=<>/\\]|@@", p) for p in partes):
+            continue
+        return [
+            OpcionCatalogo(etiqueta=p, valor=_babel(p).replace(" ", "_"))
+            for p in partes
+        ]
+    return []
+
+
 def _resolver_condicion_visible(
     ref_crudo: str, operador: str, valor_crudo: str, indice: dict,
 ) -> "Optional[object]":
@@ -448,7 +522,7 @@ def _extraer_campos(
                 indice["campos"][nombre_original] = None # placeholder to be updated
 
         if es_columna_variable and (etiqueta == nombre or not etiqueta or etiqueta.lower() == (nombre_original.lower() if declarado else nombre.lower())):
-            etiqueta = nombre.replace("_", " ").capitalize()
+            etiqueta = etiqueta_desde_nombre(nombre)
             r.huecos.append(Hueco(
                 "por_confirmar", "DIC-05", pantalla.id,
                 f"'{nombre}' no trae etiqueta visible en el Diccionario; se propuso '{etiqueta}'",
@@ -473,6 +547,13 @@ def _extraer_campos(
         # ya opciones ni marca de pendiente.
         if not catalogo and not pendiente and tipo in ("select", "radio"):
             catalogo, pendiente = _catalogo_de(limite)
+        # El Diccionario Hibrido no tiene columna de catalogo y escribe las
+        # opciones entre parentesis dentro de la descripcion: «Clasificación de
+        # la Unidad de Transparencia (Entregable, Reservada, Inexistente)». Se
+        # emitia DIC-07 —«es select pero no se extrajo ninguna opción»— con las
+        # opciones a la vista en la misma fila.
+        if not catalogo and not pendiente and tipo in ("select", "radio"):
+            catalogo = _catalogo_en_la_descripcion(desc)
         # Un campo Boolean (o 'Switch / radio Sí-No') sin lista parseable: su
         # dominio ES {Sí, No}. Derivarlo no es inventar. Sin esto salia sin
         # opciones y la vista reventaba con foreach() (verificado 2026-09-02,
