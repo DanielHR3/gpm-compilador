@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { CircleAlert, CircleCheck, Download } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { Progress } from "@/components/ui/progress";
 import { cn } from "cn";
-import { urlGpm, urlManifiesto } from "@/lib/api";
 import type { EstadoExpediente, Hueco } from "@/lib/types";
 
+import { agruparPorNivel } from "./agrupar";
+import RielEntrega from "./RielEntrega";
 import TarjetaHueco, { type RespuestaResuelto } from "./TarjetaHueco";
 import { useListaConSalida } from "./useListaConSalida";
 
@@ -101,132 +102,95 @@ export default function WizardHuecos({
     });
   };
 
+  const grupos = agruparPorNivel(enPantalla.map((e) => e.item));
+  const salientes = new Set(
+    enPantalla.filter((e) => e.saliendo).map((e) => clave(e.item)),
+  );
+
   return (
-    <main className="flex flex-col gap-6 text-foreground">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Resolución de huecos
-        </h1>
-        <Progress value={progreso} />
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{resueltos}</span> de{" "}
-          {totalInicial} resueltos
-        </p>
-      </header>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+      <main className="flex min-w-0 flex-1 flex-col gap-6 text-foreground">
+        <header className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold tracking-tight">
+            Resolución de huecos
+          </h1>
+          <Progress value={progreso} />
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{resueltos}</span> de{" "}
+            {totalInicial} resueltos
+          </p>
+        </header>
 
-      {problemas.length > 0 ? (
-        <section className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-800">
-            <CircleAlert aria-hidden className="size-4" />
-            Avisos del análisis de flujo
-          </h2>
-          <ul className="list-disc pl-5 text-sm text-amber-900/80">
-            {problemas.map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {notaComplejidad ? (
-        <p className="text-sm text-muted-foreground">{notaComplejidad}</p>
-      ) : null}
-
-      <div className="flex flex-col gap-4">
-        {enPantalla.map(({ item: h, saliendo }) => (
-          <div
-            key={clave(h)}
-            data-saliendo={saliendo}
-            className={saliendo ? "tarjeta-saliendo" : "tarjeta-entrando"}
-            aria-hidden={saliendo || undefined}
-          >
-            <TarjetaHueco
-              hueco={h}
-              manifiesto={manifiesto}
-              sid={estado.sid}
-              onResuelto={onResuelto}
-            />
-          </div>
-        ))}
-      </div>
-
-      <section
-        className={cn(
-          "flex flex-col gap-3 rounded-lg border p-4",
-          desbloqueado
-            ? "border-emerald-200 bg-emerald-50"
-            : "border-border bg-card",
-        )}
-      >
-        {desbloqueado ? (
-          <>
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
-              <CircleCheck aria-hidden className="size-4" />
-              Todo listo para entregar
+        {problemas.length > 0 ? (
+          <section className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+              <CircleAlert aria-hidden className="size-4" />
+              Avisos del análisis de flujo
             </h2>
-            <div className="flex flex-wrap gap-4 text-sm">
-              <a
-                className="inline-flex items-center gap-1.5 text-primary underline underline-offset-2"
-                href={urlGpm(estado.sid, "produccion")}
-              >
-                <Download aria-hidden className="size-3.5" />
-                Descargar .gpm (producción)
-              </a>
-              <a
-                className="inline-flex items-center gap-1.5 text-primary underline underline-offset-2"
-                href={urlGpm(estado.sid, "pruebas")}
-              >
-                <Download aria-hidden className="size-3.5" />
-                Descargar .gpm (pruebas)
-              </a>
-            </div>
-          </>
-        ) : (
-          <>
-            <h2 className="text-sm font-semibold text-foreground">
-              {fraseBloqueo(bloqueantes.length)}
-            </h2>
-            <ul className="list-disc pl-5 text-sm text-muted-foreground">
-              {bloqueantes.map((h) => (
-                <li key={clave(h)}>
-                  [{h.codigo}] {h.mensaje}
-                </li>
+            <ul className="list-disc pl-5 text-sm text-amber-900/80">
+              {problemas.map((p, i) => (
+                <li key={i}>{p}</li>
               ))}
             </ul>
-          </>
-        )}
+          </section>
+        ) : null}
 
-        <div className="flex flex-wrap gap-4 border-t border-border/60 pt-3 text-sm">
-          <a
-            className="text-primary underline underline-offset-2"
-            href={urlManifiesto(estado.sid)}
+        {notaComplejidad ? (
+          <p className="text-sm text-muted-foreground">{notaComplejidad}</p>
+        ) : null}
+
+        {grupos.map((grupo) => (
+          <section
+            key={grupo.nivel}
+            role="group"
+            aria-label={`${grupo.rotulo} (${grupo.total})`}
+            className="flex flex-col gap-3"
           >
-            Descargar manifiesto
-          </a>
-          <a
-            className="text-primary underline underline-offset-2"
-            href={`/simulador/${estado.sid}`}
-          >
-            Abrir simulador
-          </a>
-          <a
-            className="text-primary underline underline-offset-2"
-            href={`/aprobacion/${estado.sid}`}
-          >
-            Abrir aprobación
-          </a>
-          {estado.tieneVistas ? (
-            <a
-              className="text-primary underline underline-offset-2"
-              href={`/vistas/${estado.sid}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Ver vistas HTML
-            </a>
-          ) : null}
-        </div>
-      </section>
-    </main>
+            <h2 className="flex items-center gap-2.5 font-mono text-[0.625rem] uppercase tracking-[0.09em] text-muted-foreground">
+              {grupo.rotulo}
+              <span
+                className={cn(
+                  "rounded-full px-1.5 font-sans text-xs font-semibold tracking-normal",
+                  grupo.nivel === "bloqueante"
+                    ? "bg-destructive/10 text-destructive"
+                    : grupo.nivel === "falta_dato"
+                      ? "bg-amber-50 text-amber-700"
+                      : "bg-muted text-muted-foreground",
+                )}
+              >
+                {grupo.total}
+              </span>
+              <span aria-hidden className="h-px flex-1 bg-border" />
+            </h2>
+            {grupo.huecos.map((h) => {
+              const saliendo = salientes.has(clave(h));
+              return (
+                <div
+                  key={clave(h)}
+                  data-saliendo={saliendo}
+                  className={saliendo ? "tarjeta-saliendo" : "tarjeta-entrando"}
+                  aria-hidden={saliendo || undefined}
+                >
+                  <TarjetaHueco
+                    hueco={h}
+                    manifiesto={manifiesto}
+                    sid={estado.sid}
+                    onResuelto={onResuelto}
+                  />
+                </div>
+              );
+            })}
+          </section>
+        ))}
+      </main>
+
+      <RielEntrega
+        sid={estado.sid}
+        desbloqueado={desbloqueado}
+        bloqueantes={bloqueantes}
+        tieneVistas={estado.tieneVistas}
+        fraseBloqueo={fraseBloqueo}
+      />
+    </div>
   );
 }

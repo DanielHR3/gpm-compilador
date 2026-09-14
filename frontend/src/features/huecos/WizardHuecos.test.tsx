@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
@@ -147,4 +147,49 @@ it("cada tarjeta va envuelta en el contenedor que permite animar su salida", () 
     expect(e).toHaveAttribute("data-saliendo", "false");
     expect(e).toHaveClass("tarjeta-entrando");
   });
+});
+
+it("agrupa los huecos por severidad y rotula cada grupo con su cuenta", () => {
+  const est = {
+    ...estado,
+    huecos: [
+      estado.huecos[0], // META-01, falta_dato
+      estado.huecos[1], // META-05, por_confirmar
+      {
+        nivel: "bloqueante",
+        codigo: "INS-01",
+        ubicacion: "",
+        mensaje: "no se encontro la Propuesta TO-BE",
+        propuesta: null,
+      },
+    ],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+
+  const grupos = screen.getAllByRole("group");
+  expect(grupos.map((g) => g.getAttribute("aria-label"))).toEqual([
+    "Bloquean la descarga (1)",
+    "Falta un dato (1)",
+    "Solo confirmar (1)",
+  ]);
+});
+
+it("el riel de entrega se mantiene accesible aunque la puerta siga cerrada", () => {
+  const est = {
+    ...estado,
+    huecos: [
+      {
+        nivel: "bloqueante",
+        codigo: "INS-01",
+        ubicacion: "",
+        mensaje: "falta el TO-BE",
+        propuesta: null,
+      },
+    ],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+
+  const riel = screen.getByRole("complementary", { name: /entrega/i });
+  expect(within(riel).getByRole("link", { name: /simulador/i })).toBeInTheDocument();
+  expect(within(riel).queryByRole("link", { name: /\.gpm/i })).toBeNull();
 });
