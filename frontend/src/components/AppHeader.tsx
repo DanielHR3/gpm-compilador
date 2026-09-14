@@ -11,7 +11,7 @@ export default function AppHeader() {
       className="border-b-2 bg-primary text-primary-foreground"
       style={{ borderColor: "var(--brand-secondary)" }}
     >
-      <div className="mx-auto flex max-w-3xl items-baseline justify-between gap-4 px-8 py-3">
+      <div className="mx-auto flex max-w-6xl items-baseline justify-between gap-4 px-4 py-3 sm:px-6">
         <span className="font-heading text-base font-semibold tracking-tight">
           Compilador GPM
         </span>

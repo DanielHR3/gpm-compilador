@@ -102,7 +102,7 @@ export default function WizardHuecos({
   };
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-3xl flex-col gap-6 bg-background p-8 text-foreground">
+    <main className="flex flex-col gap-6 text-foreground">
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold tracking-tight">
           Resolución de huecos

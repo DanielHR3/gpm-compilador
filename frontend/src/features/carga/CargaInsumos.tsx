@@ -109,7 +109,7 @@ export default function CargaInsumos({
   };
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-3xl flex-col gap-8 bg-background p-8 text-foreground">
+    <main className="flex flex-col gap-8 text-foreground">
       <header className="flex flex-col gap-1.5">
         <h1 className="text-2xl font-bold tracking-tight">Carga de insumos</h1>
         <p className="max-w-md text-sm text-muted-foreground">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import AppHeader from "@/components/AppHeader";
+import NavegacionLateral from "@/components/NavegacionLateral";
 import { Toaster } from "@/components/ui/sonner";
 import CargaInsumos from "@/features/carga/CargaInsumos";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
@@ -35,19 +36,26 @@ export default function App() {
       {/* Area de avisos de toda la SPA: `useAccion` publica aqui los errores
           de la API y `WizardHuecos` los acuses de cada hueco resuelto. */}
       <Toaster />
-      {aviso ? (
-        <p
-          role="alert"
-          className="mx-auto max-w-3xl px-8 pt-8 text-sm text-destructive"
-        >
-          {aviso}
-        </p>
-      ) : null}
-      {est ? (
-        <WizardHuecos estado={est} onEstado={setEst} />
-      ) : (
-        <CargaInsumos onListo={setEst} />
-      )}
+      {/* Armazon de dos columnas. La barra de proceso vive aqui y no dentro de
+          cada pantalla para que sobreviva al cambio de paso, igual que hacia la
+          version servidor antes de la migracion a React. */}
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:flex-row sm:gap-8 sm:px-6">
+        <aside className="sm:sticky sm:top-6 sm:self-start">
+          <NavegacionLateral sid={est?.sid ?? null} />
+        </aside>
+        <div className="min-w-0 flex-1">
+          {aviso ? (
+            <p role="alert" className="pb-4 text-sm text-destructive">
+              {aviso}
+            </p>
+          ) : null}
+          {est ? (
+            <WizardHuecos estado={est} onEstado={setEst} />
+          ) : (
+            <CargaInsumos onListo={setEst} />
+          )}
+        </div>
+      </div>
     </>
   );
 }

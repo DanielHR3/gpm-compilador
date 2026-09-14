@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
@@ -44,5 +44,15 @@ describe("App (SPA SP1)", () => {
     expect(
       await screen.findByText("el expediente se guardo"),
     ).toBeInTheDocument();
+  });
+
+  it("la navegación del proceso acompaña a la pantalla de carga", () => {
+    render(<App />);
+
+    const nav = screen.getByRole("navigation", { name: /proceso/i });
+    expect(nav).toBeInTheDocument();
+    expect(
+      within(nav).getByRole("link", { current: "step" }),
+    ).toHaveTextContent(/insumos/i);
   });
 });
