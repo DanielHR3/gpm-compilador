@@ -127,11 +127,18 @@ export default function WizardHuecos({
               <CircleAlert aria-hidden className="size-4" />
               Avisos del análisis de flujo
             </h2>
-            <ul className="list-disc pl-5 text-sm text-amber-900/80">
+            {/* Cada aviso es un hallazgo distinto del analisis: tarjeta propia
+                en vez de vinetas, que los amontonan como si fueran uno solo. */}
+            <div className="flex flex-col gap-2">
               {problemas.map((p, i) => (
-                <li key={i}>{p}</li>
+                <article
+                  key={i}
+                  className="rounded-md border border-amber-200/80 bg-card/70 px-3 py-2 text-sm text-amber-900"
+                >
+                  {p}
+                </article>
               ))}
-            </ul>
+            </div>
           </section>
         ) : null}
 

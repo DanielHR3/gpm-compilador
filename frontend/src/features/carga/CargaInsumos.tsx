@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DragEvent } from "react";
-import { ArrowRight, FileText, UploadCloud } from "lucide-react";
+import { ArrowRight, FileText, UploadCloud, FileWarning } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -234,11 +234,17 @@ export default function CargaInsumos({
                 El limite por archivo es {LIMITE_POR_ARCHIVO}. Reduce o divide
                 estos archivos:
               </p>
-              <ul className="list-disc pl-5">
+              <div className="flex flex-col gap-1.5">
                 {(error.archivos ?? []).map((nombre) => (
-                  <li key={nombre}>{nombre}</li>
+                  <p
+                    key={nombre}
+                    className="flex items-center gap-2 rounded-md border border-destructive/30 bg-card/60 px-3 py-1.5 font-medium break-all"
+                  >
+                    <FileWarning aria-hidden className="size-4 shrink-0" />
+                    {nombre}
+                  </p>
                 ))}
-              </ul>
+              </div>
             </>
           ) : (
             <p>{error.message}</p>

@@ -5,6 +5,7 @@ import { urlGpm, urlManifiesto } from "@/lib/api";
 import type { Hueco } from "@/lib/types";
 
 import { contarPorCodigo } from "./agrupar";
+import { tituloDeCodigo } from "./lenguaje";
 
 /**
  * Columna de entrega, siempre a la vista.
@@ -77,17 +78,21 @@ export default function RielEntrega({
           </a>
         </div>
       ) : (
-        <ul className="flex flex-col gap-1 text-xs">
+        <div className="flex flex-col gap-1 text-xs">
+          {/* En 240px de ancho una tarjeta por codigo seria ilegible: cada uno
+              lleva su propia superficie, pero al tamano que cabe. */}
           {contarPorCodigo(bloqueantes).map(({ codigo, total }) => (
-            <li
+            <p
               key={codigo}
-              className="flex items-baseline justify-between gap-2 tabular-nums"
+              className="flex items-baseline justify-between gap-2 rounded-md bg-muted/60 px-2 py-1 tabular-nums"
             >
-              <span className="font-mono text-muted-foreground">{codigo}</span>
-              <span className="font-medium text-foreground">{total}</span>
-            </li>
+              <span className="font-mono text-muted-foreground">
+                {tituloDeCodigo(codigo) === codigo ? codigo : tituloDeCodigo(codigo)}
+              </span>
+              <span className="font-semibold text-foreground">{total}</span>
+            </p>
           ))}
-        </ul>
+        </div>
       )}
 
       <div className="flex flex-col gap-1.5 border-t border-border/60 pt-3 text-sm">

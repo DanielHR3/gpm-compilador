@@ -193,3 +193,18 @@ it("el riel de entrega se mantiene accesible aunque la puerta siga cerrada", () 
   expect(within(riel).getByRole("link", { name: /simulador/i })).toBeInTheDocument();
   expect(within(riel).queryByRole("link", { name: /\.gpm/i })).toBeNull();
 });
+
+it("cada aviso de flujo es su propia tarjeta, no una viñeta de una lista", () => {
+  const est = {
+    ...estado,
+    problemas: ["ciclo sin salida en la tarea 3", "dos tareas comparten id"],
+  };
+  const { container } = render(
+    <WizardHuecos estado={est as any} onEstado={() => {}} />,
+  );
+
+  const avisos = screen.getAllByRole("article");
+  expect(avisos).toHaveLength(2);
+  expect(avisos[0]).toHaveTextContent("ciclo sin salida en la tarea 3");
+  expect(container.querySelector("ul.list-disc")).toBeNull();
+});
