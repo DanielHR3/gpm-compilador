@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CircleAlert, CircleCheck, Download } from "lucide-react";
+import { toast } from "sonner";
 
 import { Progress } from "@/components/ui/progress";
 import { cn } from "cn";
@@ -60,16 +61,31 @@ export default function WizardHuecos({
       ? `Complejidad estimada: ${nivelEst ?? "?"} — ${diasEst ?? "?"}`
       : null;
 
-  const onResuelto = (resp: RespuestaResuelto) => {
+  /** "Quedan 3 huecos" / "Queda 1 hueco" / "No queda ninguno". */
+  const frasePendientes = (n: number): string => {
+    if (n === 0) return "No queda ningun hueco pendiente.";
+    if (n === 1) return "Queda 1 hueco por resolver.";
+    return `Quedan ${n} huecos por resolver.`;
+  };
+
+  const onResuelto = (resp: RespuestaResuelto, resuelto: Hueco) => {
     setHuecos(resp.huecos);
     const nextManifiesto = resp.manifiesto ?? manifiesto;
     if (resp.manifiesto) setManifiesto(resp.manifiesto);
-    if (resp.reconocidos) {
-      setReconocidos(
-        new Set(resp.reconocidos.map(([c, u]) => `${c}|${u}`)),
-      );
-    }
+    const nextReconocidos = resp.reconocidos
+      ? new Set(resp.reconocidos.map(([c, u]) => `${c}|${u}`))
+      : reconocidos;
+    if (resp.reconocidos) setReconocidos(nextReconocidos);
     onEstado({ ...estado, manifiesto: nextManifiesto, huecos: resp.huecos });
+
+    // Sin esto la tarjeta simplemente desaparecia: no habia forma de saber si
+    // el guardado surtio efecto ni cuanto falta para desbloquear el .gpm.
+    const faltan = resp.huecos.filter(
+      (h) => !nextReconocidos.has(clave(h)),
+    ).length;
+    toast.success(`${resuelto.codigo} resuelto`, {
+      description: frasePendientes(faltan),
+    });
   };
 
   return (

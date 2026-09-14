@@ -91,18 +91,22 @@ export default function TarjetaHueco({
   hueco: Hueco;
   manifiesto: Record<string, unknown>;
   sid: string;
-  onResuelto: (nuevo: RespuestaResuelto) => void;
+  onResuelto: (nuevo: RespuestaResuelto, hueco: Hueco) => void;
 }) {
+  // El wizard necesita saber CUAL hueco se resolvio para poder anunciarlo;
+  // los controles siguen emitiendo solo la respuesta de la API.
+  const reportar = (resp: RespuestaResuelto) => onResuelto(resp, hueco);
+
   const resolverCon = async (tipo: Resolucion["tipo"], valor: string) => {
     const resp = await resolver(sid, [
       { tipo, ubicacion: hueco.ubicacion, valor },
     ]);
-    onResuelto(resp);
+    reportar(resp);
   };
 
   const reconocerHueco = async () => {
     const resp = await reconocer(sid, hueco.codigo, hueco.ubicacion);
-    onResuelto(resp);
+    reportar(resp);
   };
 
   let control: ReactNode = null;
@@ -150,7 +154,7 @@ export default function TarjetaHueco({
           hueco={hueco}
           sid={sid}
           manifiesto={manifiesto}
-          onResuelto={onResuelto}
+          onResuelto={reportar}
         />
         <button
           type="button"
@@ -168,7 +172,7 @@ export default function TarjetaHueco({
           hueco={hueco}
           sid={sid}
           manifiesto={manifiesto}
-          onResuelto={onResuelto}
+          onResuelto={reportar}
         />
         <button
           type="button"

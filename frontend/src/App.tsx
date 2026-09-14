@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import AppHeader from "@/components/AppHeader";
+import { Toaster } from "@/components/ui/sonner";
 import CargaInsumos from "@/features/carga/CargaInsumos";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
 import { leerExpediente } from "@/lib/api";
@@ -31,6 +32,9 @@ export default function App() {
   return (
     <>
       <AppHeader />
+      {/* Area de avisos de toda la SPA: `useAccion` publica aqui los errores
+          de la API y `WizardHuecos` los acuses de cada hueco resuelto. */}
+      <Toaster />
       {aviso ? (
         <p
           role="alert"

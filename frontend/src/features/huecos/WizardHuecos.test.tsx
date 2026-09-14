@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
+import { Toaster } from "@/components/ui/sonner";
 import WizardHuecos from "./WizardHuecos";
 
 vi.mock("@/lib/api", () => ({
@@ -105,4 +106,29 @@ it("MMD-03 muestra un ControlActor con los actores del manifiesto", async () => 
   expect(combo).toBeInTheDocument();
   await userEvent.click(combo);
   expect(await screen.findByRole("option", { name: "Ciudadano" })).toBeInTheDocument();
+});
+
+it("avisa que el hueco quedo resuelto y cuantos faltan", async () => {
+  const { resolver } = await import("@/lib/api");
+  // Al resolver META-01 la API devuelve la lista sin ese hueco: queda META-05.
+  vi.mocked(resolver).mockResolvedValue({
+    manifiesto: estado.manifiesto,
+    huecos: [estado.huecos[1]],
+  } as any);
+
+  render(
+    <>
+      <Toaster />
+      <WizardHuecos estado={estado as any} onEstado={() => {}} />
+    </>,
+  );
+
+  await userEvent.type(
+    screen.getByLabelText(/tiempo de resolucion/i),
+    "5 dias",
+  );
+  await userEvent.click(screen.getAllByRole("button", { name: /guardar/i })[0]);
+
+  expect(await screen.findByText(/META-01 resuelto/)).toBeInTheDocument();
+  expect(await screen.findByText(/queda 1 hueco/i)).toBeInTheDocument();
 });
