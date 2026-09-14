@@ -36,6 +36,7 @@ from gpmc.nucleo.manifiesto import Conexion, Condicion, Manifiesto, guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.web.reensamblado import reensamblar_flujo, rm_de_tobe
 from gpmc.extractores.docx import a_markdown
+from gpmc.extractores import pdf as ext_pdf
 from gpmc.web.sesiones import (
     ARCHIVO_VISTAS,
     INSUMOS,
@@ -199,12 +200,16 @@ def crear_router(raiz: Path) -> APIRouter:
             poder compilar.
             """
             nombre = (archivo.filename or "").lower()
-            if not nombre.endswith(".docx"):
+            if nombre.endswith(".docx"):
+                convertir, motivo = a_markdown, None
+            elif nombre.endswith(".pdf"):
+                convertir, motivo = ext_pdf.a_markdown, None
+            else:
                 return datos
             try:
-                return a_markdown(datos).encode("utf-8")
-            except ValueError:
-                ilegibles.append(archivo.filename or "sin nombre")
+                return convertir(datos).encode("utf-8")
+            except ValueError as e:
+                ilegibles.append(f"{archivo.filename or 'sin nombre'}: {e}")
                 return None
 
         async def _leer(archivo):
@@ -238,7 +243,7 @@ def crear_router(raiz: Path) -> APIRouter:
         if ilegibles:
             shutil.rmtree(carpeta, ignore_errors=True)
             return JSONResponse(status_code=422, content={
-                "error": "no se pudo leer el .docx: ¿está corrupto o no es de Word?",
+                "error": "no se pudo leer el documento",
                 "archivos": ilegibles,
             })
 

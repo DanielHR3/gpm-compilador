@@ -130,7 +130,7 @@ def test_un_word_ilegible_se_reporta_en_vez_de_guardarse_como_basura(tmp_path):
     )})
 
     assert r.status_code == 422, r.text
-    assert "docx" in r.json()["error"].lower()
+    assert "no se pudo leer" in r.json()["error"].lower()
 
 
 def test_una_nota_no_es_una_pantalla():
