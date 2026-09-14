@@ -35,6 +35,7 @@ from gpmc.nucleo.huecos import HuecoOut, bloquean
 from gpmc.nucleo.manifiesto import Conexion, Condicion, Manifiesto, guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.web.reensamblado import reensamblar_flujo, rm_de_tobe
+from gpmc.extractores.docx import a_markdown
 from gpmc.web.sesiones import (
     ARCHIVO_VISTAS,
     INSUMOS,
@@ -188,6 +189,23 @@ def crear_router(raiz: Path) -> APIRouter:
         carpeta.mkdir(parents=True, exist_ok=True)
 
         grandes = []  # type: List[str]
+        ilegibles = []  # type: List[str]
+
+        def _a_texto(archivo, datos):
+            """Un .docx se convierte al Markdown que lee el extractor.
+
+            El equipo que construye GPM entrega el Diccionario en Word; antes
+            habia que pasarlo a Markdown a mano, tramite por tramite, antes de
+            poder compilar.
+            """
+            nombre = (archivo.filename or "").lower()
+            if not nombre.endswith(".docx"):
+                return datos
+            try:
+                return a_markdown(datos).encode("utf-8")
+            except ValueError:
+                ilegibles.append(archivo.filename or "sin nombre")
+                return None
 
         async def _leer(archivo):
             # type: (UploadFile) -> Optional[bytes]
@@ -206,6 +224,8 @@ def crear_router(raiz: Path) -> APIRouter:
             # en `grandes`). Un archivo de 0 bytes es `b""`: se persiste para que
             # el extractor emita un hueco en vez de "no se subió".
             if contenido is not None:
+                contenido = _a_texto(archivo, contenido)
+            if contenido is not None:
                 (carpeta / INSUMOS[clave]).write_bytes(contenido)
 
         # El HTML de vistas es referencia visual: se persiste para consulta pero
@@ -214,6 +234,13 @@ def crear_router(raiz: Path) -> APIRouter:
             contenido_vistas = await _leer(vistas)
             if contenido_vistas:
                 (carpeta / ARCHIVO_VISTAS).write_bytes(contenido_vistas)
+
+        if ilegibles:
+            shutil.rmtree(carpeta, ignore_errors=True)
+            return JSONResponse(status_code=422, content={
+                "error": "no se pudo leer el .docx: ¿está corrupto o no es de Word?",
+                "archivos": ilegibles,
+            })
 
         if grandes:
             shutil.rmtree(carpeta, ignore_errors=True)
