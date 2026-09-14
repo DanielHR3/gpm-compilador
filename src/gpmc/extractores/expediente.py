@@ -10,6 +10,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from gpmc.extractores import documentos as ext_docs
 from gpmc.extractores import diccionario as ext_dicc
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores import metadatos as ext_meta
@@ -459,11 +460,18 @@ def extraer_expediente(carpeta: Path) -> Resultado:
             Conexion(de=tareas[i].id, a=tareas[i + 1].id) for i in range(len(tareas) - 1)
         ]
 
+    # Los documentos que el tramite genera (oficios, acuses): plantillas .md
+    # con {{variables}} en documentos/. Cada variable debe ser un campo real.
+    acciones_doc, huecos_doc = ext_docs.extraer_documentos(
+        carpeta, {c.nombre for p_ in pantallas for c in p_.campos},
+    )
+    r.huecos += huecos_doc
+
     r.manifiesto = Manifiesto(
         tramite=tramite,
         actores=list(actores_vistos.values()),
         pantallas=pantallas,
         flujo=Flujo(tareas=tareas, conexiones=conexiones),
-        acciones=[],
+        acciones=acciones_doc,
     )
     return r

@@ -39,6 +39,7 @@ from gpmc.extractores.docx import a_markdown
 from gpmc.extractores import pdf as ext_pdf
 from gpmc.web.sesiones import (
     CARPETA_ADJUNTOS,
+    CARPETA_DOCUMENTOS,
     adjuntos_de,
     nombre_seguro,
     ARCHIVO_VISTAS,
@@ -190,6 +191,7 @@ def crear_router(raiz: Path) -> APIRouter:
         diccionario: UploadFile = File(...),
         vistas: UploadFile = File(None),
         adjuntos: List[UploadFile] = File(None),
+        documentos: List[UploadFile] = File(None),
     ):
         _purgar_sesiones(raiz)
         sid = secrets.token_hex(8)
@@ -258,6 +260,18 @@ def crear_router(raiz: Path) -> APIRouter:
             destino = carpeta / CARPETA_ADJUNTOS
             destino.mkdir(parents=True, exist_ok=True)
             (destino / nombre_seguro(adjunto.filename)).write_bytes(datos)
+
+        # Plantillas de los documentos que genera el tramite: a diferencia de
+        # los adjuntos, estas SI las lee el extractor.
+        for plantilla in (documentos or []):
+            if plantilla is None or not plantilla.filename:
+                continue
+            datos = await _leer(plantilla)
+            if not datos:
+                continue
+            destino = carpeta / CARPETA_DOCUMENTOS
+            destino.mkdir(parents=True, exist_ok=True)
+            (destino / nombre_seguro(plantilla.filename)).write_bytes(datos)
 
         if ilegibles:
             shutil.rmtree(carpeta, ignore_errors=True)

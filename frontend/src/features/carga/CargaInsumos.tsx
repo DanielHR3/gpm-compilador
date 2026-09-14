@@ -73,6 +73,9 @@ export default function CargaInsumos({
   // Diagramas y PDF que el compilador no puede leer pero el analista necesita
   // a la vista mientras resuelve los huecos.
   const [apoyo, setApoyo] = useState<File[]>([]);
+  // Plantillas de los documentos que el tramite genera (oficios, acuses):
+  // estas SI las lee el compilador, a diferencia de los adjuntos.
+  const [plantillas, setPlantillas] = useState<File[]>([]);
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [sobrevolando, setSobrevolando] = useState<CampoInsumo | null>(null);
@@ -99,6 +102,7 @@ export default function CargaInsumos({
         if (archivo) fd.append(campo, archivo);
       });
       apoyo.forEach((a) => fd.append("adjuntos", a));
+      plantillas.forEach((d) => fd.append("documentos", d));
       const est = await crearExpediente(fd);
       onListo(est);
     } catch (e) {
@@ -279,6 +283,35 @@ export default function CargaInsumos({
             {apoyo.length === 1
               ? "1 documento adjunto"
               : `${apoyo.length} documentos adjuntos`}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-4">
+        <label
+          htmlFor="documentos-plantillas"
+          className="text-sm font-medium text-foreground"
+        >
+          Documentos que genera el trámite
+        </label>
+        <p className="text-sm text-muted-foreground">
+          Oficios, acuses o constancias como plantilla <code>.md</code> con{" "}
+          <code>{"{{variables}}"}</code> que sean campos del Diccionario. El
+          compilador los convierte en documentos PDF del trámite.
+        </p>
+        <input
+          id="documentos-plantillas"
+          type="file"
+          multiple
+          accept=".md,text/markdown"
+          className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground"
+          onChange={(e) => setPlantillas(Array.from(e.target.files ?? []))}
+        />
+        {plantillas.length > 0 ? (
+          <p className="text-sm text-foreground">
+            {plantillas.length === 1
+              ? "1 plantilla de documento"
+              : `${plantillas.length} plantillas de documento`}
           </p>
         ) : null}
       </div>

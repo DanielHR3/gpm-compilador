@@ -156,3 +156,11 @@ describe("nombreDeCompuerta", () => {
     expect(nombreDeCompuerta("otra cosa")).toBeNull();
   });
 });
+
+describe("codigos de documentos de salida", () => {
+  test("DOC-02 y DOC-03 tienen titulo en castellano y pista de llenado", () => {
+    expect(tituloDeCodigo("DOC-02")).toBe("Variable sin campo en un documento");
+    expect(tituloDeCodigo("DOC-03")).toBe("Plantilla de documento ilegible");
+    expect(pistaDeCodigo("DOC-02")?.instruccion).toMatch(/campo del Diccionario/i);
+  });
+});

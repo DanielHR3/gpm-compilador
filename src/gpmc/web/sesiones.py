@@ -34,6 +34,10 @@ ARCHIVO_VISTAS = "Vistas.html"
 # a la vista mientras resuelve los huecos.
 CARPETA_ADJUNTOS = "adjuntos"
 
+# Plantillas de los documentos que el tramite genera (.md con {{variables}}).
+# A diferencia de los adjuntos, estas SI alimentan al extractor.
+CARPETA_DOCUMENTOS = "documentos"
+
 _IMAGENES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
 
 

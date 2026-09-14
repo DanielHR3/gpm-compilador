@@ -24,6 +24,8 @@ const TITULOS: Record<string, string> = {
   "DIC-08": "Visibilidad de un campo",
   "API-03": "Campo del que depende",
   "API-04": "Conexión con otro sistema",
+  "DOC-02": "Variable sin campo en un documento",
+  "DOC-03": "Plantilla de documento ilegible",
   "MMD-02": "Nodo del diagrama no declarado",
   "MMD-03": "Responsable de una tarea",
   "MMD-04": "Decisión del flujo",
@@ -159,6 +161,15 @@ const PISTAS: Record<string, Pista> = {
   "API-03": {
     instruccion:
       "Elige el campo del que depende este: el que hay que llenar antes.",
+  },
+  "DOC-02": {
+    instruccion:
+      "Cada {{variable}} de la plantilla debe ser un campo del Diccionario: de ahí saca GPM el valor al generar el PDF. Corrige el nombre o agrega el campo.",
+    ejemplo: "«Estimado {{nombre}}, su folio es {{folio}}» — nombre y folio existen en el Diccionario.",
+  },
+  "DOC-03": {
+    instruccion:
+      "Solo se leen plantillas .md con {{variables}}. Un oficio escaneado adjúntalo como documento de apoyo y escribe su texto como plantilla.",
   },
 };
 

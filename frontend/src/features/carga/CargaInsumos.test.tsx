@@ -62,3 +62,19 @@ it("se pueden adjuntar los diagramas y PDF que el compilador no lee", async () =
   const fd = vi.mocked(crearExpediente).mock.calls.at(-1)![0] as FormData;
   expect(fd.getAll("adjuntos").map((f) => (f as File).name)).toEqual(["TO BE.png"]);
 });
+
+it("se pueden subir las plantillas de los documentos que genera el tramite", async () => {
+  const { crearExpediente } = await import("@/lib/api");
+  vi.mocked(crearExpediente).mockResolvedValue({ sid: "a".repeat(16) } as any);
+
+  render(<CargaInsumos onListo={vi.fn()} />);
+
+  const dicc = new File(["# d"], "Diccionario.md", { type: "text/markdown" });
+  const oficio = new File(["Hola {{nombre}}"], "oficio.md", { type: "text/markdown" });
+  await userEvent.upload(screen.getByLabelText(/^diccionario$/i), dicc);
+  await userEvent.upload(screen.getByLabelText(/documentos que genera/i), oficio);
+  await userEvent.click(screen.getByRole("button", { name: /revisar|extraer/i }));
+
+  const fd = vi.mocked(crearExpediente).mock.calls.at(-1)![0] as FormData;
+  expect(fd.getAll("documentos").map((f) => (f as File).name)).toEqual(["oficio.md"]);
+});
