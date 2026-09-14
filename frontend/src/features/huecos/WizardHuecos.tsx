@@ -7,9 +7,21 @@ import { cn } from "cn";
 import type { EstadoExpediente, Hueco } from "@/lib/types";
 
 import { agruparPorNivel } from "./agrupar";
+import ModoFoco from "./ModoFoco";
+import { useFoco } from "./useFoco";
 import RielEntrega from "./RielEntrega";
 import TarjetaHueco, { type RespuestaResuelto } from "./TarjetaHueco";
 import { useListaConSalida } from "./useListaConSalida";
+
+/**
+ * A partir de cuantos huecos el modo foco entra solo.
+ *
+ * Por debajo, la lista completa cabe de un vistazo y obligar a navegar de uno
+ * en uno estorba. Por encima —Publicacion trae 65— la lista deja de servir: el
+ * analista pierde el sitio en cuanto hace scroll. El umbral se puede cambiar a
+ * mano en cualquier momento; esto solo decide con que arranca.
+ */
+const HUECOS_PARA_FOCO = 20;
 
 /** Debe coincidir con --duracion-salida-tarjeta de index.css. */
 const MS_SALIDA = 240;
@@ -35,6 +47,9 @@ export default function WizardHuecos({
   const [huecos, setHuecos] = useState<Hueco[]>(estado.huecos);
   const [manifiesto, setManifiesto] = useState<Record<string, unknown>>(
     estado.manifiesto,
+  );
+  const [modo, setModo] = useState<"lista" | "foco">(() =>
+    estado.huecos.length > HUECOS_PARA_FOCO ? "foco" : "lista",
   );
   const [reconocidos, setReconocidos] = useState<Set<string>>(
     () => new Set((estado.reconocidos ?? []).map(([c, u]) => `${c}|${u}`)),
@@ -105,6 +120,7 @@ export default function WizardHuecos({
   };
 
   const grupos = agruparPorNivel(enPantalla.map((e) => e.item));
+  const foco = useFoco(huecos);
   const salientes = new Set(
     enPantalla.filter((e) => e.saliendo).map((e) => clave(e.item)),
   );
@@ -148,7 +164,62 @@ export default function WizardHuecos({
           <p className="text-sm text-muted-foreground">{notaComplejidad}</p>
         ) : null}
 
-        {grupos.map((grupo) => (
+        {totalInicial > 0 ? (
+          <div
+            role="radiogroup"
+            aria-label="Cómo ver los huecos"
+            className="flex w-fit gap-0.5 rounded-lg bg-muted p-0.5"
+          >
+            {(
+              [
+                ["lista", "Lista"],
+                ["foco", "Uno a la vez"],
+              ] as const
+            ).map(([valor, etiqueta]) => (
+              <button
+                key={valor}
+                type="button"
+                role="radio"
+                aria-checked={modo === valor}
+                onClick={() => setModo(valor)}
+                className={cn(
+                  "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                  modo === valor
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {modo === "foco" && foco.actual ? (
+          <>
+            <ModoFoco
+              huecos={huecos}
+              actualClave={clave(foco.actual)}
+              onIr={foco.irA}
+              onAnterior={foco.anterior}
+              onSiguiente={foco.siguiente}
+              indice={foco.indice}
+              total={foco.total}
+            />
+            <div className="tarjeta-entrando">
+              <TarjetaHueco
+                key={clave(foco.actual)}
+                hueco={foco.actual}
+                manifiesto={manifiesto}
+                sid={estado.sid}
+                onResuelto={onResuelto}
+              />
+            </div>
+          </>
+        ) : null}
+
+        {modo === "lista"
+          ? grupos.map((grupo) => (
           <section
             key={grupo.nivel}
             role="group"
@@ -190,7 +261,8 @@ export default function WizardHuecos({
               );
             })}
           </section>
-        ))}
+            ))
+          : null}
       </main>
 
       <RielEntrega

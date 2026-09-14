@@ -226,3 +226,50 @@ it("al volver a la pantalla, lo ya reconocido cuenta como resuelto", () => {
     screen.getByRole("complementary", { name: /entrega/i }),
   ).toHaveTextContent(/todo listo para entregar/i);
 });
+
+/** Un expediente con `n` huecos de captura, para probar los dos modos. */
+/** El contador parte el numero en su propio <span>: hay que mirar el texto entero. */
+const textoDe = (frase: string) => (_: string, el: Element | null) =>
+  el?.textContent?.replace(/\s+/g, " ").trim() === frase;
+
+const conHuecos = (n: number) => ({
+  ...estado,
+  huecos: Array.from({ length: n }, (_, i) => ({
+    nivel: "falta_dato",
+    codigo: "META-01",
+    ubicacion: `u${i}`,
+    mensaje: `hueco ${i}`,
+    propuesta: null,
+  })),
+});
+
+it("con pocos huecos arranca en la lista completa", () => {
+  render(<WizardHuecos estado={conHuecos(5) as any} onEstado={() => {}} />);
+
+  expect(screen.getByRole("radio", { name: /lista/i })).toBeChecked();
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
+});
+
+it("con muchos huecos arranca en foco: una tarjeta a la vez", () => {
+  render(<WizardHuecos estado={conHuecos(30) as any} onEstado={() => {}} />);
+
+  expect(screen.getByRole("radio", { name: /uno a la vez/i })).toBeChecked();
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
+  expect(screen.getByText(textoDe("Hueco 1 de 30"))).toBeInTheDocument();
+});
+
+it("se puede cambiar de modo a mano", async () => {
+  render(<WizardHuecos estado={conHuecos(30) as any} onEstado={() => {}} />);
+
+  await userEvent.click(screen.getByRole("radio", { name: /lista/i }));
+
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(30);
+});
+
+it("en foco, avanzar mueve al hueco siguiente", async () => {
+  render(<WizardHuecos estado={conHuecos(30) as any} onEstado={() => {}} />);
+
+  await userEvent.click(screen.getByRole("button", { name: /siguiente/i }));
+
+  expect(screen.getByText(textoDe("Hueco 2 de 30"))).toBeInTheDocument();
+});
