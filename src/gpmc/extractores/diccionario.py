@@ -630,9 +630,17 @@ def extraer(texto: str) -> Resultado:
         r.pantallas.append(pantalla)
 
     if not r.pantallas:
+        # `por_confirmar`, no `falta_dato`: esto describe una decision que el
+        # compilador YA tomo —agrupar todo en una pantalla—, igual que DIC-05
+        # cuando propone una etiqueta. No hay respuesta que dar: el unico
+        # control posible era "lo configuro a mano", que solo reconoce el
+        # hueco. Bloquear la descarga del .gpm no arreglaba nada; solo exigia
+        # una configuracion manual para poder seguir.
         r.huecos.append(Hueco(
-            "falta_dato", "DIC-04", "",
-            "no se encontró ninguna cabecera '### Pantalla N — ACTOR — Nombre'; se agruparon todos los campos en una sola pantalla por defecto",
+            "por_confirmar", "DIC-04", "",
+            "el Diccionario no separa el trámite en pantallas (falta la cabecera "
+            "'### Pantalla N — ACTOR — Nombre'), así que todos los campos quedaron "
+            "en una sola. Si el trámite se captura de una vez, está bien así",
         ))
         
         filas = [l for l in texto.splitlines() if l.strip().startswith("|")]

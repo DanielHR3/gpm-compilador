@@ -795,3 +795,26 @@ def test_un_conjunto_en_positivo_no_se_inventa_una_conjuncion():
     assert _condicion_desde_conjunto(
         "Visible solo cuando `@@procedencia` ∈ {Dependencia, Municipio}", indice,
     ) is None
+
+
+def test_sin_cabeceras_de_pantalla_el_aviso_no_cierra_la_puerta_del_gpm():
+    """DIC-04 describe una decision que el compilador YA tomo —agrupar todo en
+    una pantalla—, igual que DIC-05 cuando propone una etiqueta. DIC-05 es
+    'por_confirmar'; DIC-04 era 'falta_dato' y bloqueaba la descarga.
+
+    No ofrece ninguna respuesta posible: el unico control era "lo configuro a
+    mano", que solo reconoce el hueco. Bloquear no arreglaba nada, solo pedia
+    una configuracion manual para seguir."""
+    texto = (
+        "# Diccionario Híbrido\n\n"
+        "| Variable | Tipo (GPM) | Comportamiento |\n"
+        "| :--- | :--- | :--- |\n"
+        "| `curp` | text | Fuerza uppercase |\n"
+        "| `cp` | text | Validación regex |\n"
+    )
+
+    r = extraer(texto)
+
+    d4 = [h for h in r.huecos if h.codigo == "DIC-04"]
+    assert len(d4) == 1
+    assert d4[0].nivel == "por_confirmar"
