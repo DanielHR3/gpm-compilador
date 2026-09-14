@@ -132,3 +132,19 @@ it("avisa que el hueco quedo resuelto y cuantos faltan", async () => {
   expect(await screen.findByText(/META-01 resuelto/)).toBeInTheDocument();
   expect(await screen.findByText(/queda 1 hueco/i)).toBeInTheDocument();
 });
+
+it("cada tarjeta va envuelta en el contenedor que permite animar su salida", () => {
+  // El PLAZO de salida se prueba, sin relojes reales, en useListaConSalida.test.ts.
+  // Aqui solo interesa que el wizard use ese hook: atarlo al temporizador desde
+  // esta prueba la vuelve una carrera (240 ms contra la maquina).
+  const { container } = render(
+    <WizardHuecos estado={estado as any} onEstado={() => {}} />,
+  );
+
+  const envoltorios = container.querySelectorAll("[data-saliendo]");
+  expect(envoltorios).toHaveLength(estado.huecos.length);
+  envoltorios.forEach((e) => {
+    expect(e).toHaveAttribute("data-saliendo", "false");
+    expect(e).toHaveClass("tarjeta-entrando");
+  });
+});

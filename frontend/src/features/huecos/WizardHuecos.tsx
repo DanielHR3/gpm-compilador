@@ -8,6 +8,10 @@ import { urlGpm, urlManifiesto } from "@/lib/api";
 import type { EstadoExpediente, Hueco } from "@/lib/types";
 
 import TarjetaHueco, { type RespuestaResuelto } from "./TarjetaHueco";
+import { useListaConSalida } from "./useListaConSalida";
+
+/** Debe coincidir con --duracion-salida-tarjeta de index.css. */
+const MS_SALIDA = 240;
 
 /** Clave estable de un hueco: `codigo|ubicacion`. */
 const clave = (h: Hueco): string => `${h.codigo}|${h.ubicacion}`;
@@ -34,6 +38,9 @@ export default function WizardHuecos({
   const [reconocidos, setReconocidos] = useState<Set<string>>(new Set());
   const [totalInicial] = useState<number>(estado.huecos.length);
 
+  // La tarjeta resuelta se retiene un instante para que pueda salir animada;
+  // el conteo y la puerta del linter siguen mirando `huecos`, no esta lista.
+  const enPantalla = useListaConSalida(huecos, clave, MS_SALIDA);
   const pendientes = huecos.filter((h) => !reconocidos.has(clave(h)));
   const resueltos = totalInicial - pendientes.length;
   const progreso =
@@ -126,14 +133,20 @@ export default function WizardHuecos({
       ) : null}
 
       <div className="flex flex-col gap-4">
-        {huecos.map((h) => (
-          <TarjetaHueco
+        {enPantalla.map(({ item: h, saliendo }) => (
+          <div
             key={clave(h)}
-            hueco={h}
-            manifiesto={manifiesto}
-            sid={estado.sid}
-            onResuelto={onResuelto}
-          />
+            data-saliendo={saliendo}
+            className={saliendo ? "tarjeta-saliendo" : "tarjeta-entrando"}
+            aria-hidden={saliendo || undefined}
+          >
+            <TarjetaHueco
+              hueco={h}
+              manifiesto={manifiesto}
+              sid={estado.sid}
+              onResuelto={onResuelto}
+            />
+          </div>
         ))}
       </div>
 
