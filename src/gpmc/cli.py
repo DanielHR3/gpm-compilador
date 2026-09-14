@@ -122,6 +122,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     srv = sub.add_parser("servir", help="levanta el asistente web")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--puerto", type=int, default=8000)
+    srv.add_argument(
+        "--almacen",
+        type=Path,
+        default=None,
+        help=(
+            "carpeta donde guardar las sesiones; sin esto se usa un directorio "
+            "temporal que el sistema borra al apagar"
+        ),
+    )
 
     diag = sub.add_parser("diagnostico", help="herramientas de diagnóstico")
     diag.add_argument("--sintaxis", action="store_true", help="genera archivos de prueba empírica de sintaxis")
@@ -293,10 +302,23 @@ def main(argv: Optional[list[str]] = None) -> int:
         except ImportError:
             print("Falta el extra web. Instalar con: pip install -e '.[web]'", file=sys.stderr)
             return 2
-        from gpmc.web.app import crear_app
+        from gpmc.web import app as web_app
 
         print(f"Asistente en http://{args.host}:{args.puerto}  (Ctrl+C para detener)")
-        uvicorn.run(crear_app(), host=args.host, port=args.puerto, log_level="warning")
+        if args.almacen is not None:
+            args.almacen.mkdir(parents=True, exist_ok=True)
+            print(f"Sesiones en {args.almacen}")
+        else:
+            print("AVISO: sesiones en un directorio temporal; se pierden al "
+                  "cerrar. Usa --almacen para conservarlas.")
+        # `crear_app` se resuelve por modulo, no por el nombre importado
+        # arriba, para que una prueba pueda sustituirlo.
+        uvicorn.run(
+            web_app.crear_app(almacen=args.almacen),
+            host=args.host,
+            port=args.puerto,
+            log_level="warning",
+        )
         return 0
 
     if args.orden == "simular":

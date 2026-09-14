@@ -177,8 +177,28 @@ export function pistaDeCodigo(codigo: string): Pista | null {
  */
 export function nombreDeTarea(mensaje: string): string | null {
   const m = /«(.+?)»/s.exec(mensaje);
-  if (!m) return null;
-  let t = m[1].trim();
+  return m ? limpiarEtiquetaDelDiagrama(m[1]) : null;
+}
+
+/**
+ * La pregunta de la compuerta que menciona un mensaje de `MMD-04`.
+ *
+ * A diferencia de `MMD-03`, el compilador la envuelve en parentesis y no en
+ * comillas: «la compuerta (🏛️ Periódico Oficial: ¿Es competencia del PO?) no
+ * nombra ningun campo @@». Se limpia igual que una tarea.
+ */
+export function nombreDeCompuerta(mensaje: string): string | null {
+  const m = /la compuerta \(([^)]*(?:\)[^)]*)*?)\)\s*no /s.exec(mensaje);
+  return m ? limpiarEtiquetaDelDiagrama(m[1]) : null;
+}
+
+/**
+ * Quita del texto de un nodo del diagrama lo que es adorno o andamiaje:
+ * emojis, el carril delante («Usuario: …») y el detalle entre parentesis al
+ * final. Lo que queda es lo que una persona diria.
+ */
+function limpiarEtiquetaDelDiagrama(bruto: string): string {
+  let t = bruto.trim();
   // Emoji(s) de adorno al principio, con o sin selector de variacion.
   t = t.replace(/^(?:[\p{Extended_Pictographic}️‍]+\s*)+/u, "");
   // Carril delante: «Usuario: …», «Periódico Oficial: …».

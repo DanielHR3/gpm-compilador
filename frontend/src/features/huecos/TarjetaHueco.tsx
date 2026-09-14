@@ -13,7 +13,7 @@ import { tituloDeCodigo } from "./lenguaje";
  * el texto crudo del compilador y justo debajo la misma idea bien dicha. El
  * crudo no se pierde, vive en el detalle tecnico del propio control.
  */
-const CONTROL_REDACTA_EL_MENSAJE = new Set(["DIC-08", "MMD-03"]);
+const CONTROL_REDACTA_EL_MENSAJE = new Set(["DIC-08", "MMD-03", "MMD-04"]);
 import type { Hueco, Resolucion } from "@/lib/types";
 
 /** Color de acento por severidad -- solo estos tres niveles existen hoy. */

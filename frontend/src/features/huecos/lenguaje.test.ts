@@ -5,6 +5,7 @@ import type { CampoManifiesto, Condicion } from "@/lib/types";
 import {
   describirCondicion,
   leerMensajeVisibilidad,
+  nombreDeCompuerta,
   nombreDeTarea,
   pistaDeCodigo,
   tituloDeCodigo,
@@ -125,5 +126,33 @@ describe("nombreDeTarea", () => {
 
   test("un mensaje sin comillas devuelve null en vez de inventar", () => {
     expect(nombreDeTarea("otra cosa cualquiera")).toBeNull();
+  });
+});
+
+describe("nombreDeCompuerta", () => {
+  test("saca la pregunta de la compuerta de entre los parentesis", () => {
+    expect(
+      nombreDeCompuerta(
+        "la compuerta (¿Tiene observaciones?) no nombra ningún campo @@; la condición debe capturarse a mano",
+      ),
+    ).toBe("¿Tiene observaciones?");
+  });
+
+  test("quita el emoji y el carril que trae el diagrama", () => {
+    expect(
+      nombreDeCompuerta(
+        "la compuerta (🏛️ Periódico Oficial: ¿Es competencia del PO?) no nombra ningún campo @@",
+      ),
+    ).toBe("¿Es competencia del PO?");
+  });
+
+  test("el marcador de bifurcacion tampoco sobrevive", () => {
+    expect(
+      nombreDeCompuerta("la compuerta (🔀 ¿Procedencia? tarifa) no nombra ningún campo @@"),
+    ).toBe("¿Procedencia? tarifa");
+  });
+
+  test("sin parentesis devuelve null en vez de inventar", () => {
+    expect(nombreDeCompuerta("otra cosa")).toBeNull();
   });
 });
