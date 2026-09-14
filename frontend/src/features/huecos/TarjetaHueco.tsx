@@ -39,6 +39,7 @@ import BotonReconocer from "./controles/BotonReconocer";
 import ControlActor, { type Actor } from "./controles/ControlActor";
 import ControlCampoPadre, { type Campo } from "./controles/ControlCampoPadre";
 import ControlCompuerta from "./controles/ControlCompuerta";
+import ControlConfirmar from "./controles/ControlConfirmar";
 import ControlTexto from "./controles/ControlTexto";
 import ControlVisibilidad from "./controles/ControlVisibilidad";
 import { useAccion } from "./useAccion";
@@ -204,6 +205,14 @@ export default function TarjetaHueco({
           o lo configuro a mano
         </button>
       </div>
+    );
+  } else if (hueco.nivel === "por_confirmar") {
+    control = (
+      <ControlConfirmar
+        hueco={hueco}
+        guardando={guardando}
+        onConfirmar={reconocerHueco}
+      />
     );
   } else if (hueco.nivel === "falta_dato") {
     control = <BotonReconocer hueco={hueco} onReconocer={reconocerHueco} />;

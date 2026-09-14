@@ -195,3 +195,29 @@ it("MMD-03: el mensaje crudo no se repite encima de la pregunta del control", ()
     .filter((el) => el.closest("details") === null);
   expect(sueltos).toHaveLength(0);
 });
+
+it("un hueco de solo confirmar dice que no hay nada que llenar y se puede cerrar", async () => {
+  const { reconocer } = await import("@/lib/api");
+  render(
+    <TarjetaHueco
+      hueco={{
+        nivel: "por_confirmar",
+        codigo: "META-05",
+        ubicacion: "metadatos",
+        mensaje: "no se encontro homoclave; en tramites nuevos es normal, la asigna GPM",
+        propuesta: null,
+      }}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  // Antes no habia ningun control: la tarjeta enunciaba un hecho y dejaba al
+  // analista sin saber si tenia que hacer algo.
+  expect(screen.getByText(/no tienes que llenar nada/i)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /entendido/i }));
+
+  expect(reconocer).toHaveBeenCalledWith(sid, "META-05", "metadatos");
+});
