@@ -553,6 +553,30 @@ def test_reconocer_marca_el_hueco_y_lo_devuelve(tmp_path):
     assert ["INS-01", ""] in r.json()["reconocidos"]
 
 
+def test_leer_expediente_devuelve_lo_reconocido(tmp_path):
+    """Sin esto la SPA pierde de vista lo reconocido en cuanto se recarga la
+    pagina: el servidor lo conserva (la puerta del .gpm se levanta) pero el
+    wizard vuelve a pintar el hueco como pendiente, y el analista cree que
+    perdio su trabajo."""
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+    c.post(f"/api/v1/expedientes/{sid}/reconocer", json={"codigo": "INS-01", "ubicacion": ""})
+
+    r = c.get(f"/api/v1/expedientes/{sid}")
+
+    assert r.status_code == 200
+    assert ["INS-01", ""] in r.json()["reconocidos"]
+
+
+def test_expediente_recien_creado_no_trae_nada_reconocido(tmp_path):
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+
+    assert c.get(f"/api/v1/expedientes/{sid}").json()["reconocidos"] == []
+
+
 # ── Descarga del .gpm (puerta del linter) y del manifiesto ──
 
 try:

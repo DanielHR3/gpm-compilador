@@ -36,7 +36,9 @@ export default function WizardHuecos({
   const [manifiesto, setManifiesto] = useState<Record<string, unknown>>(
     estado.manifiesto,
   );
-  const [reconocidos, setReconocidos] = useState<Set<string>>(new Set());
+  const [reconocidos, setReconocidos] = useState<Set<string>>(
+    () => new Set((estado.reconocidos ?? []).map(([c, u]) => `${c}|${u}`)),
+  );
   const [totalInicial] = useState<number>(estado.huecos.length);
 
   // La tarjeta resuelta se retiene un instante para que pueda salir animada;

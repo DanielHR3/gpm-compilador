@@ -59,6 +59,11 @@ class EstadoExpediente(BaseModel):
     estimacion: dict
     problemas: List[str]
     tiene_vistas: bool
+    # Los `(codigo, ubicacion)` ya marcados como "se configuran a mano".
+    # Sin esto la SPA los pierde de vista al recargar: el servidor los
+    # conserva —la puerta del .gpm sigue levantada— pero el wizard vuelve a
+    # pintar el hueco como pendiente y el analista cree que perdio su trabajo.
+    reconocidos: List[List[str]]
 
 
 # Mismo mapeo tipo->codigo que usa el HTML `POST /resolver` para limpiar
@@ -163,6 +168,7 @@ def _estado(sid: str, carpeta: Path, manifiesto) -> EstadoExpediente:
         estimacion=dataclasses.asdict(estimar(manifiesto)),
         problemas=analizar(manifiesto).problemas,
         tiene_vistas=(carpeta / ARCHIVO_VISTAS).exists(),
+        reconocidos=[list(t) for t in sorted(reconocidos_de(carpeta))],
     )
 
 

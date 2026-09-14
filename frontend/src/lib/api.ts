@@ -117,6 +117,7 @@ function mapEstado(raw: unknown): EstadoExpediente {
     estimacion: Record<string, unknown>;
     problemas: string[];
     tiene_vistas: boolean;
+    reconocidos?: [string, string][];
   };
   return {
     sid: o.sid,
@@ -125,6 +126,8 @@ function mapEstado(raw: unknown): EstadoExpediente {
     estimacion: o.estimacion,
     problemas: o.problemas,
     tieneVistas: o.tiene_vistas,
+    // Un servidor viejo no lo manda: se cae a vacio en vez de reventar.
+    reconocidos: o.reconocidos ?? [],
   };
 }
 

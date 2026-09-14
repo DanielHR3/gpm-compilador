@@ -37,6 +37,12 @@ export type EstadoExpediente = {
   estimacion: Estimacion;
   problemas: string[];
   tieneVistas: boolean;
+  /**
+   * Los `(codigo, ubicacion)` ya marcados como "se configuran a mano".
+   * El servidor los conserva; sin sembrarlos aqui la SPA los perdia al
+   * recargar y el wizard repintaba el hueco como pendiente.
+   */
+  reconocidos: [string, string][];
 };
 
 /**

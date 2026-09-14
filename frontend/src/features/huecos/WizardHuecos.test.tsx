@@ -208,3 +208,21 @@ it("cada aviso de flujo es su propia tarjeta, no una viñeta de una lista", () =
   expect(avisos[0]).toHaveTextContent("ciclo sin salida en la tarea 3");
   expect(container.querySelector("ul.list-disc")).toBeNull();
 });
+
+it("al volver a la pantalla, lo ya reconocido cuenta como resuelto", () => {
+  // El servidor conserva lo reconocido; antes la SPA lo perdia al recargar y
+  // el analista veia su trabajo como pendiente.
+  const est = {
+    ...estado,
+    reconocidos: [["META-01", "metadatos"]] as [string, string][],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+
+  expect(screen.getByText(/de 2 resueltos/)).toHaveTextContent(
+    "1 de 2 resueltos",
+  );
+  // Y la puerta del .gpm deja de estar cerrada por ese hueco.
+  expect(
+    screen.getByRole("complementary", { name: /entrega/i }),
+  ).toHaveTextContent(/todo listo para entregar/i);
+});
