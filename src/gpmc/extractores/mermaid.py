@@ -92,12 +92,26 @@ class Resultado:
     huecos: list[Hueco] = field(default_factory=list)
 
 
-def _limpiar(texto: str) -> str:
+def _limpiar(texto: str) -> tuple[str, Optional[str]]:
+    """Devuelve el texto de la tarea y, si lo trae, quien la ejecuta.
+
+    El diagrama TO-BE nombra al ejecutor delante de la tarea: «🔍 Usuario:
+    Consultar informacion». Antes esta funcion reconocia ese prefijo y lo
+    BORRABA, y mas abajo el extractor emitia un MMD-03 preguntando justo el dato
+    que acababa de tirar: en Publicacion en el Periodico Oficial, 33 de 42
+    huecos eran eso. Ahora se devuelve para poder usarlo.
+    """
     t = re.sub(r"<br\s*/?>", " ", texto or "")
     t = t.replace('"', "").replace("&nbsp;", " ")
     t = re.sub(r"\*\([^)]*\)\*?", "", t)
     t = re.sub(r"\s+", " ", t).strip()
-    return _PREFIJO_ACTOR.sub("", t).strip()
+    # Los emojis de adorno van delante del prefijo y lo esconden del patron.
+    t = re.sub(r"^(?:[^\w¿¡(\[]|_)+", "", t).strip()
+    m = _PREFIJO_ACTOR.match(t)
+    if not m:
+        return t, None
+    prefijo = m.group(0).rstrip().rstrip(":").strip()
+    return t[m.end():].strip(), prefijo or None
 
 
 def extraer(bloque: str) -> Resultado:
@@ -134,15 +148,25 @@ def extraer(bloque: str) -> Resultado:
         # A la nota no se le quita el prefijo de actor: "Nota importante:" no
         # nombra a quien ejecuta, y _limpiar se lo comeria.
         if clase_nodo == "nota":
-            texto = (crudo or "").strip().strip("/").strip()
+            texto, prefijo = (crudo or "").strip().strip("/").strip(), None
         else:
-            texto = _limpiar(crudo)
+            texto, prefijo = _limpiar(crudo)
+
+        # El carril declarado (:::clase) manda; el prefijo de la etiqueta es el
+        # respaldo. Si el analista se tomo la molestia de escribir la clase, esa
+        # es su intencion explicita.
+        if m["clase"]:
+            actor = normalizar_actor(m["clase"])
+        elif prefijo:
+            actor = normalizar_actor(prefijo)
+        else:
+            actor = None
 
         nodo = Nodo(
             id=nid,
             texto=texto,
             clase_nodo=clase_nodo,
-            actor=normalizar_actor(m["clase"]) if m["clase"] else None,
+            actor=actor,
             campos=_CAMPO.findall(crudo or ""),
         )
         vistos[nid] = nodo
@@ -177,8 +201,11 @@ def extraer(bloque: str) -> Resultado:
                     f"la arista {a.de}->{a.a} referencia un nodo no declarado: {extremo}",
                 ))
 
+    # Una compuerta no la "ejecuta" nadie: es una decision del flujo. Pedir su
+    # actor ensuciaba la lista con huecos imposibles de contestar.
+    SIN_ACTOR = ("inicio_fin", "nota", "compuerta")
     for n in r.nodos:
-        if n.actor is None and n.clase_nodo not in ("inicio_fin", "nota"):
+        if n.actor is None and n.clase_nodo not in SIN_ACTOR:
             r.huecos.append(Hueco(
                 "falta_dato", "MMD-03", n.id,
                 f"la tarea «{n.texto}» no declara carril (:::clase); no se "

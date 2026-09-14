@@ -193,10 +193,14 @@ _INSUMOS_CON_MMD04 = {
 # "T1" (el id del diagrama). Hallazgo post-sprint: resolver "mmd03" con
 # ubicacion="T1" buscaba `t.id == "T1"` en `m.flujo.tareas`, nunca casaba, y
 # devolvia 200 sin cambiar nada ni tachar el hueco -- un "exito" falso.
+# Sin carril Y sin prefijo de actor en la etiqueta: desde que el extractor lee
+# el prefijo («Solicitante: ...») como respaldo del carril, dejar el prefijo ya
+# no produce hueco -- que es justo el punto. Para seguir probando la traduccion
+# de ids hace falta una tarea de la que de verdad no se sepa quien la ejecuta.
 _TOBE_MMD03 = (
     _TOBE_MMD04
     .replace("T1[Solicitante: Captura la solicitud]:::solicitante",
-             "T1[Solicitante: Captura la solicitud]")
+             "T1[Captura la solicitud]")
     .replace("G{¿Procede?}:::area", "G{¿Procede?}")
 )
 _INSUMOS_CON_MMD03 = {
@@ -223,22 +227,27 @@ def test_resolver_mmd03_traduce_el_id_del_diagrama_a_la_tarea_real(tmp_path):
     assert tarea["actor"] == "solicitante"
 
 
-def test_resolver_mmd03_sobre_una_compuerta_cierra_el_hueco_sin_actor(tmp_path):
-    """Una compuerta no tiene actor en el modelo compilado (es un punto de
-    decision, no una tarea) -- resolver 'mmd03' sobre ella no puede escribir
-    nada, pero tampoco debe quedarse como un 200 vacio: se acepta como
-    cerrado (el hueco se tacha) en vez de repetir el hallazgo con otro
-    disfraz."""
+def test_una_compuerta_ya_no_pide_actor(tmp_path):
+    """Una compuerta es un punto de decision, no una tarea: nadie la 'ejecuta'.
+    Preguntar quien la hace era un hueco imposible de contestar --  en
+    Publicacion en el Periodico Oficial eran 3 de 42."""
     c = _cli(tmp_path)
     est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD03).json()
-    sid = est["sid"]
-    assert any(h["codigo"] == "MMD-03" and h["ubicacion"] == "G"
-               for h in est["huecos"]), est["huecos"]
-    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
-        "tipo": "mmd03", "ubicacion": "G", "valor": "area"}]})
-    assert r.status_code == 200, r.text
+
     assert not any(h["codigo"] == "MMD-03" and h["ubicacion"] == "G"
-                   for h in r.json()["huecos"])
+                   for h in est["huecos"]), est["huecos"]
+
+
+def test_resolver_mmd03_sobre_una_compuerta_sigue_sin_reventar(tmp_path):
+    """Ya no se emiten, pero una sesion vieja puede traer el hueco guardado en
+    disco: el resolver tiene que seguir aceptandolo sin romperse."""
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD03).json()
+
+    r = c.post(f"/api/v1/expedientes/{est['sid']}/resolver", json={"resoluciones": [{
+        "tipo": "mmd03", "ubicacion": "G", "valor": "area"}]})
+
+    assert r.status_code in (200, 422), r.text
 
 
 def test_resolver_mmd03_id_desconocido_da_422(tmp_path):
