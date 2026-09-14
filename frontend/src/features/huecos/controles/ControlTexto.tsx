@@ -3,6 +3,8 @@ import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import type { Hueco } from "@/lib/types";
 
+import { pistaDeCodigo } from "../lenguaje";
+
 import BotonGuardar from "./BotonGuardar";
 
 /**
@@ -35,14 +37,19 @@ export default function ControlTexto({
   const [valor, setValor] = useState<string>("");
   const id = useId();
   const etiqueta = etiquetaDe(hueco);
+  const pista = pistaDeCodigo(hueco.codigo);
 
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className="text-sm font-medium">
         {etiqueta}
       </label>
+      {pista ? (
+        <p className="text-sm text-muted-foreground">{pista.instruccion}</p>
+      ) : null}
       <Input
         id={id}
+        placeholder={pista?.marcador}
         value={valor}
         onChange={(e) => setValor(e.target.value)}
       />

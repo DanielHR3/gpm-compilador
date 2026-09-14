@@ -108,3 +108,25 @@ it("lee la regla armada como una frase, para poder comprobarla", async () => {
 
   expect(screen.getByText(/Estado es igual a Hidalgo/)).toBeInTheDocument();
 });
+
+it("explica que hacer y ensena un ejemplo real antes de pedir la regla", () => {
+  render(
+    <ControlVisibilidad
+      hueco={{
+        nivel: "falta_dato",
+        codigo: "DIC-08",
+        ubicacion: "p1::rfc",
+        mensaje: "no se pudo interpretar: «x»",
+        propuesta: null,
+      }}
+      sid={"a".repeat(16)}
+      manifiesto={{}}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByText(/Elige el campo que decide si este se ve/i)).toBeInTheDocument();
+  expect(
+    screen.getByText(/Muestra «RFC» solo cuando «Procedencia» sea igual a/i),
+  ).toBeInTheDocument();
+});

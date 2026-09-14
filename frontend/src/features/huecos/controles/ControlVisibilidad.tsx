@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Check, Eye } from "lucide-react";
+import { Check, Eye, Lightbulb } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { camposDelManifiesto, resolverDic08 } from "@/lib/api";
 import type { Condicion, Hueco } from "@/lib/types";
 
-import { describirCondicion, leerMensajeVisibilidad } from "../lenguaje";
+import {
+  describirCondicion,
+  leerMensajeVisibilidad,
+  pistaDeCodigo,
+} from "../lenguaje";
 import { useAccion } from "../useAccion";
 
 import ConstructorRegla from "./ConstructorRegla";
@@ -37,6 +41,7 @@ export default function ControlVisibilidad({
   const campos = camposDelManifiesto(manifiesto);
   const leido = leerMensajeVisibilidad(hueco.mensaje);
   const frase = describirCondicion(condicion, campos);
+  const pista = pistaDeCodigo(hueco.codigo);
 
   const guardar = async () => {
     if (!condicion) return;
@@ -53,8 +58,28 @@ export default function ControlVisibilidad({
         {leido ? `«${leido.etiqueta}»` : "este campo"}?
       </h3>
 
+      {pista ? (
+        <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+          <p>{pista.instruccion}</p>
+          {pista.ejemplo ? (
+            <p className="flex items-start gap-2 rounded-md border border-dashed border-border px-3 py-2">
+              <Lightbulb aria-hidden className="mt-0.5 size-3.5 shrink-0 text-secondary" />
+              <span>
+                <span className="font-medium text-foreground">Por ejemplo: </span>
+                {pista.ejemplo}
+              </span>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <p className="text-sm text-muted-foreground">Muéstralo solo cuando:</p>
-      <ConstructorRegla campos={campos} value={null} onChange={setCondicion} />
+      <ConstructorRegla
+        campos={campos}
+        value={null}
+        onChange={setCondicion}
+        marcadorValor={pista?.marcador}
+      />
 
       {frase ? (
         <p className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm text-foreground">

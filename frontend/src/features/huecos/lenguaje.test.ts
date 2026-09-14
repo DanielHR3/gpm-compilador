@@ -2,7 +2,12 @@ import { describe, expect, test } from "vitest";
 
 import type { CampoManifiesto, Condicion } from "@/lib/types";
 
-import { describirCondicion, leerMensajeVisibilidad, tituloDeCodigo } from "./lenguaje";
+import {
+  describirCondicion,
+  leerMensajeVisibilidad,
+  pistaDeCodigo,
+  tituloDeCodigo,
+} from "./lenguaje";
 
 describe("tituloDeCodigo", () => {
   test("traduce el codigo a algo que un analista entiende", () => {
@@ -66,5 +71,28 @@ describe("describirCondicion", () => {
 
   test("sin condicion no describe nada", () => {
     expect(describirCondicion(null, campos)).toBe("");
+  });
+});
+
+describe("pistaDeCodigo", () => {
+  test("dice que hay que hacer y da un ejemplo concreto", () => {
+    const p = pistaDeCodigo("META-01");
+
+    expect(p?.instruccion).toMatch(/cuánto tarda/i);
+    expect(p?.marcador).toBe("15 días hábiles");
+  });
+
+  test("la pista de visibilidad ensena la regla completa con un caso real", () => {
+    expect(pistaDeCodigo("DIC-08")?.ejemplo).toBe(
+      "Muestra «RFC» solo cuando «Procedencia» sea igual a «Dependencia u organismo».",
+    );
+  });
+
+  test("el nombre del tramite propone uno de verdad, no 'texto aqui'", () => {
+    expect(pistaDeCodigo("META-04")?.marcador).toBe("Constancia de Residencia");
+  });
+
+  test("un codigo sin pista escrita devuelve null en vez de una frase hueca", () => {
+    expect(pistaDeCodigo("ZZZ-99")).toBeNull();
   });
 });

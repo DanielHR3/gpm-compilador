@@ -95,3 +95,70 @@ export function describirCondicion(
     `${nombrarCampo(c.campo, campos)} ${VERBO[c.operador] ?? c.operador} ${nombrarValor(c.campo, c.igual, campos)}`;
   return [trozo(condicion), ...condicion.y.map(trozo)].join(" y ");
 }
+
+export type Pista = {
+  /** Que tiene que hacer la persona, en imperativo y sin jerga. */
+  instruccion: string;
+  /** Un caso real del que copiar la forma. */
+  ejemplo?: string;
+  /** Texto de ejemplo dentro de la caja, para que no arranque en blanco. */
+  marcador?: string;
+};
+
+/**
+ * Instrucciones de llenado por codigo de validacion.
+ *
+ * Una caja vacia con la etiqueta "Valor" no ensena nada: quien nunca ha
+ * capturado un tramite no sabe si se espera un numero, una fecha o una frase.
+ * Los ejemplos son casos reales de tramites de Hidalgo, no marcadores de
+ * relleno, para que se pueda copiar la forma.
+ *
+ * Un codigo sin pista escrita devuelve `null` y la tarjeta no inventa una
+ * frase generica, que seria ruido.
+ */
+const PISTAS: Record<string, Pista> = {
+  "META-01": {
+    instruccion:
+      "Escribe cuánto tarda el trámite desde que se solicita hasta que se entrega.",
+    marcador: "15 días hábiles",
+  },
+  "META-02": {
+    instruccion: "Escribe la dependencia que resuelve el trámite.",
+    marcador: "Secretaría de Movilidad y Transporte",
+  },
+  "META-03": {
+    instruccion:
+      "Escribe el costo con el que se publica. Si es gratuito, escribe «Sin costo».",
+    marcador: "Sin costo",
+  },
+  "META-04": {
+    instruccion: "Escribe el nombre oficial con el que se publica el trámite.",
+    marcador: "Constancia de Residencia",
+  },
+  "DIC-08": {
+    instruccion:
+      "Elige el campo que decide si este se ve, y con qué valor debe compararse.",
+    ejemplo:
+      "Muestra «RFC» solo cuando «Procedencia» sea igual a «Dependencia u organismo».",
+    marcador: "Dependencia u organismo",
+  },
+  "MMD-04": {
+    instruccion:
+      "Elige el campo del formulario que la decisión consulta para tomar cada camino.",
+    ejemplo:
+      "La decisión «¿Modalidad de pago?» consulta el campo «Forma de pago».",
+  },
+  "MMD-03": {
+    instruccion: "Elige quién realiza esta tarea dentro del trámite.",
+    ejemplo: "La tarea «Revisar expediente» la hace «Periódico Oficial».",
+  },
+  "API-03": {
+    instruccion:
+      "Elige el campo del que depende este: el que hay que llenar antes.",
+  },
+};
+
+/** La pista del codigo, o `null` si no hay una escrita para el. */
+export function pistaDeCodigo(codigo: string): Pista | null {
+  return PISTAS[codigo] ?? null;
+}

@@ -54,10 +54,13 @@ export default function ConstructorRegla({
   campos,
   value,
   onChange,
+  marcadorValor = "este valor",
 }: {
   campos: CampoManifiesto[];
   value: Condicion | null;
   onChange: (c: Condicion) => void;
+  /** Ejemplo dentro de la caja de valor: una caja vacia no ensena nada. */
+  marcadorValor?: string;
 }) {
   const [filas, setFilas] = useState<Fila[]>(() => filasIniciales(value));
   const idBase = useId();
@@ -170,7 +173,7 @@ export default function ConstructorRegla({
                   <Input
                     id={valorId}
                     aria-label={`Valor de la condición ${n}`}
-                    placeholder="este valor"
+                    placeholder={marcadorValor}
                     value={fila.igual}
                     onChange={(e) => actualizarFila(i, { igual: e.target.value })}
                   />
