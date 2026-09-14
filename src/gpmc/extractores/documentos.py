@@ -26,7 +26,7 @@ from pathlib import Path
 from gpmc.extractores import docx as ext_docx
 from gpmc.extractores import pdf as ext_pdf
 from gpmc.nucleo.huecos import Hueco
-from gpmc.nucleo.manifiesto import Accion
+from gpmc.nucleo.manifiesto import Accion, Pantalla, Tarea
 
 CARPETA = "documentos"
 
@@ -115,3 +115,46 @@ def extraer_documentos(carpeta: Path, campos_declarados: "set[str]") -> "tuple[l
             **cabecera,
         ))
     return acciones, huecos
+
+
+def atar_a_tareas(acciones: "list[Accion]", tareas: "list[Tarea]", pantallas: "list[Pantalla]") -> "list[Hueco]":
+    """Cuelga cada documento de la tarea que lo puede generar, y lo reporta.
+
+    Un Documento con su Accion pero sin Evento en ninguna tarea es un PDF que
+    nunca se produce: eso salio en el primer .gpm con documento. La tarea no
+    se adivina, se lee de los datos: la primera del flujo en la que ya se
+    capturaron todas las variables de la plantilla. Se ata «despues» de esa
+    tarea, y queda un DOC-04 por confirmar porque el analista puede preferir
+    otra (una de firma, por ejemplo).
+    """
+    campos_de = {p.id: {c.nombre for c in p.campos} for p in pantallas}
+    huecos = []
+    for accion in acciones:
+        if accion.tipo != "documento":
+            continue
+        necesarias = set(getattr(accion, "variables", []) or [])
+        capturados: set = set()
+        destino = None
+        for tarea in tareas:
+            for paso in tarea.pantallas:
+                capturados |= campos_de.get(paso.id, set())
+            if necesarias <= capturados:
+                destino = tarea
+                break
+        if destino is None:
+            huecos.append(Hueco(
+                "falta_dato", "DOC-04", f"documentos/{accion.nombre}",
+                f"el documento «{accion.nombre}» no se genera en ninguna tarea: "
+                f"ninguna del flujo llega a tener todos sus datos "
+                f"({', '.join(sorted(necesarias))}). Revisa que esas pantallas "
+                f"estén en el flujo",
+            ))
+            continue
+        destino.acciones_despues.append(accion.nombre)
+        huecos.append(Hueco(
+            "por_confirmar", "DOC-04", f"documentos/{accion.nombre}",
+            f"el documento «{accion.nombre}» se genera al terminar la tarea "
+            f"«{destino.nombre}», la primera en la que ya están todos sus datos. "
+            f"Si debe salir en otra tarea (por ejemplo tras una firma), cámbialo a mano",
+        ))
+    return huecos

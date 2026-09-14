@@ -26,6 +26,7 @@ const TITULOS: Record<string, string> = {
   "API-04": "Conexión con otro sistema",
   "DOC-02": "Variable sin campo en un documento",
   "DOC-03": "Plantilla de documento ilegible",
+  "DOC-04": "En qué tarea se genera el documento",
   "MMD-02": "Nodo del diagrama no declarado",
   "MMD-03": "Responsable de una tarea",
   "MMD-04": "Decisión del flujo",
@@ -166,6 +167,10 @@ const PISTAS: Record<string, Pista> = {
     instruccion:
       "Cada {{variable}} de la plantilla debe ser un campo del Diccionario: de ahí saca GPM el valor al generar el PDF. Corrige el nombre o agrega el campo.",
     ejemplo: "«Estimado {{nombre}}, su folio es {{folio}}» — nombre y folio existen en el Diccionario.",
+  },
+  "DOC-04": {
+    instruccion:
+      "El compilador colgó el documento de la primera tarea en la que ya están todos sus datos. Si eso es correcto, confírmalo; si debe salir en otra tarea (por ejemplo tras una firma), ajústalo en la plataforma.",
   },
   "DOC-03": {
     instruccion:

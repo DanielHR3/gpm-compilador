@@ -146,7 +146,7 @@ def test_una_plantilla_en_word_se_lee_igual_que_una_en_markdown(tmp_path):
     ))
     r = extraer_expediente(tmp_path)
 
-    assert not [x for x in r.huecos if x.codigo.startswith("DOC-")]
+    assert not [x for x in r.huecos if x.codigo.startswith("DOC-") and x.nivel == "falta_dato"]
     [a] = r.manifiesto.acciones
     assert a.nombre == "Constancia"
     assert a.variables == ["curp", "nombre"]
@@ -167,7 +167,7 @@ def test_una_plantilla_en_pdf_con_texto_se_lee(tmp_path):
     (tmp_path / "documentos" / "Acuse.pdf").write_bytes(_pdf("Acuse para {{nombre}}"))
     r = extraer_expediente(tmp_path)
 
-    assert not [x for x in r.huecos if x.codigo.startswith("DOC-")]
+    assert not [x for x in r.huecos if x.codigo.startswith("DOC-") and x.nivel == "falta_dato"]
     [a] = r.manifiesto.acciones
     assert a.nombre == "Acuse"
     assert a.variables == ["nombre"]
@@ -192,7 +192,7 @@ def test_sin_carpeta_documentos_no_hay_acciones_ni_huecos_de_documento(tmp_path)
     r = extraer_expediente(tmp_path)
 
     assert r.manifiesto.acciones == []
-    assert not [x for x in r.huecos if x.codigo.startswith("DOC-")]
+    assert not [x for x in r.huecos if x.codigo.startswith("DOC-") and x.nivel == "falta_dato"]
 
 
 def test_la_accion_extraida_produce_un_documento_pdf_en_el_gpm(tmp_path):
@@ -219,3 +219,56 @@ def test_las_plantillas_se_suben_con_el_expediente_y_se_guardan_en_documentos(tm
     assert r.status_code == 201, r.text
     acciones = r.json()["manifiesto"]["acciones"]
     assert [a["nombre"] for a in acciones if a["tipo"] == "documento"] == ["oficio"]
+
+
+# --- El documento tiene que dispararse desde una tarea -----------------------
+
+_DICC_DOS_PANTALLAS = (
+    "### Pantalla 1 — CIUDADANO — Solicitud\n\n"
+    "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+    "| CURP | Texto | Input | Sí | La CURP `@@curp` |\n\n"
+    "### Pantalla 2 — CIUDADANO — Vehículo\n\n"
+    "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+    "| Placa | Texto | Input | Sí | La placa `@@placa` |\n"
+)
+
+
+def test_el_documento_se_genera_al_terminar_la_primera_tarea_que_ya_tiene_todos_sus_datos(tmp_path):
+    """Un Documento con su Accion pero sin Evento en ninguna tarea es un PDF que
+    nunca se produce. La tarea correcta se lee de los datos: la primera en la
+    que ya se capturaron todas las variables de la plantilla."""
+    (tmp_path / "Diccionario de Datos.md").write_text(_DICC_DOS_PANTALLAS, encoding="utf-8")
+    (tmp_path / "documentos").mkdir()
+    (tmp_path / "documentos" / "Constancia.md").write_text(
+        "Constancia de {{curp}} con placa {{placa}}.", encoding="utf-8")
+    r = extraer_expediente(tmp_path)
+
+    con_accion = [t for t in r.manifiesto.flujo.tareas if "Constancia" in t.acciones_despues]
+    assert [t.nombre for t in con_accion] == ["Vehículo"]
+    assert not any("Constancia" in t.acciones_antes for t in r.manifiesto.flujo.tareas)
+
+    [h] = [x for x in r.huecos if x.codigo == "DOC-04"]
+    assert h.nivel == "por_confirmar"
+    assert "Constancia" in h.mensaje and "Vehículo" in h.mensaje
+
+
+def test_si_el_documento_solo_usa_datos_de_la_primera_pantalla_se_genera_ahi(tmp_path):
+    (tmp_path / "Diccionario de Datos.md").write_text(_DICC_DOS_PANTALLAS, encoding="utf-8")
+    (tmp_path / "documentos").mkdir()
+    (tmp_path / "documentos" / "Acuse.md").write_text("Acuse de {{curp}}.", encoding="utf-8")
+    r = extraer_expediente(tmp_path)
+
+    con_accion = [t.nombre for t in r.manifiesto.flujo.tareas if "Acuse" in t.acciones_despues]
+    assert con_accion == ["Solicitud"]
+
+
+def test_el_gpm_lleva_el_evento_que_dispara_el_documento(tmp_path):
+    from gpmc.compilador.a_gpm import compilar
+
+    r = extraer_expediente(_expediente(tmp_path, {"oficio.md": "Hola {{nombre}}"}))
+    g = compilar(r.manifiesto, proceso_id="1")
+
+    [accion] = [a for a in g["Acciones"] if a["nombre"] == "oficio"]
+    eventos = [e for t in g["Tareas"] for e in t["Eventos"] if e["accion_id"] == str(accion["id"])]
+    assert len(eventos) == 1
+    assert eventos[0]["instante"] == "despues"

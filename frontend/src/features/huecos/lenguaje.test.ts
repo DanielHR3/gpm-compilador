@@ -163,5 +163,7 @@ describe("codigos de documentos de salida", () => {
     expect(tituloDeCodigo("DOC-03")).toBe("Plantilla de documento ilegible");
     expect(pistaDeCodigo("DOC-02")?.instruccion).toMatch(/campo del Diccionario/i);
     expect(pistaDeCodigo("DOC-03")?.instruccion).toMatch(/Word/);
+    expect(tituloDeCodigo("DOC-04")).toBe("En qué tarea se genera el documento");
+    expect(pistaDeCodigo("DOC-04")?.instruccion).toMatch(/tarea/i);
   });
 });
