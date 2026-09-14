@@ -30,6 +30,7 @@ import ControlCampoPadre, { type Campo } from "./controles/ControlCampoPadre";
 import ControlCompuerta from "./controles/ControlCompuerta";
 import ControlTexto from "./controles/ControlTexto";
 import ControlVisibilidad from "./controles/ControlVisibilidad";
+import { useAccion } from "./useAccion";
 
 /**
  * Forma de la respuesta de `resolver`/`reconocer` que el wizard fusiona en su
@@ -96,23 +97,29 @@ export default function TarjetaHueco({
   // El wizard necesita saber CUAL hueco se resolvio para poder anunciarlo;
   // los controles siguen emitiendo solo la respuesta de la API.
   const reportar = (resp: RespuestaResuelto) => onResuelto(resp, hueco);
+  const { ejecutar, guardando } = useAccion();
 
   const resolverCon = async (tipo: Resolucion["tipo"], valor: string) => {
-    const resp = await resolver(sid, [
-      { tipo, ubicacion: hueco.ubicacion, valor },
-    ]);
-    reportar(resp);
+    await ejecutar(async () => {
+      const resp = await resolver(sid, [
+        { tipo, ubicacion: hueco.ubicacion, valor },
+      ]);
+      reportar(resp);
+    });
   };
 
   const reconocerHueco = async () => {
-    const resp = await reconocer(sid, hueco.codigo, hueco.ubicacion);
-    reportar(resp);
+    await ejecutar(async () => {
+      const resp = await reconocer(sid, hueco.codigo, hueco.ubicacion);
+      reportar(resp);
+    });
   };
 
   let control: ReactNode = null;
   if (hueco.codigo === "MMD-03") {
     control = (
       <ControlActor
+        guardando={guardando}
         hueco={hueco}
         actores={leerActores(manifiesto)}
         onConfirmar={(v) => resolverCon("mmd03", v)}
@@ -121,6 +128,7 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "META-01") {
     control = (
       <ControlTexto
+        guardando={guardando}
         hueco={hueco}
         onConfirmar={(v) => resolverCon("meta01", v)}
       />
@@ -128,6 +136,7 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "META-02") {
     control = (
       <ControlTexto
+        guardando={guardando}
         hueco={hueco}
         onConfirmar={(v) => resolverCon("meta02", v)}
       />
@@ -135,6 +144,7 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "META-04") {
     control = (
       <ControlTexto
+        guardando={guardando}
         hueco={hueco}
         onConfirmar={(v) => resolverCon("meta04", v)}
       />
@@ -142,6 +152,7 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "API-03") {
     control = (
       <ControlCampoPadre
+        guardando={guardando}
         hueco={hueco}
         campos={leerCampos(manifiesto)}
         onConfirmar={(v) => resolverCon("api03", v)}

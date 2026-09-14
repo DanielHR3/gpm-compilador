@@ -1,8 +1,9 @@
 import { useId, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Hueco } from "@/lib/types";
+
+import BotonGuardar from "./BotonGuardar";
 
 /**
  * Etiqueta accesible del campo segun el codigo del hueco. Debe contener
@@ -24,9 +25,12 @@ function etiquetaDe(hueco: Hueco): string {
 export default function ControlTexto({
   hueco,
   onConfirmar,
+  guardando = false,
 }: {
   hueco: Hueco;
   onConfirmar: (valor: string) => void | Promise<void>;
+  /** Lo controla `TarjetaHueco` via `useAccion`: cierra la puerta al doble envio. */
+  guardando?: boolean;
 }) {
   const [valor, setValor] = useState<string>("");
   const id = useId();
@@ -42,13 +46,11 @@ export default function ControlTexto({
         value={valor}
         onChange={(e) => setValor(e.target.value)}
       />
-      <Button
-        type="button"
+      <BotonGuardar
+        guardando={guardando}
         disabled={!valor.trim()}
         onClick={() => onConfirmar(valor)}
-      >
-        Guardar
-      </Button>
+      />
     </div>
   );
 }

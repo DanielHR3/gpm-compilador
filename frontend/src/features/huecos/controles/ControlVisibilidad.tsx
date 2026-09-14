@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Check, Quote } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { camposDelManifiesto, ErrorApi, resolverDic08 } from "@/lib/api";
+import { camposDelManifiesto, resolverDic08 } from "@/lib/api";
 import type { Condicion, Hueco } from "@/lib/types";
+
+import { useAccion } from "../useAccion";
 
 import ConstructorRegla from "./ConstructorRegla";
 
@@ -26,26 +28,15 @@ export default function ControlVisibilidad({
   onResuelto: (resp: { manifiesto: Record<string, unknown>; huecos: Hueco[] }) => void;
 }) {
   const [condicion, setCondicion] = useState<Condicion | null>(null);
-  const [error, setError] = useState<ErrorApi | null>(null);
-  const [guardando, setGuardando] = useState(false);
+  const { ejecutar, guardando, error } = useAccion();
   const campos = camposDelManifiesto(manifiesto);
 
   const guardar = async () => {
     if (!condicion) return;
-    setError(null);
-    setGuardando(true);
-    try {
+    await ejecutar(async () => {
       const resp = await resolverDic08(sid, hueco.ubicacion, condicion);
       onResuelto(resp);
-    } catch (e) {
-      if (e instanceof ErrorApi) {
-        setError(e);
-      } else {
-        throw e;
-      }
-    } finally {
-      setGuardando(false);
-    }
+    });
   };
 
   return (

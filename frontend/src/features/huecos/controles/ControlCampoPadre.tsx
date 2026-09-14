@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -9,6 +8,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Hueco } from "@/lib/types";
+
+import BotonGuardar from "./BotonGuardar";
 
 /** Un campo de pantalla (`manifiesto.pantallas[].campos[]`). */
 export type Campo = { nombre: string };
@@ -21,10 +22,13 @@ export default function ControlCampoPadre({
   hueco,
   campos,
   onConfirmar,
+  guardando = false,
 }: {
   hueco: Hueco;
   campos: Campo[];
   onConfirmar: (valor: string) => void | Promise<void>;
+  /** Lo controla `TarjetaHueco` via `useAccion`: cierra la puerta al doble envio. */
+  guardando?: boolean;
 }) {
   const [valor, setValor] = useState<string>("");
   const items = Object.fromEntries(campos.map((c) => [c.nombre, c.nombre]));
@@ -47,13 +51,11 @@ export default function ControlCampoPadre({
           ))}
         </SelectContent>
       </Select>
-      <Button
-        type="button"
+      <BotonGuardar
+        guardando={guardando}
         disabled={!valor}
         onClick={() => onConfirmar(valor)}
-      >
-        Guardar
-      </Button>
+      />
     </div>
   );
 }

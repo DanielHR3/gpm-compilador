@@ -4,13 +4,14 @@ import { ArrowRight, Check, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   camposDelManifiesto,
-  ErrorApi,
   leerCompuerta,
   resolverCompuertaCampo,
   resolverCompuertaRamas,
 } from "@/lib/api";
 import { cn } from "cn";
 import type { Condicion, EstructuraCompuerta, Hueco } from "@/lib/types";
+
+import { useAccion } from "../useAccion";
 
 import ConstructorRegla from "./ConstructorRegla";
 
@@ -58,17 +59,14 @@ export default function ControlCompuerta({
   const [campoElegido, setCampoElegido] = useState("");
   const [estructura, setEstructura] = useState<EstructuraCompuerta | null>(null);
   const [condPorRama, setCondPorRama] = useState<Record<string, Condicion>>({});
-  const [error, setError] = useState<ErrorApi | null>(null);
-  const [guardando, setGuardando] = useState(false);
+  const { ejecutar, guardando, error } = useAccion();
   const campoSelectId = useId();
 
   const campos = camposDelManifiesto(manifiesto);
 
   const usarEsteCampo = async () => {
     if (!campoElegido) return;
-    setError(null);
-    setGuardando(true);
-    try {
+    await ejecutar(async () => {
       const resp = await resolverCompuertaCampo(
         sid,
         hueco.ubicacion,
@@ -84,37 +82,19 @@ export default function ControlCompuerta({
       } else {
         onResuelto(resp);
       }
-    } catch (e) {
-      if (e instanceof ErrorApi) {
-        setError(e);
-      } else {
-        throw e;
-      }
-    } finally {
-      setGuardando(false);
-    }
+    });
   };
 
   const guardarRamas = async () => {
     if (!estructura) return;
-    setError(null);
-    setGuardando(true);
-    try {
+    await ejecutar(async () => {
       const resp = await resolverCompuertaRamas(
         sid,
         hueco.ubicacion,
         estructura.ramas.map((r) => ({ a: r.a, condicion: condPorRama[r.a] })),
       );
       onResuelto(resp);
-    } catch (e) {
-      if (e instanceof ErrorApi) {
-        setError(e);
-      } else {
-        throw e;
-      }
-    } finally {
-      setGuardando(false);
-    }
+    });
   };
 
   const todasLasRamasListas =
