@@ -100,15 +100,19 @@ export default function TarjetaHueco({
   manifiesto,
   sid,
   onResuelto,
+  ultimoActor = "",
 }: {
   hueco: Hueco;
   manifiesto: Record<string, unknown>;
   sid: string;
-  onResuelto: (nuevo: RespuestaResuelto, hueco: Hueco) => void;
+  /** Actor elegido en el MMD-03 anterior; se propone ya seleccionado. */
+  ultimoActor?: string;
+  onResuelto: (nuevo: RespuestaResuelto, hueco: Hueco, valor?: string) => void;
 }) {
   // El wizard necesita saber CUAL hueco se resolvio para poder anunciarlo;
   // los controles siguen emitiendo solo la respuesta de la API.
-  const reportar = (resp: RespuestaResuelto) => onResuelto(resp, hueco);
+  const reportar = (resp: RespuestaResuelto, valor?: string) =>
+    onResuelto(resp, hueco, valor);
   const { ejecutar, guardando } = useAccion();
 
   const resolverCon = async (tipo: Resolucion["tipo"], valor: string) => {
@@ -116,7 +120,7 @@ export default function TarjetaHueco({
       const resp = await resolver(sid, [
         { tipo, ubicacion: hueco.ubicacion, valor },
       ]);
-      reportar(resp);
+      reportar(resp, valor);
     });
   };
 
@@ -132,6 +136,7 @@ export default function TarjetaHueco({
     control = (
       <ControlActor
         guardando={guardando}
+        valorInicial={ultimoActor}
         hueco={hueco}
         actores={leerActores(manifiesto)}
         onConfirmar={(v) => resolverCon("mmd03", v)}

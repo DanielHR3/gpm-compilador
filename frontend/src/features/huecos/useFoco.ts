@@ -12,9 +12,12 @@ const claveDe = (h: Hueco): string => `${h.codigo}|${h.ubicacion}`;
  * solo confirmar. Gastar ahi el primer golpe de vista del modo foco no ayuda:
  * se arranca en el primero accionable. Si todos son de confirmar, el primero.
  */
-function primeroAccionable(huecos: Hueco[]): number {
-  const i = huecos.findIndex((h) => h.nivel !== "por_confirmar");
-  return i >= 0 ? i : 0;
+function primeroAccionable(huecos: Hueco[], resueltas: Set<string>): number {
+  const pendiente = (h: Hueco) => !resueltas.has(claveDe(h));
+  const i = huecos.findIndex((h) => pendiente(h) && h.nivel !== "por_confirmar");
+  if (i >= 0) return i;
+  const j = huecos.findIndex(pendiente);
+  return j >= 0 ? j : 0;
 }
 
 /**
@@ -34,11 +37,11 @@ function primeroAccionable(huecos: Hueco[]): number {
  * Todo se deriva durante el render: no hay efecto que sincronice nada, asi que
  * no hay renders en cascada ni un fotograma con el foco equivocado.
  */
-export function useFoco(huecos: Hueco[]) {
+export function useFoco(huecos: Hueco[], resueltas: Set<string>) {
   const [elegido, setElegido] = useState<{ clave: string; indice: number }>(
     () => {
       if (huecos.length === 0) return { clave: "", indice: 0 };
-      const i = primeroAccionable(huecos);
+      const i = primeroAccionable(huecos, resueltas);
       return { clave: claveDe(huecos[i]), indice: i };
     },
   );
@@ -56,12 +59,22 @@ export function useFoco(huecos: Hueco[]) {
     setElegido({ clave: claveDe(lista[i]), indice: i });
   }, []);
 
+  /**
+   * Avanza saltando lo ya resuelto: quien esta capturando quiere el siguiente
+   * que pide algo, no volver a mirar lo que acaba de cerrar. Si no queda nada
+   * pendiente en esa direccion, se queda donde esta.
+   */
   const mover = useCallback(
     (paso: number) => {
       if (huecos.length === 0) return;
-      fijar(huecos, Math.min(Math.max(indice + paso, 0), huecos.length - 1));
+      for (let i = indice + paso; i >= 0 && i < huecos.length; i += paso) {
+        if (!resueltas.has(claveDe(huecos[i]))) {
+          fijar(huecos, i);
+          return;
+        }
+      }
     },
-    [huecos, indice, fijar],
+    [huecos, indice, fijar, resueltas],
   );
 
   return {

@@ -51,9 +51,12 @@ export default function WizardHuecos({
   const [modo, setModo] = useState<"lista" | "foco">(() =>
     estado.huecos.length > HUECOS_PARA_FOCO ? "foco" : "lista",
   );
+  const [ultimoActor, setUltimoActor] = useState<string>("");
   const [reconocidos, setReconocidos] = useState<Set<string>>(
     () => new Set((estado.reconocidos ?? []).map(([c, u]) => `${c}|${u}`)),
   );
+  // La lista original nunca encoge: es la que numera el indice del modo foco.
+  const [huecosOriginales] = useState<Hueco[]>(estado.huecos);
   const [totalInicial] = useState<number>(estado.huecos.length);
 
   // La tarjeta resuelta se retiene un instante para que pueda salir animada;
@@ -99,7 +102,15 @@ export default function WizardHuecos({
       ? "Falta 1 hueco por resolver antes de descargar el .gpm"
       : `Faltan ${n} huecos por resolver antes de descargar el .gpm`;
 
-  const onResuelto = (resp: RespuestaResuelto, resuelto: Hueco) => {
+  const onResuelto = (
+    resp: RespuestaResuelto,
+    resuelto: Hueco,
+    valor?: string,
+  ) => {
+    // Con 42 MMD-03 seguidos, proponer el actor anterior ahorra dos clics por
+    // hueco. Solo se recuerda para ese codigo: en los demas no hay repeticion
+    // que aprovechar.
+    if (resuelto.codigo === "MMD-03" && valor) setUltimoActor(valor);
     setHuecos(resp.huecos);
     const nextManifiesto = resp.manifiesto ?? manifiesto;
     if (resp.manifiesto) setManifiesto(resp.manifiesto);
@@ -120,7 +131,14 @@ export default function WizardHuecos({
   };
 
   const grupos = agruparPorNivel(enPantalla.map((e) => e.item));
-  const foco = useFoco(huecos);
+  // Cerrado = ya no vive en la lista del servidor, o esta reconocido.
+  const vivos = new Set(huecos.map(clave));
+  const cerradas = new Set(
+    huecosOriginales
+      .map(clave)
+      .filter((k) => !vivos.has(k) || reconocidos.has(k)),
+  );
+  const foco = useFoco(huecosOriginales, cerradas);
   const salientes = new Set(
     enPantalla.filter((e) => e.saliendo).map((e) => clave(e.item)),
   );
@@ -198,7 +216,8 @@ export default function WizardHuecos({
         {modo === "foco" && foco.actual ? (
           <>
             <ModoFoco
-              huecos={huecos}
+              huecos={huecosOriginales}
+              resueltas={cerradas}
               actualClave={clave(foco.actual)}
               onIr={foco.irA}
               onAnterior={foco.anterior}
@@ -252,6 +271,7 @@ export default function WizardHuecos({
                   aria-hidden={saliendo || undefined}
                 >
                   <TarjetaHueco
+                    ultimoActor={ultimoActor}
                     hueco={h}
                     manifiesto={manifiesto}
                     sid={estado.sid}

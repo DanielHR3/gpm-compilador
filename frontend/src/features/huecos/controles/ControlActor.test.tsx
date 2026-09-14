@@ -51,3 +51,26 @@ it("lo tecnico queda plegado pero presente", () => {
   expect(detalle).toHaveTextContent("MMD-03");
   expect(detalle).toHaveTextContent(":::clase");
 });
+
+it("propone el actor que se eligio la vez anterior, para no repetir el mismo clic 42 veces", () => {
+  render(
+    <ControlActor
+      hueco={hueco}
+      actores={actores}
+      onConfirmar={vi.fn()}
+      valorInicial="po"
+    />,
+  );
+
+  expect(
+    screen.getByRole("combobox", { name: /responsable de la tarea/i }),
+  ).toHaveTextContent("Periódico Oficial");
+  // Y "Guardar" ya está activo: un solo clic cierra el hueco.
+  expect(screen.getByRole("button", { name: /guardar/i })).toBeEnabled();
+});
+
+it("sin eleccion previa no propone nada", () => {
+  render(<ControlActor hueco={hueco} actores={actores} onConfirmar={vi.fn()} />);
+
+  expect(screen.getByRole("button", { name: /guardar/i })).toBeDisabled();
+});

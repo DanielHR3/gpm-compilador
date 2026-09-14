@@ -31,14 +31,23 @@ export default function ControlActor({
   actores,
   onConfirmar,
   guardando = false,
+  valorInicial = "",
 }: {
   hueco: Hueco;
   actores: Actor[];
   onConfirmar: (valor: string) => void | Promise<void>;
+  /**
+   * El actor elegido en el hueco anterior, ya seleccionado.
+   *
+   * Publicacion trae 42 MMD-03 y muchas tareas seguidas son del mismo
+   * responsable: sin esto son tres clics por hueco (abrir, elegir, guardar);
+   * con esto, uno.
+   */
+  valorInicial?: string;
   /** Lo controla `TarjetaHueco` via `useAccion`: cierra la puerta al doble envio. */
   guardando?: boolean;
 }) {
-  const [valor, setValor] = useState<string>("");
+  const [valor, setValor] = useState<string>(valorInicial);
   const items = Object.fromEntries(actores.map((a) => [a.id, a.nombre]));
   const tarea = nombreDeTarea(hueco.mensaje);
   const pista = pistaDeCodigo(hueco.codigo);
