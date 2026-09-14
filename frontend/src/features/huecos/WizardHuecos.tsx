@@ -68,6 +68,12 @@ export default function WizardHuecos({
     return `Quedan ${n} huecos por resolver.`;
   };
 
+  /** Encabezado de la seccion de entrega, concordado en numero. */
+  const fraseBloqueo = (n: number): string =>
+    n === 1
+      ? "Falta 1 hueco por resolver antes de descargar el .gpm"
+      : `Faltan ${n} huecos por resolver antes de descargar el .gpm`;
+
   const onResuelto = (resp: RespuestaResuelto, resuelto: Hueco) => {
     setHuecos(resp.huecos);
     const nextManifiesto = resp.manifiesto ?? manifiesto;
@@ -165,8 +171,7 @@ export default function WizardHuecos({
         ) : (
           <>
             <h2 className="text-sm font-semibold text-foreground">
-              Faltan {bloqueantes.length} huecos por resolver antes de descargar
-              el .gpm
+              {fraseBloqueo(bloqueantes.length)}
             </h2>
             <ul className="list-disc pl-5 text-sm text-muted-foreground">
               {bloqueantes.map((h) => (

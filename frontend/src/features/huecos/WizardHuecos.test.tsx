@@ -42,7 +42,7 @@ it("un bloqueante de codigo desconocido no deja sin salida: lista el motivo y co
   render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
   // El motivo del bloqueo se explica en pantalla.
   expect(
-    screen.getByText(/Faltan 1 huecos por resolver antes de descargar el \.gpm/),
+    screen.getByText(/Falta 1 hueco por resolver antes de descargar el \.gpm/),
   ).toBeInTheDocument();
   expect(
     screen.getAllByText(/no se encontro la Propuesta TO-BE/).length,
