@@ -9,12 +9,23 @@ import { leerExpediente } from "@/lib/api";
 import type { EstadoExpediente } from "@/lib/types";
 
 /**
- * Raiz de la SPA. SP1: sin router (llega en Task 11). Deep-link minimo para
- * `/revisar/:sid` (sid = 16 hex): si la URL encaja, se carga el expediente y se
- * entra directo al wizard; si no existe, se avisa y se cae a la carga. Mientras
- * no haya expediente se muestra la carga de insumos.
+ * Raiz de la SPA. Deep-link minimo para `/revisar/:sid` (sid = 16 hex): si la
+ * URL encaja, se carga el expediente y se entra directo al wizard; si no
+ * existe, se avisa y se cae a la carga. Mientras no haya expediente se muestra
+ * la carga de insumos.
+ *
+ * El armazon —barra lateral guinda fija, barra superior blanca, contenido
+ * sobre `surface-app`— es el mismo de `checador-web` y `GeoApertura`.
  */
 const RE_REVISAR = /^\/revisar\/([0-9a-f]{16})$/;
+
+/** Lee `manifiesto.tramite.nombre` sin confiar en que exista. */
+function nombreDelTramite(est: EstadoExpediente | null): string | null {
+  const t = (est?.manifiesto as { tramite?: { nombre?: unknown } } | undefined)
+    ?.tramite?.nombre;
+  if (typeof t !== "string" || t === "" || t === "[por confirmar]") return null;
+  return t;
+}
 
 export default function App() {
   const [est, setEst] = useState<EstadoExpediente | null>(null);
@@ -31,19 +42,12 @@ export default function App() {
   }, []);
 
   return (
-    <>
-      <AppHeader />
-      {/* Area de avisos de toda la SPA: `useAccion` publica aqui los errores
-          de la API y `WizardHuecos` los acuses de cada hueco resuelto. */}
+    <div className="flex min-h-svh bg-background">
       <Toaster />
-      {/* Armazon de dos columnas. La barra de proceso vive aqui y no dentro de
-          cada pantalla para que sobreviva al cambio de paso, igual que hacia la
-          version servidor antes de la migracion a React. */}
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:flex-row sm:gap-8 sm:px-6">
-        <aside className="sm:sticky sm:top-6 sm:self-start">
-          <NavegacionLateral sid={est?.sid ?? null} />
-        </aside>
-        <div className="min-w-0 flex-1">
+      <NavegacionLateral sid={est?.sid ?? null} tramite={nombreDelTramite(est)} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AppHeader titulo={est ? "Revisión del expediente" : "Carga de insumos"} />
+        <main className="flex-1 px-6 py-8">
           {aviso ? (
             <p role="alert" className="pb-4 text-sm text-destructive">
               {aviso}
@@ -54,8 +58,8 @@ export default function App() {
           ) : (
             <CargaInsumos onListo={setEst} />
           )}
-        </div>
+        </main>
       </div>
-    </>
+    </div>
   );
 }
