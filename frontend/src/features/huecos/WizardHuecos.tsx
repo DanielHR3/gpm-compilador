@@ -7,6 +7,7 @@ import { cn } from "cn";
 import type { EstadoExpediente, Hueco } from "@/lib/types";
 
 import { agruparPorNivel } from "./agrupar";
+import Adjuntos from "./Adjuntos";
 import ModoFoco from "./ModoFoco";
 import ResumenExpediente from "./ResumenExpediente";
 import { useFoco } from "./useFoco";
@@ -139,6 +140,10 @@ export default function WizardHuecos({
         {/* Lo que el compilador entendio, antes que lo que falta: el analista
             necesita confirmar que su documento se leyo bien. */}
         <ResumenExpediente manifiesto={manifiesto} estimacion={estado.estimacion} />
+
+        {/* El diagrama contesta «¿quién hace esta tarea?»: va arriba, donde se
+            está resolviendo, no en otra pestaña. */}
+        <Adjuntos sid={estado.sid} adjuntos={estado.adjuntos ?? []} />
 
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">

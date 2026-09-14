@@ -9,6 +9,7 @@
  */
 
 import type {
+  Adjunto,
   Bloqueante,
   CampoManifiesto,
   Condicion,
@@ -118,6 +119,7 @@ function mapEstado(raw: unknown): EstadoExpediente {
     problemas: string[];
     tiene_vistas: boolean;
     reconocidos?: [string, string][];
+    adjuntos?: Adjunto[];
   };
   return {
     sid: o.sid,
@@ -128,6 +130,7 @@ function mapEstado(raw: unknown): EstadoExpediente {
     tieneVistas: o.tiene_vistas,
     // Un servidor viejo no lo manda: se cae a vacio en vez de reventar.
     reconocidos: o.reconocidos ?? [],
+    adjuntos: o.adjuntos ?? [],
   };
 }
 
@@ -301,4 +304,14 @@ export function urlGpm(
 /** URL del `manifiesto.yaml` en texto (no hace `fetch`). */
 export function urlManifiesto(sid: string): string {
   return `${BASE}/expedientes/${sid}/manifiesto`;
+}
+
+/**
+ * Un documento de apoyo del expediente.
+ *
+ * El nombre viaja en la ruta y puede traer espacios o acentos —«TO BE.png»—,
+ * asi que se codifica; el servidor lo sanea otra vez al recibirlo.
+ */
+export function urlAdjunto(sid: string, nombre: string): string {
+  return `${BASE}/expedientes/${sid}/adjuntos/${encodeURIComponent(nombre)}`;
 }

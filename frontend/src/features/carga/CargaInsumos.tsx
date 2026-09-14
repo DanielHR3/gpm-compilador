@@ -70,6 +70,9 @@ export default function CargaInsumos({
   onListo: (est: EstadoExpediente) => void;
 }) {
   const [slots, setSlots] = useState<Slots>(SLOTS_VACIOS);
+  // Diagramas y PDF que el compilador no puede leer pero el analista necesita
+  // a la vista mientras resuelve los huecos.
+  const [apoyo, setApoyo] = useState<File[]>([]);
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [sobrevolando, setSobrevolando] = useState<CampoInsumo | null>(null);
@@ -95,6 +98,7 @@ export default function CargaInsumos({
         const archivo = slots[campo];
         if (archivo) fd.append(campo, archivo);
       });
+      apoyo.forEach((a) => fd.append("adjuntos", a));
       const est = await crearExpediente(fd);
       onListo(est);
     } catch (e) {
@@ -251,6 +255,33 @@ export default function CargaInsumos({
           )}
         </div>
       ) : null}
+
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-4">
+        <label
+          htmlFor="adjuntos-apoyo"
+          className="text-sm font-medium text-foreground"
+        >
+          Documentos de apoyo
+        </label>
+        <p className="text-sm text-muted-foreground">
+          Diagramas en imagen, PDF escaneados, oficios. No se leen para
+          compilar, pero los verás junto a los huecos mientras los resuelves.
+        </p>
+        <input
+          id="adjuntos-apoyo"
+          type="file"
+          multiple
+          className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground"
+          onChange={(e) => setApoyo(Array.from(e.target.files ?? []))}
+        />
+        {apoyo.length > 0 ? (
+          <p className="text-sm text-foreground">
+            {apoyo.length === 1
+              ? "1 documento adjunto"
+              : `${apoyo.length} documentos adjuntos`}
+          </p>
+        ) : null}
+      </div>
 
       <Button
         type="button"
