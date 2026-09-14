@@ -8,6 +8,7 @@ import type { EstadoExpediente, Hueco } from "@/lib/types";
 
 import { agruparPorNivel } from "./agrupar";
 import ModoFoco from "./ModoFoco";
+import ResumenExpediente from "./ResumenExpediente";
 import { useFoco } from "./useFoco";
 import RielEntrega from "./RielEntrega";
 import TarjetaHueco, { type RespuestaResuelto } from "./TarjetaHueco";
@@ -78,17 +79,6 @@ export default function WizardHuecos({
   const desbloqueado = bloqueantes.length === 0;
 
   const problemas = estado.problemas ?? [];
-  const est = estado.estimacion as { nivel?: unknown; dias?: unknown };
-  const nivelEst = typeof est?.nivel === "string" ? est.nivel : null;
-  const diasEst =
-    typeof est?.dias === "string" || typeof est?.dias === "number"
-      ? String(est.dias)
-      : null;
-  const notaComplejidad =
-    nivelEst || diasEst
-      ? `Complejidad estimada: ${nivelEst ?? "?"} — ${diasEst ?? "?"}`
-      : null;
-
   /** "Quedan 3 huecos" / "Queda 1 hueco" / "No queda ninguno". */
   const frasePendientes = (n: number): string => {
     if (n === 0) return "No queda ningun hueco pendiente.";
@@ -146,6 +136,10 @@ export default function WizardHuecos({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <main className="flex min-w-0 flex-1 flex-col gap-6 text-foreground">
+        {/* Lo que el compilador entendio, antes que lo que falta: el analista
+            necesita confirmar que su documento se leyo bien. */}
+        <ResumenExpediente manifiesto={manifiesto} estimacion={estado.estimacion} />
+
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">
             Resolución de huecos
@@ -176,10 +170,6 @@ export default function WizardHuecos({
               ))}
             </div>
           </section>
-        ) : null}
-
-        {notaComplejidad ? (
-          <p className="text-sm text-muted-foreground">{notaComplejidad}</p>
         ) : null}
 
         {totalInicial > 0 ? (
