@@ -90,18 +90,18 @@ export default function WizardHuecos({
   );
   const foco = useFoco(huecosOriginales, cerradas);
 
-  /** "Quedan 3 huecos" / "Queda 1 hueco" / "No queda ninguno". */
+  /** "Quedan 3 inconsistencias" / "Queda 1" / "No queda ninguno". */
   const frasePendientes = (n: number): string => {
-    if (n === 0) return "No queda ningun hueco pendiente.";
-    if (n === 1) return "Queda 1 hueco por resolver.";
-    return `Quedan ${n} huecos por resolver.`;
+    if (n === 0) return "No queda ninguna inconsistencia pendiente.";
+    if (n === 1) return "Queda 1 inconsistencia por revisar.";
+    return `Quedan ${n} inconsistencias por revisar.`;
   };
 
   /** Encabezado de la seccion de entrega, concordado en numero. */
   const fraseBloqueo = (n: number): string =>
     n === 1
-      ? "Falta 1 hueco por resolver antes de descargar el .gpm"
-      : `Faltan ${n} huecos por resolver antes de descargar el .gpm`;
+      ? "Falta 1 inconsistencia por revisar antes de descargar el .gpm"
+      : `Faltan ${n} inconsistencias por revisar antes de descargar el .gpm`;
 
   const onResuelto = (
     resp: RespuestaResuelto,
@@ -154,15 +154,15 @@ export default function WizardHuecos({
 
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">
-            Resolución de huecos
+            Inconsistencias por revisar
           </h1>
           <Instrucciones
             id="revision"
-            resumen="Aquí está lo que el compilador no pudo deducir de tus documentos. Cierra cada tarjeta y se habilita la descarga del .gpm."
+            resumen="Aquí está lo que el compilador no pudo deducir de tus documentos. Resuelve cada tarjeta y se habilita la descarga del .gpm."
           >
             <p>
-              Un <strong>hueco</strong> no es un error: es una pregunta que tus
-              documentos dejaron sin responder. Vienen en tres severidades.
+              Una <strong>inconsistencia</strong> no es un error: es una pregunta
+              que tus documentos dejaron sin responder. Vienen en tres severidades.
             </p>
             <p>
               <strong>Bloquean la descarga</strong> — falta un insumo entero.
@@ -180,7 +180,7 @@ export default function WizardHuecos({
               razonable y quiere que lo mires. Léelo y ciérralo.
             </p>
             <p>
-              Con muchos huecos conviene <strong>uno a la vez</strong>: al
+              Con muchas conviene <strong>una a la vez</strong>: al
               guardar salta solo al siguiente pendiente. En{" "}
               <strong>lista</strong> los ves todos y eliges el orden. Cuando no
               quede ninguno sin decidir, se abre el paso 4.
@@ -217,7 +217,7 @@ export default function WizardHuecos({
         {totalInicial > 0 ? (
           <div
             role="radiogroup"
-            aria-label="Cómo ver los huecos"
+            aria-label="Cómo ver las inconsistencias"
             className="flex w-fit gap-0.5 rounded-lg bg-muted p-0.5"
           >
             {(

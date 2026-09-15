@@ -46,7 +46,7 @@ export default function ModoFoco({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          Hueco <span className="font-medium text-foreground">{indice + 1}</span>{" "}
+          Inconsistencia <span className="font-medium text-foreground">{indice + 1}</span>{" "}
           de {total}
           {resueltas.size > 0 ? (
             <span className="text-emerald-700"> · {resueltas.size} cerrados</span>
@@ -77,10 +77,10 @@ export default function ModoFoco({
       </div>
 
       <nav
-        aria-label="Todos los huecos"
+        aria-label="Todas las inconsistencias"
         className="flex max-h-40 flex-wrap gap-1 overflow-y-auto rounded-lg border border-border bg-card p-2"
       >
-        {/* Un hueco resuelto NO se borra del indice: se queda en verde. Si
+        {/* Una inconsistencia resuelta NO se borra del indice: se queda en verde. Si
             desapareciera, los numeros se recorrerian y el analista perderia la
             referencia justo despues de guardar. */}
         {huecos.map((h, i) => {

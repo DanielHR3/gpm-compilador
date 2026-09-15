@@ -13,7 +13,7 @@ it("el boton Extraer se habilita al elegir un Diccionario", async () => {
   render(<CargaInsumos onListo={() => {}} />);
   const btn = screen.getByRole("button", { name: /extraer/i });
   expect(btn).toBeDisabled();
-  const input = screen.getByLabelText(/diccionario/i);
+  const input = screen.getByLabelText(/^diccionario$/i);
   await userEvent.upload(input, new File(["# x"], "dd.md", { type: "text/markdown" }));
   expect(btn).toBeEnabled();
 });
@@ -23,7 +23,7 @@ it("muestra el error de tamano cuando la API lanza 413", async () => {
   const e = new (ErrorApi as any)("grande"); e.status = 413; e.archivos = ["enorme.md"];
   (crearExpediente as any).mockRejectedValue(e);
   render(<CargaInsumos onListo={() => {}} />);
-  const input = screen.getByLabelText(/diccionario/i);
+  const input = screen.getByLabelText(/^diccionario$/i);
   await userEvent.upload(input, new File(["# x"], "dd.md", { type: "text/markdown" }));
   await userEvent.click(screen.getByRole("button", { name: /extraer/i }));
   expect(await screen.findByText(/enorme\.md/)).toBeInTheDocument();

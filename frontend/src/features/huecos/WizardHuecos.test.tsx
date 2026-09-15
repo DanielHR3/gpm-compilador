@@ -42,7 +42,7 @@ it("un bloqueante de codigo desconocido no deja sin salida: lista el motivo y co
   render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
   // El motivo del bloqueo se explica en pantalla.
   expect(
-    screen.getByText(/Falta 1 hueco por resolver antes de descargar el \.gpm/),
+    screen.getByText(/Falta 1 inconsistencia por revisar antes de descargar el \.gpm/),
   ).toBeInTheDocument();
   expect(
     screen.getAllByText(/no se encontro la Propuesta TO-BE/).length,
@@ -130,7 +130,7 @@ it("avisa que el hueco quedo resuelto y cuantos faltan", async () => {
   await userEvent.click(screen.getAllByRole("button", { name: /guardar/i })[0]);
 
   expect(await screen.findByText(/META-01 resuelto/)).toBeInTheDocument();
-  expect(await screen.findByText(/queda 1 hueco/i)).toBeInTheDocument();
+  expect(await screen.findByText(/queda 1 inconsistencia/i)).toBeInTheDocument();
 });
 
 it("cada tarjeta va envuelta en el contenedor que permite animar su salida", () => {
@@ -263,7 +263,7 @@ it("con muchos huecos arranca en foco: una tarjeta a la vez", () => {
 
   expect(screen.getByRole("radio", { name: /uno a la vez/i })).toBeChecked();
   expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
-  expect(screen.getByText(textoDe("Hueco 1 de 30"))).toBeInTheDocument();
+  expect(screen.getByText(textoDe("Inconsistencia 1 de 30"))).toBeInTheDocument();
 });
 
 it("se puede cambiar de modo a mano", async () => {
@@ -279,7 +279,7 @@ it("en foco, avanzar mueve al hueco siguiente", async () => {
 
   await userEvent.click(screen.getByRole("button", { name: /siguiente/i }));
 
-  expect(screen.getByText(textoDe("Hueco 2 de 30"))).toBeInTheDocument();
+  expect(screen.getByText(textoDe("Inconsistencia 2 de 30"))).toBeInTheDocument();
 });
 
 it("en foco, guardar salta solo al siguiente hueco pendiente", async () => {
@@ -294,19 +294,19 @@ it("en foco, guardar salta solo al siguiente hueco pendiente", async () => {
   } as any);
 
   render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
-  expect(screen.getByText(textoDe("Hueco 1 de 30"))).toBeInTheDocument();
+  expect(screen.getByText(textoDe("Inconsistencia 1 de 30"))).toBeInTheDocument();
 
   await userEvent.type(screen.getByLabelText(/tiempo de resolucion/i), "5 dias");
   await userEvent.click(screen.getByRole("button", { name: /guardar/i }));
 
-  // Tras guardar, el contador dice «Hueco 2 de 30 · 1 cerrados».
-  expect(await screen.findByText(empiezaCon("Hueco 2 de 30"))).toBeInTheDocument();
+  // Tras guardar, el contador dice «Inconsistencia 2 de 30 · 1 cerrados».
+  expect(await screen.findByText(empiezaCon("Inconsistencia 2 de 30"))).toBeInTheDocument();
 });
 
-it("explica qué es un hueco y qué implica de verdad 'lo configuro a mano'", () => {
+it("explica qué es una inconsistencia y qué implica 'lo configuro a mano'", () => {
   render(<WizardHuecos estado={estado as any} onEstado={() => {}} />);
   expect(
-    screen.getByText(/Cierra cada tarjeta y se habilita la descarga/),
+    screen.getByText(/Resuelve cada tarjeta y se habilita la descarga/),
   ).toBeInTheDocument();
   // Lo importante: que "lo configuro a mano" no se venda como un atajo gratis.
   expect(screen.getByText(/No desaparece el trabajo, lo mueve/)).toBeInTheDocument();

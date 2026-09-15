@@ -221,7 +221,7 @@ def portada(error: str = "") -> str:
 </form>
 
 <p class="nota">La herramienta <strong>propone</strong>; no adivina. Lo que no puede derivar de los
-insumos lo reporta como hueco para que una persona lo resuelva antes de compilar.</p>""", 1)
+insumos lo reporta como inconsistencia para que una persona la resuelva antes de compilar.</p>""", 1)
 
 
 def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = False,

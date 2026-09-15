@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { DragEvent } from "react";
-import { ArrowRight, FileText, FolderOpen, UploadCloud, FileWarning } from "lucide-react";
+import { ArrowRight, Download, FileText, FolderOpen, UploadCloud, FileWarning } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Instrucciones from "@/components/Instrucciones";
 import { cn } from "cn";
@@ -342,11 +342,24 @@ export default function CargaInsumos({
                   />
                 </div>
                 {plantilla ? (
+                  // Era un enlace subrayado de 12px al pie de la tarjeta, que
+                  // es justo donde no se ve. Quien no sabe que existe una
+                  // plantilla no la busca: tiene que verse que se puede hacer.
+                  // `Button` de este proyecto no lleva `asChild` (no usa el
+                  // Slot de Radix), asi que el enlace toma sus clases directo.
+                  // El texto visible se queda corto, pero dos enlaces llamados
+                  // igual son ambiguos para un lector de pantalla: el rotulo
+                  // accesible dice de cual es.
                   <a
-                    className="mt-2 inline-block text-xs text-primary underline underline-offset-2"
                     href={plantilla}
+                    aria-label={`Descargar plantilla de ejemplo del ${etiqueta}`}
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "mt-2 self-start",
+                    )}
                   >
-                    Descargar plantilla de ejemplo ({etiqueta})
+                    <Download aria-hidden className="size-4" />
+                    Descargar plantilla
                   </a>
                 ) : null}
               </CardContent>
@@ -411,7 +424,7 @@ export default function CargaInsumos({
         </label>
         <p className="text-sm text-muted-foreground">
           Diagramas en imagen, PDF escaneados, oficios. No se leen para
-          compilar, pero los verás junto a los huecos mientras los resuelves.
+          compilar, pero los verás junto a las inconsistencias mientras las resuelves.
         </p>
         <input
           id="adjuntos-apoyo"
@@ -464,7 +477,12 @@ export default function CargaInsumos({
         size="lg"
         onClick={enviar}
         disabled={slots.diccionario === null || enviando}
-        className="h-11 text-base"
+        // Un CTA a todo lo ancho es convencion de telefono, donde el pulgar
+        // necesita blanco. En escritorio hacia que la accion principal
+        // pareciera una barra (976px en un contenedor de 1024) y perdiera
+        // jerarquia frente a las tarjetas. No llevaba `w-full`: se estiraba
+        // porque el <main> es flex en columna y estira a sus hijos.
+        className="h-11 self-stretch text-base sm:self-start"
       >
         Extraer
         <ArrowRight aria-hidden className="size-4" />

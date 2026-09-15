@@ -380,7 +380,7 @@ def generar(m: Manifiesto) -> str:
     corresponda a tu respuesta. Para ver la otra rama, vuelve a empezar y
     contesta distinto.</p>
     <p>Si una pantalla no aparece o el recorrido se corta antes de tiempo, el
-    flujo está incompleto: vuelve al paso 2 y revisa los huecos de flujo.</p>
+    flujo está incompleto: vuelve al paso 2 y revisa las inconsistencias de flujo.</p>
   </div>
 </details>
 <div class="marco" style="margin:0 auto;width:100%">
