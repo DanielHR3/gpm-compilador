@@ -3,6 +3,7 @@ import { CircleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { Progress } from "@/components/ui/progress";
+import Instrucciones from "@/components/Instrucciones";
 import { cn } from "cn";
 import type { EstadoExpediente, Hueco } from "@/lib/types";
 
@@ -155,6 +156,36 @@ export default function WizardHuecos({
           <h1 className="text-2xl font-bold tracking-tight">
             Resolución de huecos
           </h1>
+          <Instrucciones
+            id="revision"
+            resumen="Aquí está lo que el compilador no pudo deducir de tus documentos. Cierra cada tarjeta y se habilita la descarga del .gpm."
+          >
+            <p>
+              Un <strong>hueco</strong> no es un error: es una pregunta que tus
+              documentos dejaron sin responder. Vienen en tres severidades.
+            </p>
+            <p>
+              <strong>Bloquean la descarga</strong> — falta un insumo entero.
+              No se arregla aquí: se corrige el documento y se vuelve a subir.
+            </p>
+            <p>
+              <strong>Falta un dato</strong> — lo contestas en la tarjeta, o
+              dices «lo configuro a mano». Ojo con esa salida: significa que el
+              .gpm sale incompleto y que <strong>tú lo terminas dentro de la
+              plataforma</strong> después de importarlo. No desaparece el
+              trabajo, lo mueve.
+            </p>
+            <p>
+              <strong>Solo confirmar</strong> — el compilador ya decidió algo
+              razonable y quiere que lo mires. Léelo y ciérralo.
+            </p>
+            <p>
+              Con muchos huecos conviene <strong>uno a la vez</strong>: al
+              guardar salta solo al siguiente pendiente. En{" "}
+              <strong>lista</strong> los ves todos y eliges el orden. Cuando no
+              quede ninguno sin decidir, se abre el paso 4.
+            </p>
+          </Instrucciones>
           <Progress value={progreso} />
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{resueltos}</span> de{" "}

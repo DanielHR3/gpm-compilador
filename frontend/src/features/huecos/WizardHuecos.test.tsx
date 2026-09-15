@@ -166,7 +166,10 @@ it("agrupa los huecos por severidad y rotula cada grupo con su cuenta", () => {
   };
   render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
 
-  const grupos = screen.getAllByRole("group");
+  // Solo los grupos de severidad: son los que rotulan su cuenta entre
+  // paréntesis. El bloque de instrucciones también es un `group` (todo
+  // <details> lo es) y no interesa aquí.
+  const grupos = screen.getAllByRole("group", { name: /\(\d+\)$/ });
   expect(grupos.map((g) => g.getAttribute("aria-label"))).toEqual([
     "Bloquean la descarga (1)",
     "Falta un dato (1)",
@@ -298,4 +301,21 @@ it("en foco, guardar salta solo al siguiente hueco pendiente", async () => {
 
   // Tras guardar, el contador dice «Hueco 2 de 30 · 1 cerrados».
   expect(await screen.findByText(empiezaCon("Hueco 2 de 30"))).toBeInTheDocument();
+});
+
+it("explica qué es un hueco y qué implica de verdad 'lo configuro a mano'", () => {
+  render(<WizardHuecos estado={estado as any} onEstado={() => {}} />);
+  expect(
+    screen.getByText(/Cierra cada tarjeta y se habilita la descarga/),
+  ).toBeInTheDocument();
+  // Lo importante: que "lo configuro a mano" no se venda como un atajo gratis.
+  expect(screen.getByText(/No desaparece el trabajo, lo mueve/)).toBeInTheDocument();
+});
+
+it("con la puerta abierta, el riel dice cuál .gpm es cuál", () => {
+  const est = { ...estado, huecos: [], reconocidos: [] as [string, string][] };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  const riel = screen.getByRole("complementary", { name: /entrega/i });
+  expect(within(riel).getByText(/es el que se importa de verdad/)).toBeInTheDocument();
+  expect(within(riel).getByText(/sin llenar nada/)).toBeInTheDocument();
 });

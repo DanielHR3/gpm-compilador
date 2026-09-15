@@ -213,3 +213,9 @@ it("la carpeta reparte también apoyo y plantillas al enviar", async () => {
   expect(fd.getAll("adjuntos").map((f) => (f as File).name)).toEqual(["Oficio.pdf"]);
   expect(fd.getAll("documentos").map((f) => (f as File).name)).toEqual(["Acuse.docx"]);
 });
+
+it("explica qué es cada insumo y qué pasa con un PDF escaneado", () => {
+  render(<CargaInsumos onListo={vi.fn()} />);
+  expect(screen.getByText(/Con el Diccionario basta para empezar/)).toBeInTheDocument();
+  expect(screen.getByText(/Un PDF escaneado es una imagen/)).toBeInTheDocument();
+});

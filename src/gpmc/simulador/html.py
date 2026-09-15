@@ -45,6 +45,15 @@ body{margin:0;background:var(--fondo);color:var(--tinta);
 .barra{background:var(--guinda);color:#fff;padding:.85rem 1.5rem;display:flex;
        justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem}
 .barra strong{font-size:1rem;font-weight:600}
+/* Instrucciones de la pantalla: mismo patron que el componente
+   `Instrucciones` de la SPA, en HTML plano porque esta vista la genera
+   Python. Abre desplegado; a diferencia de la SPA no recuerda si se
+   plego, porque esta pagina es de un solo uso. */
+.ayuda{max-width:70ch;margin:1rem auto 0;border:1px solid var(--linea);border-radius:8px;background:#fff;font-size:.86rem}
+.ayuda>summary{cursor:pointer;padding:.6rem .9rem;font-weight:600;color:var(--tinta)}
+.ayuda>div{border-top:1px solid var(--linea);padding:.7rem .9rem;color:var(--gris);display:flex;flex-direction:column;gap:.5rem}
+.ayuda p{margin:0}
+.ayuda strong{color:var(--tinta)}
 .barra em{font-style:normal;font-size:.78rem;opacity:.85}
 .barra2{background:var(--guinda2);color:#fff;padding:.5rem 1.5rem;font-size:.8rem;
         letter-spacing:.03em;opacity:.95}
@@ -357,6 +366,23 @@ def generar(m: Manifiesto) -> str:
   <em>Simulación — Compilador GPM</em>
 </div>
 <div class="barra2">Vista previa del trámite · no conectada a ningún sistema</div>
+<details class="ayuda" aria-label="Instrucciones de la pantalla" open>
+  <summary>¿Cómo funciona esta pantalla?</summary>
+  <div>
+    <p>Es un <strong>recorrido de prueba</strong> del trámite tal como lo verá
+    el ciudadano. Sirve para cotejar que el flujo y las pantallas quedaron
+    como los describe el TO-BE, antes de importar nada.</p>
+    <p><strong>No escribe en ningún sistema.</strong> Nada de lo que captures
+    aquí se guarda, no genera folio y no llega a la plataforma. Puedes probar
+    todas las veces que quieras.</p>
+    <p>Las <strong>bifurcaciones dependen de lo que captures</strong>: si una
+    tarea lleva a dos caminos según un campo, el recorrido toma el que
+    corresponda a tu respuesta. Para ver la otra rama, vuelve a empezar y
+    contesta distinto.</p>
+    <p>Si una pantalla no aparece o el recorrido se corta antes de tiempo, el
+    flujo está incompleto: vuelve al paso 2 y revisa los huecos de flujo.</p>
+  </div>
+</details>
 <div class="marco" style="margin:0 auto;width:100%">
   <div class="aviso">
     <strong>Esto es una simulación, no es la plataforma GPM.</strong> No guarda nada, no envía

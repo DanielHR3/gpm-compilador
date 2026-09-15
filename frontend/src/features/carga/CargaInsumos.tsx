@@ -4,6 +4,7 @@ import { ArrowRight, FileText, FolderOpen, UploadCloud, FileWarning } from "luci
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Instrucciones from "@/components/Instrucciones";
 import { cn } from "cn";
 import { clasificar, crearExpediente, ErrorApi } from "@/lib/api";
 import type { EstadoExpediente } from "@/lib/types";
@@ -166,12 +167,37 @@ export default function CargaInsumos({
 
   return (
     <main className="flex flex-col gap-8 text-foreground">
-      <header className="flex flex-col gap-1.5">
+      <header className="flex flex-col gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Carga de insumos</h1>
-        <p className="max-w-md text-sm text-muted-foreground">
-          Arrastra un archivo sobre cada zona o eligelo con el selector. El
-          Diccionario es obligatorio; el resto ayuda a extraer más completo.
-        </p>
+        <Instrucciones
+          id="insumos"
+          resumen="Sube los documentos del trámite. Con el Diccionario basta para empezar; entre más subas, menos tendrás que contestar a mano después."
+        >
+          <p>
+            <strong>Diccionario de Datos</strong> — obligatorio. De aquí salen
+            las pantallas, los campos y sus catálogos. Sin él no hay nada que
+            compilar.
+          </p>
+          <p>
+            <strong>Propuesta TO-BE</strong> — de su diagrama sale el flujo:
+            las tareas, las bifurcaciones y quién hace cada cosa.{" "}
+            <strong>Análisis AS-IS</strong> — de aquí salen el nombre del
+            trámite, la dependencia y la ficha RUTS.{" "}
+            <strong>Vistas</strong> — referencia visual; no se compila.
+          </p>
+          <p>
+            Los tres primeros se leen en <strong>Word, PDF con texto o
+            Markdown</strong>. Un PDF escaneado es una imagen: no se puede leer,
+            y si lo pones en una de esas zonas te dirá cuál es y por qué. Súbelo
+            como documento de apoyo, que sirve para tenerlo a la vista mientras
+            resuelves.
+          </p>
+          <p>
+            Si tienes la carpeta completa tal como la entregó Simplificación,
+            usa la zona de arriba: reparte cada archivo en su sitio y tú
+            corriges lo que quede mal.
+          </p>
+        </Instrucciones>
       </header>
 
       <div className="flex flex-col gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4">

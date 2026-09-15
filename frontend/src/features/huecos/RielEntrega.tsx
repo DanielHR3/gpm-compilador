@@ -76,6 +76,15 @@ export default function RielEntrega({
             <Download aria-hidden className="size-3.5" />
             .gpm (pruebas)
           </a>
+          {/* Cuál bajar es la duda mas repetida al llegar aqui, y elegir mal
+              cuesta una importacion a produccion que hay que deshacer. */}
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Producción</span> es
+            el que se importa de verdad.{" "}
+            <span className="font-medium text-foreground">Pruebas</span> trae
+            datos de ejemplo ya capturados, para recorrer el trámite en la
+            plataforma sin llenar nada.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-1 text-xs">

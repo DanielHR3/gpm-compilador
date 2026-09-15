@@ -374,3 +374,13 @@ def test_dos_ramas_con_los_mismos_campos_en_distinto_orden_no_se_pierden():
         "como 'conjuntos de campos distintos'"
     )
     assert set(t2["destinos"].values()) == {"t3", "t1"}, t2["destinos"]
+
+
+def test_el_simulador_explica_que_no_escribe_en_ningun_sistema():
+    """El analista llega aquí desde el paso 3 y lo primero que necesita saber
+    es que puede probar sin miedo: nada de lo que capture se guarda."""
+    html = generar(_m())
+    assert "¿Cómo funciona esta pantalla?" in html
+    assert "No escribe en ningún sistema" in html
+    # y que las ramas dependen de lo que capture, no de un orden fijo
+    assert "bifurcaciones" in html.lower()
