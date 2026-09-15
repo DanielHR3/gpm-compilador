@@ -85,3 +85,44 @@ it("la zona de plantillas acepta Word y PDF, no solo .md", () => {
   expect(accept).toContain(".docx");
   expect(accept).toContain(".pdf");
 });
+
+// El 422 de `/expedientes` manda `archivos: ["NOMBRE: motivo", ...]` igual que
+// el 413, pero el banner solo los pintaba en la rama del 413: el analista veia
+// "no se pudo leer el documento" sobre cuatro zonas de carga y no sabia cual de
+// los archivos era. En "Alta de aviso de testamento" eran los dos PDF (AS-IS y
+// TO-BE), escaneados, y el backend ya decia exactamente eso.
+it("un 422 de lectura dice QUE archivo no se pudo leer y por que", async () => {
+  const { crearExpediente, ErrorApi } = await import("@/lib/api");
+  const e = new (ErrorApi as any)("no se pudo leer el documento");
+  e.status = 422;
+  e.archivos = [
+    "AS- IS AVISOS DE TESTAMENTO.pdf: el PDF está escaneado (es una imagen, no texto). " +
+      "Adjúntalo como documento de apoyo y sube el Diccionario en Word o Markdown",
+    "TO- BE Aviso de testamento.pdf: el PDF está escaneado (es una imagen, no texto).",
+  ];
+  (crearExpediente as any).mockRejectedValue(e);
+  render(<CargaInsumos onListo={() => {}} />);
+  await userEvent.upload(
+    screen.getByLabelText(/^diccionario$/i),
+    new File(["# x"], "dd.md", { type: "text/markdown" }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: /revisar|extraer/i }));
+
+  expect(await screen.findByText(/AS- IS AVISOS DE TESTAMENTO\.pdf/)).toBeInTheDocument();
+  expect(screen.getByText(/TO- BE Aviso de testamento\.pdf/)).toBeInTheDocument();
+  expect(screen.getAllByText(/escaneado/i).length).toBeGreaterThan(0);
+});
+
+it("un error sin lista de archivos sigue mostrando solo el mensaje", async () => {
+  const { crearExpediente, ErrorApi } = await import("@/lib/api");
+  const e = new (ErrorApi as any)("sesión no encontrada");
+  e.status = 404;
+  (crearExpediente as any).mockRejectedValue(e);
+  render(<CargaInsumos onListo={() => {}} />);
+  await userEvent.upload(
+    screen.getByLabelText(/^diccionario$/i),
+    new File(["# x"], "dd.md", { type: "text/markdown" }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: /revisar|extraer/i }));
+  expect(await screen.findByText(/sesión no encontrada/)).toBeInTheDocument();
+});
