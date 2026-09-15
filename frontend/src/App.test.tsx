@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -33,5 +34,25 @@ describe("App (SPA SP1)", () => {
     expect(tokensWeb.colors.brand.primary).toBe("#A02142");
     expect(tokensWeb.colors.action.primary).toBe("#A02142");
     expect(generateCssVariables()).toContain("--action-primary: #A02142");
+  });
+
+  it("monta el area de avisos, para que los toasts tengan donde salir", async () => {
+    render(<App />);
+
+    toast.success("el expediente se guardo");
+
+    expect(
+      await screen.findByText("el expediente se guardo"),
+    ).toBeInTheDocument();
+  });
+
+  it("la navegación del proceso acompaña a la pantalla de carga", () => {
+    render(<App />);
+
+    const nav = screen.getByRole("navigation", { name: /proceso/i });
+    expect(nav).toBeInTheDocument();
+    expect(
+      within(nav).getByRole("link", { current: "step" }),
+    ).toHaveTextContent(/insumos/i);
   });
 });

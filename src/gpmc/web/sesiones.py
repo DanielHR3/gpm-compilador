@@ -29,6 +29,49 @@ INSUMOS = {
 # sigue siendo el Diccionario de Datos.
 ARCHIVO_VISTAS = "Vistas.html"
 
+# Documentos de apoyo del expediente: diagramas en PNG, PDF escaneados, oficios.
+# No alimentan al extractor —igual que las vistas— pero el analista los necesita
+# a la vista mientras resuelve los huecos.
+CARPETA_ADJUNTOS = "adjuntos"
+
+# Plantillas de los documentos que el tramite genera (.md con {{variables}}).
+# A diferencia de los adjuntos, estas SI alimentan al extractor.
+CARPETA_DOCUMENTOS = "documentos"
+
+_IMAGENES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+
+
+def nombre_seguro(nombre: str) -> str:
+    """Un nombre de archivo que no puede escribir fuera de su carpeta.
+
+    Lo escribe quien sube el archivo, asi que se trata como hostil: se tira todo
+    separador de ruta y todo tramo '..'. Se conservan espacios y acentos, que
+    son normales en un documento de gobierno y no hacen dano.
+    """
+    tramos = [t for t in re.split(r"[\\/]+", nombre or "") if t not in ("", ".", "..")]
+    limpio = "_".join(tramos).strip().strip(".")
+    return limpio or "adjunto"
+
+
+def tipo_de_adjunto(nombre: str) -> str:
+    """'imagen', 'pdf' u 'otro': decide como se muestra, no como se lee."""
+    sufijo = Path(nombre).suffix.lower()
+    if sufijo in _IMAGENES:
+        return "imagen"
+    return "pdf" if sufijo == ".pdf" else "otro"
+
+
+def adjuntos_de(carpeta: Path) -> "list[dict]":
+    """Los adjuntos de una sesion, en el orden en que se subieron."""
+    d = carpeta / CARPETA_ADJUNTOS
+    if not d.is_dir():
+        return []
+    archivos = sorted(d.iterdir(), key=lambda p: p.stat().st_mtime)
+    return [
+        {"nombre": a.name, "tipo": tipo_de_adjunto(a.name)}
+        for a in archivos if a.is_file()
+    ]
+
 
 # Un .md de trámite pesa unos KB; 10 MB es holgado y frena una subida de varios
 # GB que agotaría la memoria del proceso (lee el archivo entero en RAM).

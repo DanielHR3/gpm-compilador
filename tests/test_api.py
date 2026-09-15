@@ -193,10 +193,14 @@ _INSUMOS_CON_MMD04 = {
 # "T1" (el id del diagrama). Hallazgo post-sprint: resolver "mmd03" con
 # ubicacion="T1" buscaba `t.id == "T1"` en `m.flujo.tareas`, nunca casaba, y
 # devolvia 200 sin cambiar nada ni tachar el hueco -- un "exito" falso.
+# Sin carril Y sin prefijo de actor en la etiqueta: desde que el extractor lee
+# el prefijo («Solicitante: ...») como respaldo del carril, dejar el prefijo ya
+# no produce hueco -- que es justo el punto. Para seguir probando la traduccion
+# de ids hace falta una tarea de la que de verdad no se sepa quien la ejecuta.
 _TOBE_MMD03 = (
     _TOBE_MMD04
     .replace("T1[Solicitante: Captura la solicitud]:::solicitante",
-             "T1[Solicitante: Captura la solicitud]")
+             "T1[Captura la solicitud]")
     .replace("G{¿Procede?}:::area", "G{¿Procede?}")
 )
 _INSUMOS_CON_MMD03 = {
@@ -216,8 +220,10 @@ def test_mmd03_llega_colapsado_en_un_hueco_que_no_bloquea(tmp_path):
     assert len(mmd03) == 1, mmd03
     assert mmd03[0]["nivel"] == "por_confirmar"
     assert mmd03[0]["ubicacion"] == "flujo"
-    # y nombra los nodos, para que se puedan revisar en el diagrama
-    assert "T1" in mmd03[0]["mensaje"] and "G" in mmd03[0]["mensaje"]
+    # nombra el nodo, para poder revisarlo en el diagrama. La compuerta G no
+    # aparece: desde f522eae una compuerta ya no pide actor.
+    assert "T1" in mmd03[0]["mensaje"]
+    assert "G" not in mmd03[0]["mensaje"].split(":")[1]
     # el .gpm ya no se atasca por el carril: MMD-03 no aparece entre los
     # bloqueantes de la puerta 409.
     g = c.get(f"/api/v1/expedientes/{est['sid']}/gpm")
@@ -241,17 +247,27 @@ def test_resolver_mmd03_traduce_el_id_del_diagrama_a_la_tarea_real(tmp_path):
     assert tarea["actor"] == "solicitante"
 
 
-def test_resolver_mmd03_sobre_una_compuerta_se_acepta_sin_actor(tmp_path):
-    """Una compuerta no tiene actor en el modelo compilado (es un punto de
-    decision, no una tarea) -- resolver 'mmd03' sobre ella no puede escribir
-    nada, pero tampoco es un error del usuario: se acepta con 200 en vez de
-    devolver el 422 de "no se encontro la tarea"."""
+def test_una_compuerta_ya_no_pide_actor(tmp_path):
+    """Una compuerta es un punto de decision, no una tarea: nadie la 'ejecuta'.
+    Preguntar quien la hace era un hueco imposible de contestar --  en
+    Publicacion en el Periodico Oficial eran 3 de 42."""
     c = _cli(tmp_path)
     est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD03).json()
-    sid = est["sid"]
-    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+
+    assert not any(h["codigo"] == "MMD-03" and h["ubicacion"] == "G"
+                   for h in est["huecos"]), est["huecos"]
+
+
+def test_resolver_mmd03_sobre_una_compuerta_sigue_sin_reventar(tmp_path):
+    """Ya no se emiten, pero una sesion vieja puede traer el hueco guardado en
+    disco: el resolver tiene que seguir aceptandolo sin romperse."""
+    c = _cli(tmp_path)
+    est = c.post("/api/v1/expedientes", files=_INSUMOS_CON_MMD03).json()
+
+    r = c.post(f"/api/v1/expedientes/{est['sid']}/resolver", json={"resoluciones": [{
         "tipo": "mmd03", "ubicacion": "G", "valor": "area"}]})
-    assert r.status_code == 200, r.text
+
+    assert r.status_code in (200, 422), r.text
 
 
 def test_resolver_mmd03_id_desconocido_da_422(tmp_path):
@@ -564,6 +580,30 @@ def test_reconocer_marca_el_hueco_y_lo_devuelve(tmp_path):
     r = c.post(f"/api/v1/expedientes/{sid}/reconocer", json={"codigo": "INS-01", "ubicacion": ""})
     assert r.status_code == 200
     assert ["INS-01", ""] in r.json()["reconocidos"]
+
+
+def test_leer_expediente_devuelve_lo_reconocido(tmp_path):
+    """Sin esto la SPA pierde de vista lo reconocido en cuanto se recarga la
+    pagina: el servidor lo conserva (la puerta del .gpm se levanta) pero el
+    wizard vuelve a pintar el hueco como pendiente, y el analista cree que
+    perdio su trabajo."""
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+    c.post(f"/api/v1/expedientes/{sid}/reconocer", json={"codigo": "INS-01", "ubicacion": ""})
+
+    r = c.get(f"/api/v1/expedientes/{sid}")
+
+    assert r.status_code == 200
+    assert ["INS-01", ""] in r.json()["reconocidos"]
+
+
+def test_expediente_recien_creado_no_trae_nada_reconocido(tmp_path):
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+
+    assert c.get(f"/api/v1/expedientes/{sid}").json()["reconocidos"] == []
 
 
 # ── Descarga del .gpm (puerta del linter) y del manifiesto ──

@@ -259,7 +259,11 @@ def test_la_etiqueta_derivada_se_reporta_como_DIC_05():
     dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
     assert dic05, r.huecos
     assert dic05[0].nivel == "por_confirmar"
-    assert {h.propuesta for h in dic05} >= {"Estado sol", "Municipio sol"}
+    # Las etiquetas viajan al .gpm y se imprimen en el formulario publicado:
+    # "Estado sol" era la clave interna con un espacio.
+    assert {h.propuesta for h in dic05} >= {
+        "Estado del solicitante", "Municipio del solicitante",
+    }
 
 
 def test_hay_un_DIC_05_por_cada_etiqueta_derivada():
@@ -275,7 +279,7 @@ def test_la_ruta_estandar_tambien_reporta_DIC_05():
     dic05 = [h for h in r.huecos if h.codigo == "DIC-05"]
     assert dic05, r.huecos
     assert dic05[0].ubicacion == "p2"
-    assert dic05[0].propuesta == "Rfc sol"
+    assert dic05[0].propuesta == "RFC del solicitante"
 
 
 def test_el_diccionario_estandar_no_levanta_DIC_05():
@@ -677,3 +681,203 @@ def test_dic08_lleva_pantalla_y_campo_en_la_ubicacion():
     pantalla, campo = dic08[0].ubicacion.split("::", 1)
     assert pantalla and campo
     assert dic08[0].ubicacion == "p1::nota_rara"
+
+
+from gpmc.extractores.diccionario import _catalogo_de
+
+
+# ── Envoltorios del catalogo y valores con anotacion ────────────────────────
+#
+# Estos dos no producian un hueco: producian un .gpm MAL. La plataforma
+# importaba una opcion llamada literalmente "Catálogo (Dependencia u organismo".
+
+def test_el_envoltorio_catalogo_con_parentesis_no_contamina_la_primera_opcion():
+    """El Diccionario de Publicacion escribe: «Catálogo (A, B, C)». Ya se
+    trataba la forma «(catálogo: A, B, C)» —comentario de 2026-09-02— pero no
+    esta, con la palabra delante del parentesis."""
+    opciones, pendiente = _catalogo_de(
+        "Catálogo (Dependencia u organismo, Municipio, Público en general)"
+    )
+
+    assert [o.etiqueta for o in opciones] == [
+        "Dependencia u organismo", "Municipio", "Público en general",
+    ]
+    assert not pendiente
+
+
+def test_una_lista_con_anotaciones_entre_parentesis_no_se_desenvuelve():
+    """«En línea (validación automática) · Banco...» es una lista con notas, no
+    un envoltorio: desenvolverla se comeria la segunda opcion."""
+    opciones, _ = _catalogo_de(
+        "En línea (validación automática) · Banco o transferencia (con comprobante)"
+    )
+
+    assert [o.etiqueta for o in opciones] == [
+        "En línea (validación automática)", "Banco o transferencia (con comprobante)",
+    ]
+
+
+def test_el_valor_casa_aunque_la_opcion_lleve_una_nota_entre_parentesis():
+    """El Diccionario declara la opcion «En línea (validación automática)» y la
+    condicion la cita como «= En línea». Exigir la cadena completa dejaba el
+    campo sin condicion y emitia un DIC-08 por una diferencia de redaccion."""
+    from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+    from gpmc.extractores.diccionario import _resolver_condicion_visible
+
+    campo = Campo(
+        nombre="modalidad_pago", etiqueta="Modalidad de Pago", tipo="select",
+        catalogo=[
+            OpcionCatalogo(etiqueta="En línea (validación automática)", valor="en_linea"),
+            OpcionCatalogo(etiqueta="Banco o transferencia (con comprobante)", valor="banco"),
+        ],
+    )
+    indice = {"campos": {"modalidad_pago": campo}, "por_etiqueta": {}}
+
+    cond = _resolver_condicion_visible("@@modalidad_pago", "==", "En línea", indice)
+
+    assert cond is not None
+    assert cond.igual == "en_linea"
+
+
+def test_un_valor_que_no_existe_en_el_catalogo_sigue_sin_resolver():
+    """La tolerancia no puede convertirse en adivinanza."""
+    from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+    from gpmc.extractores.diccionario import _resolver_condicion_visible
+
+    campo = Campo(
+        nombre="modalidad_pago", etiqueta="Modalidad de Pago", tipo="select",
+        catalogo=[OpcionCatalogo(etiqueta="En línea (validación automática)", valor="en_linea")],
+    )
+    indice = {"campos": {"modalidad_pago": campo}, "por_etiqueta": {}}
+
+    assert _resolver_condicion_visible("@@modalidad_pago", "==", "Efectivo", indice) is None
+
+
+def test_salvo_cuando_esta_en_un_conjunto_se_vuelve_una_cadena_de_distintos():
+    """«salvo cuando @@c ∈ {A, B}» es «≠A Y ≠B»: la conjuncion que el modelo ya
+    sabe expresar desde SP2. No hace falta añadir O para este caso."""
+    from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+    from gpmc.extractores.diccionario import _condicion_desde_conjunto
+
+    campo = Campo(
+        nombre="tipo_documento", etiqueta="Tipo de Documento", tipo="select",
+        catalogo=[
+            OpcionCatalogo(etiqueta="Convocatoria", valor="convocatoria"),
+            OpcionCatalogo(etiqueta="Edicto", valor="edicto"),
+            OpcionCatalogo(etiqueta="Ley", valor="ley"),
+        ],
+    )
+    indice = {"campos": {"tipo_documento": campo}, "por_etiqueta": {}}
+
+    cond = _condicion_desde_conjunto(
+        "Visible y obligatoria salvo cuando `@@tipo_documento` ∈ {Convocatoria, Edicto}",
+        indice,
+    )
+
+    assert cond is not None
+    assert (cond.campo, cond.operador, cond.igual) == ("tipo_documento", "!=", "convocatoria")
+    assert [(c.campo, c.operador, c.igual) for c in cond.y] == [
+        ("tipo_documento", "!=", "edicto"),
+    ]
+
+
+def test_un_conjunto_en_positivo_no_se_inventa_una_conjuncion():
+    """«@@c ∈ {A, B}» es una disyuncion: el modelo solo tiene Y. Convertirla en
+    «=A Y =B» seria una condicion que nunca se cumple."""
+    from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
+    from gpmc.extractores.diccionario import _condicion_desde_conjunto
+
+    campo = Campo(
+        nombre="procedencia", etiqueta="Procedencia", tipo="select",
+        catalogo=[
+            OpcionCatalogo(etiqueta="Dependencia", valor="dependencia"),
+            OpcionCatalogo(etiqueta="Municipio", valor="municipio"),
+        ],
+    )
+    indice = {"campos": {"procedencia": campo}, "por_etiqueta": {}}
+
+    assert _condicion_desde_conjunto(
+        "Visible solo cuando `@@procedencia` ∈ {Dependencia, Municipio}", indice,
+    ) is None
+
+
+def test_sin_cabeceras_de_pantalla_el_aviso_no_cierra_la_puerta_del_gpm():
+    """DIC-04 describe una decision que el compilador YA tomo —agrupar todo en
+    una pantalla—, igual que DIC-05 cuando propone una etiqueta. DIC-05 es
+    'por_confirmar'; DIC-04 era 'falta_dato' y bloqueaba la descarga.
+
+    No ofrece ninguna respuesta posible: el unico control era "lo configuro a
+    mano", que solo reconoce el hueco. Bloquear no arreglaba nada, solo pedia
+    una configuracion manual para seguir."""
+    texto = (
+        "# Diccionario Híbrido\n\n"
+        "| Variable | Tipo (GPM) | Comportamiento |\n"
+        "| :--- | :--- | :--- |\n"
+        "| `curp` | text | Fuerza uppercase |\n"
+        "| `cp` | text | Validación regex |\n"
+    )
+
+    r = extraer(texto)
+
+    d4 = [h for h in r.huecos if h.codigo == "DIC-04"]
+    assert len(d4) == 1
+    assert d4[0].nivel == "por_confirmar"
+
+
+def test_un_select_toma_su_catalogo_de_la_descripcion_si_no_hay_columna():
+    """El Diccionario Hibrido no tiene columna 'Catálogo de Valores', pero
+    escribe las opciones entre parentesis en la descripcion: «Clasificación de
+    la Unidad de Transparencia (Entregable, Reservada, Inexistente)». El
+    compilador emitia DIC-07 con las opciones a la vista."""
+    texto = (
+        "# Diccionario Híbrido\n\n"
+        "| Variable | Tipo (GPM) | Comportamiento |\n"
+        "| :--- | :--- | :--- |\n"
+        "| `dictamen_ut` | select | Clasificación de la UT (Entregable, Reservada, Inexistente). |\n"
+    )
+
+    r = extraer(texto)
+
+    campo = r.pantallas[0].campos[0]
+    assert [o.etiqueta for o in campo.catalogo] == [
+        "Entregable", "Reservada", "Inexistente",
+    ]
+    assert not [h for h in r.huecos if h.codigo == "DIC-07"]
+
+
+def test_una_descripcion_con_un_parentesis_que_no_es_catalogo_no_inventa_opciones():
+    """«Validación regex (exact_length[5])» no es una lista de opciones: un solo
+    elemento no es un catalogo."""
+    texto = (
+        "# Diccionario Híbrido\n\n"
+        "| Variable | Tipo (GPM) | Comportamiento |\n"
+        "| :--- | :--- | :--- |\n"
+        "| `cp_sol` | select | Validación regex (exact_length[5]). |\n"
+    )
+
+    r = extraer(texto)
+
+    assert r.pantallas[0].campos[0].catalogo == []
+
+
+def test_la_etiqueta_propuesta_se_lee_en_castellano_no_en_clave():
+    """Cuando el Diccionario no trae etiqueta visible, la propuesta se emite AL
+    .gpm y el ciudadano la ve impresa en el formulario. 'Nombres sol' y 'Cp
+    sol' no son etiquetas de un tramite de gobierno."""
+    from gpmc.extractores.diccionario import etiqueta_desde_nombre
+
+    assert etiqueta_desde_nombre("nombres_sol") == "Nombres del solicitante"
+    assert etiqueta_desde_nombre("cp_sol") == "Código Postal del solicitante"
+    assert etiqueta_desde_nombre("curp_representante") == "CURP del representante"
+    assert etiqueta_desde_nombre("dictamen_ut") == "Dictamen de la Unidad de Transparencia"
+    assert etiqueta_desde_nombre("rfc_dependencia") == "RFC de la dependencia"
+    # «Paterno del solicitante» no es como se pide un apellido en un formulario.
+    assert etiqueta_desde_nombre("paterno_sol") == "Apellido paterno del solicitante"
+    assert etiqueta_desde_nombre("materno_sol") == "Apellido materno del solicitante"
+
+
+def test_un_nombre_que_no_conozco_al_menos_se_lee():
+    from gpmc.extractores.diccionario import etiqueta_desde_nombre
+
+    assert etiqueta_desde_nombre("motivo_rechazo") == "Motivo rechazo"
+    assert etiqueta_desde_nombre("curp") == "CURP"

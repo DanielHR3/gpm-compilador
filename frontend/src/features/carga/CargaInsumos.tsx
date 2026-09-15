@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DragEvent } from "react";
-import { ArrowRight, FileText, UploadCloud } from "lucide-react";
+import { ArrowRight, FileText, UploadCloud, FileWarning } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,6 +70,12 @@ export default function CargaInsumos({
   onListo: (est: EstadoExpediente) => void;
 }) {
   const [slots, setSlots] = useState<Slots>(SLOTS_VACIOS);
+  // Diagramas y PDF que el compilador no puede leer pero el analista necesita
+  // a la vista mientras resuelve los huecos.
+  const [apoyo, setApoyo] = useState<File[]>([]);
+  // Plantillas de los documentos que el tramite genera (oficios, acuses):
+  // estas SI las lee el compilador, a diferencia de los adjuntos.
+  const [plantillas, setPlantillas] = useState<File[]>([]);
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [sobrevolando, setSobrevolando] = useState<CampoInsumo | null>(null);
@@ -95,6 +101,8 @@ export default function CargaInsumos({
         const archivo = slots[campo];
         if (archivo) fd.append(campo, archivo);
       });
+      apoyo.forEach((a) => fd.append("adjuntos", a));
+      plantillas.forEach((d) => fd.append("documentos", d));
       const est = await crearExpediente(fd);
       onListo(est);
     } catch (e) {
@@ -109,7 +117,7 @@ export default function CargaInsumos({
   };
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-3xl flex-col gap-8 bg-background p-8 text-foreground">
+    <main className="flex flex-col gap-8 text-foreground">
       <header className="flex flex-col gap-1.5">
         <h1 className="text-2xl font-bold tracking-tight">Carga de insumos</h1>
         <p className="max-w-md text-sm text-muted-foreground">
@@ -234,17 +242,97 @@ export default function CargaInsumos({
                 El limite por archivo es {LIMITE_POR_ARCHIVO}. Reduce o divide
                 estos archivos:
               </p>
-              <ul className="list-disc pl-5">
-                {(error.archivos ?? []).map((nombre) => (
-                  <li key={nombre}>{nombre}</li>
-                ))}
-              </ul>
             </>
           ) : (
-            <p>{error.message}</p>
+            <p className="font-semibold">{error.message}</p>
           )}
+          {/* `archivos` lo manda tanto el 413 (nombres a secas) como el 422 de
+              lectura ("NOMBRE: motivo"). Antes solo se pintaba en la rama del
+              413, asi que un PDF escaneado daba "no se pudo leer el documento"
+              sobre cuatro zonas de carga sin decir cual era -- y el backend ya
+              sabia el nombre Y el motivo. */}
+          {error.archivos?.length ? (
+            <div className="flex flex-col gap-1.5">
+              {error.archivos.map((entrada) => {
+                const corte = entrada.indexOf(": ");
+                const nombre = corte === -1 ? entrada : entrada.slice(0, corte);
+                const motivo = corte === -1 ? null : entrada.slice(corte + 2);
+                return (
+                  <p
+                    key={entrada}
+                    className="flex items-start gap-2 rounded-md border border-destructive/30 bg-card/60 px-3 py-1.5 break-all"
+                  >
+                    <FileWarning aria-hidden className="mt-0.5 size-4 shrink-0" />
+                    <span>
+                      <span className="font-medium">{nombre}</span>
+                      {motivo ? (
+                        <span className="block text-xs opacity-90">{motivo}</span>
+                      ) : null}
+                    </span>
+                  </p>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       ) : null}
+
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-4">
+        <label
+          htmlFor="adjuntos-apoyo"
+          className="text-sm font-medium text-foreground"
+        >
+          Documentos de apoyo
+        </label>
+        <p className="text-sm text-muted-foreground">
+          Diagramas en imagen, PDF escaneados, oficios. No se leen para
+          compilar, pero los verás junto a los huecos mientras los resuelves.
+        </p>
+        <input
+          id="adjuntos-apoyo"
+          type="file"
+          multiple
+          className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground"
+          onChange={(e) => setApoyo(Array.from(e.target.files ?? []))}
+        />
+        {apoyo.length > 0 ? (
+          <p className="text-sm text-foreground">
+            {apoyo.length === 1
+              ? "1 documento adjunto"
+              : `${apoyo.length} documentos adjuntos`}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-4">
+        <label
+          htmlFor="documentos-plantillas"
+          className="text-sm font-medium text-foreground"
+        >
+          Documentos que genera el trámite
+        </label>
+        <p className="text-sm text-muted-foreground">
+          Oficios, acuses o constancias en Word, PDF con texto o{" "}
+          <code>.md</code>, con <code>{"{{variables}}"}</code> que sean campos
+          del Diccionario. El compilador los convierte en documentos PDF del
+          trámite. Un PDF escaneado no se lee: súbelo como documento de apoyo.
+        </p>
+        <input
+          id="documentos-plantillas"
+          type="file"
+          multiple
+          accept=".md,.docx,.pdf,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground"
+          onChange={(e) => setPlantillas(Array.from(e.target.files ?? []))}
+        />
+        {plantillas.length > 0 ? (
+          <p className="text-sm text-foreground">
+            {plantillas.length === 1
+              ? "1 plantilla de documento"
+              : `${plantillas.length} plantillas de documento`}
+          </p>
+        ) : null}
+      </div>
 
       <Button
         type="button"

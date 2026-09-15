@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Annotated, List, Literal, Optional, Tuple, Union
 
 from fastapi import APIRouter, File, UploadFile
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from gpmc.compilador.a_gpm import compilar
@@ -35,7 +35,13 @@ from gpmc.nucleo.huecos import HuecoOut, bloquean
 from gpmc.nucleo.manifiesto import Conexion, Condicion, Manifiesto, guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.web.reensamblado import reensamblar_flujo, rm_de_tobe
+from gpmc.extractores.docx import a_markdown
+from gpmc.extractores import pdf as ext_pdf
 from gpmc.web.sesiones import (
+    CARPETA_ADJUNTOS,
+    CARPETA_DOCUMENTOS,
+    adjuntos_de,
+    nombre_seguro,
     ARCHIVO_VISTAS,
     INSUMOS,
     _MAX_SUBIDA,
@@ -59,6 +65,13 @@ class EstadoExpediente(BaseModel):
     estimacion: dict
     problemas: List[str]
     tiene_vistas: bool
+    # Documentos de apoyo (diagramas, PDF): se muestran, no se extraen.
+    adjuntos: List[dict] = []
+    # Los `(codigo, ubicacion)` ya marcados como "se configuran a mano".
+    # Sin esto la SPA los pierde de vista al recargar: el servidor los
+    # conserva —la puerta del .gpm sigue levantada— pero el wizard vuelve a
+    # pintar el hueco como pendiente y el analista cree que perdio su trabajo.
+    reconocidos: List[List[str]]
 
 
 # Mismo mapeo tipo->codigo que usa el HTML `POST /resolver` para limpiar
@@ -163,6 +176,8 @@ def _estado(sid: str, carpeta: Path, manifiesto) -> EstadoExpediente:
         estimacion=dataclasses.asdict(estimar(manifiesto)),
         problemas=analizar(manifiesto).problemas,
         tiene_vistas=(carpeta / ARCHIVO_VISTAS).exists(),
+        adjuntos=adjuntos_de(carpeta),
+        reconocidos=[list(t) for t in sorted(reconocidos_de(carpeta))],
     )
 
 
@@ -175,6 +190,8 @@ def crear_router(raiz: Path) -> APIRouter:
         to_be: UploadFile = File(None),
         diccionario: UploadFile = File(...),
         vistas: UploadFile = File(None),
+        adjuntos: List[UploadFile] = File(None),
+        documentos: List[UploadFile] = File(None),
     ):
         _purgar_sesiones(raiz)
         sid = secrets.token_hex(8)
@@ -182,6 +199,27 @@ def crear_router(raiz: Path) -> APIRouter:
         carpeta.mkdir(parents=True, exist_ok=True)
 
         grandes = []  # type: List[str]
+        ilegibles = []  # type: List[str]
+
+        def _a_texto(archivo, datos):
+            """Un .docx se convierte al Markdown que lee el extractor.
+
+            El equipo que construye GPM entrega el Diccionario en Word; antes
+            habia que pasarlo a Markdown a mano, tramite por tramite, antes de
+            poder compilar.
+            """
+            nombre = (archivo.filename or "").lower()
+            if nombre.endswith(".docx"):
+                convertir, motivo = a_markdown, None
+            elif nombre.endswith(".pdf"):
+                convertir, motivo = ext_pdf.a_markdown, None
+            else:
+                return datos
+            try:
+                return convertir(datos).encode("utf-8")
+            except ValueError as e:
+                ilegibles.append(f"{archivo.filename or 'sin nombre'}: {e}")
+                return None
 
         async def _leer(archivo):
             # type: (UploadFile) -> Optional[bytes]
@@ -200,6 +238,8 @@ def crear_router(raiz: Path) -> APIRouter:
             # en `grandes`). Un archivo de 0 bytes es `b""`: se persiste para que
             # el extractor emita un hueco en vez de "no se subió".
             if contenido is not None:
+                contenido = _a_texto(archivo, contenido)
+            if contenido is not None:
                 (carpeta / INSUMOS[clave]).write_bytes(contenido)
 
         # El HTML de vistas es referencia visual: se persiste para consulta pero
@@ -208,6 +248,37 @@ def crear_router(raiz: Path) -> APIRouter:
             contenido_vistas = await _leer(vistas)
             if contenido_vistas:
                 (carpeta / ARCHIVO_VISTAS).write_bytes(contenido_vistas)
+
+        # Documentos de apoyo: se guardan tal cual para que el analista los vea
+        # junto a los huecos. No pasan por el extractor.
+        for adjunto in (adjuntos or []):
+            if adjunto is None or not adjunto.filename:
+                continue
+            datos = await _leer(adjunto)
+            if not datos:
+                continue
+            destino = carpeta / CARPETA_ADJUNTOS
+            destino.mkdir(parents=True, exist_ok=True)
+            (destino / nombre_seguro(adjunto.filename)).write_bytes(datos)
+
+        # Plantillas de los documentos que genera el tramite: a diferencia de
+        # los adjuntos, estas SI las lee el extractor.
+        for plantilla in (documentos or []):
+            if plantilla is None or not plantilla.filename:
+                continue
+            datos = await _leer(plantilla)
+            if not datos:
+                continue
+            destino = carpeta / CARPETA_DOCUMENTOS
+            destino.mkdir(parents=True, exist_ok=True)
+            (destino / nombre_seguro(plantilla.filename)).write_bytes(datos)
+
+        if ilegibles:
+            shutil.rmtree(carpeta, ignore_errors=True)
+            return JSONResponse(status_code=422, content={
+                "error": "no se pudo leer el documento",
+                "archivos": ilegibles,
+            })
 
         if grandes:
             shutil.rmtree(carpeta, ignore_errors=True)
@@ -251,6 +322,25 @@ def crear_router(raiz: Path) -> APIRouter:
             return JSONResponse(status_code=404,
                                 content={"error": "sesión no encontrada"})
         return _estado(sid, carpeta, m)
+
+    @r.get("/expedientes/{sid}/adjuntos/{nombre}")
+    async def leer_adjunto(sid: str, nombre: str):
+        """Un documento de apoyo del expediente.
+
+        El nombre llega de la URL, asi que se sanea igual que al guardarlo y
+        ademas se comprueba que el archivo resuelto siga dentro de la carpeta:
+        un '..' codificado no puede sacar nada de la sesion.
+        """
+        carpeta = carpeta_de(raiz, sid)
+        if carpeta is None:
+            return JSONResponse(status_code=404,
+                                content={"error": "sesión no encontrada"})
+        base = (carpeta / CARPETA_ADJUNTOS).resolve()
+        archivo = (base / nombre_seguro(nombre)).resolve()
+        if not archivo.is_file() or base not in archivo.parents:
+            return JSONResponse(status_code=404,
+                                content={"error": "adjunto no encontrado"})
+        return FileResponse(archivo)
 
     @r.get("/expedientes/{sid}/compuerta/{gate_id}")
     async def leer_compuerta(sid: str, gate_id: str):

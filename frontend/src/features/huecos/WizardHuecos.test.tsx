@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
+import { Toaster } from "@/components/ui/sonner";
 import WizardHuecos from "./WizardHuecos";
 
 vi.mock("@/lib/api", () => ({
@@ -41,7 +42,7 @@ it("un bloqueante de codigo desconocido no deja sin salida: lista el motivo y co
   render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
   // El motivo del bloqueo se explica en pantalla.
   expect(
-    screen.getByText(/Faltan 1 huecos por resolver antes de descargar el \.gpm/),
+    screen.getByText(/Falta 1 hueco por resolver antes de descargar el \.gpm/),
   ).toBeInTheDocument();
   expect(
     screen.getAllByText(/no se encontro la Propuesta TO-BE/).length,
@@ -107,33 +108,194 @@ it("MMD-03 muestra un ControlActor con los actores del manifiesto", async () => 
   expect(await screen.findByRole("option", { name: "Ciudadano" })).toBeInTheDocument();
 });
 
-// El carril del diagrama dejo de ser bloqueante: MMD-03 llega colapsado en un
-// solo hueco `por_confirmar` sobre "flujo" (ver `_colapsar_mmd03` en
-// `extractores/expediente.py`). Ese hueco no nombra ninguna tarea, asi que un
-// ControlActor sobre el mandaria `ubicacion: "flujo"` a `/resolver` y el
-// backend contestaria 422 -- el mismo callejon sin salida que se acaba de
-// cerrar. Se muestra como informativo.
-it("MMD-03 colapsado (por_confirmar) no ofrece ControlActor", () => {
-  const est = {
-    ...estado,
-    huecos: [
-      { nivel: "por_confirmar", codigo: "MMD-03", ubicacion: "flujo",
-        mensaje: "4 nodo(s) del diagrama TO-BE no declaran carril", propuesta: null },
-    ],
-  };
-  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
-  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
-  expect(screen.getByText(/no declaran carril/)).toBeInTheDocument();
+it("avisa que el hueco quedo resuelto y cuantos faltan", async () => {
+  const { resolver } = await import("@/lib/api");
+  // Al resolver META-01 la API devuelve la lista sin ese hueco: queda META-05.
+  vi.mocked(resolver).mockResolvedValue({
+    manifiesto: estado.manifiesto,
+    huecos: [estado.huecos[1]],
+  } as any);
+
+  render(
+    <>
+      <Toaster />
+      <WizardHuecos estado={estado as any} onEstado={() => {}} />
+    </>,
+  );
+
+  await userEvent.type(
+    screen.getByLabelText(/tiempo de resolucion/i),
+    "5 dias",
+  );
+  await userEvent.click(screen.getAllByRole("button", { name: /guardar/i })[0]);
+
+  expect(await screen.findByText(/META-01 resuelto/)).toBeInTheDocument();
+  expect(await screen.findByText(/queda 1 hueco/i)).toBeInTheDocument();
 });
 
-it("MMD-03 por nodo ofrece tambien la salida 'lo configuro a mano'", () => {
+it("cada tarjeta va envuelta en el contenedor que permite animar su salida", () => {
+  // El PLAZO de salida se prueba, sin relojes reales, en useListaConSalida.test.ts.
+  // Aqui solo interesa que el wizard use ese hook: atarlo al temporizador desde
+  // esta prueba la vuelve una carrera (240 ms contra la maquina).
+  const { container } = render(
+    <WizardHuecos estado={estado as any} onEstado={() => {}} />,
+  );
+
+  const envoltorios = container.querySelectorAll("[data-saliendo]");
+  expect(envoltorios).toHaveLength(estado.huecos.length);
+  envoltorios.forEach((e) => {
+    expect(e).toHaveAttribute("data-saliendo", "false");
+    expect(e).toHaveClass("tarjeta-entrando");
+  });
+});
+
+it("agrupa los huecos por severidad y rotula cada grupo con su cuenta", () => {
   const est = {
     ...estado,
     huecos: [
-      { nivel: "falta_dato", codigo: "MMD-03", ubicacion: "T1", mensaje: "quien resuelve", propuesta: null },
+      estado.huecos[0], // META-01, falta_dato
+      estado.huecos[1], // META-05, por_confirmar
+      {
+        nivel: "bloqueante",
+        codigo: "INS-01",
+        ubicacion: "",
+        mensaje: "no se encontro la Propuesta TO-BE",
+        propuesta: null,
+      },
     ],
   };
   render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
-  expect(screen.getByRole("combobox")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /a mano/i })).toBeInTheDocument();
+
+  const grupos = screen.getAllByRole("group");
+  expect(grupos.map((g) => g.getAttribute("aria-label"))).toEqual([
+    "Bloquean la descarga (1)",
+    "Falta un dato (1)",
+    "Solo confirmar (1)",
+  ]);
+});
+
+it("el riel de entrega se mantiene accesible aunque la puerta siga cerrada", () => {
+  const est = {
+    ...estado,
+    huecos: [
+      {
+        nivel: "bloqueante",
+        codigo: "INS-01",
+        ubicacion: "",
+        mensaje: "falta el TO-BE",
+        propuesta: null,
+      },
+    ],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+
+  const riel = screen.getByRole("complementary", { name: /entrega/i });
+  expect(within(riel).getByRole("link", { name: /simulador/i })).toBeInTheDocument();
+  expect(within(riel).queryByRole("link", { name: /\.gpm/i })).toBeNull();
+});
+
+it("cada aviso de flujo es su propia tarjeta, no una viñeta de una lista", () => {
+  const est = {
+    ...estado,
+    problemas: ["ciclo sin salida en la tarea 3", "dos tareas comparten id"],
+  };
+  const { container } = render(
+    <WizardHuecos estado={est as any} onEstado={() => {}} />,
+  );
+
+  const avisos = screen.getAllByRole("article");
+  expect(avisos).toHaveLength(2);
+  expect(avisos[0]).toHaveTextContent("ciclo sin salida en la tarea 3");
+  expect(container.querySelector("ul.list-disc")).toBeNull();
+});
+
+it("al volver a la pantalla, lo ya reconocido cuenta como resuelto", () => {
+  // El servidor conserva lo reconocido; antes la SPA lo perdia al recargar y
+  // el analista veia su trabajo como pendiente.
+  const est = {
+    ...estado,
+    reconocidos: [["META-01", "metadatos"]] as [string, string][],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+
+  expect(screen.getByText(/de 2 resueltos/)).toHaveTextContent(
+    "1 de 2 resueltos",
+  );
+  // Y la puerta del .gpm deja de estar cerrada por ese hueco.
+  expect(
+    screen.getByRole("complementary", { name: /entrega/i }),
+  ).toHaveTextContent(/todo listo para entregar/i);
+});
+
+/** Un expediente con `n` huecos de captura, para probar los dos modos. */
+/** El contador parte el numero en su propio <span>: hay que mirar el texto entero. */
+const textoDe = (frase: string) => (_: string, el: Element | null) =>
+  el?.textContent?.replace(/\s+/g, " ").trim() === frase;
+
+/** Como textoDe, pero por el inicio: el contador anade «· N cerrados» al final. */
+const empiezaCon = (frase: string) => (_: string, el: Element | null) =>
+  el?.tagName === "P" &&
+  (el.textContent ?? "").replace(/\s+/g, " ").trim().startsWith(frase);
+
+const conHuecos = (n: number) => ({
+  ...estado,
+  huecos: Array.from({ length: n }, (_, i) => ({
+    nivel: "falta_dato",
+    codigo: "META-01",
+    ubicacion: `u${i}`,
+    mensaje: `hueco ${i}`,
+    propuesta: null,
+  })),
+});
+
+it("con pocos huecos arranca en la lista completa", () => {
+  render(<WizardHuecos estado={conHuecos(5) as any} onEstado={() => {}} />);
+
+  expect(screen.getByRole("radio", { name: /lista/i })).toBeChecked();
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
+});
+
+it("con muchos huecos arranca en foco: una tarjeta a la vez", () => {
+  render(<WizardHuecos estado={conHuecos(30) as any} onEstado={() => {}} />);
+
+  expect(screen.getByRole("radio", { name: /uno a la vez/i })).toBeChecked();
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
+  expect(screen.getByText(textoDe("Hueco 1 de 30"))).toBeInTheDocument();
+});
+
+it("se puede cambiar de modo a mano", async () => {
+  render(<WizardHuecos estado={conHuecos(30) as any} onEstado={() => {}} />);
+
+  await userEvent.click(screen.getByRole("radio", { name: /lista/i }));
+
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(30);
+});
+
+it("en foco, avanzar mueve al hueco siguiente", async () => {
+  render(<WizardHuecos estado={conHuecos(30) as any} onEstado={() => {}} />);
+
+  await userEvent.click(screen.getByRole("button", { name: /siguiente/i }));
+
+  expect(screen.getByText(textoDe("Hueco 2 de 30"))).toBeInTheDocument();
+});
+
+it("en foco, guardar salta solo al siguiente hueco pendiente", async () => {
+  // Con la numeracion estable la tarjeta resuelta se queda en su sitio, en
+  // verde; si el foco no se mueve, el analista tiene que pulsar "Siguiente"
+  // despues de cada guardado.
+  const { resolver } = await import("@/lib/api");
+  const est = conHuecos(30);
+  vi.mocked(resolver).mockResolvedValue({
+    manifiesto: est.manifiesto,
+    huecos: est.huecos.slice(1),
+  } as any);
+
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  expect(screen.getByText(textoDe("Hueco 1 de 30"))).toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText(/tiempo de resolucion/i), "5 dias");
+  await userEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+  // Tras guardar, el contador dice «Hueco 2 de 30 · 1 cerrados».
+  expect(await screen.findByText(empiezaCon("Hueco 2 de 30"))).toBeInTheDocument();
 });

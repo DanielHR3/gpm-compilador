@@ -10,6 +10,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from gpmc.extractores import documentos as ext_docs
 from gpmc.extractores import diccionario as ext_dicc
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores import metadatos as ext_meta
@@ -437,7 +438,10 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     if to_be:
         bloques = _BLOQUE_MERMAID.findall(to_be)
         if bloques:
-            rm = ext_mmd.extraer(bloques[0])
+            # Los nombres del Diccionario permiten que una compuerta escrita
+            # en español —sin la sintaxis @@— resuelva sola su campo.
+            declarados = [c.nombre for p_ in pantallas for c in p_.campos]
+            rm = ext_mmd.extraer(bloques[0], campos_declarados=declarados)
             r.huecos += _colapsar_mmd03(rm.huecos)
 
             tareas_mmd = [n for n in rm.nodos if n.clase_nodo == "tarea"]
@@ -488,11 +492,21 @@ def extraer_expediente(carpeta: Path) -> Resultado:
             Conexion(de=tareas[i].id, a=tareas[i + 1].id) for i in range(len(tareas) - 1)
         ]
 
+    # Los documentos que el tramite genera (oficios, acuses): plantillas .md
+    # con {{variables}} en documentos/. Cada variable debe ser un campo real.
+    acciones_doc, huecos_doc = ext_docs.extraer_documentos(
+        carpeta, {c.nombre for p_ in pantallas for c in p_.campos},
+    )
+    r.huecos += huecos_doc
+    # Sin Evento en una tarea el PDF nunca se produce: se cuelga de la
+    # primera tarea que ya tiene todos sus datos, y se reporta para confirmar.
+    r.huecos += ext_docs.atar_a_tareas(acciones_doc, tareas, pantallas)
+
     r.manifiesto = Manifiesto(
         tramite=tramite,
         actores=list(actores_vistos.values()),
         pantallas=pantallas,
         flujo=Flujo(tareas=tareas, conexiones=conexiones),
-        acciones=[],
+        acciones=acciones_doc,
     )
     return r

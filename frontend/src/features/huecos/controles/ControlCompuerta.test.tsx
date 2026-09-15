@@ -84,15 +84,15 @@ it("fase 2: si el campo no basta, aparece el constructor por rama", async () => 
   // una fila de constructor por rama (Aprobar / Rechazar)
   expect(await screen.findByText(/Aprobar/)).toBeInTheDocument();
   await userEvent.selectOptions(
-    screen.getAllByLabelText(/campo 1/i)[0],
+    screen.getAllByLabelText(/Campo de la condición 1/i)[0],
     "procede",
   );
-  await userEvent.type(screen.getAllByLabelText(/valor 1/i)[0], "si");
+  await userEvent.type(screen.getAllByLabelText(/Valor de la condición 1/i)[0], "si");
   await userEvent.selectOptions(
-    screen.getAllByLabelText(/campo 1/i)[1],
+    screen.getAllByLabelText(/Campo de la condición 1/i)[1],
     "procede",
   );
-  await userEvent.type(screen.getAllByLabelText(/valor 1/i)[1], "no");
+  await userEvent.type(screen.getAllByLabelText(/Valor de la condición 1/i)[1], "no");
   await userEvent.click(
     screen.getByRole("button", { name: /guardar ramas/i }),
   );
@@ -101,4 +101,62 @@ it("fase 2: si el campo no basta, aparece el constructor por rama", async () => 
     "g1",
     expect.arrayContaining([expect.objectContaining({ a: "t2" })]),
   );
+});
+
+const huecoReal = {
+  nivel: "falta_dato" as const,
+  codigo: "MMD-04",
+  ubicacion: "I",
+  mensaje:
+    "la compuerta (🏛️ Periódico Oficial: ¿Es competencia del PO?) no nombra ningún campo @@; la condición debe capturarse a mano",
+  propuesta: null,
+};
+
+it("pregunta que campo decide, nombrando la decision en limpio", () => {
+  render(
+    <ControlCompuerta
+      hueco={huecoReal}
+      sid={"a".repeat(16)}
+      manifiesto={{}}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  expect(
+    screen.getByRole("heading", {
+      name: "¿Qué campo decide «¿Es competencia del PO?»",
+    }),
+  ).toBeInTheDocument();
+});
+
+it("explica que hacer y ensena un ejemplo", () => {
+  render(
+    <ControlCompuerta
+      hueco={huecoReal}
+      sid={"a".repeat(16)}
+      manifiesto={{}}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  expect(
+    screen.getByText(/Elige el campo del formulario que la decisión consulta/i),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/consulta el campo «Forma de pago»/)).toBeInTheDocument();
+});
+
+it("lo tecnico queda plegado pero presente", () => {
+  render(
+    <ControlCompuerta
+      hueco={huecoReal}
+      sid={"a".repeat(16)}
+      manifiesto={{}}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  const detalle = screen.getByText(/ver detalle técnico/i).closest("details");
+  expect(detalle).not.toHaveAttribute("open");
+  expect(detalle).toHaveTextContent("MMD-04");
+  expect(detalle).toHaveTextContent("@@");
 });

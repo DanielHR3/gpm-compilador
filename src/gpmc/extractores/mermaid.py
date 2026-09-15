@@ -10,6 +10,7 @@ que una persona lo resuelva.
 
 from typing import Optional
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from gpmc.nucleo.huecos import Hueco
@@ -92,15 +93,85 @@ class Resultado:
     huecos: list[Hueco] = field(default_factory=list)
 
 
-def _limpiar(texto: str) -> str:
+def _limpiar(texto: str) -> tuple[str, Optional[str]]:
+    """Devuelve el texto de la tarea y, si lo trae, quien la ejecuta.
+
+    El diagrama TO-BE nombra al ejecutor delante de la tarea: «🔍 Usuario:
+    Consultar informacion». Antes esta funcion reconocia ese prefijo y lo
+    BORRABA, y mas abajo el extractor emitia un MMD-03 preguntando justo el dato
+    que acababa de tirar: en Publicacion en el Periodico Oficial, 33 de 42
+    huecos eran eso. Ahora se devuelve para poder usarlo.
+    """
     t = re.sub(r"<br\s*/?>", " ", texto or "")
     t = t.replace('"', "").replace("&nbsp;", " ")
     t = re.sub(r"\*\([^)]*\)\*?", "", t)
     t = re.sub(r"\s+", " ", t).strip()
-    return _PREFIJO_ACTOR.sub("", t).strip()
+    # Los emojis de adorno van delante del prefijo y lo esconden del patron.
+    t = re.sub(r"^(?:[^\w¿¡(\[]|_)+", "", t).strip()
+    m = _PREFIJO_ACTOR.match(t)
+    if not m:
+        return t, None
+    prefijo = m.group(0).rstrip().rstrip(":").strip()
+    return t[m.end():].strip(), prefijo or None
 
 
-def extraer(bloque: str) -> Resultado:
+def _clave(texto: str) -> str:
+    """Normaliza a minusculas sin acentos y con guion bajo entre palabras."""
+    t = unicodedata.normalize("NFD", (texto or "").lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-z0-9]+", "_", t).strip("_")
+
+
+def campo_de_compuerta(texto: str, campos: "list[str]") -> Optional[str]:
+    """El campo del formulario que una compuerta consulta, o None.
+
+    MMD-04 exigia la sintaxis `@@campo` dentro del nodo. Si no la veia se
+    rendia, aunque el nombre del campo estuviera escrito en español dos
+    palabras despues: en Publicacion en el Periodico Oficial las 6 compuertas lo
+    nombran («¿Modalidad de pago?» -> `modalidad_pago`).
+
+    Tres formas, de la mas explicita a la mas debil. Ante un empate se devuelve
+    None: adivinar cual de dos campos gobierna una bifurcacion de un tramite de
+    gobierno es peor que preguntar.
+    """
+    if not texto or not campos:
+        return None
+
+    # 1) El texto lo nombra entre parentesis: «¿Qué trámite? (procedencia)».
+    for bruto in re.findall(r"\(([^()]*)\)", texto):
+        cand = _clave(bruto).lstrip("_")
+        if cand in campos:
+            return cand
+
+    t = _clave(texto)
+
+    # 2) El nombre del campo aparece completo dentro del texto.
+    #
+    # Solo nombres de dos o mas palabras: uno de una sola —«procede» dentro de
+    # «¿Procede?»— es evidencia demasiado debil para decidir por donde se
+    # bifurca un tramite de gobierno. Para esos hace falta el parentesis
+    # explicito de la regla 1.
+    dentro = [c for c in campos if c and c in t and "_" in c]
+    if dentro:
+        mejor = max(len(c) for c in dentro)
+        empatados = [c for c in dentro if len(c) == mejor]
+        return empatados[0] if len(empatados) == 1 else None
+
+    # 3) Todas las palabras del campo estan en el texto, en cualquier orden.
+    palabras = set(t.split("_"))
+    cubiertos = [
+        c for c in campos
+        if c and set(c.split("_")) <= palabras and len(set(c.split("_"))) > 1
+    ]
+    if cubiertos:
+        mejor = max(len(c) for c in cubiertos)
+        empatados = [c for c in cubiertos if len(c) == mejor]
+        return empatados[0] if len(empatados) == 1 else None
+
+    return None
+
+
+def extraer(bloque: str, campos_declarados: "Optional[list[str]]" = None) -> Resultado:
     r = Resultado()
     r.carriles = [normalizar_actor(c) for c in _CLASSDEF.findall(bloque)]
 
@@ -134,15 +205,25 @@ def extraer(bloque: str) -> Resultado:
         # A la nota no se le quita el prefijo de actor: "Nota importante:" no
         # nombra a quien ejecuta, y _limpiar se lo comeria.
         if clase_nodo == "nota":
-            texto = (crudo or "").strip().strip("/").strip()
+            texto, prefijo = (crudo or "").strip().strip("/").strip(), None
         else:
-            texto = _limpiar(crudo)
+            texto, prefijo = _limpiar(crudo)
+
+        # El carril declarado (:::clase) manda; el prefijo de la etiqueta es el
+        # respaldo. Si el analista se tomo la molestia de escribir la clase, esa
+        # es su intencion explicita.
+        if m["clase"]:
+            actor = normalizar_actor(m["clase"])
+        elif prefijo:
+            actor = normalizar_actor(prefijo)
+        else:
+            actor = None
 
         nodo = Nodo(
             id=nid,
             texto=texto,
             clase_nodo=clase_nodo,
-            actor=normalizar_actor(m["clase"]) if m["clase"] else None,
+            actor=actor,
             campos=_CAMPO.findall(crudo or ""),
         )
         vistos[nid] = nodo
@@ -177,19 +258,29 @@ def extraer(bloque: str) -> Resultado:
                     f"la arista {a.de}->{a.a} referencia un nodo no declarado: {extremo}",
                 ))
 
+    # Una compuerta no la "ejecuta" nadie: es una decision del flujo. Pedir su
+    # actor ensuciaba la lista con huecos imposibles de contestar.
+    SIN_ACTOR = ("inicio_fin", "nota", "compuerta")
     for n in r.nodos:
-        if n.actor is None and n.clase_nodo not in ("inicio_fin", "nota"):
+        if n.actor is None and n.clase_nodo not in SIN_ACTOR:
             r.huecos.append(Hueco(
                 "falta_dato", "MMD-03", n.id,
                 f"la tarea «{n.texto}» no declara carril (:::clase); no se "
                 "puede saber qué actor la ejecuta",
             ))
         if n.clase_nodo == "compuerta" and not n.campos:
-            r.huecos.append(Hueco(
-                "falta_dato", "MMD-04", n.id,
-                f"la compuerta ({n.texto[:50]}) no nombra ningún campo @@; "
-                "la condición debe capturarse a mano",
-            ))
+            # Antes de preguntar: la compuerta casi siempre nombra su campo en
+            # español («¿Modalidad de pago?» -> modalidad_pago), aunque no use
+            # la sintaxis @@. Si hay empate no se adivina.
+            inferido = campo_de_compuerta(n.texto, campos_declarados or [])
+            if inferido:
+                n.campos = [inferido]
+            else:
+                r.huecos.append(Hueco(
+                    "falta_dato", "MMD-04", n.id,
+                    f"la compuerta ({n.texto[:50]}) no nombra ningún campo @@; "
+                    "la condición debe capturarse a mano",
+                ))
 
     r.aristas = [a for a in r.aristas if a.de in ids and a.a in ids]
     return r

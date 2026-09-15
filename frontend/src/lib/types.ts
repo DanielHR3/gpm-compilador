@@ -28,6 +28,9 @@ export type Estimacion = Record<string, unknown>;
  * `manifiesto` queda como `Record<string, unknown>`: es el `model_dump` del
  * manifiesto Pydantic, que la SPA de SP1 no tipa todavia.
  */
+/** Un documento de apoyo del expediente: se muestra, no se extrae. */
+export type Adjunto = { nombre: string; tipo: "imagen" | "pdf" | "otro" };
+
 export type EstadoExpediente = {
   sid: string;
   manifiesto: Record<string, unknown>;
@@ -37,6 +40,13 @@ export type EstadoExpediente = {
   estimacion: Estimacion;
   problemas: string[];
   tieneVistas: boolean;
+  /**
+   * Los `(codigo, ubicacion)` ya marcados como "se configuran a mano".
+   * El servidor los conserva; sin sembrarlos aqui la SPA los perdia al
+   * recargar y el wizard repintaba el hueco como pendiente.
+   */
+  reconocidos: [string, string][];
+  adjuntos: Adjunto[];
 };
 
 /**

@@ -190,6 +190,22 @@ def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
     m = re.match(r"^\(\s*cat[aá]logo\s*:\s*(.+?)\s*\)?\s*$", crudo, re.I)
     if m:
         crudo = m.group(1).rstrip(")").strip()
+    # La otra forma del mismo envoltorio, con la palabra DELANTE del parentesis:
+    # 'Catálogo (A, B, C)'. Publicacion en el Periodico Oficial la usa, y sin
+    # esto la primera opcion salia como 'Catálogo (A' y la ultima como 'C)' —
+    # no un hueco, sino un .gpm con las opciones corruptas.
+    #
+    # El parentesis tiene que abrir justo tras la palabra y cerrar al final:
+    # 'En línea (validación automática) · Banco...' es una lista con notas, no
+    # un envoltorio, y desenvolverla se comeria la segunda opcion.
+    m = re.match(
+        r"^(?:cat[aá]logo|valores|lista|opciones)\s*[:\-]?\s*\((.+)\)\s*$",
+        crudo, re.I,
+    )
+    # Los parentesis del contenido tienen que quedar balanceados: si no, lo que
+    # se recorto no era un envoltorio.
+    if m and m.group(1).count("(") == m.group(1).count(")"):
+        crudo = m.group(1).strip()
     if not crudo or crudo.upper() == "N/A":
         return [], False
     if any(m in _babel(crudo) for m in MARCAS_PENDIENTE):
@@ -251,6 +267,134 @@ def _parsear_condicion_visible(texto: str):
     return m["ref"].strip().strip('"').strip("`"), op, val
 
 
+_RE_CONJUNTO = re.compile(
+    r"(?P<salvo>salvo\s+cuando|no\s+aplica\s+cuando|cuando|solo\s+si|si)\s*"
+    r"`?@@(?P<campo>\w+)`?\s*∈\s*\{(?P<valores>[^}]*)\}",
+    re.I,
+)
+
+
+def _condicion_desde_conjunto(texto: str, indice: dict):
+    """«salvo cuando @@c ∈ {A, B}» -> «≠A Y ≠B». None si no aplica.
+
+    El Diccionario escribe la pertenencia a un conjunto con ∈, y hasta ahora el
+    parser se rendia en cuanto veia ese simbolo: cada frase asi era un DIC-08
+    que el analista tenia que rearmar a mano.
+
+    La forma NEGADA es la unica que se puede traducir: «no estar en {A, B}» es
+    «≠A Y ≠B», y la conjuncion es justo lo que el modelo sabe expresar desde
+    SP2. La forma positiva —«∈ {A, B}»— es una disyuncion, y `Condicion` no
+    tiene O: convertirla en «=A Y =B» daria una condicion que no se cumple
+    nunca, asi que se deja como hueco y lo decide una persona.
+    """
+    from gpmc.nucleo.manifiesto import Clausula, Condicion
+
+    m = _RE_CONJUNTO.search(texto or "")
+    if not m:
+        return None
+    if not re.match(r"salvo|no\s+aplica", _babel(m["salvo"])):
+        return None
+
+    campo = m["campo"]
+    if campo not in indice["campos"]:
+        return None
+    catalogo = indice["campos"][campo].catalogo
+
+    valores = []
+    for bruto in m["valores"].split(","):
+        v = _babel(bruto)
+        if not v:
+            continue
+        hallado = next((o.valor for o in catalogo if _babel(o.etiqueta) == v), None)
+        if hallado is None:
+            # Un solo valor que no casa deja la condicion incompleta, y una
+            # condicion incompleta es peor que preguntar.
+            return None
+        valores.append(hallado)
+
+    if not valores:
+        return None
+    primero, resto = valores[0], valores[1:]
+    return Condicion(
+        campo=campo, operador="!=", igual=primero,
+        y=[Clausula(campo=campo, operador="!=", igual=v) for v in resto],
+    )
+
+
+# Siglas que se escriben en mayusculas en un documento de gobierno.
+_SIGLAS = {"curp", "rfc", "ine", "pdf", "api", "id", "url", "iva", "uma"}
+
+# Abreviaturas que el Diccionario usa dentro del nombre tecnico.
+_ABREVIATURAS = {"cp": "Código Postal", "dom": "Domicilio", "tel": "Teléfono",
+                 "num": "Número", "doc": "Documento", "fec": "Fecha",
+                 "paterno": "Apellido paterno", "materno": "Apellido materno"}
+
+# Sufijos de rol: van al final del nombre y piden su articulo. Se escriben
+# completos porque el genero lo decide la palabra, no una regla.
+_ROLES = {
+    "sol": "del solicitante", "solicitante": "del solicitante",
+    "rep": "del representante", "representante": "del representante",
+    "ut": "de la Unidad de Transparencia",
+    "dependencia": "de la dependencia",
+    "empresa": "de la empresa",
+}
+
+
+def etiqueta_desde_nombre(nombre: str) -> str:
+    """La etiqueta que vera el ciudadano, a partir del nombre tecnico.
+
+    Se emite AL .gpm y se imprime en el formulario publicado, asi que
+    'Nombres sol' o 'Cp sol' no valen: son la clave interna con un espacio.
+
+    Solo se expande lo que esta en las tablas de arriba. Un nombre que no
+    reconozco se deja legible —guiones bajos por espacios y mayuscula
+    inicial— en vez de inventarle un significado.
+    """
+    partes = [p for p in (nombre or "").split("_") if p]
+    if not partes:
+        return ""
+
+    cola = ""
+    if len(partes) > 1 and partes[-1].lower() in _ROLES:
+        cola = _ROLES[partes[-1].lower()]
+        partes = partes[:-1]
+
+    palabras = []
+    for i, p in enumerate(partes):
+        b = p.lower()
+        if b in _SIGLAS:
+            palabras.append(b.upper())
+        elif b in _ABREVIATURAS:
+            palabras.append(_ABREVIATURAS[b])
+        else:
+            palabras.append(p.capitalize() if i == 0 else p.lower())
+
+    cuerpo = " ".join(palabras)
+    return f"{cuerpo} {cola}".strip() if cola else cuerpo
+
+
+def _catalogo_en_la_descripcion(desc: str) -> "list[OpcionCatalogo]":
+    """Opciones escritas entre parentesis dentro de la descripcion, o [].
+
+    Se exige mas de un elemento: «Validación regex (exact_length[5])» lleva un
+    parentesis y no es un catalogo. Con un solo elemento no hay lista, y
+    convertirlo en un select de una opcion seria peor que dejar el hueco.
+    """
+    for bruto in re.findall(r"\(([^()]*)\)", desc or ""):
+        partes = [p.strip() for p in bruto.split(",")]
+        partes = [p for p in partes if p]
+        if len(partes) < 2:
+            continue
+        # Nada de listas tecnicas: rutas, llamadas, tipos.
+        if any(re.search(r"[`\[\]{}=<>/\\]|@@", p) for p in partes):
+            continue
+        return [
+            OpcionCatalogo(etiqueta=p, valor=_babel(p).replace(" ", "_"))
+            for p in partes
+        ]
+    return []
+
+
 def _resolver_condicion_visible(
     ref_crudo: str, operador: str, valor_crudo: str, indice: dict,
 ) -> "Optional[object]":
@@ -278,7 +422,20 @@ def _resolver_condicion_visible(
             (o.valor for o in ref_campo.catalogo if _babel(o.etiqueta) == v), None
         )
         if igual is None:
-            return None
+            # El Diccionario declara la opcion con una nota —«En línea
+            # (validación automática)»— y la condicion la cita por su parte
+            # util: «= En línea». Exigir la cadena completa dejaba el campo sin
+            # condicion y emitia un DIC-08 por una diferencia de redaccion.
+            #
+            # Solo se acepta si UNA opcion casa: si la cita fuera ambigua entre
+            # dos, adivinar seria peor que preguntar.
+            def _sin_nota(et: str) -> str:
+                return _babel(re.sub(r"\s*\([^()]*\)\s*$", "", et or "")).strip()
+
+            candidatas = [o for o in ref_campo.catalogo if _sin_nota(o.etiqueta) == v]
+            if len(candidatas) != 1:
+                return None
+            igual = candidatas[0].valor
     return Condicion(campo=ref_nombre, igual=igual, operador=operador)
 
 
@@ -365,7 +522,7 @@ def _extraer_campos(
                 indice["campos"][nombre_original] = None # placeholder to be updated
 
         if es_columna_variable and (etiqueta == nombre or not etiqueta or etiqueta.lower() == (nombre_original.lower() if declarado else nombre.lower())):
-            etiqueta = nombre.replace("_", " ").capitalize()
+            etiqueta = etiqueta_desde_nombre(nombre)
             r.huecos.append(Hueco(
                 "por_confirmar", "DIC-05", pantalla.id,
                 f"'{nombre}' no trae etiqueta visible en el Diccionario; se propuso '{etiqueta}'",
@@ -390,6 +547,13 @@ def _extraer_campos(
         # ya opciones ni marca de pendiente.
         if not catalogo and not pendiente and tipo in ("select", "radio"):
             catalogo, pendiente = _catalogo_de(limite)
+        # El Diccionario Hibrido no tiene columna de catalogo y escribe las
+        # opciones entre parentesis dentro de la descripcion: «Clasificación de
+        # la Unidad de Transparencia (Entregable, Reservada, Inexistente)». Se
+        # emitia DIC-07 —«es select pero no se extrajo ninguna opción»— con las
+        # opciones a la vista en la misma fila.
+        if not catalogo and not pendiente and tipo in ("select", "radio"):
+            catalogo = _catalogo_en_la_descripcion(desc)
         # Un campo Boolean (o 'Switch / radio Sí-No') sin lista parseable: su
         # dominio ES {Sí, No}. Derivarlo no es inventar. Sin esto salia sin
         # opciones y la vista reventaba con foreach() (verificado 2026-09-02,
@@ -488,11 +652,18 @@ def _extraer_campos(
                     f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
                 ))
         elif _parece_condicion(vis_cruda):
-            r.huecos.append(Hueco(
-                "falta_dato", "DIC-08", f"{pantalla.id}::{nombre}",
-                f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
-                f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
-            ))
+            # Antes de rendirse: «salvo cuando @@c ∈ {A, B}» es «≠A Y ≠B», que
+            # el modelo si sabe expresar. La forma positiva sigue siendo hueco
+            # porque pide una disyuncion y `Condicion` no tiene O.
+            cond = _condicion_desde_conjunto(vis_cruda, indice)
+            if cond is not None:
+                campo.condicion_visible = cond
+            else:
+                r.huecos.append(Hueco(
+                    "falta_dato", "DIC-08", f"{pantalla.id}::{nombre}",
+                    f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
+                    f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
+                ))
 
         indice["campos"][nombre] = campo
         if declarado and capado:
@@ -540,9 +711,17 @@ def extraer(texto: str) -> Resultado:
         r.pantallas.append(pantalla)
 
     if not r.pantallas:
+        # `por_confirmar`, no `falta_dato`: esto describe una decision que el
+        # compilador YA tomo —agrupar todo en una pantalla—, igual que DIC-05
+        # cuando propone una etiqueta. No hay respuesta que dar: el unico
+        # control posible era "lo configuro a mano", que solo reconoce el
+        # hueco. Bloquear la descarga del .gpm no arreglaba nada; solo exigia
+        # una configuracion manual para poder seguir.
         r.huecos.append(Hueco(
-            "falta_dato", "DIC-04", "",
-            "no se encontró ninguna cabecera '### Pantalla N — ACTOR — Nombre'; se agruparon todos los campos en una sola pantalla por defecto",
+            "por_confirmar", "DIC-04", "",
+            "el Diccionario no separa el trámite en pantallas (falta la cabecera "
+            "'### Pantalla N — ACTOR — Nombre'), así que todos los campos quedaron "
+            "en una sola. Si el trámite se captura de una vez, está bien así",
         ))
         
         filas = [l for l in texto.splitlines() if l.strip().startswith("|")]

@@ -3,6 +3,17 @@ import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "cn";
 import { reconocer, resolver } from "@/lib/api";
+
+import { tituloDeCodigo } from "./lenguaje";
+
+/**
+ * Codigos cuyo control redacta su propia pregunta a partir del mensaje.
+ *
+ * Para estos, pintar `hueco.mensaje` aqui arriba lo duplica en pantalla: se ve
+ * el texto crudo del compilador y justo debajo la misma idea bien dicha. El
+ * crudo no se pierde, vive en el detalle tecnico del propio control.
+ */
+const CONTROL_REDACTA_EL_MENSAJE = new Set(["DIC-08", "MMD-03", "MMD-04"]);
 import type { Hueco, Resolucion } from "@/lib/types";
 
 /** Color de acento por severidad -- solo estos tres niveles existen hoy. */
@@ -28,8 +39,10 @@ import BotonReconocer from "./controles/BotonReconocer";
 import ControlActor, { type Actor } from "./controles/ControlActor";
 import ControlCampoPadre, { type Campo } from "./controles/ControlCampoPadre";
 import ControlCompuerta from "./controles/ControlCompuerta";
+import ControlConfirmar from "./controles/ControlConfirmar";
 import ControlTexto from "./controles/ControlTexto";
 import ControlVisibilidad from "./controles/ControlVisibilidad";
+import { useAccion } from "./useAccion";
 
 /**
  * Forma de la respuesta de `resolver`/`reconocer` que el wizard fusiona en su
@@ -87,22 +100,35 @@ export default function TarjetaHueco({
   manifiesto,
   sid,
   onResuelto,
+  ultimoActor = "",
 }: {
   hueco: Hueco;
   manifiesto: Record<string, unknown>;
   sid: string;
-  onResuelto: (nuevo: RespuestaResuelto) => void;
+  /** Actor elegido en el MMD-03 anterior; se propone ya seleccionado. */
+  ultimoActor?: string;
+  onResuelto: (nuevo: RespuestaResuelto, hueco: Hueco, valor?: string) => void;
 }) {
+  // El wizard necesita saber CUAL hueco se resolvio para poder anunciarlo;
+  // los controles siguen emitiendo solo la respuesta de la API.
+  const reportar = (resp: RespuestaResuelto, valor?: string) =>
+    onResuelto(resp, hueco, valor);
+  const { ejecutar, guardando } = useAccion();
+
   const resolverCon = async (tipo: Resolucion["tipo"], valor: string) => {
-    const resp = await resolver(sid, [
-      { tipo, ubicacion: hueco.ubicacion, valor },
-    ]);
-    onResuelto(resp);
+    await ejecutar(async () => {
+      const resp = await resolver(sid, [
+        { tipo, ubicacion: hueco.ubicacion, valor },
+      ]);
+      reportar(resp, valor);
+    });
   };
 
   const reconocerHueco = async () => {
-    const resp = await reconocer(sid, hueco.codigo, hueco.ubicacion);
-    onResuelto(resp);
+    await ejecutar(async () => {
+      const resp = await reconocer(sid, hueco.codigo, hueco.ubicacion);
+      reportar(resp);
+    });
   };
 
   let control: ReactNode = null;
@@ -116,6 +142,8 @@ export default function TarjetaHueco({
     control = (
       <div className="flex flex-col gap-2">
         <ControlActor
+          guardando={guardando}
+          valorInicial={ultimoActor}
           hueco={hueco}
           actores={leerActores(manifiesto)}
           onConfirmar={(v) => resolverCon("mmd03", v)}
@@ -132,6 +160,7 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "META-01") {
     control = (
       <ControlTexto
+        guardando={guardando}
         hueco={hueco}
         onConfirmar={(v) => resolverCon("meta01", v)}
       />
@@ -139,6 +168,7 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "META-02") {
     control = (
       <ControlTexto
+        guardando={guardando}
         hueco={hueco}
         onConfirmar={(v) => resolverCon("meta02", v)}
       />
@@ -146,6 +176,7 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "META-04") {
     control = (
       <ControlTexto
+        guardando={guardando}
         hueco={hueco}
         onConfirmar={(v) => resolverCon("meta04", v)}
       />
@@ -153,6 +184,7 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "API-03") {
     control = (
       <ControlCampoPadre
+        guardando={guardando}
         hueco={hueco}
         campos={leerCampos(manifiesto)}
         onConfirmar={(v) => resolverCon("api03", v)}
@@ -165,7 +197,7 @@ export default function TarjetaHueco({
           hueco={hueco}
           sid={sid}
           manifiesto={manifiesto}
-          onResuelto={onResuelto}
+          onResuelto={reportar}
         />
         <button
           type="button"
@@ -183,7 +215,7 @@ export default function TarjetaHueco({
           hueco={hueco}
           sid={sid}
           manifiesto={manifiesto}
-          onResuelto={onResuelto}
+          onResuelto={reportar}
         />
         <button
           type="button"
@@ -193,6 +225,14 @@ export default function TarjetaHueco({
           o lo configuro a mano
         </button>
       </div>
+    );
+  } else if (hueco.nivel === "por_confirmar") {
+    control = (
+      <ControlConfirmar
+        hueco={hueco}
+        guardando={guardando}
+        onConfirmar={reconocerHueco}
+      />
     );
   } else if (hueco.nivel === "falta_dato") {
     control = <BotonReconocer hueco={hueco} onReconocer={reconocerHueco} />;
@@ -213,8 +253,14 @@ export default function TarjetaHueco({
       )}
     >
       <CardHeader className="flex items-center justify-between gap-2 space-y-0">
-        <CardTitle className="font-mono text-sm tracking-tight text-muted-foreground">
-          {hueco.codigo}
+        {/* El codigo de validacion no dice nada a quien documenta un tramite;
+            vive en el detalle tecnico de cada control. */}
+        <CardTitle
+          role="heading"
+          aria-level={3}
+          className="text-sm font-semibold tracking-tight text-foreground"
+        >
+          {tituloDeCodigo(hueco.codigo)}
         </CardTitle>
         <span
           className={cn(
@@ -226,12 +272,11 @@ export default function TarjetaHueco({
         </span>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {/* DIC-08 muestra `hueco.mensaje` dentro de su propio control (la
-            frase cruda que no se pudo interpretar es el punto de partida del
-            constructor de reglas) -- repetirlo aqui arriba lo duplicaria en
-            pantalla. Ver ControlVisibilidad.test.tsx, que exige el mensaje
-            visible en su render aislado. */}
-        {hueco.codigo !== "DIC-08" ? (
+        {/* El MMD-03 colapsado no lleva ControlActor (ver mas arriba), asi que
+            nadie redacta su pregunta. Lleva el control generico de confirmar,
+            que no redacta nada: sin esta excepcion la tarjeta salia vacia. */}
+        {!CONTROL_REDACTA_EL_MENSAJE.has(hueco.codigo) ||
+        (hueco.codigo === "MMD-03" && hueco.nivel !== "falta_dato") ? (
           <p className="text-sm font-medium text-foreground">{hueco.mensaje}</p>
         ) : null}
         {hueco.propuesta ? (

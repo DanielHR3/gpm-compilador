@@ -1,18 +1,30 @@
 import { useState } from "react";
-import { Check, Quote } from "lucide-react";
+import { Check, Eye, Lightbulb } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { camposDelManifiesto, ErrorApi, resolverDic08 } from "@/lib/api";
+import { camposDelManifiesto, resolverDic08 } from "@/lib/api";
 import type { Condicion, Hueco } from "@/lib/types";
 
+import {
+  describirCondicion,
+  leerMensajeVisibilidad,
+  pistaDeCodigo,
+} from "../lenguaje";
+import { useAccion } from "../useAccion";
+
 import ConstructorRegla from "./ConstructorRegla";
+import DetalleTecnico from "./DetalleTecnico";
 
 /**
- * Control para `DIC-08` (visibilidad no interpretable): muestra la frase
- * cruda del `Diccionario` que el parser no pudo traducir (dentro de
- * `hueco.mensaje`) y un `ConstructorRegla` para armarla a mano. "Guardar"
- * queda inhabilitado mientras `ConstructorRegla` no haya emitido una
- * `Condicion` valida.
+ * Control para `DIC-08`: el Diccionario declaró una condición de visibilidad
+ * que el parser no supo traducir, y hay que armarla a mano.
+ *
+ * La tarjeta está escrita para quien documenta el trámite, no para quien
+ * programa el compilador: encabeza con una pregunta, nombra el campo por la
+ * etiqueta que ve el ciudadano y lee la regla armada como frase para que se
+ * pueda comprobar. El código del hueco, el nombre interno del campo y la frase
+ * cruda del Diccionario siguen ahí, plegados: hacen falta para rastrear y
+ * reportar, pero no para decidir.
  */
 export default function ControlVisibilidad({
   hueco,
@@ -26,55 +38,92 @@ export default function ControlVisibilidad({
   onResuelto: (resp: { manifiesto: Record<string, unknown>; huecos: Hueco[] }) => void;
 }) {
   const [condicion, setCondicion] = useState<Condicion | null>(null);
-  const [error, setError] = useState<ErrorApi | null>(null);
-  const [guardando, setGuardando] = useState(false);
+  const { ejecutar, guardando, error } = useAccion();
   const campos = camposDelManifiesto(manifiesto);
+  const leido = leerMensajeVisibilidad(hueco.mensaje);
+  const frase = describirCondicion(condicion, campos);
+  const pista = pistaDeCodigo(hueco.codigo);
 
   const guardar = async () => {
     if (!condicion) return;
-    setError(null);
-    setGuardando(true);
-    try {
+    await ejecutar(async () => {
       const resp = await resolverDic08(sid, hueco.ubicacion, condicion);
       onResuelto(resp);
-    } catch (e) {
-      if (e instanceof ErrorApi) {
-        setError(e);
-      } else {
-        throw e;
-      }
-    } finally {
-      setGuardando(false);
-    }
+    });
   };
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-        <Quote aria-hidden className="mt-0.5 size-4 shrink-0 text-primary/60" />
-        <p>{hueco.mensaje}</p>
-      </div>
-      <p className="text-sm font-medium">
-        Arma la condición que decide cuándo se muestra este campo:
-      </p>
-      <ConstructorRegla campos={campos} value={null} onChange={setCondicion} />
+      <h3 className="text-base font-semibold tracking-tight text-foreground">
+        ¿Cuándo debe verse{" "}
+        {leido ? `«${leido.etiqueta}»` : "este campo"}?
+      </h3>
+
+      {pista ? (
+        <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+          <p>{pista.instruccion}</p>
+          {pista.ejemplo ? (
+            <p className="flex items-start gap-2 rounded-md border border-dashed border-border px-3 py-2">
+              <Lightbulb aria-hidden className="mt-0.5 size-3.5 shrink-0 text-secondary" />
+              <span>
+                <span className="font-medium text-foreground">Por ejemplo: </span>
+                {pista.ejemplo}
+              </span>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <p className="text-sm text-muted-foreground">Muéstralo solo cuando:</p>
+      <ConstructorRegla
+        campos={campos}
+        value={null}
+        onChange={setCondicion}
+        marcadorValor={pista?.marcador}
+      />
+
+      {frase ? (
+        <p className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm text-foreground">
+          <Eye aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+          <span>
+            Quedará así: el campo se muestra solo si <strong>{frase}</strong>.
+          </span>
+        </p>
+      ) : null}
+
       {error ? (
         <div
           role="alert"
-          className="flex flex-col gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
+          className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
         >
           <p>{error.message}</p>
         </div>
       ) : null}
+
       <Button
         type="button"
+        aria-busy={guardando}
         disabled={!condicion || guardando}
         onClick={guardar}
         className="self-start"
       >
         <Check aria-hidden className="size-4" />
-        Guardar
+        {guardando ? "Guardando…" : "Guardar"}
       </Button>
+
+      <DetalleTecnico
+        codigo={hueco.codigo}
+        ubicacion={hueco.ubicacion}
+        crudo={leido ? leido.frase : hueco.mensaje}
+        extra={
+          leido ? (
+            <div className="flex gap-2">
+              <dt className="font-medium">Nombre interno:</dt>
+              <dd className="font-mono">{leido.interno}</dd>
+            </div>
+          ) : null
+        }
+      />
     </div>
   );
 }

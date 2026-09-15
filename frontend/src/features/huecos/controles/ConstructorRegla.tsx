@@ -15,7 +15,13 @@ import type { CampoManifiesto, Clausula, Condicion } from "@/lib/types";
 const claseSelect =
   "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30";
 
-/** Una fila del constructor: un campo, un operador y el valor a comparar. */
+/**
+ * Una fila del constructor: un campo, un operador y el valor a comparar.
+ *
+ * En pantalla no lleva etiquetas: la fila se lee como frase («Procedencia sea
+ * igual a Dependencia»). El nombre accesible va en `aria-label` de cada
+ * control, que ademas los distingue entre filas para un lector de pantalla.
+ */
 type Fila = { campo: string; operador: "==" | "!="; igual: string };
 
 const filaVacia: Fila = { campo: "", operador: "==", igual: "" };
@@ -48,10 +54,13 @@ export default function ConstructorRegla({
   campos,
   value,
   onChange,
+  marcadorValor = "este valor",
 }: {
   campos: CampoManifiesto[];
   value: Condicion | null;
   onChange: (c: Condicion) => void;
+  /** Ejemplo dentro de la caja de valor: una caja vacia no ensena nada. */
+  marcadorValor?: string;
 }) {
   const [filas, setFilas] = useState<Fila[]>(() => filasIniciales(value));
   const idBase = useId();
@@ -103,17 +112,15 @@ export default function ConstructorRegla({
         return (
           <div key={i}>
             {i > 0 ? (
-              <div className="flex items-center gap-2 py-1.5 text-xs font-semibold tracking-wide text-primary">
-                <span className="h-px flex-1 bg-primary/20" />Y<span className="h-px flex-1 bg-primary/20" />
+              <div className="flex items-center gap-2 py-1.5 text-xs font-medium text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />y además<span className="h-px flex-1 bg-border" />
               </div>
             ) : null}
             <div className="flex flex-wrap items-end gap-2 rounded-md bg-card p-2.5 ring-1 ring-foreground/5">
               <div className="flex min-w-32 flex-1 flex-col gap-1">
-                <label htmlFor={campoId} className="text-xs font-medium text-muted-foreground">
-                  Campo {n}
-                </label>
                 <select
                   id={campoId}
+                  aria-label={`Campo de la condición ${n}`}
                   className={claseSelect}
                   value={fila.campo}
                   onChange={(e) =>
@@ -130,11 +137,9 @@ export default function ConstructorRegla({
               </div>
 
               <div className="flex w-36 flex-col gap-1">
-                <label htmlFor={operadorId} className="text-xs font-medium text-muted-foreground">
-                  Operador {n}
-                </label>
                 <select
                   id={operadorId}
+                  aria-label={`Comparación de la condición ${n}`}
                   className={claseSelect}
                   value={fila.operador}
                   onChange={(e) =>
@@ -143,18 +148,16 @@ export default function ConstructorRegla({
                     })
                   }
                 >
-                  <option value="==">Es igual a</option>
-                  <option value="!=">Es distinto de</option>
+                  <option value="==">sea igual a</option>
+                  <option value="!=">sea distinto de</option>
                 </select>
               </div>
 
               <div className="flex min-w-32 flex-1 flex-col gap-1">
-                <label htmlFor={valorId} className="text-xs font-medium text-muted-foreground">
-                  Valor {n}
-                </label>
                 {tieneCatalogo ? (
                   <select
                     id={valorId}
+                    aria-label={`Valor de la condición ${n}`}
                     className={claseSelect}
                     value={fila.igual}
                     onChange={(e) => actualizarFila(i, { igual: e.target.value })}
@@ -169,6 +172,8 @@ export default function ConstructorRegla({
                 ) : (
                   <Input
                     id={valorId}
+                    aria-label={`Valor de la condición ${n}`}
+                    placeholder={marcadorValor}
                     value={fila.igual}
                     onChange={(e) => actualizarFila(i, { igual: e.target.value })}
                   />
@@ -180,7 +185,7 @@ export default function ConstructorRegla({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label={`Quitar fila ${n}`}
+                  aria-label={`Quitar la condición ${n}`}
                   onClick={() => quitarFila(i)}
                   className="text-muted-foreground hover:text-destructive"
                 >
@@ -200,7 +205,7 @@ export default function ConstructorRegla({
         className={cn("mt-2 self-start", filas.length > 0 && "border-primary/30 text-primary")}
       >
         <Plus aria-hidden className="size-3.5" />
-        Añadir condición Y
+        y además…
       </Button>
     </div>
   );

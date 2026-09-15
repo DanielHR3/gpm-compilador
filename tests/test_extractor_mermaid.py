@@ -188,3 +188,91 @@ def test_parsea_diagramas_reales_del_wiki(expediente):
     ids = {n.id for n in r.nodos}
     for a in r.aristas:
         assert a.de in ids and a.a in ids, f"arista a nodo inexistente: {a.de}->{a.a}"
+
+
+# ── El actor que el diagrama ya escribe en la etiqueta ───────────────────────
+#
+# El diagrama TO-BE nombra al ejecutor delante de la tarea: «🔍 Usuario:
+# Consultar informacion». _limpiar reconocia ese prefijo y lo BORRABA, y treinta
+# lineas mas abajo el extractor emitia un MMD-03 preguntando justo ese dato. En
+# Publicacion en el Periodico Oficial eso son 33 de 42 huecos inventados.
+
+def test_el_prefijo_de_la_etiqueta_asigna_el_actor_sin_preguntar():
+    r = extraer(
+        "flowchart TD\n"
+        "    A[🔍 Usuario: Consultar información del trámite]\n"
+    )
+    assert r.nodos[0].actor == "ciudadano"
+    assert [h for h in r.huecos if h.codigo == "MMD-03"] == []
+
+
+def test_el_texto_sigue_saliendo_sin_el_prefijo():
+    r = extraer("flowchart TD\n    A[🔍 Usuario: Consultar información]\n")
+    assert r.nodos[0].texto == "Consultar información"
+
+
+def test_una_tarea_de_sistema_queda_asignada_al_sistema():
+    """El Cheat Sheet de GPM las llama Acciones PHP / Eventos de Automatizacion:
+    corren solas, no hay humano a quien preguntarle."""
+    r = extraer("flowchart TD\n    B[🔢 Sistema: Generar folio único]\n")
+    assert r.nodos[0].actor == "sistema"
+    assert [h for h in r.huecos if h.codigo == "MMD-03"] == []
+
+
+def test_una_compuerta_no_necesita_actor():
+    """Una decision no la 'ejecuta' nadie: preguntar quien la hace no tiene
+    sentido y ensuciaba la lista con huecos imposibles de contestar."""
+    r = extraer("flowchart TD\n    C{¿Tiene observaciones?}\n")
+    assert [h for h in r.huecos if h.codigo == "MMD-03"] == []
+
+
+def test_el_carril_declarado_gana_sobre_el_prefijo():
+    r = extraer(
+        "flowchart TD\n"
+        "    classDef funcionario fill:#eee\n"
+        "    A[Usuario: Revisar expediente]:::funcionario\n"
+    )
+    assert r.nodos[0].actor == "funcionario"
+
+
+def test_sin_carril_y_sin_prefijo_el_hueco_sigue_ahi():
+    r = extraer("flowchart TD\n    A[Revisar expediente]\n")
+    assert [h.codigo for h in r.huecos if h.codigo == "MMD-03"] == ["MMD-03"]
+
+
+# ── La compuerta que nombra su campo en español ─────────────────────────────
+#
+# MMD-04 exigia la sintaxis @@campo dentro del nodo. Si no la veia se rendia,
+# aunque el nombre del campo estuviera escrito dos palabras despues: en
+# Publicacion en el Periodico Oficial, las 6 compuertas lo nombran.
+
+def test_la_compuerta_que_dice_su_campo_entre_parentesis_no_pregunta():
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta(
+        "¿Qué trámite deseas realizar? (procedencia)", ["procedencia", "curp"],
+    ) == "procedencia"
+
+
+def test_la_compuerta_cuyo_texto_contiene_el_nombre_del_campo():
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta(
+        "¿Tiene observaciones?", ["tiene_observaciones", "observaciones"],
+    ) == "tiene_observaciones"
+
+
+def test_la_compuerta_cuyas_palabras_cubren_el_campo():
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta(
+        "¿Modalidad de pago?", ["modalidad_pago", "curp"],
+    ) == "modalidad_pago"
+
+
+def test_una_compuerta_ambigua_prefiere_preguntar():
+    """Si dos campos casan igual de bien, adivinar es peor que el hueco."""
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta("¿Pago?", ["pago_linea", "pago_banco"]) is None
+
+
+def test_una_compuerta_sin_relacion_con_ningun_campo_sigue_siendo_hueco():
+    from gpmc.extractores.mermaid import campo_de_compuerta
+    assert campo_de_compuerta("¿Procede?", ["curp", "rfc"]) is None

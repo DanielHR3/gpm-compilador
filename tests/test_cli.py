@@ -182,3 +182,43 @@ def test_compilar_desde_expediente_compila_uno_limpio(tmp_path):
     assert codigo == 0
     assert destino.exists()
     assert leer(destino)["Formularios"]
+
+
+# ── `servir --almacen` ──────────────────────────────────────────────────────
+
+def test_servir_pasa_el_almacen_a_crear_app(tmp_path, monkeypatch):
+    """Sin esto cada arranque estrena un tempfile.mkdtemp() y las sesiones se
+    pierden al apagar: asi se perdieron los artefactos de una jornada entera de
+    dogfooding. `crear_app` ya aceptaba el parametro; el CLI no lo exponia."""
+    import gpmc.web.app as web_app
+
+    vistos = {}
+
+    def falso_crear_app(almacen=None):
+        vistos["almacen"] = almacen
+        return object()
+
+    monkeypatch.setattr(web_app, "crear_app", falso_crear_app)
+    monkeypatch.setitem(
+        __import__("sys").modules, "uvicorn",
+        type("U", (), {"run": staticmethod(lambda *a, **k: None)})(),
+    )
+
+    destino = tmp_path / "sesiones"
+    assert main(["servir", "--almacen", str(destino)]) == 0
+    assert vistos["almacen"] == destino
+
+
+def test_servir_sin_almacen_no_fija_ninguno(tmp_path, monkeypatch):
+    import gpmc.web.app as web_app
+
+    vistos = {}
+    monkeypatch.setattr(web_app, "crear_app",
+                        lambda almacen=None: vistos.setdefault("almacen", almacen) or object())
+    monkeypatch.setitem(
+        __import__("sys").modules, "uvicorn",
+        type("U", (), {"run": staticmethod(lambda *a, **k: None)})(),
+    )
+
+    assert main(["servir"]) == 0
+    assert vistos["almacen"] is None

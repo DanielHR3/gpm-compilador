@@ -147,3 +147,62 @@
     @apply font-sans;
     }
 }
+
+/* ---------------------------------------------------------------------------
+   Movimiento de las tarjetas del wizard.
+
+   Las duraciones salen de los tokens de `hidalgo-design-token-system`, no de
+   numeros sueltos. `--duracion-salida-tarjeta` esta acoplada a MS_SALIDA de
+   WizardHuecos.tsx: si una cambia, la otra tambien.
+   --------------------------------------------------------------------------- */
+@keyframes tarjeta-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tarjeta-sale {
+  to {
+    opacity: 0;
+    transform: translateY(-0.25rem) scale(0.98);
+  }
+}
+
+.tarjeta-entrando {
+  animation: tarjeta-entra var(--transition-duration-normal, 300ms)
+    var(--transition-easing-out, cubic-bezier(0, 0, 0.2, 1)) both;
+}
+
+.tarjeta-saliendo {
+  /* 240ms = MS_SALIDA. `forwards` la deja invisible hasta que se desmonta. */
+  animation: tarjeta-sale 240ms var(--transition-easing-in, cubic-bezier(0.4, 0, 1, 1))
+    forwards;
+  pointer-events: none;
+}
+
+/* Un tramite se captura en sesiones largas y esto es un sitio de gobierno: si
+   el sistema pide menos movimiento, no hay ninguno. */
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-entrando,
+  .tarjeta-saliendo {
+    animation: none;
+  }
+
+  .tarjeta-saliendo {
+    opacity: 0;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

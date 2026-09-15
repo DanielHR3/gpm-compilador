@@ -1,10 +1,9 @@
 import { useId, useState } from "react";
-import { ArrowRight, Check, GitBranch } from "lucide-react";
+import { ArrowRight, Check, GitBranch, Lightbulb } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   camposDelManifiesto,
-  ErrorApi,
   leerCompuerta,
   resolverCompuertaCampo,
   resolverCompuertaRamas,
@@ -12,7 +11,11 @@ import {
 import { cn } from "cn";
 import type { Condicion, EstructuraCompuerta, Hueco } from "@/lib/types";
 
+import { nombreDeCompuerta, pistaDeCodigo } from "../lenguaje";
+import { useAccion } from "../useAccion";
+
 import ConstructorRegla from "./ConstructorRegla";
+import DetalleTecnico from "./DetalleTecnico";
 
 /**
  * Clases nativas de `<select>`, calcadas de `ConstructorRegla`/`input.tsx`
@@ -58,17 +61,14 @@ export default function ControlCompuerta({
   const [campoElegido, setCampoElegido] = useState("");
   const [estructura, setEstructura] = useState<EstructuraCompuerta | null>(null);
   const [condPorRama, setCondPorRama] = useState<Record<string, Condicion>>({});
-  const [error, setError] = useState<ErrorApi | null>(null);
-  const [guardando, setGuardando] = useState(false);
+  const { ejecutar, guardando, error } = useAccion();
   const campoSelectId = useId();
 
   const campos = camposDelManifiesto(manifiesto);
 
   const usarEsteCampo = async () => {
     if (!campoElegido) return;
-    setError(null);
-    setGuardando(true);
-    try {
+    await ejecutar(async () => {
       const resp = await resolverCompuertaCampo(
         sid,
         hueco.ubicacion,
@@ -84,45 +84,53 @@ export default function ControlCompuerta({
       } else {
         onResuelto(resp);
       }
-    } catch (e) {
-      if (e instanceof ErrorApi) {
-        setError(e);
-      } else {
-        throw e;
-      }
-    } finally {
-      setGuardando(false);
-    }
+    });
   };
 
   const guardarRamas = async () => {
     if (!estructura) return;
-    setError(null);
-    setGuardando(true);
-    try {
+    await ejecutar(async () => {
       const resp = await resolverCompuertaRamas(
         sid,
         hueco.ubicacion,
         estructura.ramas.map((r) => ({ a: r.a, condicion: condPorRama[r.a] })),
       );
       onResuelto(resp);
-    } catch (e) {
-      if (e instanceof ErrorApi) {
-        setError(e);
-      } else {
-        throw e;
-      }
-    } finally {
-      setGuardando(false);
-    }
+    });
   };
 
   const todasLasRamasListas =
     !!estructura &&
     estructura.ramas.every((r) => !!condPorRama[r.a]);
 
+  const decision = nombreDeCompuerta(hueco.mensaje);
+  const pista = pistaDeCodigo(hueco.codigo);
+
   return (
     <div className="flex flex-col gap-3">
+      <h3 className="text-base font-semibold tracking-tight text-foreground">
+        {decision
+          ? // El nombre de la compuerta ya suele ser una pregunta
+            // («¿Es competencia del PO?»): encadenar otro signo la deja con dos.
+            `¿Qué campo decide «${decision}»${decision.endsWith("?") ? "" : "?"}`
+          : "¿Qué campo decide este camino?"}
+      </h3>
+
+      {pista ? (
+        <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+          <p>{pista.instruccion}</p>
+          {pista.ejemplo ? (
+            <p className="flex items-start gap-2 rounded-md border border-dashed border-border px-3 py-2">
+              <Lightbulb aria-hidden className="mt-0.5 size-3.5 shrink-0 text-secondary" />
+              <span>
+                <span className="font-medium text-foreground">Por ejemplo: </span>
+                {pista.ejemplo}
+              </span>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <span
           className={cn(
@@ -226,6 +234,12 @@ export default function ControlCompuerta({
           <p>{error.message}</p>
         </div>
       ) : null}
+
+      <DetalleTecnico
+        codigo={hueco.codigo}
+        ubicacion={hueco.ubicacion}
+        crudo={hueco.mensaje}
+      />
     </div>
   );
 }

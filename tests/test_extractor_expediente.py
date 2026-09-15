@@ -401,6 +401,10 @@ def test_un_endpoint_con_token_se_reporta_como_API_05_no_API_01(tmp_path):
 
 # ── MMD-03: el carril del diagrama no alimenta el manifiesto ──
 #
+# En esta rama el extractor ya deriva el actor del prefijo del texto
+# («🔍 Usuario: Consultar…», commit f522eae), asi que solo queda MMD-03 en los
+# nodos que ni declaran carril ni nombran a nadie —QA, QP y QM en Publicacion—.
+# Aun asi el hueco no era contestable, y encima bloqueaba:
 # `Nodo.actor` (el `:::clase` del Mermaid) se lee SOLO dentro de
 # `mermaid.extraer`, para decidir si emite MMD-03; el actor de cada Tarea sale
 # siempre de `p.actor` del Diccionario, tanto en el flujo lineal como en el
@@ -417,10 +421,10 @@ _TOBE_SIN_CARRILES = """# Propuesta TO-BE
 
 ```mermaid
 flowchart TD
-    Inicio([Inicio]) --> T1[Solicitante: Captura la solicitud]
-    T1 --> T2[Area: Cotiza]
-    T2 --> T4[Area: Cobra]
-    T4 --> T3[Area: Oficio de improcedencia]
+    Inicio([Inicio]) --> T1[Captura la solicitud]
+    T1 --> T2[Cotiza]
+    T2 --> T4[Cobra]
+    T4 --> T3[Oficio de improcedencia]
     T3 --> Fin([Fin])
 ```
 """

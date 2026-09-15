@@ -35,5 +35,10 @@ echo "Abriendo en http://127.0.0.1:$PUERTO"
 echo "Para cerrar: presiona Ctrl+C en esta ventana."
 echo
 
+# Las sesiones van a una carpeta fija, no a un temporal del sistema: si no,
+# todo lo capturado se pierde al cerrar la ventana.
+SESIONES="$HOME/Documents/Compilador GPM/sesiones"
+mkdir -p "$SESIONES"
+
 ( sleep 2 && open "http://127.0.0.1:$PUERTO" ) &
-.venv/bin/gpmc servir --puerto $PUERTO
+.venv/bin/gpmc servir --puerto $PUERTO --almacen "$SESIONES"
