@@ -258,7 +258,12 @@ def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = Fa
         lis = ""
         for h in grupo:
             # Renderizado interactivo y amigable para huecos específicos
-            if h.codigo == "MMD-03":
+            # Solo el MMD-03 *por nodo* (`falta_dato`) lleva selector: su
+            # ubicacion es un id de nodo que /resolver sabe traducir a Tarea.
+            # El MMD-03 colapsado (`por_confirmar`, ubicacion "flujo") no nombra
+            # ninguna tarea; cae al render generico. Ver `_colapsar_mmd03` en
+            # extractores/expediente.py.
+            if h.codigo == "MMD-03" and h.nivel == "falta_dato":
                 nombre_tarea = mapa_tareas.get(h.ubicacion, h.ubicacion)
                 texto_amigable = f"La tarea <b>«{e(nombre_tarea)}»</b> no tiene responsable asignado."
                 control = f'<br><select name="mmd03_{e(h.ubicacion)}" style="margin-top:0.5rem;padding:0.4rem;border-radius:4px;border:1px solid #ccc;font-size:0.9rem;width:100%;max-width:300px"><option value="">(Selecciona quién hace esto...)</option>{opciones_actores}</select>'
@@ -316,7 +321,8 @@ def revision(m, huecos, problemas, estimacion, sid: str, tiene_vistas: bool = Fa
         
     # Botón pegajoso: en un trámite con muchos huecos, el submit quedaba al
     # fondo y el analista no veía cómo guardar mientras resolvía.
-    if any(h.codigo in ("MMD-03", "META-01", "META-02", "API-03") for h in huecos):
+    if any(h.codigo in ("MMD-03", "META-01", "META-02", "API-03")
+           and h.nivel == "falta_dato" for h in huecos):
         bloque_huecos += (
             '<div style="position:sticky; bottom:1rem; z-index:20; text-align:right; '
             'margin:1.5rem 0; padding:0.75rem; background:rgba(255,255,255,0.9); '

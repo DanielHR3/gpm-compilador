@@ -385,3 +385,33 @@ Fuera de alcance de este sub-proyecto, siguen siendo **"a mano"**:
 - **`API-05`** (endpoint autenticado con token) — se resuelve con una Acción
   PHP escrita a mano en la plataforma, fuera de alcance del compilador (ver
   la sección de `Api variable` arriba).
+
+### 6. `MMD-03` deja de bloquear: el carril del diagrama no alimenta el manifiesto (2026-09-15)
+
+`Nodo.actor` (el `:::clase` del Mermaid) se lee **solo** dentro de
+`mermaid.extraer`, para decidir si emite `MMD-03`; `Resultado.carriles` (los
+`classDef`) no se lee en ninguna parte. El actor de cada `Tarea` sale siempre de
+`p.actor` —el encabezado `### Pantalla N — ACTOR — Nombre` del Diccionario—
+tanto en el respaldo lineal como en `_flujo_ramificado`. Es decir: `MMD-03`
+preguntaba por un dato que el compilador ya tiene por otra vía.
+
+El coste era real. En *Publicación en el Periódico Oficial* —cuyo TO-BE colorea
+con `style X fill:#…` en vez de `classDef` + `:::clase`— salían **42 `MMD-03`
+`falta_dato`**, y **36 eran irresolubles**: `POST /resolver` traduce el id del
+nodo a una `Tarea` real vía `_mapear_nodos_a_pantallas`, que es todo-o-nada
+(`len(nodos_tarea) != len(pantallas)` → `None`), y ahí hay 32 nodos tarea contra
+13 pantallas. La tarjeta `MMD-03` tampoco ofrecía "lo configuro a mano". El
+expediente no se podía compilar por ningún camino: 63 bloqueantes en la puerta
+409, de los cuales 42 sin salida.
+
+`extractores/expediente.py::_colapsar_mmd03` reduce los `MMD-03` de un diagrama
+a **un solo hueco `por_confirmar`** en `ubicacion="flujo"` que nombra los nodos
+sin carril y dice de dónde salió el actor. `mermaid.extraer` no cambia (sigue
+emitiendo uno por nodo; es la lectura cruda del diagrama y sus tests lo fijan):
+la política vive donde se conocen las dos fuentes. Mismo expediente: 63 → **21
+bloqueantes**, todos con control o con "lo configuro a mano", y el `.gpm` sale.
+
+`POST /resolver` con `tipo: "mmd03"` **no cambió**: sigue traduciendo un id de
+nodo a la `Tarea` real y es la vía para corregir a mano un actor mal leído. Las
+dos UI solo muestran el selector cuando el hueco es `falta_dato` (por nodo);
+sobre el colapsado mandarían `ubicacion="flujo"` y el backend contestaría 422.

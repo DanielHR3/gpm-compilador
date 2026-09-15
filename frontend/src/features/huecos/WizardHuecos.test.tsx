@@ -106,3 +106,34 @@ it("MMD-03 muestra un ControlActor con los actores del manifiesto", async () => 
   await userEvent.click(combo);
   expect(await screen.findByRole("option", { name: "Ciudadano" })).toBeInTheDocument();
 });
+
+// El carril del diagrama dejo de ser bloqueante: MMD-03 llega colapsado en un
+// solo hueco `por_confirmar` sobre "flujo" (ver `_colapsar_mmd03` en
+// `extractores/expediente.py`). Ese hueco no nombra ninguna tarea, asi que un
+// ControlActor sobre el mandaria `ubicacion: "flujo"` a `/resolver` y el
+// backend contestaria 422 -- el mismo callejon sin salida que se acaba de
+// cerrar. Se muestra como informativo.
+it("MMD-03 colapsado (por_confirmar) no ofrece ControlActor", () => {
+  const est = {
+    ...estado,
+    huecos: [
+      { nivel: "por_confirmar", codigo: "MMD-03", ubicacion: "flujo",
+        mensaje: "4 nodo(s) del diagrama TO-BE no declaran carril", propuesta: null },
+    ],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  expect(screen.getByText(/no declaran carril/)).toBeInTheDocument();
+});
+
+it("MMD-03 por nodo ofrece tambien la salida 'lo configuro a mano'", () => {
+  const est = {
+    ...estado,
+    huecos: [
+      { nivel: "falta_dato", codigo: "MMD-03", ubicacion: "T1", mensaje: "quien resuelve", propuesta: null },
+    ],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  expect(screen.getByRole("combobox")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /a mano/i })).toBeInTheDocument();
+});

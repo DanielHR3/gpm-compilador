@@ -397,3 +397,76 @@ def test_un_endpoint_con_token_se_reporta_como_API_05_no_API_01(tmp_path):
     assert "API-01" not in cods
     a05 = next(h for h in r.huecos if h.codigo == "API-05")
     assert "token" in a05.mensaje.lower() and "SEG-04" in a05.mensaje
+
+
+# ── MMD-03: el carril del diagrama no alimenta el manifiesto ──
+#
+# `Nodo.actor` (el `:::clase` del Mermaid) se lee SOLO dentro de
+# `mermaid.extraer`, para decidir si emite MMD-03; el actor de cada Tarea sale
+# siempre de `p.actor` del Diccionario, tanto en el flujo lineal como en el
+# ramificado. Un diagrama que colorea con `style X fill:#...` en vez de
+# `classDef` + `:::clase` --forma real en los expedientes del equipo-- disparaba
+# un MMD-03 `falta_dato` por nodo: 42 huecos bloqueantes en "Publicación en el
+# Periódico Oficial", de los cuales 36 eran además irresolubles (el traductor
+# de id de nodo a Tarea real es todo-o-nada y ahí hay 32 nodos tarea contra 13
+# pantallas), y la tarjeta MMD-03 no ofrecía "lo configuro a mano". El
+# expediente no se podía compilar por ningún camino. Se colapsan en un solo
+# hueco `por_confirmar`, que se revisa de un vistazo y no bloquea.
+
+_TOBE_SIN_CARRILES = """# Propuesta TO-BE
+
+```mermaid
+flowchart TD
+    Inicio([Inicio]) --> T1[Solicitante: Captura la solicitud]
+    T1 --> T2[Area: Cotiza]
+    T2 --> T4[Area: Cobra]
+    T4 --> T3[Area: Oficio de improcedencia]
+    T3 --> Fin([Fin])
+```
+"""
+
+
+def _sin_carriles(tmp_path):
+    return _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA,
+        "3.-Propuesta TO-BE.md": _TOBE_SIN_CARRILES,
+    })
+
+
+def test_un_diagrama_sin_carriles_deja_un_solo_mmd03_que_no_bloquea(tmp_path):
+    from gpmc.nucleo.huecos import bloquean
+
+    r = extraer_expediente(_sin_carriles(tmp_path))
+    mmd03 = [h for h in r.huecos if h.codigo == "MMD-03"]
+    assert len(mmd03) == 1, [str(h) for h in mmd03]
+    assert mmd03[0].nivel == "por_confirmar"
+    assert mmd03[0].ubicacion == "flujo"
+    assert not [h for h in bloquean(r.huecos) if h.codigo == "MMD-03"]
+
+
+def test_el_mmd03_colapsado_dice_cuantos_nodos_y_de_donde_salio_el_actor(tmp_path):
+    r = extraer_expediente(_sin_carriles(tmp_path))
+    h = next(h for h in r.huecos if h.codigo == "MMD-03")
+    assert "4" in h.mensaje                      # los cuatro nodos tarea
+    assert "Diccionario" in h.mensaje            # de ahí salió el actor
+    assert "T1" in h.mensaje                     # y se nombran, para revisarlos
+
+
+def test_sin_carriles_las_tareas_conservan_el_actor_del_diccionario(tmp_path):
+    """El hueco colapsado no es una amnistía: se degrada porque el dato ya
+    está, no porque se renuncie a él."""
+    r = extraer_expediente(_sin_carriles(tmp_path))
+    reales = [t for t in r.manifiesto.flujo.tareas if t.id != "t_fin"]
+    assert reales and all(t.actor for t in reales), \
+        [(t.id, t.actor) for t in reales]
+
+
+def test_un_diagrama_con_carriles_no_deja_ningun_mmd03(tmp_path):
+    """El colapso no inventa un hueco donde no lo había: _TOBE_RAMA declara
+    `:::clase` en todos sus nodos."""
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA,
+        "3.-Propuesta TO-BE.md": _TOBE_RAMA,
+    })
+    r = extraer_expediente(carpeta)
+    assert "MMD-03" not in _cod(r), [str(h) for h in r.huecos]

@@ -106,13 +106,28 @@ export default function TarjetaHueco({
   };
 
   let control: ReactNode = null;
-  if (hueco.codigo === "MMD-03") {
+  if (hueco.codigo === "MMD-03" && hueco.nivel === "falta_dato") {
+    // Solo el MMD-03 *por nodo* lleva control: su `ubicacion` es el id de un
+    // nodo del diagrama, que `/resolver` sabe traducir a la Tarea real. El
+    // MMD-03 colapsado (`por_confirmar`, ubicacion "flujo") no nombra ninguna
+    // tarea -- mandarlo a `/resolver` daria 422 -- y como no bloquea, se lee y
+    // se revisa el diagrama, nada mas. Ver `_colapsar_mmd03` en
+    // `extractores/expediente.py`.
     control = (
-      <ControlActor
-        hueco={hueco}
-        actores={leerActores(manifiesto)}
-        onConfirmar={(v) => resolverCon("mmd03", v)}
-      />
+      <div className="flex flex-col gap-2">
+        <ControlActor
+          hueco={hueco}
+          actores={leerActores(manifiesto)}
+          onConfirmar={(v) => resolverCon("mmd03", v)}
+        />
+        <button
+          type="button"
+          className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+          onClick={reconocerHueco}
+        >
+          o lo configuro a mano
+        </button>
+      </div>
     );
   } else if (hueco.codigo === "META-01") {
     control = (
