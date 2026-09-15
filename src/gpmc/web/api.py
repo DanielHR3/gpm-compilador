@@ -37,6 +37,7 @@ from gpmc.simulador.analisis import analizar
 from gpmc.web.reensamblado import reensamblar_flujo, rm_de_tobe
 from gpmc.extractores.docx import a_markdown
 from gpmc.extractores import pdf as ext_pdf
+from gpmc.web.clasificador import clasificar
 from gpmc.web.sesiones import (
     CARPETA_ADJUNTOS,
     CARPETA_DOCUMENTOS,
@@ -146,6 +147,25 @@ class ResolverIn(BaseModel):
     ]
 
 
+class ClasificarIn(BaseModel):
+    """Los nombres de archivo de una carpeta de expediente, tal como los ve el
+    navegador (rutas relativas, `Documentos/Oficio.pdf`)."""
+    archivos: List[str] = Field(..., max_length=2000)
+
+
+class ClasificarOut(BaseModel):
+    """A que zona del asistente va cada archivo. Solo nombres: el navegador
+    sube los bytes despues, ya repartidos, a `POST /expedientes`."""
+    as_is: Optional[str] = None
+    to_be: Optional[str] = None
+    diccionario: Optional[str] = None
+    vistas: Optional[str] = None
+    adjuntos: List[str] = []
+    documentos: List[str] = []
+    ignorados: List[str] = []
+    avisos: List[str] = []
+
+
 class ReconocerIn(BaseModel):
     """Cuerpo de `POST /api/v1/expedientes/{sid}/reconocer`."""
 
@@ -183,6 +203,18 @@ def _estado(sid: str, carpeta: Path, manifiesto) -> EstadoExpediente:
 
 def crear_router(raiz: Path) -> APIRouter:
     r = APIRouter(prefix="/api/v1")
+
+    @r.post("/clasificar", response_model=ClasificarOut)
+    async def clasificar_carpeta(cuerpo: ClasificarIn):
+        """Dice a que zona va cada archivo de una carpeta, sin subir los bytes.
+
+        El navegador manda solo la lista de nombres (`webkitdirectory` se la da
+        entera), pinta el reparto en las zonas de carga y deja que la persona lo
+        corrija antes de extraer. El criterio vive en `web/clasificador.py`, que
+        reutiliza la normalizacion de nombres del extractor: una sola definicion
+        de que es "el Diccionario" para la CLI y para el asistente.
+        """
+        return ClasificarOut(**dataclasses.asdict(clasificar(cuerpo.archivos)))
 
     @r.post("/expedientes", status_code=201, response_model=EstadoExpediente)
     async def crear_expediente(

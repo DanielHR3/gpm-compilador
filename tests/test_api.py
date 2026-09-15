@@ -720,3 +720,36 @@ def test_cero_clics_dic08_y_mmd04_compila_gpm_completo(tmp_path):
     assert r.status_code == 200, r.text          # la puerta del linter ya deja pasar
     assert ".gpm" in r.headers["content-disposition"]
     assert len(r.content) > 0
+
+
+def test_clasificar_reparte_una_carpeta_sin_subir_los_bytes(tmp_path):
+    """`POST /clasificar` recibe solo nombres: es lo que permite que el
+    navegador pinte el reparto antes de subir nada."""
+    c = _cli(tmp_path)
+    r = c.post("/api/v1/clasificar", json={"archivos": [
+        "1.-Análisis AS-IS.md",
+        "2.-As Is hasta media y una plana.pdf",
+        "3.-Propuesta TO-BE.md",
+        "5.-Diccionario de Datos.md",
+        "Documentos/Oficio de improcedencia.pdf",
+        "build_full_gpm.py",
+    ]})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["as_is"] == "1.-Análisis AS-IS.md"
+    assert b["to_be"] == "3.-Propuesta TO-BE.md"
+    assert b["diccionario"] == "5.-Diccionario de Datos.md"
+    # el PDF gemelo y el oficio escaneado son apoyo; el script se ignora
+    assert "2.-As Is hasta media y una plana.pdf" in b["adjuntos"]
+    assert "Documentos/Oficio de improcedencia.pdf" in b["adjuntos"]
+    assert b["ignorados"] == ["build_full_gpm.py"]
+    assert b["avisos"] == []
+
+
+def test_clasificar_avisa_de_lo_que_no_pudo_decidir(tmp_path):
+    c = _cli(tmp_path)
+    r = c.post("/api/v1/clasificar", json={"archivos": ["notas sueltas.txt"]})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["diccionario"] is None
+    assert any("Diccionario" in a for a in b["avisos"]), b["avisos"]

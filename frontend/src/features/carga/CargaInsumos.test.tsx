@@ -5,6 +5,7 @@ import CargaInsumos from "./CargaInsumos";
 
 vi.mock("@/lib/api", () => ({
   crearExpediente: vi.fn(),
+  clasificar: vi.fn(),
   ErrorApi: class extends Error { status = 0; archivos?: string[]; },
 }));
 
@@ -125,4 +126,90 @@ it("un error sin lista de archivos sigue mostrando solo el mensaje", async () =>
   );
   await userEvent.click(screen.getByRole("button", { name: /revisar|extraer/i }));
   expect(await screen.findByText(/sesión no encontrada/)).toBeInTheDocument();
+});
+
+
+// ── Carga de la carpeta completa ──
+//
+// El equipo de Simplificación entrega una carpeta por trámite, siempre con la
+// misma forma: AS-IS/TO-BE/Diccionario en `.md`, sus gemelos escaneados en PDF,
+// y `Documentos/` con los oficios. Repartir eso a mano en cuatro zonas es un
+// trabajo que el servidor ya sabe hacer (`POST /clasificar`).
+
+/** Un File con `webkitRelativePath`, que es como llega el input de carpeta. */
+const archivoDeCarpeta = (ruta: string) => {
+  const f = new File(["x"], ruta.split("/").pop()!, { type: "text/markdown" });
+  Object.defineProperty(f, "webkitRelativePath", { value: `expediente/${ruta}` });
+  return f;
+};
+
+it("al elegir la carpeta, manda solo los nombres a clasificar", async () => {
+  const { clasificar } = await import("@/lib/api");
+  vi.mocked(clasificar as any).mockResolvedValue({
+    as_is: "1.-Análisis AS-IS.md", to_be: "3.-Propuesta TO-BE.md",
+    diccionario: "5.-Diccionario de Datos.md", vistas: null,
+    adjuntos: [], documentos: [], ignorados: [], avisos: [],
+  });
+
+  render(<CargaInsumos onListo={vi.fn()} />);
+  await userEvent.upload(
+    screen.getByLabelText(/carpeta del trámite/i),
+    ["1.-Análisis AS-IS.md", "3.-Propuesta TO-BE.md", "5.-Diccionario de Datos.md"]
+      .map(archivoDeCarpeta),
+  );
+
+  expect(clasificar).toHaveBeenCalledWith([
+    "1.-Análisis AS-IS.md", "3.-Propuesta TO-BE.md", "5.-Diccionario de Datos.md",
+  ]);
+});
+
+it("el reparto llena las zonas y habilita el botón de extraer", async () => {
+  const { clasificar } = await import("@/lib/api");
+  vi.mocked(clasificar as any).mockResolvedValue({
+    as_is: "1.-Análisis AS-IS.md", to_be: null,
+    diccionario: "5.-Diccionario de Datos.md", vistas: null,
+    adjuntos: ["2.-As Is.pdf"], documentos: [], ignorados: ["build.py"],
+    avisos: ["No encontré el To Be en la carpeta."],
+  });
+
+  render(<CargaInsumos onListo={vi.fn()} />);
+  expect(screen.getByRole("button", { name: /revisar|extraer/i })).toBeDisabled();
+
+  await userEvent.upload(
+    screen.getByLabelText(/carpeta del trámite/i),
+    ["1.-Análisis AS-IS.md", "5.-Diccionario de Datos.md", "2.-As Is.pdf", "build.py"]
+      .map(archivoDeCarpeta),
+  );
+
+  // El Diccionario quedó puesto: la puerta se abre.
+  expect(screen.getByRole("button", { name: /revisar|extraer/i })).toBeEnabled();
+  expect(screen.getByTestId("nombre-as_is")).toHaveTextContent("1.-Análisis AS-IS.md");
+  expect(screen.getByTestId("nombre-diccionario")).toHaveTextContent("5.-Diccionario de Datos.md");
+  // Lo que no pudo decidir se dice, no se calla.
+  expect(screen.getByText(/No encontré el To Be/)).toBeInTheDocument();
+  // Y lo ignorado se puede revisar, para que nadie crea que se perdió.
+  expect(screen.getByText(/1 ignorado/i)).toBeInTheDocument();
+});
+
+it("la carpeta reparte también apoyo y plantillas al enviar", async () => {
+  const { clasificar, crearExpediente } = await import("@/lib/api");
+  vi.mocked(clasificar as any).mockResolvedValue({
+    as_is: null, to_be: null, diccionario: "Diccionario de Datos.md", vistas: null,
+    adjuntos: ["Documentos/Oficio.pdf"], documentos: ["Documentos/Acuse.docx"],
+    ignorados: [], avisos: [],
+  });
+  vi.mocked(crearExpediente).mockResolvedValue({ sid: "a".repeat(16) } as any);
+
+  render(<CargaInsumos onListo={vi.fn()} />);
+  await userEvent.upload(
+    screen.getByLabelText(/carpeta del trámite/i),
+    ["Diccionario de Datos.md", "Documentos/Oficio.pdf", "Documentos/Acuse.docx"]
+      .map(archivoDeCarpeta),
+  );
+  await userEvent.click(screen.getByRole("button", { name: /revisar|extraer/i }));
+
+  const fd = vi.mocked(crearExpediente).mock.calls.at(-1)![0] as FormData;
+  expect((fd.get("diccionario") as File).name).toBe("Diccionario de Datos.md");
+  expect(fd.getAll("adjuntos").map((f) => (f as File).name)).toEqual(["Oficio.pdf"]);
+  expect(fd.getAll("documentos").map((f) => (f as File).name)).toEqual(["Acuse.docx"]);
 });

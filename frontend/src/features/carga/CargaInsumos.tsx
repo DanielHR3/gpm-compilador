@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { DragEvent } from "react";
-import { ArrowRight, FileText, UploadCloud, FileWarning } from "lucide-react";
+import { ArrowRight, FileText, FolderOpen, UploadCloud, FileWarning } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "cn";
-import { crearExpediente, ErrorApi } from "@/lib/api";
+import { clasificar, crearExpediente, ErrorApi } from "@/lib/api";
 import type { EstadoExpediente } from "@/lib/types";
 
 /** Las cuatro llaves multipart que acepta `POST /api/v1/expedientes`. */
@@ -79,6 +79,54 @@ export default function CargaInsumos({
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [sobrevolando, setSobrevolando] = useState<CampoInsumo | null>(null);
+  // Lo que el servidor no pudo decidir de la carpeta, y lo que dejó fuera.
+  const [avisos, setAvisos] = useState<string[]>([]);
+  const [ignorados, setIgnorados] = useState<string[]>([]);
+  const [repartiendo, setRepartiendo] = useState(false);
+
+  /**
+   * Reparte una carpeta completa en las zonas.
+   *
+   * Se mandan solo los NOMBRES a `POST /clasificar` —no los bytes— y con la
+   * respuesta se colocan los File que ya tiene el navegador. Así la carpeta no
+   * viaja dos veces y el criterio de "qué es el Diccionario" vive en un solo
+   * sitio, el servidor, que lo comparte con `gpmc extraer <carpeta>`.
+   */
+  const repartirCarpeta = async (archivos: File[]) => {
+    if (archivos.length === 0) return;
+    // `webkitRelativePath` trae la carpeta raíz delante: se recorta para que el
+    // servidor vea las mismas rutas relativas que ve la CLI.
+    const rutaDe = (f: File) => {
+      const completa = (f as File & { webkitRelativePath?: string })
+        .webkitRelativePath || f.name;
+      const corte = completa.indexOf("/");
+      return corte === -1 ? completa : completa.slice(corte + 1);
+    };
+    const porRuta = new Map(archivos.map((f) => [rutaDe(f), f]));
+
+    setError(null);
+    setRepartiendo(true);
+    try {
+      const a = await clasificar([...porRuta.keys()]);
+      setSlots({
+        as_is: a.as_is ? porRuta.get(a.as_is) ?? null : null,
+        to_be: a.to_be ? porRuta.get(a.to_be) ?? null : null,
+        diccionario: a.diccionario ? porRuta.get(a.diccionario) ?? null : null,
+        vistas: a.vistas ? porRuta.get(a.vistas) ?? null : null,
+      });
+      setApoyo(a.adjuntos.map((r) => porRuta.get(r)).filter((f): f is File => !!f));
+      setPlantillas(
+        a.documentos.map((r) => porRuta.get(r)).filter((f): f is File => !!f),
+      );
+      setAvisos(a.avisos);
+      setIgnorados(a.ignorados);
+    } catch (e) {
+      if (e instanceof ErrorApi) setError(e);
+      else throw e;
+    } finally {
+      setRepartiendo(false);
+    }
+  };
 
   const asignar = (campo: CampoInsumo, archivo: File | null) => {
     setSlots((prev) => ({ ...prev, [campo]: archivo }));
@@ -125,6 +173,57 @@ export default function CargaInsumos({
           Diccionario es obligatorio; el resto ayuda a extraer más completo.
         </p>
       </header>
+
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4">
+        <label
+          htmlFor="carpeta-expediente"
+          className="flex items-center gap-2 text-sm font-medium text-foreground"
+        >
+          <FolderOpen aria-hidden className="size-4 shrink-0 text-primary" />
+          Carpeta del trámite
+        </label>
+        <p className="text-sm text-muted-foreground">
+          Elige la carpeta completa tal como te la entregó Simplificación y yo
+          acomodo cada archivo en su zona. Puedes corregir lo que quede mal
+          antes de extraer.
+        </p>
+        <input
+          id="carpeta-expediente"
+          type="file"
+          // `webkitdirectory` no está en los tipos de React, pero lo soportan
+          // Chrome, Edge y Safari; sin él, el input se comporta como uno normal.
+          {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+          multiple
+          className="text-sm file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium"
+          onChange={(e) => void repartirCarpeta([...(e.target.files ?? [])])}
+        />
+        {repartiendo ? (
+          <p className="text-sm text-muted-foreground">Acomodando…</p>
+        ) : null}
+        {avisos.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            {avisos.map((a) => (
+              <p key={a} className="flex items-start gap-2 text-sm text-foreground">
+                <FileWarning aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+                {a}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        {ignorados.length > 0 ? (
+          <details className="text-sm text-muted-foreground">
+            <summary className="cursor-pointer">
+              {ignorados.length} ignorado{ignorados.length === 1 ? "" : "s"} (no
+              son insumo ni apoyo)
+            </summary>
+            <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+              {ignorados.map((n) => (
+                <li key={n} className="break-all">{n}</li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {CAMPOS.map(({ campo, etiqueta, obligatorio, ayuda, plantilla }) => {

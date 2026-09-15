@@ -138,6 +138,34 @@ function mapEstado(raw: unknown): EstadoExpediente {
  * `POST /api/v1/expedientes` (multipart). No se fija `Content-Type`: el
  * navegador escribe el `boundary` del `multipart/form-data`.
  */
+/** A qué zona va cada archivo de una carpeta, según `POST /clasificar`. */
+export type Asignacion = {
+  as_is: string | null;
+  to_be: string | null;
+  diccionario: string | null;
+  vistas: string | null;
+  adjuntos: string[];
+  documentos: string[];
+  ignorados: string[];
+  avisos: string[];
+};
+
+/**
+ * Reparte los nombres de una carpeta de expediente en las zonas del asistente.
+ *
+ * Manda SOLO los nombres, no los bytes: así el navegador puede pintar el
+ * reparto antes de subir nada, y la carpeta no viaja dos veces. El criterio
+ * vive en el servidor (`web/clasificador.py`), que reutiliza la normalización
+ * de nombres del extractor.
+ */
+export async function clasificar(archivos: string[]): Promise<Asignacion> {
+  return pedirJson<Asignacion>(`${BASE}/clasificar`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ archivos }),
+  });
+}
+
 export async function crearExpediente(
   files: FormData,
 ): Promise<EstadoExpediente> {
