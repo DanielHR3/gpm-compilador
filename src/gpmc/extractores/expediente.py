@@ -45,6 +45,38 @@ def _mapear_nodos_a_pantallas(nodos_tarea, pantallas):
     return mapa
 
 
+def _colapsar_mmd03(huecos):
+    """Reduce los MMD-03 de un diagrama a un solo hueco que no bloquea.
+
+    El `:::clase` del Mermaid NO alimenta el manifiesto: `Nodo.actor` se lee
+    solo dentro de `mermaid.extraer`, para decidir si emite MMD-03, mientras
+    que el actor de cada Tarea sale siempre de `p.actor` del Diccionario --
+    tanto en el respaldo lineal como en `_flujo_ramificado`. Un MMD-03
+    `falta_dato` por nodo convertia en bloqueante un dato que el compilador ya
+    tiene por otra via, y encima a menudo irresoluble: `/resolver` traduce el
+    id del nodo a una Tarea real via `_mapear_nodos_a_pantallas`, que es
+    todo-o-nada. En "Publicacion en el Periodico Oficial" (diagrama que colorea
+    con `style X fill:#...` en vez de `classDef`, 32 nodos tarea contra 13
+    pantallas) eso daba 42 huecos bloqueantes, 36 de ellos con 422 al
+    guardarlos: el expediente no se podia compilar por ningun camino.
+
+    Se devuelven los demas huecos intactos y, si habia MMD-03, uno solo de
+    nivel `por_confirmar` sobre el flujo: el diagrama se revisa de un vistazo,
+    no se detiene la entrega por el.
+    """
+    otros = [h for h in huecos if h.codigo != "MMD-03"]
+    sin_carril = [h.ubicacion for h in huecos if h.codigo == "MMD-03"]
+    if not sin_carril:
+        return otros
+    return otros + [Hueco(
+        "por_confirmar", "MMD-03", "flujo",
+        f"{len(sin_carril)} nodo(s) del diagrama TO-BE no declaran carril "
+        f"(`classDef` + `:::clase`): {', '.join(sin_carril)}. El actor de cada "
+        f"tarea se tomó del Diccionario de Datos; confirma que el diagrama y "
+        f"el Diccionario dicen lo mismo.",
+    )]
+
+
 def _valor_de_arista(etiqueta, campo):
     """La etiqueta de una arista que sale de una compuerta tiene que ser un valor
     del catalogo del campo que decide (por valor tecnico o por etiqueta visible),
@@ -410,7 +442,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
             # en español —sin la sintaxis @@— resuelva sola su campo.
             declarados = [c.nombre for p_ in pantallas for c in p_.campos]
             rm = ext_mmd.extraer(bloques[0], campos_declarados=declarados)
-            r.huecos += rm.huecos
+            r.huecos += _colapsar_mmd03(rm.huecos)
 
             tareas_mmd = [n for n in rm.nodos if n.clase_nodo == "tarea"]
             compuertas = [n for n in rm.nodos if n.clase_nodo == "compuerta"]

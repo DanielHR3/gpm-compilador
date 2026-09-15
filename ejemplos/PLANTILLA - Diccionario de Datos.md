@@ -167,7 +167,7 @@ flowchart TD
 
 | Regla | Por qué |
 |---|---|
-| **Todo nodo con carril `:::actor`** (`:::ciudadano`, `:::area`, `:::notario`…). | Sin carril el compilador no sabe quién ejecuta esa tarea (hueco `MMD-03`). En Publicación quedaron 36 nodos sin carril. |
+| **Todo nodo con carril `:::actor`** (`:::ciudadano`, `:::area`, `:::notario`…). | El actor de cada tarea lo toma el compilador del encabezado de la pantalla en el Diccionario (`### Pantalla 2 — ÁREA — Cotiza`), no del diagrama: por eso el carril **no bloquea** (hueco `MMD-03`, solo *por confirmar*). Se pide igual para que diagrama y Diccionario digan lo mismo y el diagrama se lea. En Publicación quedaron 42 nodos sin carril —colorea con `style X fill:#…` en vez de `classDef`—. |
 | **Cada compuerta `{…}` nombra el campo** que decide, con su `@@`: `{¿@@procede == 'si'?}`. | Si dice solo `{¿Procede?}`, la condición hay que capturarla a mano (`MMD-04`), y el flujo sale lineal. |
 | Las etiquetas de las flechas que salen de una compuerta = los **valores** del campo: `-->|Sí|`, `-->|No|`, `-->|Renovación|`. | De ahí sale la regla de transición. |
 | El diagrama debe traer un bloque ```` ```mermaid ```` de verdad. | Sin él no se cuenta el flujo (`MMD-01`). |

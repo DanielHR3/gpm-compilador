@@ -221,3 +221,56 @@ it("un hueco de solo confirmar dice que no hay nada que llenar y se puede cerrar
 
   expect(reconocer).toHaveBeenCalledWith(sid, "META-05", "metadatos");
 });
+
+
+// El carril del diagrama dejo de ser bloqueante: MMD-03 llega colapsado en un
+// solo hueco `por_confirmar` sobre "flujo" (ver `_colapsar_mmd03` en
+// `extractores/expediente.py`). Ese hueco no nombra ninguna tarea, asi que un
+// ControlActor sobre el mandaria `ubicacion: "flujo"` a `/resolver` y el backend
+// contestaria 422 -- el mismo callejon sin salida que se acaba de cerrar.
+const MMD03_COLAPSADO = {
+  nivel: "por_confirmar" as const,
+  codigo: "MMD-03",
+  ubicacion: "flujo",
+  mensaje:
+    "3 nodo(s) del diagrama TO-BE no declaran carril (`classDef` + `:::clase`): " +
+    "QA, QP, QM. El actor de cada tarea se tomó del Diccionario de Datos.",
+  propuesta: null,
+};
+
+it("MMD-03 colapsado: no ofrece selector de actor, y sí dice qué pasa", () => {
+  render(
+    <TarjetaHueco
+      hueco={MMD03_COLAPSADO}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  // Sin control, nadie redacta la pregunta: el mensaje crudo tiene que salir.
+  expect(screen.getByText(/no declaran carril/)).toBeInTheDocument();
+});
+
+it("MMD-03 por nodo: sí ofrece selector, y también la salida a mano", () => {
+  render(
+    <TarjetaHueco
+      hueco={{
+        nivel: "falta_dato",
+        codigo: "MMD-03",
+        ubicacion: "T1",
+        mensaje: "la tarea «Captura la solicitud» no declara carril",
+        propuesta: null,
+      }}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole("combobox")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /o lo configuro a mano/i }),
+  ).toBeInTheDocument();
+});
