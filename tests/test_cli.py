@@ -222,3 +222,33 @@ def test_servir_sin_almacen_no_fija_ninguno(tmp_path, monkeypatch):
 
     assert main(["servir"]) == 0
     assert vistos["almacen"] is None
+
+
+# ── Fase 2: entorno fuera del repo y medir-ia ──
+def test_cargar_entorno_lee_clave_valor_sin_pisar_lo_existente(tmp_path, monkeypatch):
+    import os
+    from gpmc.cli import cargar_entorno
+    f = tmp_path / "entorno"
+    f.write_text("# comentario\nGPMC_IA_PROVEEDOR=gemini\nGPMC_IA_LLAVE = abc\n", encoding="utf-8")
+    monkeypatch.delenv("GPMC_IA_PROVEEDOR", raising=False)
+    monkeypatch.setenv("GPMC_IA_LLAVE", "ya-estaba")
+    assert cargar_entorno(f) == 1
+    assert os.environ["GPMC_IA_PROVEEDOR"] == "gemini" and os.environ["GPMC_IA_LLAVE"] == "ya-estaba"
+
+
+def test_cargar_entorno_sin_archivo_es_cero(tmp_path):
+    from gpmc.cli import cargar_entorno
+    assert cargar_entorno(tmp_path / "no-existe") == 0
+
+
+def test_medir_ia_reporta_tabla_con_proveedor_falso(tmp_path, capsys, monkeypatch):
+    import json
+    from pathlib import Path
+    from gpmc import cli
+    from gpmc.agentes.proveedor import ProveedorFalso
+    ejemplos = Path(__file__).resolve().parents[1] / "ejemplos" / "expedientes"
+    resp = json.dumps({"propuestas": []})
+    monkeypatch.setattr(cli, "_proveedor_para_medir", lambda: ProveedorFalso([resp] * 20))
+    assert cli.main(["medir-ia", str(ejemplos), "--almacen", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "TOTAL" in out and "DIC-08" in out

@@ -2,6 +2,9 @@
 
 from typing import Optional
 import argparse
+import tempfile
+import shutil
+import os
 import sys
 from pathlib import Path
 
@@ -10,6 +13,8 @@ from pydantic import ValidationError
 from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
+from gpmc.agentes.bitacora import RUTA_BITACORA
+from gpmc.agentes.dic08 import proponer_lote
 from gpmc.nucleo.formato import escribir
 from gpmc.nucleo.huecos import NIVELES, bloquean
 from gpmc.nucleo.manifiesto import guardar
@@ -60,6 +65,30 @@ def _imprimir_huecos(huecos, completo: bool) -> None:
             print(f"  [{h.codigo}] {loc}{h.mensaje}{flecha}")
         if len(grupo) > limite:
             print(f"  … y {len(grupo) - limite} más   (usa --huecos para verlos todos)")
+
+
+def cargar_entorno(ruta: Optional[Path] = None) -> int:
+    """Carga CLAVE=valor desde ~/.config/gpmc/entorno sin pisar lo que ya este en
+    el entorno. Asi la llave del proveedor de IA nunca pasa por el plist ni por
+    el instalador. Devuelve cuantas variables cargo."""
+    ruta = ruta if ruta is not None else Path.home() / ".config" / "gpmc" / "entorno"
+    if not ruta.exists():
+        return 0
+    n = 0
+    for linea in ruta.read_text(encoding="utf-8").splitlines():
+        linea = linea.strip()
+        if not linea or linea.startswith("#") or "=" not in linea:
+            continue
+        clave, valor = (x.strip() for x in linea.split("=", 1))
+        if clave and clave not in os.environ:
+            os.environ[clave] = valor
+            n += 1
+    return n
+
+
+def _proveedor_para_medir():
+    from gpmc.agentes import crear_proveedor
+    return crear_proveedor()
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -135,6 +164,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     diag = sub.add_parser("diagnostico", help="herramientas de diagnóstico")
     diag.add_argument("--sintaxis", action="store_true", help="genera archivos de prueba empírica de sintaxis")
     diag.add_argument("-o", "--salida", type=Path, default=Path("diagnostico-sintaxis"), help="carpeta de salida")
+
+    med = sub.add_parser("medir-ia", help="mide el generador de IA sobre una carpeta de expedientes")
+    med.add_argument("carpeta", type=Path, help="carpeta con un subdirectorio por expediente")
+    med.add_argument("--almacen", type=Path, default=None, help="donde escribir la bitacora (default: temporal)")
+    med.add_argument("--exportar", type=Path, default=None, help="copiar la bitacora-ia.jsonl a esta ruta")
 
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     if not args.orden:
@@ -297,6 +331,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 2
 
     if args.orden == "servir":
+        cargar_entorno()
         try:
             import uvicorn
         except ImportError:
@@ -364,6 +399,33 @@ def main(argv: Optional[list[str]] = None) -> int:
         for m_ in est.motivos:
             print(f"  - {m_}")
         print(f"\n{est.advertencia}")
+        return 0
+
+    if args.orden == "medir-ia":
+        cargar_entorno()
+        raiz = args.almacen or Path(tempfile.mkdtemp(prefix="gpmc-medir-"))
+        raiz.mkdir(parents=True, exist_ok=True)
+        prov = _proveedor_para_medir()
+        tot = [0, 0, 0, 0]
+        print(f"{'expediente':40} {'DIC-08':>7} {'acept.':>7} {'rechaz.':>8} {'declino':>8}")
+        for d in sorted(p for p in args.carpeta.iterdir() if p.is_dir()):
+            if not any(d.glob("*iccionario*")):
+                continue
+            r = extraer_expediente(d)
+            if r.manifiesto is None:
+                continue
+            props = proponer_lote(r.manifiesto, r.huecos, prov, raiz, "medir" + "0" * 11)
+            n = sum(1 for h in r.huecos if h.codigo == "DIC-08")
+            a = sum(1 for p in props if p.veredicto == "aceptable")
+            dec = sum(1 for p in props if p.veredicto == "modelo_declino")
+            rech = len(props) - a - dec
+            for i, v in enumerate((n, a, rech, dec)):
+                tot[i] += v
+            print(f"{d.name[:40]:40} {n:>7} {a:>7} {rech:>8} {dec:>8}")
+        print(f"{'TOTAL':40} {tot[0]:>7} {tot[1]:>7} {tot[2]:>8} {tot[3]:>8}")
+        if args.exportar and (raiz / RUTA_BITACORA).exists():
+            shutil.copy(raiz / RUTA_BITACORA, args.exportar)
+            print(f"Bitácora exportada a {args.exportar}")
         return 0
 
     if args.orden == "diagnostico":
