@@ -18,10 +18,37 @@ Deja el servicio registrado en `launchd`. A partir de ahí:
 ## Operación
 
 ```bash
-tail -f despliegue/servidor.log                        # bitácora
-launchctl bootout gui/$(id -u)/local.gpmc.servidor # detener
-./despliegue/instalar-servicio.sh                      # reinstalar tras actualizar
+tail -f ~/Library/Logs/gpmc/servidor.log            # bitácora
+launchctl bootout gui/$(id -u)/local.gpmc.servidor  # detener
+./despliegue/instalar-servicio.sh                   # reinstalar tras actualizar
 ```
+
+## Dónde vive cada cosa, y por qué fuera del repo
+
+| | Ruta | Por qué ahí |
+| --- | --- | --- |
+| Bitácora | `~/Library/Logs/gpmc/servidor.log` | **Obligatorio.** Si el repo cuelga de `~/Desktop`, `~/Documents` o `~/Downloads`, macOS no deja que `launchd` cree ahí los archivos de stdout/stderr del trabajo: el servicio muere con `EX_CONFIG` (78) en cada arranque, **sin escribir una sola línea que lo explique**. Lo que el propio proceso escriba después sí funciona; es solo la preparación del trabajo lo que se bloquea |
+| Sesiones | `~/Library/Application Support/gpmc/sesiones` | Sin `--almacen` las sesiones son temporales: se pierden al reiniciar, y este servicio tiene `KeepAlive`, o sea que se reinicia solo cuando se cae. Un analista a media revisión perdería su expediente. Fuera del repo, además, actualizar el código no se lleva por delante el trabajo de nadie |
+
+Las dos rutas se pueden cambiar con `GPMC_LOG` y `GPMC_ALMACEN` antes de instalar:
+
+```bash
+GPMC_ALMACEN=/ruta/que/prefieras ./despliegue/instalar-servicio.sh
+```
+
+## Comprobar que de verdad quedó
+
+El instalador ya no dice «instalado» por el hecho de que `launchd` acepte el
+trabajo: hace una petición real al puerto 8000 y, si no contesta, imprime el
+código de salida y qué revisar. Para comprobarlo a mano:
+
+```bash
+launchctl print gui/$(id -u)/local.gpmc.servidor | grep -E "state|last exit"
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/
+```
+
+Y que se levanta solo: `kill -9` al pid y volver a pedir la página. Vuelve en
+segundos.
 
 ## Frontend (SPA React)
 

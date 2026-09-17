@@ -13,6 +13,11 @@
     <string>0.0.0.0</string>
     <string>--puerto</string>
     <string>8000</string>
+    <!-- Sin esto las sesiones son temporales: se pierden al reiniciar, y este
+         servicio tiene KeepAlive, o sea que se reinicia solo cuando se cae.
+         Un analista a media revision perderia su expediente. -->
+    <string>--almacen</string>
+    <string>__ALMACEN__</string>
   </array>
 
   <key>WorkingDirectory</key>
@@ -33,9 +38,14 @@
     <string>/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin</string>
   </dict>
 
+  <!-- El log NO puede vivir dentro del repo si este cuelga de ~/Desktop,
+       ~/Documents o ~/Downloads: macOS no deja que un agente de launchd cree
+       ahi sus archivos de stdout/stderr, y el trabajo muere con EX_CONFIG (78)
+       antes de arrancar, sin dejar rastro. Lo que el propio proceso escriba
+       despues si funciona -- el almacen de sesiones puede estar donde sea. -->
   <key>StandardOutPath</key>
-  <string>__RUTA__/despliegue/servidor.log</string>
+  <string>__LOG__</string>
   <key>StandardErrorPath</key>
-  <string>__RUTA__/despliegue/servidor.log</string>
+  <string>__LOG__</string>
 </dict>
 </plist>
