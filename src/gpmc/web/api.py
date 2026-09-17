@@ -18,7 +18,9 @@ import shutil
 from pathlib import Path
 from typing import Annotated, List, Literal, Optional, Tuple, Union
 
-from fastapi import APIRouter, File, UploadFile
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, BackgroundTasks, File, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
@@ -35,6 +37,8 @@ from gpmc.nucleo.huecos import HuecoOut, bloquean
 from gpmc.nucleo.manifiesto import Conexion, Condicion, Manifiesto, guardar
 from gpmc.simulador.analisis import analizar
 from gpmc.web.reensamblado import reensamblar_flujo, rm_de_tobe
+from gpmc.agentes import crear_proveedor, proponer_dic08
+from gpmc.agentes.proveedor import NingunProveedor
 from gpmc.extractores.docx import a_markdown
 from gpmc.extractores import pdf as ext_pdf
 from gpmc.web.clasificador import clasificar
@@ -50,9 +54,11 @@ from gpmc.web.sesiones import (
     carpeta_de,
     compuertas_de,
     escribir_compuertas,
+    escribir_propuestas,
     escribir_reconocidos,
     huecos_vivos,
     manifiesto_de,
+    propuestas_de,
     reconocidos_de,
 )
 
@@ -73,6 +79,9 @@ class EstadoExpediente(BaseModel):
     # conserva —la puerta del .gpm sigue levantada— pero el wizard vuelve a
     # pintar el hueco como pendiente y el analista cree que perdio su trabajo.
     reconocidos: List[List[str]]
+    # True si el generador de IA corrio (o esta corriendo) para esta sesion:
+    # la SPA solo consulta /propuestas cuando vale la pena.
+    propuestas_pendientes: bool = False
 
 
 # Mismo mapeo tipo->codigo que usa el HTML `POST /resolver` para limpiar
@@ -166,6 +175,19 @@ class ClasificarOut(BaseModel):
     avisos: List[str] = []
 
 
+class PropuestasOut(BaseModel):
+    """Estado del generador de IA y las propuestas que vale la pena mostrar:
+    aceptables por el filtro determinista y todavia sin decision."""
+    estado: str                       # proponiendo | listo | error | sin_proveedor
+    motivo: Optional[str] = None
+    propuestas: List[dict] = []
+
+
+class DecisionIn(BaseModel):
+    decision: Literal["aceptada", "corregida", "descartada"]
+    condicion_final: Optional[Condicion] = None
+
+
 class ReconocerIn(BaseModel):
     """Cuerpo de `POST /api/v1/expedientes/{sid}/reconocer`."""
 
@@ -198,11 +220,37 @@ def _estado(sid: str, carpeta: Path, manifiesto) -> EstadoExpediente:
         tiene_vistas=(carpeta / ARCHIVO_VISTAS).exists(),
         adjuntos=adjuntos_de(carpeta),
         reconocidos=[list(t) for t in sorted(reconocidos_de(carpeta))],
+        propuestas_pendientes=(propuestas_de(carpeta) is not None),
     )
 
 
-def crear_router(raiz: Path) -> APIRouter:
+def crear_router(raiz: Path, proveedor=None) -> APIRouter:
     r = APIRouter(prefix="/api/v1")
+    # El proveedor de IA se inyecta (las pruebas pasan ProveedorFalso); sin
+    # inyeccion se lee del entorno. Sin configuracion, NingunProveedor: todo lo
+    # de abajo se comporta como si el generador no existiera.
+    _proveedor = proveedor if proveedor is not None else crear_proveedor()
+    _hay_ia = not isinstance(_proveedor, NingunProveedor)
+
+    def generar_propuestas(sid: str) -> None:
+        """Corre en BackgroundTasks tras responder POST /expedientes. Nunca
+        deja excepciones sin capturar: un fallo aqui es `estado=error`, no un
+        500 y no un bloqueo de la entrega."""
+        carpeta = carpeta_de(raiz, sid)
+        m = manifiesto_de(raiz, sid)
+        if carpeta is None or m is None:
+            return
+        try:
+            props = proponer_dic08(m, huecos_vivos(carpeta), _proveedor, raiz, sid)
+            escribir_propuestas(carpeta, {
+                "estado": "listo", "motivo": None,
+                "generadas": datetime.now(timezone.utc).isoformat(),
+                "propuestas": [p.model_dump(mode="json") for p in props]})
+        except Exception as exc:  # ErrorDeRed, RespuestaInvalida, o lo que sea
+            escribir_propuestas(carpeta, {
+                "estado": "error", "generadas": None, "propuestas": [],
+                "motivo": "No se pudieron generar propuestas con IA; puedes "
+                          f"resolver a mano. ({type(exc).__name__})"})
 
     @r.post("/clasificar", response_model=ClasificarOut)
     async def clasificar_carpeta(cuerpo: ClasificarIn):
@@ -218,6 +266,7 @@ def crear_router(raiz: Path) -> APIRouter:
 
     @r.post("/expedientes", status_code=201, response_model=EstadoExpediente)
     async def crear_expediente(
+        tareas: BackgroundTasks,
         as_is: UploadFile = File(None),
         to_be: UploadFile = File(None),
         diccionario: UploadFile = File(...),
@@ -344,6 +393,10 @@ def crear_router(raiz: Path) -> APIRouter:
                 ensure_ascii=False),
             encoding="utf-8",
         )
+        if _hay_ia and any(h.codigo == "DIC-08" for h in res.huecos):
+            escribir_propuestas(carpeta, {"estado": "proponiendo", "motivo": None,
+                                          "generadas": None, "propuestas": []})
+            tareas.add_task(generar_propuestas, sid)
         return _estado(sid, carpeta, res.manifiesto)
 
     @r.get("/expedientes/{sid}", response_model=EstadoExpediente)
@@ -699,6 +752,36 @@ def crear_router(raiz: Path) -> APIRouter:
             huecos=[HuecoOut.desde(h) for h in huecos_vivos(carpeta)],
             reconocidos=[list(t) for t in sorted(rec)],
         )
+
+    @r.get("/expedientes/{sid}/propuestas", response_model=PropuestasOut)
+    async def leer_propuestas(sid: str):
+        carpeta = carpeta_de(raiz, sid)
+        if carpeta is None:
+            return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
+        d = propuestas_de(carpeta)
+        if d is None:
+            return PropuestasOut(estado="sin_proveedor")
+        visibles = [p for p in d.get("propuestas", [])
+                    if p.get("veredicto") == "aceptable" and p.get("decision") is None]
+        return PropuestasOut(estado=d["estado"], motivo=d.get("motivo"), propuestas=visibles)
+
+    @r.post("/expedientes/{sid}/propuestas/{pid}/decision")
+    async def decidir_propuesta(sid: str, pid: str, cuerpo: DecisionIn):
+        """Solo anota. El manifiesto lo escribe /resolver, nunca esto."""
+        carpeta = carpeta_de(raiz, sid)
+        if carpeta is None:
+            return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
+        d = propuestas_de(carpeta) or {"estado": "sin_proveedor", "propuestas": []}
+        p = next((x for x in d["propuestas"] if x.get("id") == pid), None)
+        if p is None:
+            return JSONResponse(status_code=404, content={"error": "propuesta no encontrada"})
+        if p.get("decision") is not None:
+            return JSONResponse(status_code=409, content={"error": "la propuesta ya tenía decisión"})
+        p["decision"] = cuerpo.decision
+        p["condicion_final"] = cuerpo.condicion_final.model_dump() if cuerpo.condicion_final else None
+        p["decidida"] = datetime.now(timezone.utc).isoformat()
+        escribir_propuestas(carpeta, d)
+        return {"ok": True}
 
     @r.get("/expedientes/{sid}/gpm")
     async def descargar_gpm(sid: str, modo: str = "produccion"):

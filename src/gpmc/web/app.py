@@ -58,7 +58,7 @@ _CSP_SPA = (
 )
 
 
-def crear_app(almacen: Optional[Path] = None) -> FastAPI:
+def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
     raiz = Path(almacen) if almacen else Path(tempfile.mkdtemp(prefix="gpmc-"))
     raiz.mkdir(parents=True, exist_ok=True)
     _purgar_sesiones(raiz)
@@ -67,7 +67,7 @@ def crear_app(almacen: Optional[Path] = None) -> FastAPI:
     # Import local (no top-level): api.py importa de gpmc.web.sesiones, y app.py
     # es quien incluye el router. El import aqui dentro evita el ciclo de modulos.
     from gpmc.web.api import crear_router
-    app.include_router(crear_router(raiz))
+    app.include_router(crear_router(raiz, proveedor=proveedor))
 
     @app.middleware("http")
     async def _cabeceras_seguras(request, call_next):

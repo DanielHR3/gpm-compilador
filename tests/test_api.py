@@ -753,3 +753,96 @@ def test_clasificar_avisa_de_lo_que_no_pudo_decidir(tmp_path):
     b = r.json()
     assert b["diccionario"] is None
     assert any("Diccionario" in a for a in b["avisos"]), b["avisos"]
+
+
+# ── Fase 2: propuestas de IA para DIC-08 ──
+#
+# Se usa `_VIS` (ya importado arriba), el Diccionario del repo que produce un
+# DIC-08 real: `p1::nota_rara`, con `tipo_solicitante` (persona_fisica /
+# persona_moral) capturado en la misma pantalla como candidato.
+import json as _json
+
+_UBIC = "p1::nota_rara"
+
+
+def _respuesta_ok_api():
+    return _json.dumps({"propuestas": [
+        {"ubicacion": _UBIC,
+         "condicion": {"campo": "tipo_solicitante", "operador": "==", "igual": "Persona moral", "y": []},
+         "motivo": None, "confianza": "alta"}]})
+
+
+def _cli_con_proveedor(tmp_path, respuestas):
+    from gpmc.agentes.proveedor import ProveedorFalso
+    return TestClient(crear_app(almacen=tmp_path, proveedor=ProveedorFalso(respuestas)))
+
+
+def _subir(c):
+    return c.post("/api/v1/expedientes", files={"diccionario": ("dd.md", _VIS.encode("utf-8"), "text/markdown")})
+
+
+def test_sin_proveedor_no_hay_propuestas_y_el_estado_no_cambia(tmp_path):
+    c = _cli(tmp_path)
+    r = _subir(c)
+    assert r.status_code == 201
+    assert r.json()["propuestas_pendientes"] is False
+    sid = r.json()["sid"]
+    assert not (tmp_path / sid / "propuestas.json").exists()
+    g = c.get(f"/api/v1/expedientes/{sid}/propuestas")
+    assert g.status_code == 200 and g.json() == {"estado": "sin_proveedor", "motivo": None, "propuestas": []}
+
+
+def test_con_proveedor_se_generan_en_segundo_plano_y_se_leen(tmp_path):
+    c = _cli_con_proveedor(tmp_path, [_respuesta_ok_api()])
+    r = _subir(c)
+    assert r.status_code == 201, r.text
+    assert any(h["codigo"] == "DIC-08" and h["ubicacion"] == _UBIC for h in r.json()["huecos"])
+    assert r.json()["propuestas_pendientes"] is True
+    sid = r.json()["sid"]
+    # TestClient corre BackgroundTasks antes de devolver: ya esta listo
+    g = c.get(f"/api/v1/expedientes/{sid}/propuestas").json()
+    assert g["estado"] == "listo", g
+    assert len(g["propuestas"]) == 1
+    p = g["propuestas"][0]
+    assert p["ubicacion"] == _UBIC and p["veredicto"] == "aceptable"
+    assert p["cita"]["texto"].startswith("Visible y obligatoria cuando")
+    assert p["cita"]["campo"] == "nota_rara" and p["cita"]["pantalla_nombre"] == "Datos"
+    # normalizado al valor tecnico del catalogo, no a lo que escribio el modelo
+    assert p["condicion"] == {"campo": "tipo_solicitante", "igual": "persona_moral", "operador": "==", "y": []}
+
+
+def test_respuesta_invalida_deja_estado_error_sin_bloquear(tmp_path):
+    c = _cli_con_proveedor(tmp_path, ["no json"])
+    sid = _subir(c).json()["sid"]
+    g = c.get(f"/api/v1/expedientes/{sid}/propuestas").json()
+    assert g["estado"] == "error" and g["propuestas"] == [] and g["motivo"]
+    # y el flujo normal sigue: resolver a mano funciona
+    rr = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": _UBIC, "condicion": {"campo": "es_persona_moral", "igual": "si"}}]})
+    assert rr.status_code == 200, rr.text
+
+
+def test_decision_se_anota_y_no_toca_el_manifiesto(tmp_path):
+    c = _cli_con_proveedor(tmp_path, [_respuesta_ok_api()])
+    sid = _subir(c).json()["sid"]
+    pid = c.get(f"/api/v1/expedientes/{sid}/propuestas").json()["propuestas"][0]["id"]
+    antes = c.get(f"/api/v1/expedientes/{sid}").json()["manifiesto"]
+    d = c.post(f"/api/v1/expedientes/{sid}/propuestas/{pid}/decision",
+               json={"decision": "descartada", "condicion_final": None})
+    assert d.status_code == 200 and d.json() == {"ok": True}
+    assert c.get(f"/api/v1/expedientes/{sid}").json()["manifiesto"] == antes
+    assert c.get(f"/api/v1/expedientes/{sid}/propuestas").json()["propuestas"] == []
+    assert c.post(f"/api/v1/expedientes/{sid}/propuestas/{pid}/decision",
+                  json={"decision": "aceptada", "condicion_final": None}).status_code == 409
+    assert c.post(f"/api/v1/expedientes/{sid}/propuestas/no-existe/decision",
+                  json={"decision": "aceptada", "condicion_final": None}).status_code == 404
+
+
+def test_propuestas_rechazadas_por_filtro_no_se_listan(tmp_path):
+    malo = _json.dumps({"propuestas": [
+        {"ubicacion": _UBIC, "condicion": {"campo": "no_existe", "operador": "==", "igual": "x", "y": []},
+         "motivo": None, "confianza": "alta"}]})
+    c = _cli_con_proveedor(tmp_path, [malo])
+    sid = _subir(c).json()["sid"]
+    g = c.get(f"/api/v1/expedientes/{sid}/propuestas").json()
+    assert g["estado"] == "listo" and g["propuestas"] == []
