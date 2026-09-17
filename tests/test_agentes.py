@@ -386,3 +386,21 @@ def test_real_gemini_propone_sobre_el_expediente_de_ejemplo(tmp_path):
     r = extraer_expediente(carpeta)
     props = proponer_lote(r.manifiesto, r.huecos, crear_proveedor(), tmp_path, "r" * 16)
     assert isinstance(props, list)
+
+
+# ── Gemini: el SDK no acepta JSON Schema con tipos union; usa nullable ──
+def test_esquema_gemini_traduce_uniones_con_null_a_nullable():
+    from gpmc.agentes.gemini import _esquema_gemini
+    from gpmc.agentes.prompt import ESQUEMA_DIC08
+    g = _esquema_gemini(ESQUEMA_DIC08)
+    item = g["properties"]["propuestas"]["items"]
+    # "motivo": {"type": ["string","null"]}  ->  {"type": "string", "nullable": true}
+    assert item["properties"]["motivo"] == {"type": "string", "nullable": True}
+    # "condicion": {"anyOf": [null, {...}]}  ->  el objeto, con nullable
+    cond = item["properties"]["condicion"]
+    assert "anyOf" not in cond and cond["type"] == "object" and cond["nullable"] is True
+    assert set(cond["required"]) == {"campo", "operador", "igual", "y"}
+    # lo que no era union no cambia
+    assert item["properties"]["confianza"]["enum"] == ["alta", "media", "baja"]
+    # y no muta el original
+    assert ESQUEMA_DIC08["properties"]["propuestas"]["items"]["properties"]["motivo"]["type"] == ["string", "null"]

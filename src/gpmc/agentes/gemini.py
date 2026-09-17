@@ -10,6 +10,36 @@ import time
 from gpmc.agentes.proveedor import ErrorDeRed, RespuestaInvalida, Respuesta
 
 
+def _esquema_gemini(esquema):
+    """JSON Schema estandar -> el dialecto que acepta `response_schema` de Gemini.
+
+    El SDK valida el esquema con pydantic ANTES de llamar a la red y rechaza los
+    tipos union: `"type": ["string", "null"]` y `anyOf: [null, X]`. Gemini
+    expresa lo mismo con `nullable: true` y un solo `type`. OpenAI si acepta el
+    estandar, asi que `prompt.py` se queda con el estandar y aqui se traduce.
+    Devuelve una copia; no muta el original. Lo destapo la primera llamada
+    real: ProveedorFalso no podia verlo.
+    """
+    if isinstance(esquema, list):
+        return [_esquema_gemini(e) for e in esquema]
+    if not isinstance(esquema, dict):
+        return esquema
+    e = {k: _esquema_gemini(v) for k, v in esquema.items()}
+    if isinstance(e.get("type"), list):
+        tipos = [t for t in e["type"] if t != "null"]
+        if len(tipos) == 1 and len(tipos) < len(e["type"]):
+            e["type"], e["nullable"] = tipos[0], True
+    if "anyOf" in e:
+        ramas = e.pop("anyOf")
+        no_nulas = [r for r in ramas if r.get("type") != "null"]
+        if len(no_nulas) == 1 and len(no_nulas) < len(ramas):
+            base = dict(no_nulas[0]); base["nullable"] = True
+            e = {**base, **{k: v for k, v in e.items() if k not in base}}
+        else:
+            e["anyOf"] = ramas
+    return e
+
+
 class ProveedorGemini:
     nombre = "gemini"
 
@@ -29,7 +59,7 @@ class ProveedorGemini:
                 config=self._types.GenerateContentConfig(
                     system_instruction=instrucciones,
                     response_mime_type="application/json",
-                    response_schema=esquema,
+                    response_schema=_esquema_gemini(esquema),
                     temperature=0.1,
                 ),
             )
