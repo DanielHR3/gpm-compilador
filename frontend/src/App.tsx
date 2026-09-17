@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import AppHeader from "@/components/AppHeader";
 import NavegacionLateral from "@/components/NavegacionLateral";
+import PieInstitucional from "@/components/PieInstitucional";
 import { Toaster } from "@/components/ui/sonner";
 import CargaInsumos from "@/features/carga/CargaInsumos";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
@@ -59,6 +60,7 @@ export default function App() {
             <CargaInsumos onListo={setEst} />
           )}
         </main>
+        <PieInstitucional />
       </div>
     </div>
   );
