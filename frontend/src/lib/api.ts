@@ -16,6 +16,7 @@ import type {
   EstadoExpediente,
   EstructuraCompuerta,
   Hueco,
+  PropuestasOut,
   Resolucion,
 } from "./types";
 
@@ -120,6 +121,7 @@ function mapEstado(raw: unknown): EstadoExpediente {
     tiene_vistas: boolean;
     reconocidos?: [string, string][];
     adjuntos?: Adjunto[];
+    propuestas_pendientes?: boolean;
   };
   return {
     sid: o.sid,
@@ -131,6 +133,8 @@ function mapEstado(raw: unknown): EstadoExpediente {
     // Un servidor viejo no lo manda: se cae a vacio en vez de reventar.
     reconocidos: o.reconocidos ?? [],
     adjuntos: o.adjuntos ?? [],
+    // Un servidor viejo no lo manda: sin propuestas, como siempre.
+    propuestasPendientes: o.propuestas_pendientes ?? false,
   };
 }
 
@@ -342,4 +346,27 @@ export function urlManifiesto(sid: string): string {
  */
 export function urlAdjunto(sid: string, nombre: string): string {
   return `${BASE}/expedientes/${sid}/adjuntos/${encodeURIComponent(nombre)}`;
+}
+
+/** `GET /api/v1/expedientes/{sid}/propuestas` — estado del generador y propuestas aceptables sin decidir. */
+export async function leerPropuestas(sid: string): Promise<PropuestasOut> {
+  return pedirJson<PropuestasOut>(`${BASE}/expedientes/${sid}/propuestas`);
+}
+
+/**
+ * Anota qué hizo el analista con una propuesta. NO escribe en el manifiesto:
+ * eso lo hace `resolverDic08`, que se llama antes. Si este registro falla,
+ * la resolución ya quedó; es el registro lo que se reintenta.
+ */
+export async function decidirPropuesta(
+  sid: string,
+  id: string,
+  decision: "aceptada" | "corregida" | "descartada",
+  condicionFinal?: Condicion | null,
+): Promise<{ ok: true }> {
+  return pedirJson<{ ok: true }>(`${BASE}/expedientes/${sid}/propuestas/${id}/decision`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ decision, condicion_final: condicionFinal ?? null }),
+  });
 }
