@@ -196,7 +196,11 @@ export default function TarjetaHueco({
   } else if (hueco.codigo === "DIC-08") {
     control = (
       <div className="flex flex-col gap-2">
+        {/* `key`: ControlVisibilidad toma `propuesta` al montar. Las tarjetas se
+            montan ANTES de que el generador termine, asi que cuando la
+            propuesta llega el control se remonta prellenado. */}
         <ControlVisibilidad
+          key={propuesta ? propuesta.id : "manual"}
           hueco={hueco}
           sid={sid}
           manifiesto={manifiesto}

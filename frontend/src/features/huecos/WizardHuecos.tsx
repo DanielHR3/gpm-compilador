@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { Progress } from "@/components/ui/progress";
 import Instrucciones from "@/components/Instrucciones";
 import { cn } from "cn";
-import type { EstadoExpediente, Hueco } from "@/lib/types";
+import { leerPropuestas } from "@/lib/api";
+import type { EstadoExpediente, Hueco, Propuesta, PropuestasOut } from "@/lib/types";
 
 import { agruparPorNivel } from "./agrupar";
 import Adjuntos from "./Adjuntos";
@@ -61,6 +62,42 @@ export default function WizardHuecos({
   // La lista original nunca encoge: es la que numera el indice del modo foco.
   const [huecosOriginales] = useState<Hueco[]>(estado.huecos);
   const [totalInicial] = useState<number>(estado.huecos.length);
+
+  // Propuestas del generador de IA, por ubicacion. Solo se consulta si el
+  // servidor dijo que las hay pendientes; sin eso, cero llamadas.
+  const [propuestas, setPropuestas] = useState<Map<string, Propuesta>>(new Map());
+  const [estadoIA, setEstadoIA] = useState<PropuestasOut["estado"] | null>(
+    estado.propuestasPendientes ? "proponiendo" : null,
+  );
+  const [motivoIA, setMotivoIA] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!estado.propuestasPendientes) return;
+    let vivo = true;
+    let intentos = 0;
+    const consultar = async () => {
+      try {
+        const r = await leerPropuestas(estado.sid);
+        if (!vivo) return;
+        setEstadoIA(r.estado);
+        setMotivoIA(r.motivo);
+        if (r.estado === "proponiendo" && intentos++ < 30) {
+          setTimeout(consultar, 2000);
+          return;
+        }
+        setPropuestas(new Map(r.propuestas.map((p) => [p.ubicacion, p])));
+      } catch {
+        if (vivo) {
+          setEstadoIA("error");
+          setMotivoIA("No se pudieron consultar las propuestas.");
+        }
+      }
+    };
+    void consultar();
+    return () => {
+      vivo = false;
+    };
+  }, [estado.sid, estado.propuestasPendientes]);
 
   // La tarjeta resuelta se retiene un instante para que pueda salir animada;
   // el conteo y la puerta del linter siguen mirando `huecos`, no esta lista.
@@ -186,6 +223,16 @@ export default function WizardHuecos({
               quede ninguno sin decidir, se abre el paso 4.
             </p>
           </Instrucciones>
+          {estadoIA === "proponiendo" ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              Proponiendo condiciones con IA…
+            </p>
+          ) : null}
+          {estadoIA === "error" && motivoIA ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              {motivoIA}
+            </p>
+          ) : null}
           <Progress value={progreso} />
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{resueltos}</span> de{" "}
@@ -264,6 +311,7 @@ export default function WizardHuecos({
                 manifiesto={manifiesto}
                 sid={estado.sid}
                 onResuelto={onResuelto}
+                propuesta={propuestas.get(foco.actual.ubicacion) ?? null}
               />
             </div>
           </>
@@ -308,6 +356,7 @@ export default function WizardHuecos({
                     manifiesto={manifiesto}
                     sid={estado.sid}
                     onResuelto={onResuelto}
+                    propuesta={propuestas.get(h.ubicacion) ?? null}
                   />
                 </div>
               );

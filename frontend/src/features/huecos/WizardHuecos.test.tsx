@@ -5,6 +5,12 @@ import { Toaster } from "@/components/ui/sonner";
 import WizardHuecos from "./WizardHuecos";
 
 vi.mock("@/lib/api", () => ({
+  camposDelManifiesto: () => [],
+  resolverDic08: vi.fn(),
+  leerCompuerta: vi.fn(),
+  resolverCompuertaCampo: vi.fn(),
+  resolverCompuertaRamas: vi.fn(),
+  ErrorApi: class ErrorApi extends Error {},
   leerPropuestas: vi.fn(),
   decidirPropuesta: vi.fn(),
   resolver: vi.fn(), reconocer: vi.fn(),
@@ -320,4 +326,71 @@ it("con la puerta abierta, el riel dice cuál .gpm es cuál", () => {
   const riel = screen.getByRole("complementary", { name: /entrega/i });
   expect(within(riel).getByText(/es el que se importa de verdad/)).toBeInTheDocument();
   expect(within(riel).getByText(/sin llenar nada/)).toBeInTheDocument();
+});
+
+// ── Fase 2: propuestas del generador de IA ──
+const dic08IA = {
+  nivel: "falta_dato",
+  codigo: "DIC-08",
+  ubicacion: "p1::rfc",
+  mensaje:
+    "la condición de visibilidad de 'RFC' (rfc) no se pudo interpretar: «Solo si es moral»; configúrala a mano",
+  propuesta: null,
+};
+const propuestaListaIA = {
+  estado: "listo",
+  motivo: null,
+  propuestas: [
+    {
+      id: "p1",
+      ubicacion: "p1::rfc",
+      condicion: { campo: "es_moral", igual: "si", operador: "==", y: [] },
+      motivo_modelo: null,
+      confianza: "alta",
+      cita: {
+        fuente: "Diccionario de Datos",
+        pantalla: "p1",
+        pantalla_nombre: "Datos",
+        campo: "rfc",
+        texto: "Solo si es moral",
+      },
+      veredicto: "aceptable",
+      decision: null,
+      condicion_final: null,
+      creada: "",
+      decidida: null,
+    },
+  ],
+};
+
+it("sin propuestas pendientes no consulta al servidor", async () => {
+  const { leerPropuestas } = await import("@/lib/api");
+  vi.mocked(leerPropuestas as any).mockClear();
+  render(<WizardHuecos estado={{ ...estado, propuestasPendientes: false } as any} onEstado={() => {}} />);
+  expect(leerPropuestas).not.toHaveBeenCalled();
+});
+
+it("mientras propone lo dice, y al terminar prellena la tarjeta DIC-08", async () => {
+  const { leerPropuestas } = await import("@/lib/api");
+  vi.mocked(leerPropuestas as any)
+    .mockReset()
+    .mockResolvedValueOnce({ estado: "proponiendo", motivo: null, propuestas: [] })
+    .mockResolvedValueOnce(propuestaListaIA);
+  render(
+    <WizardHuecos
+      estado={{ ...estado, huecos: [dic08IA], propuestasPendientes: true } as any}
+      onEstado={() => {}}
+    />,
+  );
+  expect(await screen.findByText(/Proponiendo condiciones con IA/)).toBeInTheDocument();
+  expect(await screen.findByText(/Propuesto a partir de/, {}, { timeout: 4000 })).toBeInTheDocument();
+});
+
+it("si el generador falla, avisa y sigue en modo manual", async () => {
+  const { leerPropuestas } = await import("@/lib/api");
+  vi.mocked(leerPropuestas as any)
+    .mockReset()
+    .mockResolvedValue({ estado: "error", motivo: "No se pudieron generar propuestas", propuestas: [] });
+  render(<WizardHuecos estado={{ ...estado, propuestasPendientes: true } as any} onEstado={() => {}} />);
+  expect(await screen.findByText(/No se pudieron generar propuestas/)).toBeInTheDocument();
 });
