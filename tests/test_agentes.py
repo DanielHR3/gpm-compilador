@@ -217,3 +217,30 @@ def test_verificar_campo_sin_catalogo_acepta_cualquier_valor():
     m = _manifiesto_dos_pantallas()
     v, c = verificar(_cond("rfc", "XAXX010101000"), "p2::domicilio_fiscal", m)
     assert v == "aceptable" and c.igual == "XAXX010101000"
+
+
+# ── Tarea 5: bitacora de interaccion ──
+def test_bitacora_es_append_only_y_vive_en_la_raiz(tmp_path):
+    from gpmc.agentes.bitacora import Interaccion, registrar, leer, RUTA_BITACORA
+    it = Interaccion(sid="a" * 16, proveedor="falso", modelo="falso", version_prompt="dic08-v1",
+                     solicitud={"huecos": ["p1::x"], "n_campos": 2, "n_caracteres": 100},
+                     instruccion_hash="abc", respuesta='{"propuestas":[]}',
+                     tokens_entrada=25, tokens_salida=4, duracion_ms=12, estado="procesada")
+    registrar(tmp_path, it)
+    # Una segunda interaccion distinta: cada una lleva su propio id.
+    registrar(tmp_path, Interaccion(**{**it.model_dump(), "id": "b" * 32}))
+    ruta = tmp_path / RUTA_BITACORA
+    assert ruta.exists() and len(ruta.read_text(encoding="utf-8").splitlines()) == 2
+    filas = leer(tmp_path)
+    assert filas[0]["sistema_origen"] == "gpm-compilador"
+    assert filas[0]["usuario"] == "anonimo"
+    for campo in ("id", "timestamp", "sid", "proveedor", "modelo", "version_prompt", "solicitud",
+                  "instruccion_hash", "respuesta", "tokens_entrada", "tokens_salida",
+                  "duracion_ms", "estado", "alertas"):
+        assert campo in filas[0]
+    assert filas[0]["id"] != filas[1]["id"]
+
+
+def test_bitacora_sin_archivo_lee_vacio(tmp_path):
+    from gpmc.agentes.bitacora import leer
+    assert leer(tmp_path) == []
