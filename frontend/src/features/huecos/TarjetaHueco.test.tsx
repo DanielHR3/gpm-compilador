@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 
 vi.mock("@/lib/api", () => ({
+  leerPropuestas: vi.fn(),
+  decidirPropuesta: vi.fn(),
   resolver: vi.fn(),
   reconocer: vi.fn().mockResolvedValue({ huecos: [], reconocidos: [] }),
   resolverDic08: vi.fn(),

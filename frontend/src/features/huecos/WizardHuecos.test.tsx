@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/sonner";
 import WizardHuecos from "./WizardHuecos";
 
 vi.mock("@/lib/api", () => ({
+  leerPropuestas: vi.fn(),
+  decidirPropuesta: vi.fn(),
   resolver: vi.fn(), reconocer: vi.fn(),
   urlGpm: () => "/api/v1/x/gpm", urlManifiesto: () => "/api/v1/x/manifiesto",
 }));

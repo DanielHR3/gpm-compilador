@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "cn";
-import { reconocer, resolver } from "@/lib/api";
+import { decidirPropuesta, reconocer, resolver } from "@/lib/api";
 
 import { tituloDeCodigo } from "./lenguaje";
 
@@ -14,7 +14,7 @@ import { tituloDeCodigo } from "./lenguaje";
  * crudo no se pierde, vive en el detalle tecnico del propio control.
  */
 const CONTROL_REDACTA_EL_MENSAJE = new Set(["DIC-08", "MMD-03", "MMD-04"]);
-import type { Hueco, Resolucion } from "@/lib/types";
+import type { Hueco, Propuesta, Resolucion } from "@/lib/types";
 
 /** Color de acento por severidad -- solo estos tres niveles existen hoy. */
 const ACENTO_NIVEL: Record<Hueco["nivel"], string> = {
@@ -101,6 +101,7 @@ export default function TarjetaHueco({
   sid,
   onResuelto,
   ultimoActor = "",
+  propuesta = null,
 }: {
   hueco: Hueco;
   manifiesto: Record<string, unknown>;
@@ -108,6 +109,8 @@ export default function TarjetaHueco({
   /** Actor elegido en el MMD-03 anterior; se propone ya seleccionado. */
   ultimoActor?: string;
   onResuelto: (nuevo: RespuestaResuelto, hueco: Hueco, valor?: string) => void;
+  /** Propuesta del generador de IA para este DIC-08, si la hay. */
+  propuesta?: Propuesta | null;
 }) {
   // El wizard necesita saber CUAL hueco se resolvio para poder anunciarlo;
   // los controles siguen emitiendo solo la respuesta de la API.
@@ -198,6 +201,14 @@ export default function TarjetaHueco({
           sid={sid}
           manifiesto={manifiesto}
           onResuelto={reportar}
+          propuesta={propuesta}
+          onDecision={
+            propuesta
+              ? async (d, cf) => {
+                  await decidirPropuesta(sid, propuesta.id, d, cf ?? null);
+                }
+              : undefined
+          }
         />
         <button
           type="button"
