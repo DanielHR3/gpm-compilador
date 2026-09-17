@@ -5,3 +5,5 @@ que sale de este paquete es una *propuesta*: la escritura al manifiesto sigue
 siendo exclusivamente `POST /resolver`.
 """
 from gpmc.agentes.proveedor import crear_proveedor, hay_proveedor  # noqa: F401
+
+from gpmc.agentes.dic08 import proponer_lote as proponer_dic08  # noqa: F401,E402

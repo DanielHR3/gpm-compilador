@@ -244,3 +244,102 @@ def test_bitacora_es_append_only_y_vive_en_la_raiz(tmp_path):
 def test_bitacora_sin_archivo_lee_vacio(tmp_path):
     from gpmc.agentes.bitacora import leer
     assert leer(tmp_path) == []
+
+
+# ── Tarea 6: proponer_lote ──
+import json as _json
+
+
+def _respuesta_ok():
+    return _json.dumps({"propuestas": [
+        {"ubicacion": "p2::rfc", "condicion": {"campo": "es_moral", "operador": "==", "igual": "Sí", "y": []},
+         "motivo": None, "confianza": "alta"},
+    ]})
+
+
+def test_proponer_lote_devuelve_propuesta_verificada_con_cita(tmp_path):
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "Solo si es persona moral")]
+    props = proponer_lote(m, huecos, ProveedorFalso([_respuesta_ok()]), tmp_path, "s" * 16)
+    assert len(props) == 1
+    p = props[0]
+    assert p.veredicto == "aceptable"
+    assert p.condicion.campo == "es_moral" and p.condicion.igual == "si"
+    assert p.cita.texto == "Solo si es persona moral" and p.cita.campo == "rfc"
+    assert p.cita.pantalla_nombre == "Empresa"
+    assert p.decision is None
+
+
+def test_proponer_lote_sin_dic08_no_llama_al_modelo(tmp_path):
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso
+    pf = ProveedorFalso([])
+    assert proponer_lote(_manifiesto_dos_pantallas(), [], pf, tmp_path, "s" * 16) == []
+    assert pf.llamadas == 0
+
+
+def test_proponer_lote_registra_en_bitacora_pase_lo_que_pase(tmp_path):
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso, RespuestaInvalida
+    from gpmc.agentes.bitacora import leer
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "x")]
+    with pytest.raises(RespuestaInvalida):
+        proponer_lote(m, huecos, ProveedorFalso(["esto no es json"]), tmp_path, "s" * 16)
+    filas = leer(tmp_path)
+    assert len(filas) == 1 and filas[0]["estado"] == "error"
+    assert "respuesta_invalida" in filas[0]["alertas"]
+    assert filas[0]["respuesta"] == "esto no es json"
+
+
+def test_proponer_lote_marca_declino_y_sin_respuesta(tmp_path):
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "a"),
+              _dic08("p2::domicilio_fiscal", "Domicilio fiscal", "domicilio_fiscal", "b")]
+    resp = _json.dumps({"propuestas": [
+        {"ubicacion": "p2::rfc", "condicion": None, "motivo": "no nombra campo", "confianza": "baja"}]})
+    props = {p.ubicacion: p for p in proponer_lote(m, huecos, ProveedorFalso([resp]), tmp_path, "s" * 16)}
+    assert props["p2::rfc"].veredicto == "modelo_declino"
+    assert props["p2::rfc"].motivo_modelo == "no nombra campo"
+    assert props["p2::domicilio_fiscal"].veredicto == "sin_respuesta"
+
+
+def test_proponer_lote_descarta_ubicacion_inventada_con_alerta(tmp_path):
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.agentes.bitacora import leer
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "a")]
+    resp = _json.dumps({"propuestas": [
+        {"ubicacion": "p9::nada", "condicion": {"campo": "es_moral", "operador": "==", "igual": "si", "y": []},
+         "motivo": None, "confianza": "alta"}]})
+    props = proponer_lote(m, huecos, ProveedorFalso([resp]), tmp_path, "s" * 16)
+    assert [p.ubicacion for p in props] == ["p2::rfc"] and props[0].veredicto == "sin_respuesta"
+    assert "ubicacion_inventada" in leer(tmp_path)[0]["alertas"]
+
+
+def test_proponer_lote_reintenta_una_vez_ante_error_de_red(tmp_path):
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso, ErrorDeRed
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "a")]
+    pf = ProveedorFalso([])
+    with pytest.raises(ErrorDeRed):
+        proponer_lote(m, huecos, pf, tmp_path, "s" * 16)
+    assert pf.llamadas == 2   # la original y un reintento
+
+
+def test_proponer_lote_rechazada_por_filtro_no_es_aceptable(tmp_path):
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p1::estado", "Estado", "estado", "a")]
+    resp = _json.dumps({"propuestas": [
+        {"ubicacion": "p1::estado", "condicion": {"campo": "rfc", "operador": "==", "igual": "x", "y": []},
+         "motivo": None, "confianza": "alta"}]})
+    p = proponer_lote(m, huecos, ProveedorFalso([resp]), tmp_path, "s" * 16)[0]
+    assert p.veredicto == "campo_futuro" and p.condicion is None
