@@ -25,7 +25,7 @@ if [ ! -d "$RAIZ/.venv" ]; then
   echo "Preparando el entorno…"
   python3 -m venv "$RAIZ/.venv"
   "$RAIZ/.venv/bin/pip" install --quiet --upgrade pip
-  "$RAIZ/.venv/bin/pip" install --quiet -e "$RAIZ[web]"
+  "$RAIZ/.venv/bin/pip" install --quiet -e "$RAIZ[web,agentes]"
 fi
 
 # La SPA React se sirve desde / (frontend/dist/). Se recompila en cada
@@ -66,6 +66,7 @@ echo "  Manda esta liga al equipo:   http://$IP:8000"
 echo
 echo "  Ver bitacora:   tail -f '$LOG'"
 echo "  Sesiones en:    $ALMACEN"
+echo "  IA:             $([ -f "$HOME/.config/gpmc/entorno" ] && echo 'configurada en ~/.config/gpmc/entorno' || echo 'sin configurar (opcional)')"
 echo "  Detener:        launchctl bootout gui/$(id -u)/$ETIQUETA"
 echo
 echo "OJO: la IP cambia si la maquina se reconecta a otra red. Para que la liga"

@@ -415,3 +415,18 @@ bloqueantes**, todos con control o con "lo configuro a mano", y el `.gpm` sale.
 nodo a la `Tarea` real y es la vía para corregir a mano un actor mal leído. Las
 dos UI solo muestran el selector cuando el hueco es `falta_dato` (por nodo);
 sobre el colapsado mandarían `ubicacion="flujo"` y el backend contestaría 422.
+
+### 7. Agentes de IA — Fase 2, generador de DIC-08 (2026-09-17)
+
+`src/gpmc/agentes/` es el ÚNICO paquete que habla con un modelo. `nucleo/` no
+lo importa (prueba `test_el_nucleo_no_importa_agentes`). Contrato `Proveedor`
+con `ProveedorFalso` para pruebas —**ninguna prueba toca la red**— y dos reales
+(`gemini` pruebas, `openai_` licencia de Planeación). Flujo: `contexto_dic08`
+(solo prosa, candidatos anteriores y catálogo técnico; nunca "Ejemplo Real") →
+un lote, una llamada → `verificar` determinista (mismas reglas que `/resolver`
++ "no mirar al futuro") → `propuestas.json` por sesión + `bitacora-ia.jsonl`
+global append-only con los campos de la Licencia AI. **Nada de `agentes/`
+escribe en el manifiesto**: aceptar/corregir en la SPA llama `resolverDic08` y
+después `decidirPropuesta`. Sin `GPMC_IA_PROVEEDOR`/`GPMC_IA_LLAVE` (o
+`~/.config/gpmc/entorno`), todo se comporta como antes. Spec:
+`docs/superpowers/specs/2026-09-17-agentes-fase2-dic08-design.md`.
