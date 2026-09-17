@@ -15,6 +15,7 @@ from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.agentes.bitacora import RUTA_BITACORA
 from gpmc.agentes.dic08 import proponer_lote
+from gpmc.agentes.proveedor import ErrorDeRed, RespuestaInvalida
 from gpmc.nucleo.formato import escribir
 from gpmc.nucleo.huecos import NIVELES, bloquean
 from gpmc.nucleo.manifiesto import guardar
@@ -407,6 +408,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         raiz.mkdir(parents=True, exist_ok=True)
         prov = _proveedor_para_medir()
         tot = [0, 0, 0, 0]
+        errores = 0
         print(f"{'expediente':40} {'DIC-08':>7} {'acept.':>7} {'rechaz.':>8} {'declino':>8}")
         for d in sorted(p for p in args.carpeta.iterdir() if p.is_dir()):
             if not any(d.glob("*iccionario*")):
@@ -414,8 +416,14 @@ def main(argv: Optional[list[str]] = None) -> int:
             r = extraer_expediente(d)
             if r.manifiesto is None:
                 continue
-            props = proponer_lote(r.manifiesto, r.huecos, prov, raiz, "medir" + "0" * 11)
             n = sum(1 for h in r.huecos if h.codigo == "DIC-08")
+            try:
+                props = proponer_lote(r.manifiesto, r.huecos, prov, raiz, "medir" + "0" * 11)
+            except (ErrorDeRed, RespuestaInvalida) as exc:
+                # Una linea clara, no un traceback: la bitacora ya tiene el detalle.
+                print(f"{d.name[:40]:40} {n:>7}   error del proveedor: {str(exc)[:80]}")
+                errores += 1
+                continue
             a = sum(1 for p in props if p.veredicto == "aceptable")
             dec = sum(1 for p in props if p.veredicto == "modelo_declino")
             rech = len(props) - a - dec
@@ -426,6 +434,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.exportar and (raiz / RUTA_BITACORA).exists():
             shutil.copy(raiz / RUTA_BITACORA, args.exportar)
             print(f"Bitácora exportada a {args.exportar}")
+        if errores:
+            print(f"{errores} expediente(s) con error del proveedor; detalle en {raiz / RUTA_BITACORA}")
+            return 1
         return 0
 
     if args.orden == "diagnostico":
