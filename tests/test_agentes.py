@@ -343,3 +343,46 @@ def test_proponer_lote_rechazada_por_filtro_no_es_aceptable(tmp_path):
          "motivo": None, "confianza": "alta"}]})
     p = proponer_lote(m, huecos, ProveedorFalso([resp]), tmp_path, "s" * 16)[0]
     assert p.veredicto == "campo_futuro" and p.condicion is None
+
+
+# ── Tarea 7: proveedores reales (import perezoso) ──
+def test_crear_proveedor_gemini_sin_extra_cae_a_ninguno(monkeypatch):
+    """Sin `google-genai` instalado, no revienta: hay_proveedor() es False."""
+    import builtins
+    from gpmc.agentes.proveedor import crear_proveedor, NingunProveedor
+    real = builtins.__import__
+
+    def falso(name, *a, **k):
+        if name == "google" or name.startswith("google."):
+            raise ImportError(name)
+        return real(name, *a, **k)
+    monkeypatch.setattr(builtins, "__import__", falso)
+    p = crear_proveedor(entorno={"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k"})
+    assert isinstance(p, NingunProveedor)
+
+
+def test_crear_proveedor_openai_sin_extra_cae_a_ninguno(monkeypatch):
+    import builtins
+    from gpmc.agentes.proveedor import crear_proveedor, NingunProveedor
+    real = builtins.__import__
+
+    def falso(name, *a, **k):
+        if name == "openai" or name.startswith("openai."):
+            raise ImportError(name)
+        return real(name, *a, **k)
+    monkeypatch.setattr(builtins, "__import__", falso)
+    p = crear_proveedor(entorno={"GPMC_IA_PROVEEDOR": "openai", "GPMC_IA_LLAVE": "k"})
+    assert isinstance(p, NingunProveedor)
+
+
+@pytest.mark.red
+@pytest.mark.skipif(not __import__("os").environ.get("GPMC_IA_PRUEBA_REAL"),
+                    reason="prueba real: GPMC_IA_PRUEBA_REAL=1 y credenciales")
+def test_real_gemini_propone_sobre_el_expediente_de_ejemplo(tmp_path):
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import crear_proveedor
+    from gpmc.extractores.expediente import extraer_expediente
+    carpeta = Path(__file__).resolve().parents[1] / "ejemplos" / "expedientes" / "constancia-de-residencia"
+    r = extraer_expediente(carpeta)
+    props = proponer_lote(r.manifiesto, r.huecos, crear_proveedor(), tmp_path, "r" * 16)
+    assert isinstance(props, list)
