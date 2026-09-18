@@ -208,16 +208,24 @@ def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
         crudo = m.group(1).strip()
     if not crudo or crudo.upper() == "N/A":
         return [], False
-    if any(m in _babel(crudo) for m in MARCAS_PENDIENTE):
-        return [], True
     # Si es un catálogo por archivo, se maneja como un endpoint especial
     m_archivo = re.match(r"^(?:archivo|file)\s*[:\-]\s*(.+?\.csv)$", crudo, re.I)
     if m_archivo:
         # Esto se parsea en _clave_endpoint, aquí devolvemos lista vacía
         return [], False
-        
+
     partes = _partir_opciones(crudo)
+    # Una lista que parte en opciones gana sobre la marca de pendiente. La
+    # marca se buscaba como subcadena en toda la celda, y una etiqueta
+    # legitima que la contiene tumbaba el catalogo entero: Constancia de No
+    # Infraccion declara «En revisión, Pendiente de regularización, Concluido»
+    # y salia como DIC-02 falso por la palabra «Pendiente» de la segunda
+    # opcion (verificado 2026-09-18). Una celda que de verdad declara el
+    # catalogo como pendiente —«Pendiente de confirmar con la dependencia»—
+    # no parte en opciones, asi que sigue cayendo en la rama de abajo.
     if len(partes) < 2:
+        if any(m in _babel(crudo) for m in MARCAS_PENDIENTE):
+            return [], True
         return [], False
     return [
         OpcionCatalogo(etiqueta=p, valor=_babel(p).replace(" ", "_")) for p in partes
