@@ -152,3 +152,17 @@ def compuertas_de(carpeta: Path) -> dict:
 def escribir_compuertas(carpeta: Path, d: dict) -> None:
     (carpeta / "compuertas.json").write_text(
         json.dumps(d, ensure_ascii=False), encoding="utf-8")
+
+
+def propuestas_de(carpeta: Path):
+    """Estado y propuestas del generador de IA para esta sesion, o None si el
+    generador nunca corrio (sin proveedor)."""
+    ruta = carpeta / "propuestas.json"
+    if not ruta.exists():
+        return None
+    return json.loads(ruta.read_text(encoding="utf-8"))
+
+
+def escribir_propuestas(carpeta: Path, d: dict) -> None:
+    (carpeta / "propuestas.json").write_text(
+        json.dumps(d, ensure_ascii=False), encoding="utf-8")

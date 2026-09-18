@@ -222,3 +222,51 @@ def test_servir_sin_almacen_no_fija_ninguno(tmp_path, monkeypatch):
 
     assert main(["servir"]) == 0
     assert vistos["almacen"] is None
+
+
+# ── Fase 2: entorno fuera del repo y medir-ia ──
+def test_cargar_entorno_lee_clave_valor_sin_pisar_lo_existente(tmp_path, monkeypatch):
+    import os
+    from gpmc.cli import cargar_entorno
+    f = tmp_path / "entorno"
+    f.write_text("# comentario\nGPMC_IA_PROVEEDOR=gemini\nGPMC_IA_LLAVE = abc\n", encoding="utf-8")
+    monkeypatch.delenv("GPMC_IA_PROVEEDOR", raising=False)
+    monkeypatch.setenv("GPMC_IA_LLAVE", "ya-estaba")
+    assert cargar_entorno(f) == 1
+    assert os.environ["GPMC_IA_PROVEEDOR"] == "gemini" and os.environ["GPMC_IA_LLAVE"] == "ya-estaba"
+
+
+def test_cargar_entorno_sin_archivo_es_cero(tmp_path):
+    from gpmc.cli import cargar_entorno
+    assert cargar_entorno(tmp_path / "no-existe") == 0
+
+
+def test_medir_ia_reporta_tabla_con_proveedor_falso(tmp_path, capsys, monkeypatch):
+    import json
+    from pathlib import Path
+    from gpmc import cli
+    from gpmc.agentes.proveedor import ProveedorFalso
+    ejemplos = Path(__file__).resolve().parents[1] / "ejemplos" / "expedientes"
+    resp = json.dumps({"propuestas": []})
+    monkeypatch.setattr(cli, "_proveedor_para_medir", lambda: ProveedorFalso([resp] * 20))
+    assert cli.main(["medir-ia", str(ejemplos), "--almacen", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "TOTAL" in out and "DIC-08" in out
+
+
+def test_medir_ia_con_proveedor_caido_avisa_sin_traceback(tmp_path, capsys, monkeypatch):
+    """Un 401 o una caida de red no deben salir como traceback: una linea
+    clara por expediente y codigo de salida 1."""
+    import sys
+    from pathlib import Path
+    from gpmc import cli
+    from gpmc.agentes.proveedor import ProveedorFalso
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from tests.test_extractor_diccionario import _VIS
+    (tmp_path / "exp").mkdir(); (tmp_path / "exp" / "Diccionario de Datos.md").write_text(_VIS, encoding="utf-8")
+    monkeypatch.setattr(cli, "_proveedor_para_medir", lambda: ProveedorFalso([]))  # guion vacio = red caida
+    rc = cli.main(["medir-ia", str(tmp_path), "--almacen", str(tmp_path / "alm")])
+    out = capsys.readouterr()
+    assert rc == 1
+    assert "error del proveedor" in out.out and "guion agotado" in out.out
+    assert "Traceback" not in out.err

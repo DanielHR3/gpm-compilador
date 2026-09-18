@@ -47,6 +47,8 @@ export type EstadoExpediente = {
    */
   reconocidos: [string, string][];
   adjuntos: Adjunto[];
+  /** True si el generador de IA corrió (o corre) para esta sesión. */
+  propuestasPendientes: boolean;
 };
 
 /**
@@ -112,4 +114,33 @@ export type CampoManifiesto = {
   nombre: string;
   etiqueta: string;
   catalogo: { etiqueta: string; valor: string }[];
+};
+
+export type Cita = {
+  fuente: "Diccionario de Datos";
+  pantalla: string;
+  pantalla_nombre: string;
+  campo: string;
+  texto: string;
+};
+
+/** Propuesta del generador de IA para un DIC-08. Solo llegan las aceptables sin decisión. */
+export type Propuesta = {
+  id: string;
+  ubicacion: string;
+  condicion: Condicion | null;
+  motivo_modelo: string | null;
+  confianza: "alta" | "media" | "baja";
+  cita: Cita;
+  veredicto: string;
+  decision: "aceptada" | "corregida" | "descartada" | null;
+  condicion_final: Condicion | null;
+  creada: string;
+  decidida: string | null;
+};
+
+export type PropuestasOut = {
+  estado: "proponiendo" | "listo" | "error" | "sin_proveedor";
+  motivo: string | null;
+  propuestas: Propuesta[];
 };

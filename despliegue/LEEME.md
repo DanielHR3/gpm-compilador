@@ -107,3 +107,28 @@ find "${TMPDIR:-/tmp}"/gpmc-* -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>
 El `plist` fija `PATH` y `PYTHONUNBUFFERED`. Sin ellos el servicio arranca, aparece como
 `running` en `launchctl list`, y **nunca se enlaza al puerto** — con la bitácora vacía, que hace
 el diagnóstico muy confuso. No quitar esas dos variables.
+
+## Generador de propuestas con IA (opcional)
+
+Sin configurar, el asistente funciona exactamente igual que siempre. Para
+activarlo, crea `~/.config/gpmc/entorno` (permisos `600`) con:
+
+```
+GPMC_IA_PROVEEDOR=gemini        # o: openai  (licencia de Planeación)
+GPMC_IA_LLAVE=...               # la llave del proveedor
+# GPMC_IA_MODELO=gemini-2.5-flash
+# GPMC_IA_TIMEOUT_S=60
+# GPMC_IA_MAX_TOKENS_LOTE=24000
+```
+
+`gpmc servir` lo carga al arrancar. **La llave nunca va en el `plist`, ni en el
+repositorio, ni en el instalador.** Instala el extra: `pip install -e ".[web,agentes]"`.
+
+La bitácora de interacción con el modelo (campos de la Licencia AI de
+Planeación) se escribe, *append-only*, en `<almacén>/bitacora-ia.jsonl`.
+Exportar: `gpmc medir-ia CARPETA --exportar salida.jsonl`. No se purga.
+
+**Pruebas con Gemini (AI Studio):** usar `ejemplos/expedientes/`, no los seis
+expedientes reales (decisión de la Dirección, 2026-09-17): el nivel de
+estudio puede usar los datos para mejorar sus modelos; la licencia de
+Planeación con OpenAI garantiza procesamiento transitorio.

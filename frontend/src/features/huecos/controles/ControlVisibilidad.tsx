@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Check, Eye, Lightbulb } from "lucide-react";
+import { Check, Eye, Lightbulb, Sparkles, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { camposDelManifiesto, resolverDic08 } from "@/lib/api";
-import type { Condicion, Hueco } from "@/lib/types";
+import type { Condicion, Hueco, Propuesta } from "@/lib/types";
 
 import {
   describirCondicion,
@@ -25,31 +25,72 @@ import DetalleTecnico from "./DetalleTecnico";
  * pueda comprobar. El código del hueco, el nombre interno del campo y la frase
  * cruda del Diccionario siguen ahí, plegados: hacen falta para rastrear y
  * reportar, pero no para decidir.
+ *
+ * Con `propuesta` (Fase 2, generador de IA) el constructor arranca prellenado
+ * y aparecen Aceptar / Corregir / Descartar con la cita de dónde salió. La
+ * escritura sigue siendo `resolverDic08`; `onDecision` solo anota, después.
  */
 export default function ControlVisibilidad({
   hueco,
   sid,
   manifiesto,
   onResuelto,
+  propuesta = null,
+  onDecision,
 }: {
   hueco: Hueco;
   sid: string;
   manifiesto: Record<string, unknown>;
   onResuelto: (resp: { manifiesto: Record<string, unknown>; huecos: Hueco[] }) => void;
+  /** Propuesta del generador de IA para este campo, si la hay. */
+  propuesta?: Propuesta | null;
+  /** Anota qué se hizo con la propuesta. Se llama DESPUÉS de resolver. */
+  onDecision?: (
+    decision: "aceptada" | "corregida" | "descartada",
+    condicionFinal?: Condicion,
+  ) => Promise<void>;
 }) {
-  const [condicion, setCondicion] = useState<Condicion | null>(null);
+  // Con propuesta el constructor arranca prellenado; `descartada` la retira y
+  // vuelve al modo manual de siempre.
+  const [activa, setActiva] = useState<Propuesta | null>(propuesta);
+  const [condicion, setCondicion] = useState<Condicion | null>(propuesta?.condicion ?? null);
+  const [editando, setEditando] = useState(false);
   const { ejecutar, guardando, error } = useAccion();
   const campos = camposDelManifiesto(manifiesto);
   const leido = leerMensajeVisibilidad(hueco.mensaje);
   const frase = describirCondicion(condicion, campos);
   const pista = pistaDeCodigo(hueco.codigo);
 
+  const resolver = async (cond: Condicion) => {
+    const resp = await resolverDic08(sid, hueco.ubicacion, cond);
+    onResuelto(resp);
+  };
+
   const guardar = async () => {
     if (!condicion) return;
     await ejecutar(async () => {
-      const resp = await resolverDic08(sid, hueco.ubicacion, condicion);
-      onResuelto(resp);
+      await resolver(condicion);
+      // Si venía de una propuesta y se editó, es "corregida". Si el registro
+      // falla, la resolución ya quedó: no se deshace nada.
+      if (activa && onDecision) await onDecision("corregida", condicion);
     });
+  };
+
+  const aceptar = async () => {
+    if (!activa?.condicion) return;
+    const cond = activa.condicion;
+    await ejecutar(async () => {
+      await resolver(cond);
+      if (onDecision) await onDecision("aceptada", undefined);
+    });
+  };
+
+  const descartar = async () => {
+    if (!activa) return;
+    if (onDecision) await onDecision("descartada", undefined);
+    setActiva(null);
+    setCondicion(null);
+    setEditando(false);
   };
 
   return (
@@ -75,9 +116,12 @@ export default function ControlVisibilidad({
       ) : null}
 
       <p className="text-sm text-muted-foreground">Muéstralo solo cuando:</p>
+      {/* `key`: ConstructorRegla solo lee `value` al montar. Al descartar la
+          propuesta se remonta vacío en vez de conservar las filas prellenadas. */}
       <ConstructorRegla
+        key={activa ? activa.id : "manual"}
         campos={campos}
-        value={null}
+        value={activa ? activa.condicion : null}
         onChange={setCondicion}
         marcadorValor={pista?.marcador}
       />
@@ -91,6 +135,37 @@ export default function ControlVisibilidad({
         </p>
       ) : null}
 
+      {activa ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+          <p className="flex items-start gap-2">
+            <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+            <span>
+              <span className="font-medium text-foreground">Propuesto a partir de: </span>
+              «{activa.cita.texto}» — {activa.cita.fuente} · {activa.cita.pantalla_nombre} ·{" "}
+              {activa.cita.campo}
+              <span className="ml-2 text-xs text-muted-foreground">
+                (confianza {activa.confianza})
+              </span>
+            </span>
+          </p>
+          {!editando ? (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={aceptar} disabled={guardando} aria-busy={guardando}>
+                <Check aria-hidden className="size-4" />
+                Aceptar
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setEditando(true)} disabled={guardando}>
+                Corregir
+              </Button>
+              <Button type="button" variant="ghost" onClick={descartar} disabled={guardando}>
+                <X aria-hidden className="size-4" />
+                Descartar
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {error ? (
         <div
           role="alert"
@@ -100,16 +175,18 @@ export default function ControlVisibilidad({
         </div>
       ) : null}
 
-      <Button
-        type="button"
-        aria-busy={guardando}
-        disabled={!condicion || guardando}
-        onClick={guardar}
-        className="self-start"
-      >
-        <Check aria-hidden className="size-4" />
-        {guardando ? "Guardando…" : "Guardar"}
-      </Button>
+      {!activa || editando ? (
+        <Button
+          type="button"
+          aria-busy={guardando}
+          disabled={!condicion || guardando}
+          onClick={guardar}
+          className="self-start"
+        >
+          <Check aria-hidden className="size-4" />
+          {guardando ? "Guardando…" : "Guardar"}
+        </Button>
+      ) : null}
 
       <DetalleTecnico
         codigo={hueco.codigo}
