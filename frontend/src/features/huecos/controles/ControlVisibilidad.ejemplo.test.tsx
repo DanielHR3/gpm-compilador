@@ -10,12 +10,16 @@ import { expect, it, vi } from "vitest";
 vi.mock("@/lib/api", () => ({
   resolverDic08: vi.fn().mockResolvedValue({ manifiesto: {}, huecos: [] }),
   camposDelManifiesto: () => [
-    { nombre: "curp", etiqueta: "CURP", catalogo: [] },
+    { nombre: "curp", etiqueta: "CURP", pantalla: 0, catalogo: [] },
     {
       nombre: "estatus_tramite",
       etiqueta: "Estatus del Trámite",
+      pantalla: 0,
       catalogo: [{ valor: "pendiente", etiqueta: "Pendiente de regularización" }],
     },
+    // El campo del propio hueco, y uno que se captura despues que el.
+    { nombre: "notificacion_sancion", etiqueta: "Notificación de Sanción", pantalla: 3, catalogo: [] },
+    { nombre: "acuse_final", etiqueta: "Acuse final", pantalla: 5, catalogo: [{ valor: "s", etiqueta: "Sí" }] },
   ],
 }));
 
@@ -105,4 +109,13 @@ it("la frase de confirmacion nombra el campo en vez de decir «el campo»", asyn
     screen.getByText(/«Notificación de Sanción» se mostrará solo si/),
   ).toBeInTheDocument();
   expect(screen.queryByText(/el campo se muestra solo si/)).not.toBeInTheDocument();
+});
+
+it("no ofrece como condición un campo que se captura después", () => {
+  // El Diccionario de Reposición pedía justo eso: condicionar un campo de la
+  // pantalla 1 contra uno que llena el funcionario en la 2.
+  pintar();
+
+  const opciones = [...document.querySelectorAll("option")].map((o) => o.textContent);
+  expect(opciones.some((t) => /se captura después|es este mismo campo/.test(t ?? ""))).toBe(true);
 });

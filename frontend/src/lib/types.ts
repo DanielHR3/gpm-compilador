@@ -114,6 +114,10 @@ export type CampoManifiesto = {
   nombre: string;
   etiqueta: string;
   catalogo: { etiqueta: string; valor: string }[];
+  /** Indice de la pantalla donde se captura, empezando en 0. Sirve para saber
+      si un campo se captura ANTES que otro: una condicion de visibilidad no
+      puede mirar un campo de una pantalla posterior. */
+  pantalla: number;
 };
 
 export type Cita = {

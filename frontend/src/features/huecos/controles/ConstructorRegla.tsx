@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "cn";
+import { clasificarCandidatos, type Objetivo } from "../candidatos";
 import type { CampoManifiesto, Clausula, Condicion } from "@/lib/types";
 
 /**
@@ -50,13 +51,27 @@ function esCompleta(f: Fila): boolean {
  * que el resto de controles de `huecos/controles` que solo confirman con
  * datos validos.
  */
+/** Casa «tramite» con «Trámite»: quien busca no escribe los acentos. */
+function llanoBusca(etiqueta: string, busqueda: string): boolean {
+  const llano = (s: string) =>
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return llano(etiqueta).includes(llano(busqueda.trim()));
+}
+
 export default function ConstructorRegla({
   campos,
+  objetivo = null,
+  frase = "",
   value,
   onChange,
   marcadorValor = "este valor",
 }: {
   campos: CampoManifiesto[];
+  /** El campo cuya visibilidad se define. `null`/omitido en la compuerta, donde
+      la regla de «se captura después» no aplica igual. */
+  objetivo?: Objetivo | null;
+  /** La frase que escribió Simplificación, para sugerir lo que ella nombra. */
+  frase?: string;
   value: Condicion | null;
   onChange: (c: Condicion) => void;
   /** Ejemplo dentro de la caja de valor: una caja vacia no ensena nada. */
@@ -99,6 +114,17 @@ export default function ConstructorRegla({
     notificar(siguientes);
   };
 
+  // Un buscador por fila. Con pocos campos estorba mas de lo que ayuda; con 41
+  // —el expediente de Reposicion— el desplegable es inservible sin el.
+  const [busqueda, setBusqueda] = useState<Record<number, string>>({});
+  const HAY_MUCHOS = campos.length > 8;
+  const candidatos = clasificarCandidatos(campos, objetivo, frase);
+  const GRUPOS = [
+    ["sugerido", "Sugeridos — los menciona el Diccionario"],
+    ["usable", "También puedes usar"],
+    ["inservible", "No se pueden usar aquí"],
+  ] as const;
+
   return (
     <div className="flex flex-col rounded-lg border border-border bg-muted/30 p-3">
       {filas.map((fila, i) => {
@@ -118,6 +144,15 @@ export default function ConstructorRegla({
             ) : null}
             <div className="flex flex-wrap items-end gap-2 rounded-md bg-card p-2.5 ring-1 ring-foreground/5">
               <div className="flex min-w-32 flex-1 flex-col gap-1">
+                {HAY_MUCHOS ? (
+                  <Input
+                    aria-label={`Buscar campo de la condición ${n}`}
+                    placeholder="Escribe para buscar…"
+                    value={busqueda[i] ?? ""}
+                    onChange={(e) => setBusqueda({ ...busqueda, [i]: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                ) : null}
                 <select
                   id={campoId}
                   aria-label={`Campo de la condición ${n}`}
@@ -128,11 +163,23 @@ export default function ConstructorRegla({
                   }
                 >
                   <option value="">Elige un campo</option>
-                  {campos.map((c) => (
-                    <option key={c.nombre} value={c.nombre}>
-                      {c.etiqueta}
-                    </option>
-                  ))}
+                  {GRUPOS.map(([grupo, titulo]) => {
+                    const visibles = candidatos.filter(
+                      (c) =>
+                        c.grupo === grupo &&
+                        llanoBusca(c.campo.etiqueta, busqueda[i] ?? ""),
+                    );
+                    if (!visibles.length) return null;
+                    return (
+                      <optgroup key={grupo} label={titulo}>
+                        {visibles.map(({ campo: c, motivo }) => (
+                          <option key={c.nombre} value={c.nombre} disabled={!!motivo}>
+                            {motivo ? `${c.etiqueta} — ${motivo}` : c.etiqueta}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
                 </select>
               </div>
 

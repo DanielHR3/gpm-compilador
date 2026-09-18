@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 vi.mock("@/lib/api", () => ({
   resolverDic08: vi.fn().mockResolvedValue({ manifiesto: {}, huecos: [] }),
   camposDelManifiesto: () => [
-    { nombre: "estado", etiqueta: "Estado", catalogo: [] },
+    { nombre: "estado", etiqueta: "Estado", pantalla: 0, catalogo: [] },
   ],
 }));
 

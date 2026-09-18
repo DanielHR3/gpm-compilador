@@ -154,6 +154,22 @@ export default function ControlVisibilidad({
       <ConstructorRegla
         key={activa ? activa.id : "manual"}
         campos={campos}
+        objetivo={
+          leido
+            ? {
+                interno: leido.interno,
+                // Si no se localiza el campo del hueco, se le supone la
+                // ultima pantalla: asi no se descarta NADA por «se captura
+                // despues». Suponer la primera hacia lo contrario —marcaba
+                // todo el expediente como imposible— y es el peor error
+                // posible aqui: esconder la respuesta correcta.
+                pantalla:
+                  campos.find((c) => c.nombre === leido.interno)?.pantalla ??
+                  Number.MAX_SAFE_INTEGER,
+              }
+            : null
+        }
+        frase={leido?.frase ?? ""}
         value={activa ? activa.condicion : null}
         onChange={setCondicion}
         marcadorValor={pista?.marcador}

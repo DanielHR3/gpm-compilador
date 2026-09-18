@@ -54,8 +54,8 @@ describe("leerMensajeVisibilidad", () => {
 
 describe("describirCondicion", () => {
   const campos = [
-    { nombre: "procedencia", etiqueta: "Procedencia", catalogo: [{ valor: "dep", etiqueta: "Dependencia u organismo" }] },
-    { nombre: "curp", etiqueta: "CURP", catalogo: [] },
+    { nombre: "procedencia", etiqueta: "Procedencia", pantalla: 0, catalogo: [{ valor: "dep", etiqueta: "Dependencia u organismo" }] },
+    { nombre: "curp", etiqueta: "CURP", pantalla: 0, catalogo: [] },
   ] as CampoManifiesto[];
 
   test("lee la condicion como una frase, con las etiquetas y no los nombres internos", () => {
@@ -361,7 +361,7 @@ describe("ejemploDeVisibilidad", () => {
     frase: "Visible solo si \"Estatus del Trámite\" = Pendiente de regularización",
   };
   const campos = [
-    { nombre: "curp", etiqueta: "CURP", catalogo: [] },
+    { nombre: "curp", etiqueta: "CURP", pantalla: 0, catalogo: [] },
     {
       nombre: "estatus_tramite",
       etiqueta: "Estatus del Trámite",
@@ -395,7 +395,7 @@ describe("ejemploDeVisibilidad", () => {
 
   test("un campo sin etiqueta no sirve de ejemplo aunque tenga lista", () => {
     const sinEtiqueta = [
-      { nombre: "x", etiqueta: "", catalogo: [{ valor: "a", etiqueta: "A" }] },
+      { nombre: "x", etiqueta: "", pantalla: 0, catalogo: [{ valor: "a", etiqueta: "A" }] },
     ] as CampoManifiesto[];
 
     expect(ejemploDeVisibilidad(sinEtiqueta, objetivo)).toBeNull();
@@ -403,7 +403,7 @@ describe("ejemploDeVisibilidad", () => {
 
   test("sin ningun campo con lista no inventa un ejemplo", () => {
     const sinListas = [
-      { nombre: "curp", etiqueta: "CURP", catalogo: [] },
+      { nombre: "curp", etiqueta: "CURP", pantalla: 0, catalogo: [] },
     ] as CampoManifiesto[];
 
     expect(ejemploDeVisibilidad(sinListas, objetivo)).toBeNull();

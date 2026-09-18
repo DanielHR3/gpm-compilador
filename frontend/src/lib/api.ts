@@ -281,7 +281,7 @@ export function camposDelManifiesto(
   if (!Array.isArray(pantallas)) return [];
 
   const resultado: CampoManifiesto[] = [];
-  for (const pantalla of pantallas) {
+  for (const [indice, pantalla] of pantallas.entries()) {
     if (typeof pantalla !== "object" || pantalla === null) continue;
     const campos = (pantalla as Record<string, unknown>).campos;
     if (!Array.isArray(campos)) continue;
@@ -303,7 +303,7 @@ export function camposDelManifiesto(
           etiqueta: e.etiqueta as string,
           valor: e.valor as string,
         }));
-      resultado.push({ nombre: c.nombre, etiqueta, catalogo });
+      resultado.push({ nombre: c.nombre, etiqueta, catalogo, pantalla: indice });
     }
   }
   return resultado;

@@ -170,7 +170,7 @@ describe("camposDelManifiesto", () => {
       { nombre: "estado", etiqueta: "Estado",
         catalogo: [{ etiqueta: "Hidalgo", valor: "hidalgo" }] }] }] };
     const cs = camposDelManifiesto(m as unknown as Record<string, unknown>);
-    expect(cs).toEqual([{ nombre: "estado", etiqueta: "Estado",
+    expect(cs).toEqual([{ nombre: "estado", etiqueta: "Estado", pantalla: 0,
       catalogo: [{ etiqueta: "Hidalgo", valor: "hidalgo" }] }]);
   });
 
@@ -181,10 +181,26 @@ describe("camposDelManifiesto", () => {
       "no es un objeto",
     ] };
     const cs = camposDelManifiesto(m as unknown as Record<string, unknown>);
-    expect(cs).toEqual([{ nombre: "folio", etiqueta: "Folio", catalogo: [] }]);
+    expect(cs).toEqual([{ nombre: "folio", etiqueta: "Folio", pantalla: 0, catalogo: [] }]);
   });
 
   it("devuelve [] si el manifiesto no trae pantallas", () => {
     expect(camposDelManifiesto({} as Record<string, unknown>)).toEqual([]);
   });
+});
+
+it("camposDelManifiesto conserva en qué pantalla vive cada campo", () => {
+  // Sin esto no se puede saber si un campo «se captura después», que es la
+  // regla que separa una condición posible de una imposible.
+  const campos = camposDelManifiesto({
+    pantallas: [
+      { id: "p1", campos: [{ nombre: "a", etiqueta: "A", catalogo: [] }] },
+      { id: "p2", campos: [{ nombre: "b", etiqueta: "B", catalogo: [] }] },
+    ],
+  });
+
+  expect(campos.map((c) => [c.nombre, c.pantalla])).toEqual([
+    ["a", 0],
+    ["b", 1],
+  ]);
 });
