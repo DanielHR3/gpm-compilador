@@ -339,8 +339,8 @@ Agregar la función de prefiltro, justo antes de `contexto_dic08`:
 def _prefiltrar(ctx: ContextoLote) -> ContextoLote:
     """Recorta candidatos a los que la prosa menciona, y marca los no anclados.
 
-    Medido el 2026-09-17: 15804 -> 7665 tokens sobre los seis expedientes
-    reales (52%). Y con 5 candidatos en vez de 45 hay muchas menos formas de
+    Medido el 2026-09-17: 15804 -> 7838 tokens sobre los seis expedientes
+    reales (50%). Y con 5 candidatos en vez de 45 hay muchas menos formas de
     elegir el campo equivocado, asi que tambien sube la precision.
     """
     por_nombre = {c.nombre: c for c in ctx.campos}
@@ -374,7 +374,7 @@ Y en `contexto_dic08`, sustituir el `return ctx` final por:
 Run: `cd /Users/danielhernandezrubio/Desktop/Projects/gpm-compilador && .venv/bin/python -m pytest tests/test_contexto_prefiltro.py tests/test_agentes.py -v`
 Expected: PASS.
 
-- [ ] **Step 5: Confirmar el 52 % sobre el corpus real**
+- [ ] **Step 5: Confirmar el 50 % sobre el corpus real**
 
 Run:
 ```bash
@@ -393,13 +393,13 @@ for d in sorted(p for p in BASE.iterdir() if p.is_dir()):
 print(f"tokens totales con prefiltro: {t}  (antes: 15804)")
 PY
 ```
-Expected: alrededor de **7 665**, y en todo caso claramente por debajo de 15 804. Si no baja, **parar y avisar**.
+Expected: **7 838** (un 50 % menos que los 15 804 de antes). Los huecos sin anclaje conservan su lista completa a proposito —no se mandan al modelo, pero quien los muestre los necesita—, y por eso no baja hasta 7 665. Si sale muy distinto, **parar y avisar**.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add src/gpmc/agentes/contexto.py tests/test_contexto_prefiltro.py
-git commit -m "perf(agentes): prefiltro lexico de candidatos, 52% menos tokens medido"
+git commit -m "perf(agentes): prefiltro lexico de candidatos, 50% menos tokens medido"
 ```
 
 ---

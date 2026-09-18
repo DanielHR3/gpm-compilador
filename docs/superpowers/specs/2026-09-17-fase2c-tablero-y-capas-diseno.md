@@ -27,7 +27,7 @@ cerrar sola, ni cuáles están esperando un dato que no existe. Recorre una list
 
 Sobre los seis expedientes reales, el 2026-09-17:
 
-**Prefiltro léxico de candidatos — 52 % menos tokens.** Hoy el contexto de DIC-08
+**Prefiltro léxico de candidatos — 50 % menos tokens.** Hoy el contexto de DIC-08
 manda *todos* los campos de las pantallas anteriores. Mandando sólo los que
 comparten alguna palabra con la frase a traducir:
 
@@ -39,10 +39,17 @@ comparten alguna palabra con la frase a traducir:
 | Publicación en el Periódico | 2 | 3 782 | 3 245 | 15 % |
 | Reposición de Certificado | 8 | 3 176 | 2 021 | 37 % |
 | Holograma Exento | 5 | 4 042 | 1 271 | 69 % |
-| **Total** | **23** | **15 804** | **7 665** | **52 %** |
+| **Total** | **23** | **15 804** | **7 838** | **50 %** |
 
 No es sólo más barato: con 5 candidatos en vez de 45 hay muchas menos formas de
 elegir el campo equivocado.
+
+**Corrección del 2026-09-17, al implementarlo.** La primera cuenta dio 52 % porque
+filtraba también los huecos **sin anclaje**. El comportamiento correcto —y el que
+se implementó— es que ésos **conserven su lista completa**: no se mandan al modelo,
+pero quien los muestre en pantalla necesita los candidatos. Con eso el total real es
+15 804 → 7 838, un **50 %**. Y el ahorro sobre lo que de verdad viaja por la red será
+mayor, porque esos tres huecos no se envían; no se reclama hasta poder medirlo.
 
 **Frases repetidas — 13 %.** De 23 condiciones DIC-08, 20 son distintas. Y ese
 13 % es un piso, no un techo: Simplificación reenvía el mismo expediente
@@ -326,7 +333,7 @@ dejar pasar también `sin_anclaje`. La forma de una propuesta real no cambia.
    dijo que Gemini es sólo para pruebas.
 2. **Cuánto ahorra la capa 0** depende de qué pregunte la gente, y no hay
    usuarios todavía. Es una apuesta razonada, no una medición — a diferencia del
-   52 % y el 13 %, que sí lo son.
+   50 % y el 13 %, que sí lo son.
 3. **Rotar las dos llaves** pegadas en chat. Sigue pendiente.
 4. **El defecto de los catálogos partidos por coma** (spec de la Fase 2b, §12)
    sigue sin arreglar y corrompe datos hoy.
