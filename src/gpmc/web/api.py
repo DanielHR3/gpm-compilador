@@ -485,6 +485,24 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                         return JSONResponse(status_code=422, content={
                             "error": f"la condicion referencia un campo no "
                                      f"declarado: {cc}"})
+                # Las dos reglas que `agentes/verificar.py` ya aplicaba a las
+                # propuestas del modelo, y que por esta via nadie comprobaba: se
+                # podia guardar a mano una regla que la plataforma no puede
+                # evaluar nunca. Es el mismo defecto que se le señalo al
+                # Diccionario de Reposicion de Certificado.
+                i_pantalla = {c.nombre: j for j, p in enumerate(m.pantallas)
+                              for c in p.campos}
+                i_objetivo = i_pantalla.get(campo_nombre, 0)
+                for cc in campos_condicion:
+                    if cc == campo_nombre:
+                        return JSONResponse(status_code=422, content={
+                            "error": f"'{cc}' no puede decidir su propia "
+                                     f"visibilidad: es el mismo campo"})
+                    if i_pantalla.get(cc, 0) > i_objetivo:
+                        return JSONResponse(status_code=422, content={
+                            "error": f"'{cc}' se captura despues que "
+                                     f"'{campo_nombre}': cuando se llena esta "
+                                     f"pantalla ese dato aun no existe"})
                 campo.condicion_visible = res.condicion
                 resueltos.append(("DIC-08", res.ubicacion))
                 continue

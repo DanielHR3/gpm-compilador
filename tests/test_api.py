@@ -700,9 +700,13 @@ def test_cero_clics_dic08_y_mmd04_compila_gpm_completo(tmp_path):
     ub = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "DIC-08")
     gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
 
+    # `curp` y no `procede`: `nota_rara` esta en la Pantalla 1 y `procede` se
+    # captura en la 2, asi que esa condicion no se puede evaluar nunca. La
+    # prueba la armaba asi desde el principio y pasaba porque nadie lo
+    # comprobaba; con la validacion nueva da 422, que es lo correcto.
     r1 = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
         "tipo": "dic08", "ubicacion": ub,
-        "condicion": {"campo": "procede", "igual": "si", "operador": "=="}}]})
+        "condicion": {"campo": "curp", "igual": "X", "operador": "=="}}]})
     assert r1.status_code == 200, r1.text
     assert not any(h["codigo"] == "DIC-08" for h in r1.json()["huecos"])
 
@@ -846,3 +850,71 @@ def test_propuestas_rechazadas_por_filtro_no_se_listan(tmp_path):
     sid = _subir(c).json()["sid"]
     g = c.get(f"/api/v1/expedientes/{sid}/propuestas").json()
     assert g["estado"] == "listo" and g["propuestas"] == []
+
+
+_DOS_PANTALLAS = """
+### Pantalla 1 — CIUDADANO — Solicitud
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tipo de Solicitante | Select | Lista desplegable | Sí | Siempre visible | N/A | Persona física · Persona moral | Persona física | [Captura] Campo `@@tipo_solicitante`. |
+| Vista de observaciones | String | Solo lectura | No | Visible solo si "¿Documentación Conforme?" = No | N/A | N/A | N/A | [Solo lectura] Campo `@@vista_observaciones`. |
+
+### Pantalla 2 — DIRECCIÓN — Revisión
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ¿Documentación Conforme? | Boolean | Switch | Sí | Siempre visible | Sí / No | N/A | Sí | [Captura] Campo `@@documentacion_conforme`. |
+"""
+
+
+def _sid_dos_pantallas(c):
+    return c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DOS_PANTALLAS.encode("utf-8"), "text/markdown"),
+    }).json()["sid"]
+
+
+def test_resolver_dic08_con_campo_de_pantalla_posterior_da_422(tmp_path):
+    """Es el caso que trajo el expediente de Reposicion de Certificado: el campo
+    de la pantalla 1 se condiciona contra uno que el funcionario captura en la
+    pantalla 2. Cuando el ciudadano llena la primera, ese dato no existe todavia,
+    asi que la regla no se puede evaluar nunca. El servidor la aceptaba: solo
+    comprobaba que el campo estuviera declarado en ALGUNA pantalla."""
+    c = _cli(tmp_path)
+    sid = _sid_dos_pantallas(c)
+
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": "p1::vista_observaciones",
+        "condicion": {"campo": "documentacion_conforme", "igual": "no",
+                      "operador": "==", "y": []}}]})
+
+    assert r.status_code == 422, r.text
+    assert "captura despu" in r.json()["error"]
+
+
+def test_resolver_dic08_autorreferencia_da_422(tmp_path):
+    """Un campo no puede decidir su propia visibilidad: la regla se muerde la
+    cola. El filtro del generador de IA ya lo rechazaba; la via manual no."""
+    c = _cli(tmp_path)
+    sid = _sid_dos_pantallas(c)
+
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": "p1::vista_observaciones",
+        "condicion": {"campo": "vista_observaciones", "igual": "x",
+                      "operador": "==", "y": []}}]})
+
+    assert r.status_code == 422, r.text
+    assert "mismo campo" in r.json()["error"]
+
+
+def test_resolver_dic08_con_campo_de_la_misma_pantalla_sigue_valiendo(tmp_path):
+    """El contrapeso: la validacion nueva no puede cerrar el caso normal."""
+    c = _cli(tmp_path)
+    sid = _sid_dos_pantallas(c)
+
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+        "tipo": "dic08", "ubicacion": "p1::vista_observaciones",
+        "condicion": {"campo": "tipo_solicitante", "igual": "persona_moral",
+                      "operador": "==", "y": []}}]})
+
+    assert r.status_code == 200, r.text
