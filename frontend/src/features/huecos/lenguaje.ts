@@ -147,7 +147,9 @@ const PISTAS: Record<string, Pista> = {
       "Elige el campo que decide si este se ve, y con qué valor debe compararse.",
     ejemplo:
       "Muestra «RFC» solo cuando «Procedencia» sea igual a «Dependencia u organismo».",
-    marcador: "Dependencia u organismo",
+    // Sin marcador a proposito: el valor del ejemplo se pintaba como
+    // placeholder de la caja y parecia una respuesta ya puesta. Cae en el
+    // neutro de ConstructorRegla ("este valor").
   },
   "MMD-04": {
     instruccion:

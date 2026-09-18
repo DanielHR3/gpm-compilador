@@ -200,39 +200,28 @@ export default function TarjetaHueco({
       />
     );
   } else if (hueco.codigo === "DIC-08") {
+    // La salida "lo configuro a mano" ya no cuelga suelta al final: la dibuja
+    // ControlVisibilidad junto a Guardar, con la linea que dice cuando se usa.
     control = (
-      <div className="flex flex-col gap-2">
-        {/* `key`: ControlVisibilidad toma `propuesta` al montar. Las tarjetas se
-            montan ANTES de que el generador termine, asi que cuando la
-            propuesta llega el control se remonta prellenado. */}
-        <ControlVisibilidad
-          key={propuesta ? propuesta.id : "manual"}
-          hueco={hueco}
-          sid={sid}
-          manifiesto={manifiesto}
-          onResuelto={reportar}
-          propuesta={propuesta}
-          onDecision={
-            propuesta
-              ? async (d, cf) => {
-                  await decidirPropuesta(sid, propuesta.id, d, cf ?? null);
-                }
-              : undefined
-          }
-        />
-        {/* Mueve el trabajo a la plataforma en vez de eliminarlo: es la
-            decision con mas consecuencias del flujo y estaba pintada como un
-            enlace gris de 12 px. Boton de contorno: visible, secundario. */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="self-start"
-          onClick={reconocerHueco}
-        >
-          o lo configuro a mano
-        </Button>
-      </div>
+      /* `key`: ControlVisibilidad toma `propuesta` al montar. Las tarjetas se
+         montan ANTES de que el generador termine, asi que cuando la propuesta
+         llega el control se remonta prellenado. */
+      <ControlVisibilidad
+        key={propuesta ? propuesta.id : "manual"}
+        hueco={hueco}
+        sid={sid}
+        manifiesto={manifiesto}
+        onResuelto={reportar}
+        propuesta={propuesta}
+        onReconocer={reconocerHueco}
+        onDecision={
+          propuesta
+            ? async (d, cf) => {
+                await decidirPropuesta(sid, propuesta.id, d, cf ?? null);
+              }
+            : undefined
+        }
+      />
     );
   } else if (hueco.codigo === "MMD-04") {
     control = (

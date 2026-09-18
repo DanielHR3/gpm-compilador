@@ -37,6 +37,7 @@ export default function ControlVisibilidad({
   onResuelto,
   propuesta = null,
   onDecision,
+  onReconocer,
 }: {
   hueco: Hueco;
   sid: string;
@@ -49,6 +50,8 @@ export default function ControlVisibilidad({
     decision: "aceptada" | "corregida" | "descartada",
     condicionFinal?: Condicion,
   ) => Promise<void>;
+  /** Mueve el dato a la plataforma. Sin esto la salida no se dibuja. */
+  onReconocer?: () => void | Promise<void>;
 }) {
   // Con propuesta el constructor arranca prellenado; `descartada` la retira y
   // vuelve al modo manual de siempre.
@@ -100,17 +103,38 @@ export default function ControlVisibilidad({
         {leido ? `«${leido.etiqueta}»` : "este campo"}?
       </h3>
 
+      {/* La frase que escribio Simplificacion es la respuesta a la pregunta:
+          va antes que nada, sin plegar. Estaba bajo "Ver detalle tecnico",
+          debajo del boton Guardar, y el ejemplo generico ocupaba su lugar. */}
+      {leido?.frase ? (
+        <div
+          data-testid="frase-diccionario"
+          className="flex flex-col gap-1 rounded-lg border-l-4 border-secondary bg-muted/40 px-3 py-2"
+        >
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Esto fue lo que se escribió en el Diccionario
+          </span>
+          <p className="text-sm text-foreground">«{leido.frase}»</p>
+        </div>
+      ) : null}
+
       {pista ? (
         <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
           <p>{pista.instruccion}</p>
+          {/* El ejemplo es de otro tramite: ayuda a quien nunca ha visto la
+              pantalla y estorba a quien ya tiene su frase delante. Plegado. */}
           {pista.ejemplo ? (
-            <p className="flex items-start gap-2 rounded-md border border-dashed border-border px-3 py-2">
-              <Lightbulb aria-hidden className="mt-0.5 size-3.5 shrink-0 text-secondary" />
-              <span>
-                <span className="font-medium text-foreground">Por ejemplo: </span>
-                {pista.ejemplo}
-              </span>
-            </p>
+            <details
+              role="group"
+              aria-label="¿Cómo se ve un ejemplo?"
+              className="rounded-md border border-dashed border-border px-3 py-2"
+            >
+              <summary className="cursor-pointer">¿Cómo se ve un ejemplo?</summary>
+              <p className="mt-2 flex items-start gap-2">
+                <Lightbulb aria-hidden className="mt-0.5 size-3.5 shrink-0 text-secondary" />
+                <span>{pista.ejemplo}</span>
+              </p>
+            </details>
           ) : null}
         </div>
       ) : null}
@@ -141,7 +165,10 @@ export default function ControlVisibilidad({
             <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
             <span>
               <span className="font-medium text-foreground">Propuesto a partir de: </span>
-              «{activa.cita.texto}» — {activa.cita.fuente} · {activa.cita.pantalla_nombre} ·{" "}
+              {/* La frase ya se lee arriba, entera. Repetirla aqui la ponia tres
+                  veces en la misma tarjeta; solo se cita si NO es la de arriba. */}
+              {activa.cita.texto !== leido?.frase ? <>«{activa.cita.texto}» — </> : null}
+              {activa.cita.fuente} · {activa.cita.pantalla_nombre} ·{" "}
               {activa.cita.campo}
               <span className="ml-2 text-xs text-muted-foreground">
                 (confianza {activa.confianza})
@@ -188,10 +215,34 @@ export default function ControlVisibilidad({
         </Button>
       ) : null}
 
+      {/* No toda condicion es una comparacion entre campos: «Solo si la
+          validacion de formato detecta errores al enviar» es un estado del
+          sistema y no hay campo que elegir. Esa salida estaba al final de la
+          tarjeta, en gris, despues del detalle tecnico. */}
+      {onReconocer ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3">
+          <p className="text-sm text-muted-foreground">
+            ¿La frase no depende de otro campo del formulario? Entonces no es una
+            regla que el compilador pueda armar: se configura directamente en la
+            plataforma.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="self-start"
+            disabled={guardando}
+            onClick={() => onReconocer()}
+          >
+            Lo configuro a mano
+          </Button>
+        </div>
+      ) : null}
+
       <DetalleTecnico
         codigo={hueco.codigo}
         ubicacion={hueco.ubicacion}
-        crudo={leido ? leido.frase : hueco.mensaje}
+        crudo={hueco.mensaje}
         extra={
           leido ? (
             <div className="flex gap-2">

@@ -58,7 +58,12 @@ it("con propuesta: muestra la cita y las tres acciones; sin propuesta: como hoy"
     />,
   );
   expect(screen.getByText(/Propuesto a partir de/)).toBeInTheDocument();
-  expect(screen.getByText(/«Solo si es moral»/)).toBeInTheDocument();
+  // La frase se lee arriba (lo que hay que traducir) y queda en el mensaje del
+  // compilador, plegado. La cita NO la repite: aporta de donde salio.
+  expect(screen.getAllByText(/«Solo si es moral»/)).toHaveLength(2);
+  expect(screen.getByText(/Propuesto a partir de/).parentElement).toHaveTextContent(
+    /Diccionario/,
+  );
   expect(screen.getByRole("button", { name: /aceptar/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /corregir/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /descartar/i })).toBeInTheDocument();
