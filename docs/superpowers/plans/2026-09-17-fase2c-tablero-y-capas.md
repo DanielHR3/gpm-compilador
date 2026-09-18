@@ -1850,7 +1850,7 @@ En `WizardHuecos.tsx`:
 
 ```tsx
         <Tablero
-          huecos={huecos}
+          huecos={huecosOriginales}
           sid={estado.sid}
           manifiesto={manifiesto}
           resueltas={cerradas}
@@ -1863,12 +1863,23 @@ En `WizardHuecos.tsx`:
 6. Agregar, junto a los demás `useMemo`/derivados del componente, el índice de propuestas por clave:
 
 ```tsx
-  // Las propuestas llegan por `ubicacion`; el tablero las busca por
-  // `codigo|ubicacion`, que es la clave estable de una inconsistencia.
+  // `propuestas` YA es un Map<ubicacion, Propuesta> (linea 68). El tablero las
+  // busca por `codigo|ubicacion`, que es la clave estable de una
+  // inconsistencia, asi que hay que reindexarlo — no recorrerlo como arreglo.
   const propuestasPorClave = new Map(
-    propuestas.map((p) => [`DIC-08|${p.ubicacion}`, p]),
+    [...propuestas.values()].map((p) => [`DIC-08|${p.ubicacion}`, p] as const),
   );
 ```
+
+**Dos cosas que NO se pueden cambiar sin romper el tablero:**
+
+- `Tablero` recibe **`huecosOriginales`**, no `huecos`. `huecos` encoge conforme
+  se resuelven, asi que las tarjetas desaparecerian en vez de marcarse
+  «resuelta», y las cuentas por columna («1 de 2») saldrian mal. `cerradas` ya
+  se calcula sobre `huecosOriginales` (linea 123); el tablero tiene que mirar la
+  misma lista.
+- `propuestas` es un `Map`, no un arreglo: recorrerlo con `.map(...)` directo
+  falla en tiempo de ejecucion.
 
 7. Agregar el import: `import Tablero from "./Tablero";`
 
