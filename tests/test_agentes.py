@@ -2,6 +2,7 @@
 
 Ninguna prueba de este archivo toca la red: todo pasa por ProveedorFalso.
 """
+import json
 import re
 from pathlib import Path
 
@@ -325,15 +326,88 @@ def test_proponer_lote_descarta_ubicacion_inventada_con_alerta(tmp_path):
     assert "ubicacion_inventada" in leer(tmp_path)[0]["alertas"]
 
 
-def test_proponer_lote_reintenta_una_vez_ante_error_de_red(tmp_path):
-    from gpmc.agentes.dic08 import proponer_lote
+def test_proponer_lote_reintenta_tres_veces_ante_error_de_red(tmp_path, monkeypatch):
+    """Tres intentos, no dos. El 2026-09-18, ocho de nueve llamadas del dia
+    fallaron con 503 UNAVAILABLE —saturacion del proveedor, no cuota— y un solo
+    reintento no bastaba. Un 503 no consume tokens: reintentar es barato."""
+    from gpmc.agentes import dic08
     from gpmc.agentes.proveedor import ProveedorFalso, ErrorDeRed
+    monkeypatch.setattr(dic08, "ESPERAS_REINTENTO", (0.0, 0.0))
     m = _manifiesto_dos_pantallas()
     huecos = [_dic08("p2::rfc", "RFC", "rfc", "a")]
     pf = ProveedorFalso([])
+
     with pytest.raises(ErrorDeRed):
-        proponer_lote(m, huecos, pf, tmp_path, "s" * 16)
-    assert pf.llamadas == 2   # la original y un reintento
+        dic08.proponer_lote(m, huecos, pf, tmp_path, "s" * 16)
+
+    assert pf.llamadas == 3
+
+
+def test_un_503_pasajero_acaba_en_propuesta(tmp_path, monkeypatch):
+    """Lo que el arreglo compra: dos rechazos seguidos del proveedor y a la
+    tercera entra, en vez de devolverle a la persona «no se pudieron generar»."""
+    from gpmc.agentes import dic08
+    from gpmc.agentes.proveedor import ErrorDeRed, ProveedorFalso
+
+    class CaeDosVeces:
+        nombre = "falso"
+
+        def __init__(self, bueno):
+            self.llamadas = 0
+            self._bueno = bueno
+
+        def completar(self, instrucciones, contexto, esquema):
+            self.llamadas += 1
+            if self.llamadas < 3:
+                raise ErrorDeRed("503 UNAVAILABLE")
+            return self._bueno.completar(instrucciones, contexto, esquema)
+
+    monkeypatch.setattr(dic08, "ESPERAS_REINTENTO", (0.0, 0.0))
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "a")]
+    bueno = ProveedorFalso([json.dumps({"propuestas": [
+        {"ubicacion": "p2::rfc", "condicion": {"campo": "procedencia",
+         "operador": "==", "igual": "a", "y": []},
+         "confianza": "alta", "cita": "Visible solo si procedencia = a"}]})])
+    p = CaeDosVeces(bueno)
+
+    propuestas = dic08.proponer_lote(m, huecos, p, tmp_path, "s" * 16)
+
+    assert p.llamadas == 3
+    assert len(propuestas) == 1
+
+
+def test_la_espera_crece_entre_intentos(tmp_path, monkeypatch):
+    """Reintentar de inmediato contra un proveedor saturado es pedirle otro 503.
+    La espera crece para darle tiempo a despejarse."""
+    from gpmc.agentes import dic08
+    from gpmc.agentes.proveedor import ProveedorFalso, ErrorDeRed
+    dormido = []
+    monkeypatch.setattr(dic08.time, "sleep", dormido.append)
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "a")]
+
+    with pytest.raises(ErrorDeRed):
+        dic08.proponer_lote(m, huecos, ProveedorFalso([]), tmp_path, "s" * 16)
+
+    assert dormido == [2.0, 8.0]
+
+
+def test_una_respuesta_invalida_no_se_reintenta(tmp_path, monkeypatch):
+    """El modelo ya contesto, y contesto mal. Repetir la misma pregunta gasta
+    cuota de verdad —esta si consume tokens— para el mismo resultado."""
+    from gpmc.agentes import dic08
+    from gpmc.agentes.proveedor import ProveedorFalso
+    monkeypatch.setattr(dic08, "ESPERAS_REINTENTO", (0.0, 0.0))
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "a")]
+    from gpmc.agentes.proveedor import RespuestaInvalida
+    pf = ProveedorFalso(["esto no es JSON"])
+
+    with pytest.raises(RespuestaInvalida):
+        dic08.proponer_lote(m, huecos, pf, tmp_path, "s" * 16)
+
+    assert pf.llamadas == 1
 
 
 def test_proponer_lote_rechazada_por_filtro_no_es_aceptable(tmp_path):

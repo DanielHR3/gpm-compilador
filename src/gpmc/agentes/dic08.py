@@ -5,6 +5,7 @@ demostrabilidad necesita las dos. Quien las muestra decide (la API filtra a
 `aceptable` sin decision).
 """
 import json
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -53,13 +54,33 @@ def _cita(m: Manifiesto, h) -> Cita:
                 campo=h.campo, texto=h.prosa)
 
 
+# Esperas antes del segundo y el tercer intento, en segundos.
+#
+# El 2026-09-18 ocho de las nueve llamadas del dia fallaron con 503 UNAVAILABLE
+# —«this model is currently experiencing high demand»: saturacion del proveedor,
+# no cuota agotada— y con un solo reintento la persona veia «no se pudieron
+# generar propuestas» y volvia a intentarlo a mano. La espera crece porque
+# reintentar de inmediato contra un proveedor saturado es pedirle otro 503.
+#
+# Reintentar sale gratis en cuota: una llamada rechazada con 503 no consume
+# tokens. Lo que cuesta es el tiempo de quien espera, y por eso son tres
+# intentos y no diez.
+ESPERAS_REINTENTO = (2.0, 8.0)
+
+
 def _llamar(proveedor, datos: str):
-    """Una llamada con un reintento SOLO ante ErrorDeRed. RespuestaInvalida no
-    se reintenta: el modelo ya contesto, y contesto mal."""
-    try:
-        return proveedor.completar(INSTRUCCION_DIC08, datos, ESQUEMA_DIC08)
-    except ErrorDeRed:
-        return proveedor.completar(INSTRUCCION_DIC08, datos, ESQUEMA_DIC08)
+    """Hasta tres intentos, SOLO ante ErrorDeRed. RespuestaInvalida no se
+    reintenta: el modelo ya contesto, y contesto mal; repetir la misma pregunta
+    gasta cuota de verdad para el mismo resultado."""
+    ultimo: Optional[Exception] = None
+    for espera in (0.0, *ESPERAS_REINTENTO):
+        if espera:
+            time.sleep(espera)
+        try:
+            return proveedor.completar(INSTRUCCION_DIC08, datos, ESQUEMA_DIC08)
+        except ErrorDeRed as exc:
+            ultimo = exc
+    raise ultimo
 
 
 def _parsear(texto: str) -> dict:
