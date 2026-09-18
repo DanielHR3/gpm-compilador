@@ -48,14 +48,30 @@ elegir el campo equivocado.
 13 % es un piso, no un techo: Simplificación reenvía el mismo expediente
 corregido varias veces y hoy cada reenvío se paga entero.
 
-**Condiciones sin anclaje — 2 de 23 (8 %).** Dos frases no mencionan ningún campo
-del trámite, así que no son comparaciones y ningún modelo puede convertirlas en
-regla. Son **la misma frase**, y es exactamente la que trabó la revisión del
-2026-09-17:
+**Condiciones sin anclaje — 3 de 23 (13 %).** Tres frases no mencionan ningún
+campo **de los que ese hueco puede usar**, así que no son comparaciones y ningún
+modelo puede convertirlas en regla.
+
+Dos son la misma frase, y es exactamente la que trabó la revisión del 2026-09-17:
 
 > «Solo si la validación de formato detecta errores al enviar»
 
-Esa se contesta sin modelo, al instante, y con más acierto que preguntando.
+La tercera es más interesante, porque muestra que la regla atrapa dos cosas
+distintas:
+
+> «Visible solo cuando el ciudadano reingresa tras un resultado
+> "¿Documentación conforme?" = No en la Pantalla 2»
+
+Esa sí nombra un campo, pero **está en la Pantalla 2 y el hueco vive en la 1**:
+una condición no puede mirar al futuro, así que no es candidato. Hoy se le
+pregunta al modelo igual y la respuesta acaba rechazada por `verificar` como
+`campo_futuro`. Detectarlo antes ahorra la llamada y da mejor respuesta.
+
+**Nota sobre la medición.** Una primera cuenta dio 2 de 23 porque comparaba la
+prosa contra *todos* los campos del lote. Lo correcto es compararla contra los
+candidatos **de cada hueco** —los de su pantalla o anteriores—, que es lo que de
+verdad se le manda al modelo. El número bueno es 3 de 23. Lo destapó el criterio
+de parada de la Task 1 del plan, el 2026-09-17.
 
 ---
 

@@ -81,10 +81,21 @@ def test_vocabulario_junta_nombre_etiqueta_y_valores():
 
 
 def test_la_frase_medida_no_ancla_en_ningun_campo():
-    # Caso real: 2 de 23 DIC-08 del corpus, y es el que trabo la revision.
+    # Caso real: 2 de los 3 DIC-08 sin anclaje del corpus, y el que trabo la revision.
     campos = [_campo("procedencia", "Procedencia", ["fisica", "moral"]),
               _campo("rfc", "RFC")]
     assert sin_anclaje("Solo si la validación de formato detecta errores al enviar", campos)
+
+
+def test_un_campo_de_una_pantalla_posterior_no_es_anclaje():
+    """Caso real de Reposicion de Certificado: la prosa nombra un campo, pero
+    de la Pantalla 2, y el hueco vive en la 1. Una condicion no puede mirar al
+    futuro, asi que ese campo NO llega como candidato: lo que se recibe aqui es
+    la lista sin el, y entonces no hay anclaje."""
+    campos = [_campo("observaciones", "Observaciones")]
+    assert sin_anclaje(
+        'Visible solo cuando el ciudadano reingresa tras un resultado '
+        '"¿Documentación conforme?" = No en la Pantalla 2', campos)
 
 
 def test_una_frase_que_nombra_un_campo_si_ancla():
@@ -205,7 +216,9 @@ for d in sorted(p for p in BASE.iterdir() if p.is_dir()):
 print(f"sin anclaje: {s}/{n}")
 PY
 ```
-Expected: `sin anclaje: 2/23`. Si sale otro número, **parar y avisar**: la medición del spec dejó de ser cierta y hay que entender por qué antes de seguir.
+Expected: `sin anclaje: 3/23`. Si sale otro número, **parar y avisar**: la medición del spec dejó de ser cierta y hay que entender por qué antes de seguir.
+
+Los tres casos esperados son: la misma frase «Solo si la validación de formato detecta errores al enviar» en Alta de Avisos de Testamento y en Constancia de No Infracción, y en Reposición de Certificado la de `p1::observaciones`, que nombra un campo de la **Pantalla 2** desde la Pantalla 1 — una condición no puede mirar al futuro, así que ese campo no es candidato.
 
 - [ ] **Step 6: Commit**
 
