@@ -6,6 +6,7 @@ import PieInstitucional from "@/components/PieInstitucional";
 import { Toaster } from "@/components/ui/sonner";
 import CargaInsumos from "@/features/carga/CargaInsumos";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
+import { useUrlDeRevision } from "@/features/huecos/useUrlDeRevision";
 import { leerExpediente } from "@/lib/api";
 import type { EstadoExpediente } from "@/lib/types";
 
@@ -31,6 +32,10 @@ function nombreDelTramite(est: EstadoExpediente | null): string | null {
 export default function App() {
   const [est, setEst] = useState<EstadoExpediente | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+
+  // El expediente abierto tiene direccion propia: sin ella, salir al
+  // simulador y volver con Atras aterrizaba en la carga de insumos.
+  useUrlDeRevision(est?.sid ?? null);
 
   useEffect(() => {
     const m = RE_REVISAR.exec(window.location.pathname);
