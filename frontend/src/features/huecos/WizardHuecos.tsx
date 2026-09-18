@@ -372,6 +372,7 @@ export default function WizardHuecos({
         bloqueantes={bloqueantes}
         tieneVistas={estado.tieneVistas}
         fraseBloqueo={fraseBloqueo}
+        estado={estado}
       />
     </div>
   );

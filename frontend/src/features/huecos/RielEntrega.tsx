@@ -2,10 +2,11 @@ import { CircleCheck, Download, Lock } from "lucide-react";
 
 import { cn } from "cn";
 import { urlGpm, urlManifiesto } from "@/lib/api";
-import type { Hueco } from "@/lib/types";
+import type { EstadoExpediente, Hueco } from "@/lib/types";
 
 import { contarPorCodigo } from "./agrupar";
 import { tituloDeCodigo } from "./lenguaje";
+import { documentoDeObservaciones } from "./observaciones";
 
 /**
  * Columna de entrega, siempre a la vista.
@@ -18,19 +19,41 @@ import { tituloDeCodigo } from "./lenguaje";
  * proposito: no dependen del linter, asi que se ofrecen aun con huecos
  * pendientes. Un expediente bloqueado nunca deja al analista sin salida.
  */
+/** «Trámite de Prueba - 2026-09-18», sin barras ni dos puntos. */
+function nombreDeArchivo(estado: EstadoExpediente): string {
+  const t = (estado.manifiesto as { tramite?: { nombre?: unknown } }).tramite?.nombre;
+  const nombre = (typeof t === "string" && t ? t : "expediente").replace(/[/\\:*?"<>|]/g, " ");
+  return `${nombre} - ${new Date().toISOString().slice(0, 10)}`;
+}
+
 export default function RielEntrega({
   sid,
   desbloqueado,
   bloqueantes,
   tieneVistas,
   fraseBloqueo,
+  estado,
 }: {
   sid: string;
   desbloqueado: boolean;
   bloqueantes: Hueco[];
   tieneVistas: boolean;
   fraseBloqueo: (n: number) => string;
+  /** Completo: el documento de observaciones necesita TODAS las
+      inconsistencias y el manifiesto, no solo las que bloquean. */
+  estado: EstadoExpediente;
 }) {
+  /** Arma el .md en el navegador y lo entrega. No pasa por el servidor: el
+      castellano de las observaciones vive aqui, en `redactarHueco`. */
+  function descargarObservaciones() {
+    const texto = documentoDeObservaciones(estado);
+    const url = URL.createObjectURL(new Blob([texto], { type: "text/markdown" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Observaciones - ${nombreDeArchivo(estado)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
   const enlace =
     "text-primary underline underline-offset-2 hover:text-primary/80";
 
@@ -117,6 +140,11 @@ export default function RielEntrega({
         <a className={enlace} href={urlManifiesto(sid)}>
           Descargar manifiesto
         </a>
+        {/* Siempre disponible, tambien con el expediente bloqueado: lo que
+            bloquea es justo lo que hay que mandarle a Simplificacion. */}
+        <button type="button" className={`${enlace} text-left`} onClick={descargarObservaciones}>
+          Descargar observaciones
+        </button>
         {tieneVistas ? (
           <a className={enlace} href={`/vistas/${sid}`} target="_blank" rel="noreferrer">
             Ver vistas HTML
