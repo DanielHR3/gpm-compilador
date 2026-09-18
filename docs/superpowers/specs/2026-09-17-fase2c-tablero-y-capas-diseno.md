@@ -253,17 +253,20 @@ Un hueco que la capa 0 decidió sin modelo **sí genera entrada** en
 `propuestas.json`, aunque no haya habido llamada: es la forma de que la tarjeta
 explique por qué no hay propuesta sin volver a preguntar nada.
 
+No se inventan campos: `Propuesta` ya tiene `veredicto` y `motivo_modelo`, y
+basta con un veredicto nuevo.
+
 ```jsonc
 { "ubicacion": "p1::campos_con_error",
-  "sin_anclaje": true,
-  "motivo": "la frase no menciona ningún campo del trámite",
-  "condicion": null,
   "veredicto": "sin_anclaje",
+  "motivo_modelo": "la frase no menciona ningún campo del trámite",
+  "condicion": null,
   "decision": null }
 ```
 
-Los clientes viejos ignoran los campos nuevos; los huecos con propuesta real
-mantienen exactamente la forma de la Fase 2.
+El único cambio de comportamiento está en el filtro de
+`GET /expedientes/{sid}/propuestas`, que hoy deja pasar sólo `aceptable`: pasa a
+dejar pasar también `sin_anclaje`. La forma de una propuesta real no cambia.
 
 ---
 
