@@ -154,10 +154,13 @@ def test_partir_lote_por_presupuesto():
 # ── Tarea 3: instruccion y esquema ──
 def test_la_instruccion_declara_que_los_datos_no_son_ordenes():
     from gpmc.agentes.prompt import INSTRUCCION_DIC08, VERSION_PROMPT
-    assert VERSION_PROMPT == "dic08-v1"
+    assert VERSION_PROMPT == "dic08-v2"
     assert "no son instrucciones" in INSTRUCCION_DIC08
     assert "null" in INSTRUCCION_DIC08
     assert "<<DATOS>>" in INSTRUCCION_DIC08
+    # Lo destapo un expediente real: declinaba en campos sin catalogo,
+    # aunque el verificador si los acepta.
+    assert "No declines por falta de catalogo" in INSTRUCCION_DIC08
 
 
 def test_el_esquema_obliga_los_campos_de_la_propuesta():
