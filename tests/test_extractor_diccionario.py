@@ -881,3 +881,32 @@ def test_un_nombre_que_no_conozco_al_menos_se_lee():
 
     assert etiqueta_desde_nombre("motivo_rechazo") == "Motivo rechazo"
     assert etiqueta_desde_nombre("curp") == "CURP"
+
+
+def test_una_opcion_que_dice_pendiente_no_marca_el_catalogo_como_pendiente():
+    """Constancia de No Infraccion declara el catalogo de estatus completo:
+    «En revisión, Pendiente de regularización, Concluido — Constancia emitida».
+    La marca de pendiente se buscaba como subcadena en toda la celda, asi que
+    la etiqueta legitima «Pendiente de regularización» tumbaba el catalogo
+    entero y emitia un DIC-02 falso (verificado 2026-09-18)."""
+    opciones, pendiente = _catalogo_de(
+        "En revisión, Pendiente de regularización, Concluido — Constancia emitida"
+    )
+
+    assert not pendiente
+    assert [o.etiqueta for o in opciones] == [
+        "En revisión", "Pendiente de regularización", "Concluido — Constancia emitida",
+    ]
+
+
+def test_una_celda_declarada_pendiente_sigue_marcandose_pendiente():
+    """El contrapeso del test de arriba: una celda que de verdad declara el
+    catalogo como pendiente no parte en opciones y sigue dando DIC-02."""
+    for celda in (
+        "Pendiente de confirmar con la dependencia",
+        "N/A (sin catálogo confirmado — ver Pendientes)",
+        "Por definir",
+    ):
+        opciones, pendiente = _catalogo_de(celda)
+        assert pendiente, celda
+        assert not opciones
