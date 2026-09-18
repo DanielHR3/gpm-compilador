@@ -15,7 +15,6 @@ type DefCampo = {
   campo: CampoInsumo;
   etiqueta: string;
   obligatorio: boolean;
-  ayuda: string;
   /** Ruta de la plantilla de ejemplo para este insumo, si tiene una. Los
    * insumos con formato propenso a error (TO-BE: carriles/`@@campo` en el
    * Mermaid; Diccionario: catálogos, nombres técnicos) llevan un ejemplo
@@ -28,27 +27,23 @@ const CAMPOS: readonly DefCampo[] = [
     campo: "diccionario",
     etiqueta: "Diccionario",
     obligatorio: true,
-    ayuda: "De aquí salen las pantallas y los campos.",
     plantilla: "/descargar-plantilla",
   },
   {
     campo: "as_is",
     etiqueta: "As Is",
     obligatorio: false,
-    ayuda: "El proceso como es hoy.",
   },
   {
     campo: "to_be",
     etiqueta: "To Be",
     obligatorio: false,
-    ayuda: "El proceso como quedará, con su diagrama.",
     plantilla: "/descargar-plantilla-tobe",
   },
   {
     campo: "vistas",
     etiqueta: "Vistas",
     obligatorio: false,
-    ayuda: "Definición de vistas.",
   },
 ];
 
@@ -199,7 +194,10 @@ export default function CargaInsumos({
         </Instrucciones>
       </header>
 
-      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4">
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2.5">
+        {/* Rotulo, explicacion y selector en la misma linea: ocupaba tres
+            renglones apilados para decir algo que cabe en uno. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <label
           htmlFor="carpeta-expediente"
           className="flex items-center gap-2 text-sm font-medium text-foreground"
@@ -207,10 +205,9 @@ export default function CargaInsumos({
           <FolderOpen aria-hidden className="size-4 shrink-0 text-primary" />
           Carpeta del trámite
         </label>
-        <p className="text-sm text-muted-foreground">
-          Elige la carpeta completa tal como te la entregó Simplificación y yo
-          acomodo cada archivo en su zona. Puedes corregir lo que quede mal
-          antes de extraer.
+        <p className="text-xs text-muted-foreground">
+          Súbela completa, como la entregó Simplificación, y acomodo cada
+          archivo en su sitio.
         </p>
         <input
           id="carpeta-expediente"
@@ -219,9 +216,10 @@ export default function CargaInsumos({
           // Chrome, Edge y Safari; sin él, el input se comporta como uno normal.
           {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
           multiple
-          className="text-sm file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium"
+          className="ml-auto text-sm file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1 file:text-sm file:font-medium"
           onChange={(e) => void repartirCarpeta([...(e.target.files ?? [])])}
         />
+        </div>
         {repartiendo ? (
           <p className="text-sm text-muted-foreground">Acomodando…</p>
         ) : null}
@@ -256,9 +254,9 @@ export default function CargaInsumos({
           mismo en una linea, y se sigue pudiendo soltar un archivo encima. */}
       <ul
         aria-label="Insumos del trámite"
-        className="flex flex-col gap-1.5"
+        className="grid gap-1.5 sm:grid-cols-2"
       >
-        {CAMPOS.map(({ campo, etiqueta, obligatorio, ayuda, plantilla }) => {
+        {CAMPOS.map(({ campo, etiqueta, obligatorio, plantilla }) => {
           const inputId = `insumo-${campo}`;
           const archivo = slots[campo];
           const activa = sobrevolando === campo;
@@ -307,7 +305,6 @@ export default function CargaInsumos({
                   {obligatorio ? "Obligatorio" : "Opcional"}
                 </span>
 
-                <span className="text-xs text-muted-foreground">{ayuda}</span>
 
                 {/* El nombre del archivo empuja los controles a la derecha. */}
                 <span
