@@ -298,3 +298,25 @@ it("«lo configuro a mano» es un botón visible, no un texto gris", () => {
   expect(b.className).toMatch(/border/);
   expect(b.className).not.toMatch(/hover:underline/);
 });
+
+it("la tarjeta pinta el mensaje redactado, no el crudo del compilador", () => {
+  render(
+    <TarjetaHueco
+      hueco={{
+        nivel: "falta_dato",
+        codigo: "DIC-02",
+        ubicacion: "p1",
+        mensaje:
+          "el catálogo de 'Estatus del Trámite' está declarado como pendiente en el Diccionario; no se emite",
+        propuesta: null,
+      }}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+  expect(
+    screen.getByText(/quedó marcada como pendiente/),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/no se emite/)).not.toBeInTheDocument();
+});

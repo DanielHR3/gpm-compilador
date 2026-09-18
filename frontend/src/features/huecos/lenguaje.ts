@@ -1,4 +1,4 @@
-import type { CampoManifiesto, Condicion } from "@/lib/types";
+import type { CampoManifiesto, Condicion, Hueco } from "@/lib/types";
 
 /**
  * Titulos en castellano para los codigos de validacion.
@@ -18,7 +18,7 @@ const TITULOS: Record<string, string> = {
   "DIC-01": "Campo sin pantalla asignada",
   "DIC-04": "División en pantallas",
   "DIC-05": "Etiqueta de un campo",
-  "DIC-02": "Tipo de campo",
+  "DIC-02": "Lista declarada como pendiente",
   "DIC-06": "Nombre técnico demasiado largo",
   "DIC-07": "Lista sin opciones",
   "DIC-08": "Visibilidad de un campo",
@@ -228,4 +228,156 @@ function limpiarEtiquetaDelDiagrama(bruto: string): string {
   // Detalle operativo entre parentesis al final.
   t = t.replace(/\s*\([^()]*\)\s*$/u, "");
   return t.trim();
+}
+
+/**
+ * Redaccion humana del mensaje de un hueco.
+ *
+ * El backend escribe sus mensajes para el equipo tecnico: dicen lo que hizo el
+ * compilador ("no se emite", "se emite como campo de texto") y nombran cosas
+ * que solo existen dentro del codigo (`type_of_person`, `@@campo`, la columna
+ * `campo.nombre`). En la CLI eso esta bien y no se toca. En la pantalla de
+ * revision lo lee quien documenta el tramite, y para esa persona el mensaje
+ * tiene que decir otras tres cosas: que paso en el insumo, que consecuencia
+ * tiene para el tramite publicado, y que le toca hacer.
+ *
+ * Lo ultimo solo cuando la tarjeta no lo dice ya por su cuenta: los codigos con
+ * `Pista` escrita (ver PISTAS) ya traen el imperativo debajo, y repetirlo hace
+ * que la tarjeta se lea como si mandara dos veces.
+ */
+type Redaccion = (mensaje: string, nivel: string) => string | null;
+
+/** "1 decisión" / "2 decisiones", que en una frase se nota. */
+function contar(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/**
+ * Una redaccion de texto fijo, anclada a un trozo del mensaje que la origina.
+ *
+ * El ancla no es adorno: los mensajes sin datos interpolados tientan a devolver
+ * la prosa sin mirar el crudo, y entonces un cambio de cadena en el extractor
+ * no rompe nada visible -- la pantalla sigue contando la version vieja de los
+ * hechos. Con ancla, ese caso cae al crudo igual que los demas.
+ */
+const fijo = (ancla: RegExp, texto: string): Redaccion => (mensaje) =>
+  ancla.test(mensaje) ? texto : null;
+
+const REDACCIONES: Record<string, Redaccion> = {
+  // --- Metadatos: mensajes sin datos interpolados, texto fijo. ---------------
+  "META-01": fijo(
+    /no se encontro el tiempo de respuesta/,
+    "El AS-IS no dice cuánto tarda el trámite desde que se solicita hasta " +
+      "que se entrega.",
+  ),
+  "META-02": fijo(
+    /no se encontro la dependencia/,
+    "El AS-IS no dice qué dependencia resuelve el trámite. Hasta que alguien " +
+      "lo escriba, la ficha sale con «[por confirmar]» en ese lugar.",
+  ),
+  "META-03": fijo(
+    /no se encontro el costo declarado/,
+    "En ningún documento aparece el costo, así que el trámite saldría " +
+      "publicado como gratuito.",
+  ),
+  "META-04": fijo(
+    /no se pudo determinar el nombre/,
+    "No hay de dónde sacar el nombre del trámite: ni el AS-IS ni el nombre " +
+      "de la carpeta lo dicen.",
+  ),
+  "META-05": fijo(
+    /no se encontro homoclave/,
+    "No aparece la homoclave en ningún documento. En un trámite nuevo es lo " +
+      "normal: la asigna GPM cuando se publica.",
+  ),
+  "META-06": fijo(
+    /no se encontro 'A quien va dirigido'/,
+    "Ningún documento dice a quién va dirigido el trámite, así que quedará " +
+      "abierto a personas físicas y morales por igual.",
+  ),
+
+  // --- Diccionario: hay que sacar del crudo la etiqueta del campo. ----------
+  "DIC-02": (mensaje) => {
+    const m = /el catálogo de '([^']+)' está declarado como pendiente/.exec(mensaje);
+    if (!m) return null;
+    return (
+      `En el Diccionario, la lista de «${m[1]}» quedó marcada como pendiente. ` +
+      "Tal como está, el campo saldría sin opciones que elegir. Escribe " +
+      "cuáles son."
+    );
+  },
+  "DIC-07": (mensaje) => {
+    const m = /el campo '([^']+)' es \w+ pero no se extrajo ninguna opción/.exec(mensaje);
+    if (!m) return null;
+    return (
+      `«${m[1]}» debería ser una lista, pero en el Diccionario no trae ninguna ` +
+      "opción: ni en «Catálogo de Valores» ni en «Límite/Especificaciones». " +
+      "Tal como está, saldría como una caja de texto donde cada quien escribe " +
+      "lo que quiera. Escribe las opciones."
+    );
+  },
+
+  // --- Flujo: el diagrama y el Diccionario contados en castellano. ----------
+  "FLU-01": (mensaje) => {
+    const m = /tiene (\d+) compuerta/.exec(mensaje);
+    if (!m) return null;
+    return (
+      `El diagrama TO-BE tiene ${contar(Number(m[1]), "decisión", "decisiones")} ` +
+      "que el trámite no reproduce. Suele ser por una de tres cosas: la " +
+      "decisión no dice qué campo hay que mirar, alguna de sus salidas no " +
+      "coincide con ninguna opción de ese campo, o las tareas del diagrama no " +
+      "corresponden con las pantallas. Tal como está, el trámite saldría en " +
+      "línea recta, sin caminos alternativos."
+    );
+  },
+  "FLU-02": (mensaje) => {
+    const m = /tiene (\d+) tareas y el Diccionario (\d+) pantallas/.exec(mensaje);
+    if (!m) return null;
+    return (
+      `El diagrama TO-BE tiene ${m[1]} tareas y el Diccionario ${m[2]} ` +
+      "pantallas. Como no coinciden, no hay forma de saber qué pantalla le " +
+      "toca a cada tarea. Revisa cuál de los dos documentos quedó incompleto."
+    );
+  },
+  "FLU-03": (mensaje) => {
+    const m = /\((\d+) compuerta\(s\), (\d+) conexión\(es\) con condición\)\.[^:]*:\s*(.+)$/s.exec(mensaje);
+    if (!m) return null;
+    return (
+      "El trámite quedó con caminos alternativos, tal como los dibuja el " +
+      `diagrama TO-BE: ${contar(Number(m[1]), "decisión", "decisiones")} y ` +
+      `${contar(Number(m[2]), "salida", "salidas")} con condición. Revisa que a ` +
+      `cada tarea le haya tocado la pantalla correcta: ${m[3]}`
+    );
+  },
+
+  // --- Documentos: dos mensajes distintos bajo el mismo codigo. -------------
+  "DOC-04": (mensaje) => {
+    const huerfano = /el documento «(.+?)» no se genera en ninguna tarea:.*?\((.+?)\)\./s.exec(mensaje);
+    if (huerfano) {
+      return (
+        `«${huerfano[1]}» necesita los datos ${huerfano[2]}. Ninguna tarea del ` +
+        "flujo llega a tenerlos todos, así que el documento nunca se " +
+        "generaría. Revisa que las pantallas donde se capturan esos datos " +
+        "estén en el flujo."
+      );
+    }
+    const colocado = /el documento «(.+?)» se genera al terminar la tarea «(.+?)»/s.exec(mensaje);
+    if (!colocado) return null;
+    return (
+      `«${colocado[1]}» se generará al terminar la tarea «${colocado[2]}»: es la ` +
+      "primera del flujo en la que ya están todos sus datos."
+    );
+  },
+};
+
+/**
+ * El mensaje del hueco dicho como lo diria una persona.
+ *
+ * Un codigo sin redaccion escrita —o un mensaje que no tiene la forma que la
+ * redaccion espera, porque el backend cambio la cadena— devuelve el crudo. Feo
+ * pero cierto: es preferible a inventar una frase que ya no describe lo que
+ * paso.
+ */
+export function redactarHueco(hueco: Hueco): string {
+  return REDACCIONES[hueco.codigo]?.(hueco.mensaje, hueco.nivel) ?? hueco.mensaje;
 }

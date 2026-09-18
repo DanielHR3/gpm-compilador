@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CampoManifiesto, Condicion } from "@/lib/types";
+import type { CampoManifiesto, Condicion, Hueco } from "@/lib/types";
 
 import {
   describirCondicion,
@@ -8,6 +8,7 @@ import {
   nombreDeCompuerta,
   nombreDeTarea,
   pistaDeCodigo,
+  redactarHueco,
   tituloDeCodigo,
 } from "./lenguaje";
 
@@ -17,6 +18,12 @@ describe("tituloDeCodigo", () => {
     expect(tituloDeCodigo("MMD-04")).toBe("Decisión del flujo");
     expect(tituloDeCodigo("MMD-03")).toBe("Responsable de una tarea");
     expect(tituloDeCodigo("META-04")).toBe("Nombre del trámite");
+  });
+
+  test("el titulo de DIC-02 habla del catalogo, que es de lo que habla su mensaje", () => {
+    // Decia "Tipo de campo", que no es lo que el hueco reporta: el encabezado
+    // y el cuerpo de la tarjeta contaban cosas distintas.
+    expect(tituloDeCodigo("DIC-02")).toBe("Lista declarada como pendiente");
   });
 
   test("un codigo que no conozco se queda como esta, sin inventar", () => {
@@ -165,5 +172,183 @@ describe("codigos de documentos de salida", () => {
     expect(pistaDeCodigo("DOC-03")?.instruccion).toMatch(/Word/);
     expect(tituloDeCodigo("DOC-04")).toBe("En qué tarea se genera el documento");
     expect(pistaDeCodigo("DOC-04")?.instruccion).toMatch(/tarea/i);
+  });
+});
+
+/**
+ * Un mensaje real por cada codigo de la tanda 1, copiado de los extractores.
+ * Sirve de red: si una redaccion futura se escribe con jerga, la prueba
+ * transversal de abajo lo caza sin que haya que acordarse de anadirla.
+ */
+const MENSAJES_REALES: ReadonlyArray<readonly [string, string]> = [
+  ["META-01", "no se encontro el tiempo de respuesta declarado"],
+  ["META-02", "no se encontro la dependencia en el frontmatter del AS-IS"],
+  ["META-03", "no se encontro el costo declarado; se asume sin costo"],
+  ["META-04", "no se pudo determinar el nombre del tramite"],
+  ["META-05", "no se encontro homoclave; en tramites nuevos es normal, la asigna GPM"],
+  ["META-06", "no se encontro 'A quien va dirigido'; type_of_person queda en 'ambas'"],
+  ["DIC-02", "el catálogo de 'Estatus del Trámite' está declarado como pendiente en el Diccionario; no se emite"],
+  ["DIC-07", "el campo 'Modalidad' es select pero no se extrajo ninguna opción (ni en 'Catálogo de Valores' ni en 'Límite/Especificaciones'); el compilador lo emite como campo de texto hasta que se defina el catálogo"],
+  ["FLU-01", "el diagrama TO-BE tiene 2 compuerta(s) que este manifiesto NO reproduce: falta el `@@campo` en la compuerta, o una etiqueta de arista no casa con un valor del catálogo, o las tareas no casan con las pantallas. El flujo sale lineal; ramificar a mano."],
+  ["FLU-02", "el diagrama tiene 5 tareas y el Diccionario 4 pantallas; confirmar la correspondencia"],
+  ["FLU-03", "el flujo se ramificó automáticamente del diagrama TO-BE (1 compuerta(s), 2 conexión(es) con condición). Confirma que las tareas casan con las pantallas: «nueva solicitud» → P1"],
+  ["DOC-04", "el documento «Constancia» no se genera en ninguna tarea: ninguna del flujo llega a tener todos sus datos (curp, nombre). Revisa que esas pantallas estén en el flujo"],
+];
+
+const MENSAJE: Record<string, string> = Object.fromEntries(MENSAJES_REALES);
+
+/**
+ * Los mensajes crudos de esta suite estan copiados literalmente de los
+ * extractores de Python (`metadatos.py`, `diccionario.py`, `expediente.py`,
+ * `documentos.py`). Si el backend cambia una de estas cadenas, la prueba falla
+ * y `redactarHueco` cae al crudo: es justo lo que queremos que se note.
+ */
+const hueco = (codigo: string, mensaje: string, nivel = "falta_dato"): Hueco => ({
+  nivel,
+  codigo,
+  ubicacion: "metadatos",
+  mensaje,
+  propuesta: null,
+});
+
+describe("redactarHueco", () => {
+  test("un codigo sin redaccion escrita devuelve el mensaje crudo", () => {
+    const crudo = "algo que el compilador dijo y nadie tradujo";
+
+    expect(redactarHueco(hueco("ZZZ-99", crudo))).toBe(crudo);
+  });
+
+  test("un META con un mensaje que el backend ya no escribe cae al crudo", () => {
+    // Las redacciones fijas tambien se anclan: si el extractor reescribe su
+    // cadena, la pantalla vuelve al crudo en vez de seguir contando una
+    // version vieja de los hechos que nadie notaria.
+    const crudo = "el tiempo de respuesta ahora se declara en el TO-BE";
+
+    expect(redactarHueco(hueco("META-01", crudo))).toBe(crudo);
+  });
+
+  test("META-01 nombra el documento donde deberia estar el dato", () => {
+    expect(redactarHueco(hueco("META-01", MENSAJE["META-01"]))).toBe(
+      "El AS-IS no dice cuánto tarda el trámite desde que se solicita hasta " +
+        "que se entrega.",
+    );
+  });
+
+  test("META-02 dice con que se publicaria la ficha si nadie lo corrige", () => {
+    expect(redactarHueco(hueco("META-02", MENSAJE["META-02"]))).toBe(
+      "El AS-IS no dice qué dependencia resuelve el trámite. Hasta que alguien " +
+        "lo escriba, la ficha sale con «[por confirmar]» en ese lugar.",
+    );
+  });
+
+  test("META-03 advierte que el tramite saldria gratuito", () => {
+    expect(redactarHueco(hueco("META-03", MENSAJE["META-03"], "por_confirmar"))).toBe(
+      "En ningún documento aparece el costo, así que el trámite saldría " +
+        "publicado como gratuito.",
+    );
+  });
+
+  test("META-04 dice los dos lugares donde se busco el nombre", () => {
+    expect(redactarHueco(hueco("META-04", MENSAJE["META-04"]))).toBe(
+      "No hay de dónde sacar el nombre del trámite: ni el AS-IS ni el nombre " +
+        "de la carpeta lo dicen.",
+    );
+  });
+
+  test("META-05 explica por que no es un problema, sin repetir el imperativo de la tarjeta", () => {
+    expect(redactarHueco(hueco("META-05", MENSAJE["META-05"], "por_confirmar"))).toBe(
+      "No aparece la homoclave en ningún documento. En un trámite nuevo es lo " +
+        "normal: la asigna GPM cuando se publica.",
+    );
+  });
+
+  test("META-06 dice la consecuencia sin nombrar la columna de la base", () => {
+    expect(redactarHueco(hueco("META-06", MENSAJE["META-06"], "por_confirmar"))).toBe(
+      "Ningún documento dice a quién va dirigido el trámite, así que quedará " +
+        "abierto a personas físicas y morales por igual.",
+    );
+  });
+
+  test("DIC-02 nombra el campo que leyo del mensaje crudo", () => {
+    expect(redactarHueco(hueco("DIC-02", MENSAJE["DIC-02"]))).toBe(
+      "En el Diccionario, la lista de «Estatus del Trámite» quedó marcada como " +
+        "pendiente. Tal como está, el campo saldría sin opciones que elegir. " +
+        "Escribe cuáles son.",
+    );
+  });
+
+  test("DIC-02 con otra forma de mensaje cae al crudo en vez de inventar el campo", () => {
+    const crudo = "el catálogo de algo se declaro pendiente";
+
+    expect(redactarHueco(hueco("DIC-02", crudo))).toBe(crudo);
+  });
+
+  test("DIC-07 dice en que se convierte el campo si nadie escribe las opciones", () => {
+    expect(redactarHueco(hueco("DIC-07", MENSAJE["DIC-07"]))).toBe(
+      "«Modalidad» debería ser una lista, pero en el Diccionario no trae " +
+        "ninguna opción: ni en «Catálogo de Valores» ni en «Límite/" +
+        "Especificaciones». Tal como está, saldría como una caja de texto " +
+        "donde cada quien escribe lo que quiera. Escribe las opciones.",
+    );
+  });
+
+  test("FLU-01 cuenta las decisiones sin hablar de compuertas ni de aristas", () => {
+    const redactado = redactarHueco(hueco("FLU-01", MENSAJE["FLU-01"]));
+
+    expect(redactado).toContain("2 decisiones");
+    expect(redactado).toContain("saldría en línea recta");
+    expect(redactado).not.toMatch(/compuerta|arista|@@|manifiesto/);
+  });
+
+  test("FLU-01 concuerda en singular cuando solo hay una decision", () => {
+    const una = MENSAJE["FLU-01"].replace("tiene 2 compuerta", "tiene 1 compuerta");
+
+    expect(redactarHueco(hueco("FLU-01", una))).toContain("tiene 1 decisión que");
+  });
+
+  test("FLU-02 contrasta las dos cuentas que no cuadran", () => {
+    expect(redactarHueco(hueco("FLU-02", MENSAJE["FLU-02"]))).toBe(
+      "El diagrama TO-BE tiene 5 tareas y el Diccionario 4 pantallas. Como no " +
+        "coinciden, no hay forma de saber qué pantalla le toca a cada tarea. " +
+        "Revisa cuál de los dos documentos quedó incompleto.",
+    );
+  });
+
+  test("FLU-03 conserva el detalle de que tarea quedo en que pantalla", () => {
+    expect(redactarHueco(hueco("FLU-03", MENSAJE["FLU-03"], "por_confirmar"))).toBe(
+      "El trámite quedó con caminos alternativos, tal como los dibuja el " +
+        "diagrama TO-BE: 1 decisión y 2 salidas con condición. Revisa que a " +
+        "cada tarea le haya tocado la pantalla correcta: «nueva solicitud» → P1",
+    );
+  });
+
+  test("DOC-04 sin tarea destino explica que el documento no se generaria nunca", () => {
+    expect(redactarHueco(hueco("DOC-04", MENSAJE["DOC-04"]))).toBe(
+      "«Constancia» necesita los datos curp, nombre. Ninguna tarea del flujo " +
+        "llega a tenerlos todos, así que el documento nunca se generaría. " +
+        "Revisa que las pantallas donde se capturan esos datos estén en el flujo.",
+    );
+  });
+
+  test("DOC-04 ya resuelto solo cuenta donde quedo, sin el imperativo que ya da la pista", () => {
+    const crudo =
+      "el documento «Constancia» se genera al terminar la tarea «Validar», la " +
+      "primera en la que ya están todos sus datos. Si debe salir en otra tarea " +
+      "(por ejemplo tras una firma), cámbialo a mano";
+
+    expect(redactarHueco(hueco("DOC-04", crudo, "por_confirmar"))).toBe(
+      "«Constancia» se generará al terminar la tarea «Validar»: es la primera " +
+        "del flujo en la que ya están todos sus datos.",
+    );
+  });
+
+  test("ninguna redaccion escrita deja jerga del compilador a la vista", () => {
+    const JERGA = /type_of_person|classDef|:::|@@|SEG-\d|campo\.nombre|endpoint|manifiesto|compuerta|arista|select\b|radio\b/;
+
+    for (const [codigo, crudo] of MENSAJES_REALES) {
+      const redactado = redactarHueco(hueco(codigo, crudo, "falta_dato"));
+      if (redactado === crudo) continue; // sin redaccion: se permite el crudo
+      expect(redactado, `${codigo} deja jerga a la vista`).not.toMatch(JERGA);
+    }
   });
 });

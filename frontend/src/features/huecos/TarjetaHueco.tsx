@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "cn";
 import { decidirPropuesta, reconocer, resolver } from "@/lib/api";
 
-import { tituloDeCodigo } from "./lenguaje";
+import { redactarHueco, tituloDeCodigo } from "./lenguaje";
 
 /**
  * Codigos cuyo control redacta su propia pregunta a partir del mensaje.
@@ -297,7 +297,9 @@ export default function TarjetaHueco({
             que no redacta nada: sin esta excepcion la tarjeta salia vacia. */}
         {!CONTROL_REDACTA_EL_MENSAJE.has(hueco.codigo) ||
         (hueco.codigo === "MMD-03" && hueco.nivel !== "falta_dato") ? (
-          <p className="text-sm font-medium text-foreground">{hueco.mensaje}</p>
+          <p className="text-sm font-medium text-foreground">
+            {redactarHueco(hueco)}
+          </p>
         ) : null}
         {hueco.propuesta ? (
           <p className="text-sm text-muted-foreground">
