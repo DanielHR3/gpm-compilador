@@ -1,9 +1,8 @@
 import { useState } from "react";
 import type { DragEvent } from "react";
-import { ArrowRight, Download, FileText, FolderOpen, UploadCloud, FileWarning } from "lucide-react";
+import { ArrowRight, Download, FileText, FolderOpen, UploadCloud, FileWarning, X } from "lucide-react";
 
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import Instrucciones from "@/components/Instrucciones";
 import { cn } from "cn";
 import { clasificar, crearExpediente, ErrorApi } from "@/lib/api";
@@ -26,30 +25,30 @@ type DefCampo = {
 
 const CAMPOS: readonly DefCampo[] = [
   {
+    campo: "diccionario",
+    etiqueta: "Diccionario",
+    obligatorio: true,
+    ayuda: "De aquí salen las pantallas y los campos.",
+    plantilla: "/descargar-plantilla",
+  },
+  {
     campo: "as_is",
     etiqueta: "As Is",
     obligatorio: false,
-    ayuda: "Proceso actual (opcional).",
+    ayuda: "El proceso como es hoy.",
   },
   {
     campo: "to_be",
     etiqueta: "To Be",
     obligatorio: false,
-    ayuda: "Proceso objetivo (opcional).",
+    ayuda: "El proceso como quedará, con su diagrama.",
     plantilla: "/descargar-plantilla-tobe",
-  },
-  {
-    campo: "diccionario",
-    etiqueta: "Diccionario",
-    obligatorio: true,
-    ayuda: "Diccionario de datos (obligatorio).",
-    plantilla: "/descargar-plantilla",
   },
   {
     campo: "vistas",
     etiqueta: "Vistas",
     obligatorio: false,
-    ayuda: "Definicion de vistas (opcional).",
+    ayuda: "Definición de vistas.",
   },
 ];
 
@@ -251,23 +250,52 @@ export default function CargaInsumos({
         ) : null}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* Un renglon por insumo. Eran cuatro tarjetas con caja punteada, icono
+          y texto centrado: casi una pantalla entera para pedir cuatro archivos,
+          y el rotulo de cada uno perdido entre el relleno. El renglon dice lo
+          mismo en una linea, y se sigue pudiendo soltar un archivo encima. */}
+      <ul
+        aria-label="Insumos del trámite"
+        className="flex flex-col gap-1.5"
+      >
         {CAMPOS.map(({ campo, etiqueta, obligatorio, ayuda, plantilla }) => {
           const inputId = `insumo-${campo}`;
           const archivo = slots[campo];
           const activa = sobrevolando === campo;
           return (
-            <Card
-              key={campo}
-              className={cn(
-                "gap-3 transition-shadow",
-                obligatorio && "ring-2 ring-primary/30",
-              )}
-            >
-              <CardHeader className="flex items-center justify-between gap-2 space-y-0">
-                <CardTitle className="flex items-center gap-2">
+            <li key={campo}>
+              {/* `label`/`input` van como hermanos dentro de ESTE div: las
+                  pruebas ubican la zona con `getByLabelText(...).closest("div")`
+                  -- resuelven al input y suben al div mas cercano, que tiene que
+                  ser el que lleva los manejadores de arrastre. */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setSobrevolando(campo);
+                }}
+                onDragLeave={() => setSobrevolando(null)}
+                onDrop={alSoltar(campo)}
+                className={cn(
+                  "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors",
+                  activa
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40 hover:bg-muted/40",
+                  obligatorio && !archivo && "border-primary/50 bg-primary/5",
+                )}
+              >
+                {archivo ? (
+                  <FileText aria-hidden className="size-4 shrink-0 text-primary" strokeWidth={1.75} />
+                ) : (
+                  <UploadCloud aria-hidden className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+                )}
+
+                <label
+                  htmlFor={inputId}
+                  className="cursor-pointer font-medium text-primary underline underline-offset-2"
+                >
                   {etiqueta}
-                </CardTitle>
+                </label>
+
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-xs font-medium",
@@ -278,95 +306,55 @@ export default function CargaInsumos({
                 >
                   {obligatorio ? "Obligatorio" : "Opcional"}
                 </span>
-              </CardHeader>
-              <CardContent>
-                {/* `label`/`input` van como hermanos explícitos (htmlFor/id,
-                    NO label-envuelve-input): las pruebas ubican la zona con
-                    `getByLabelText(...).closest("div")`, que resuelve al
-                    input y sube al div más cercano -- si el input quedara
-                    anidado dentro de otro elemento no-div, ese `closest`
-                    dejaría de encontrar la zona con los manejadores de
-                    arrastre. */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setSobrevolando(campo);
-                  }}
-                  onDragLeave={() => setSobrevolando(null)}
-                  onDrop={alSoltar(campo)}
+
+                <span className="text-xs text-muted-foreground">{ayuda}</span>
+
+                {/* El nombre del archivo empuja los controles a la derecha. */}
+                <span
+                  data-testid={`nombre-${campo}`}
                   className={cn(
-                    "flex flex-col items-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-sm transition-colors",
-                    activa
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/40 hover:bg-muted/40",
+                    "ml-auto max-w-[16rem] truncate",
+                    archivo ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  {archivo ? (
-                    <FileText
-                      aria-hidden
-                      className="size-6 text-primary"
-                      strokeWidth={1.75}
-                    />
-                  ) : (
-                    <UploadCloud
-                      aria-hidden
-                      className="size-6 text-muted-foreground"
-                      strokeWidth={1.75}
-                    />
-                  )}
-                  <span
-                    data-testid={`nombre-${campo}`}
-                    className="max-w-full truncate font-medium text-foreground"
+                  {archivo ? archivo.name : "Sin archivo"}
+                </span>
+
+                <input
+                  id={inputId}
+                  type="file"
+                  className="sr-only"
+                  onChange={(e) => asignar(campo, e.target.files?.[0] ?? null)}
+                />
+
+                {archivo ? (
+                  <button
+                    type="button"
+                    aria-label={`Quitar el ${etiqueta}`}
+                    onClick={() => asignar(campo, null)}
+                    className="text-muted-foreground hover:text-destructive"
                   >
-                    {archivo ? archivo.name : "Sin archivo"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {ayuda}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Elegir{" "}
-                    <label
-                      htmlFor={inputId}
-                      className="cursor-pointer font-medium text-primary underline underline-offset-2"
-                    >
-                      {etiqueta}
-                    </label>
-                  </span>
-                  <input
-                    id={inputId}
-                    type="file"
-                    className="sr-only"
-                    onChange={(e) =>
-                      asignar(campo, e.target.files?.[0] ?? null)
-                    }
-                  />
-                </div>
+                    <X aria-hidden className="size-4" />
+                  </button>
+                ) : null}
+
                 {plantilla ? (
-                  // Era un enlace subrayado de 12px al pie de la tarjeta, que
-                  // es justo donde no se ve. Quien no sabe que existe una
-                  // plantilla no la busca: tiene que verse que se puede hacer.
-                  // `Button` de este proyecto no lleva `asChild` (no usa el
-                  // Slot de Radix), asi que el enlace toma sus clases directo.
-                  // El texto visible se queda corto, pero dos enlaces llamados
-                  // igual son ambiguos para un lector de pantalla: el rotulo
-                  // accesible dice de cual es.
+                  // Quien no sabe que existe una plantilla no la busca: tiene
+                  // que verse que se puede hacer, aunque ya no ocupe un boton.
                   <a
                     href={plantilla}
                     aria-label={`Descargar plantilla de ejemplo del ${etiqueta}`}
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "sm" }),
-                      "mt-2 self-start",
-                    )}
+                    className="flex items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
                   >
-                    <Download aria-hidden className="size-4" />
-                    Descargar plantilla
+                    <Download aria-hidden className="size-3.5" />
+                    Plantilla
                   </a>
                 ) : null}
-              </CardContent>
-            </Card>
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {error ? (
         <div

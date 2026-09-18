@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import CargaInsumos from "./CargaInsumos";
@@ -218,4 +218,30 @@ it("explica qué es cada insumo y qué pasa con un PDF escaneado", () => {
   render(<CargaInsumos onListo={vi.fn()} />);
   expect(screen.getByText(/Con el Diccionario basta para empezar/)).toBeInTheDocument();
   expect(screen.getByText(/Un PDF escaneado es una imagen/)).toBeInTheDocument();
+});
+
+it("los cuatro insumos son una lista de renglones, no cuatro cajas grandes", () => {
+  // Cuatro tarjetas con caja punteada, icono y texto centrado ocupaban casi
+  // toda la pantalla para pedir cuatro archivos. Un renglon por insumo dice lo
+  // mismo -- que es, si es obligatorio y que archivo lleva -- en una linea.
+  render(<CargaInsumos onListo={() => {}} />);
+
+  const lista = screen.getByRole("list", { name: /insumos del trámite/i });
+  const renglones = within(lista).getAllByRole("listitem");
+
+  expect(renglones).toHaveLength(4);
+  expect(within(renglones[0]).getByText("Obligatorio")).toBeInTheDocument();
+});
+
+it("el renglon dice que archivo lleva y deja quitarlo", async () => {
+  render(<CargaInsumos onListo={() => {}} />);
+  const dicc = new File(["# x"], "Diccionario.md", { type: "text/markdown" });
+
+  await userEvent.upload(screen.getByLabelText(/^diccionario$/i), dicc);
+
+  expect(screen.getByTestId("nombre-diccionario")).toHaveTextContent("Diccionario.md");
+  await userEvent.click(
+    screen.getByRole("button", { name: /quitar el diccionario/i }),
+  );
+  expect(screen.getByTestId("nombre-diccionario")).toHaveTextContent(/sin archivo/i);
 });
