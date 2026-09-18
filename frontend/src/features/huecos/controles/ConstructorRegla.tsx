@@ -148,8 +148,10 @@ export default function ConstructorRegla({
                     })
                   }
                 >
-                  <option value="==">sea igual a</option>
-                  <option value="!=">sea distinto de</option>
+                  {/* Se leen pegados al campo que va antes: «… «Estatus del
+                      Tramite» sea «Pendiente»», no «es igual a». */}
+                  <option value="==">sea</option>
+                  <option value="!=">no sea</option>
                 </select>
               </div>
 
@@ -205,7 +207,7 @@ export default function ConstructorRegla({
         className={cn("mt-2 self-start", filas.length > 0 && "border-primary/30 text-primary")}
       >
         <Plus aria-hidden className="size-3.5" />
-        y además…
+        y además debe cumplirse que…
       </Button>
     </div>
   );

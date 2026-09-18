@@ -143,7 +143,12 @@ export default function ControlVisibilidad({
         </div>
       ) : null}
 
-      <p className="text-sm text-muted-foreground">Muéstralo solo cuando:</p>
+      {/* La fila de abajo es la continuacion de esta frase, no un formulario
+          aparte: decia "Muestralo solo cuando:", y ese "lo" obligaba a recordar
+          de que campo hablaba la tarjeta mientras se elegia en tres cajas. */}
+      <p className="text-sm text-muted-foreground">
+        Muestra {leido ? `«${leido.etiqueta}»` : "este campo"} solo cuando
+      </p>
       {/* `key`: ConstructorRegla solo lee `value` al montar. Al descartar la
           propuesta se remonta vacío en vez de conservar las filas prellenadas. */}
       <ConstructorRegla
@@ -158,7 +163,8 @@ export default function ControlVisibilidad({
         <p className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm text-foreground">
           <Eye aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
           <span>
-            Quedará así: el campo se muestra solo si <strong>{frase}</strong>.
+            Quedará así: {leido ? `«${leido.etiqueta}»` : "el campo"} se mostrará
+            solo si <strong>{frase}</strong>.
           </span>
         </p>
       ) : null}
