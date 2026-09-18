@@ -19,7 +19,7 @@ import TarjetaHueco from "./TarjetaHueco";
 
 const sid = "a".repeat(16);
 
-it("DIC-08: el enlace 'o lo configuro a mano' llama reconocer con codigo y ubicacion", async () => {
+it("DIC-08: 'Lo configuro a mano' (ahora junto a Guardar) llama reconocer con codigo y ubicacion", async () => {
   const { reconocer } = await import("@/lib/api");
   const onResuelto = vi.fn();
   render(
@@ -37,7 +37,7 @@ it("DIC-08: el enlace 'o lo configuro a mano' llama reconocer con codigo y ubica
     />,
   );
   await userEvent.click(
-    screen.getByRole("button", { name: /o lo configuro a mano/i }),
+    screen.getByRole("button", { name: /lo configuro a mano/i }),
   );
   expect(reconocer).toHaveBeenCalledWith(sid, "DIC-08", "p1::domicilio");
   expect(onResuelto).toHaveBeenCalled();
