@@ -144,7 +144,7 @@ const PISTAS: Record<string, Pista> = {
   },
   "DIC-08": {
     instruccion:
-      "Elige el campo que decide si este se ve, y con qué valor debe compararse.",
+      "Elige el campo que decide si este se ve, y el valor que hace que aparezca.",
     ejemplo:
       "Muestra «RFC» solo cuando «Procedencia» sea igual a «Dependencia u organismo».",
     // Sin marcador a proposito: el valor del ejemplo se pintaba como
@@ -153,9 +153,10 @@ const PISTAS: Record<string, Pista> = {
   },
   "MMD-04": {
     instruccion:
-      "Elige el campo del formulario que la decisión consulta para tomar cada camino.",
+      "Elige el campo del formulario que la decisión mira para saber por dónde " +
+      "sigue el trámite.",
     ejemplo:
-      "La decisión «¿Modalidad de pago?» consulta el campo «Forma de pago».",
+      "La decisión «¿Modalidad de pago?» mira el campo «Forma de pago».",
   },
   "MMD-03": {
     instruccion: "Elige quién realiza esta tarea dentro del trámite.",
@@ -163,7 +164,8 @@ const PISTAS: Record<string, Pista> = {
   },
   "API-03": {
     instruccion:
-      "Elige el campo del que depende este: el que hay que llenar antes.",
+      "Elige el campo que hay que llenar antes que este, porque de él salen " +
+      "sus opciones.",
   },
   "DOC-02": {
     instruccion:
@@ -172,7 +174,9 @@ const PISTAS: Record<string, Pista> = {
   },
   "DOC-04": {
     instruccion:
-      "El compilador colgó el documento de la primera tarea en la que ya están todos sus datos. Si eso es correcto, confírmalo; si debe salir en otra tarea (por ejemplo tras una firma), ajústalo en la plataforma.",
+      "El documento quedó en la primera tarea del flujo que ya tiene todos sus " +
+      "datos. Si está bien, confírmalo; si debe salir en otra (por ejemplo, " +
+      "después de una firma), ajústalo en la plataforma.",
   },
   "DOC-03": {
     instruccion:
@@ -380,4 +384,38 @@ const REDACCIONES: Record<string, Redaccion> = {
  */
 export function redactarHueco(hueco: Hueco): string {
   return REDACCIONES[hueco.codigo]?.(hueco.mensaje, hueco.nivel) ?? hueco.mensaje;
+}
+
+/**
+ * Un ejemplo de regla de visibilidad armado con los campos DE ESTE expediente.
+ *
+ * El ejemplo escrito en `PISTAS` habla de «RFC» y «Procedencia», que son campos
+ * de otro tramite. Ensena la forma de la regla, pero quien lo abre busca esos
+ * nombres en su pantalla y no los encuentra; por eso estaba plegado. Con los
+ * campos propios el ejemplo deja de ser ajeno y se entiende de una lectura.
+ *
+ * No pretende ser la regla correcta —si el compilador supiera cual es, no
+ * habria hueco que resolver—: solo ensena la forma con nombres reconocibles.
+ *
+ * Devuelve `null` cuando no hay con que armarlo (ningun campo de lista, o el
+ * unico candidato es el campo mismo). Quien llama cae entonces al ejemplo
+ * generico, que sigue siendo mejor que ninguno.
+ */
+export function ejemploDeVisibilidad(
+  campos: CampoManifiesto[],
+  objetivo: MensajeVisibilidad | null,
+): string | null {
+  if (!objetivo?.etiqueta) return null;
+  const candidato = campos.find(
+    (c) =>
+      c.nombre !== objetivo.interno &&
+      c.etiqueta !== "" &&
+      c.catalogo.some((o) => o.etiqueta !== ""),
+  );
+  if (!candidato) return null;
+  const valor = candidato.catalogo.find((o) => o.etiqueta !== "")!;
+  return (
+    `Muestra «${objetivo.etiqueta}» solo cuando «${candidato.etiqueta}» sea ` +
+    `igual a «${valor.etiqueta}».`
+  );
 }

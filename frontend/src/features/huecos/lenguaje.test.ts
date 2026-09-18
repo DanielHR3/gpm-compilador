@@ -4,6 +4,7 @@ import type { CampoManifiesto, Condicion, Hueco } from "@/lib/types";
 
 import {
   describirCondicion,
+  ejemploDeVisibilidad,
   leerMensajeVisibilidad,
   nombreDeCompuerta,
   nombreDeTarea,
@@ -350,5 +351,103 @@ describe("redactarHueco", () => {
       if (redactado === crudo) continue; // sin redaccion: se permite el crudo
       expect(redactado, `${codigo} deja jerga a la vista`).not.toMatch(JERGA);
     }
+  });
+});
+
+describe("ejemploDeVisibilidad", () => {
+  const objetivo = {
+    etiqueta: "Notificación de Sanción",
+    interno: "notificacion_sancion",
+    frase: "Visible solo si \"Estatus del Trámite\" = Pendiente de regularización",
+  };
+  const campos = [
+    { nombre: "curp", etiqueta: "CURP", catalogo: [] },
+    {
+      nombre: "estatus_tramite",
+      etiqueta: "Estatus del Trámite",
+      catalogo: [
+        { valor: "pendiente", etiqueta: "Pendiente de regularización" },
+        { valor: "vigente", etiqueta: "Vigente" },
+      ],
+    },
+  ] as CampoManifiesto[];
+
+  test("arma el ejemplo con campos del propio expediente", () => {
+    expect(ejemploDeVisibilidad(campos, objetivo)).toBe(
+      "Muestra «Notificación de Sanción» solo cuando «Estatus del Trámite» " +
+        "sea igual a «Pendiente de regularización».",
+    );
+  });
+
+  test("no se propone a si mismo como condicion", () => {
+    // Un campo no puede decidir su propia visibilidad: el ejemplo ensenaria
+    // justo la regla que el backend rechaza por autorreferencia.
+    const soloElMismo = [
+      {
+        nombre: "notificacion_sancion",
+        etiqueta: "Notificación de Sanción",
+        catalogo: [{ valor: "si", etiqueta: "Sí" }],
+      },
+    ] as CampoManifiesto[];
+
+    expect(ejemploDeVisibilidad(soloElMismo, objetivo)).toBeNull();
+  });
+
+  test("un campo sin etiqueta no sirve de ejemplo aunque tenga lista", () => {
+    const sinEtiqueta = [
+      { nombre: "x", etiqueta: "", catalogo: [{ valor: "a", etiqueta: "A" }] },
+    ] as CampoManifiesto[];
+
+    expect(ejemploDeVisibilidad(sinEtiqueta, objetivo)).toBeNull();
+  });
+
+  test("sin ningun campo con lista no inventa un ejemplo", () => {
+    const sinListas = [
+      { nombre: "curp", etiqueta: "CURP", catalogo: [] },
+    ] as CampoManifiesto[];
+
+    expect(ejemploDeVisibilidad(sinListas, objetivo)).toBeNull();
+  });
+
+  test("si el mensaje no dejo leer el campo del hueco, no hay ejemplo propio", () => {
+    expect(ejemploDeVisibilidad(campos, null)).toBeNull();
+  });
+});
+
+describe("pistaDeCodigo: instrucciones sin jerga de programador", () => {
+  test("DIC-08 pide el valor que hace aparecer el campo, no una comparacion", () => {
+    expect(pistaDeCodigo("DIC-08")?.instruccion).toBe(
+      "Elige el campo que decide si este se ve, y el valor que hace que aparezca.",
+    );
+  });
+
+  test("MMD-04 dice que la decision «mira» un campo para saber por donde seguir", () => {
+    const p = pistaDeCodigo("MMD-04");
+
+    expect(p?.instruccion).toBe(
+      "Elige el campo del formulario que la decisión mira para saber por dónde " +
+        "sigue el trámite.",
+    );
+    expect(p?.ejemplo).toBe(
+      "La decisión «¿Modalidad de pago?» mira el campo «Forma de pago».",
+    );
+  });
+
+  test("API-03 explica por que importa el orden de los campos", () => {
+    expect(pistaDeCodigo("API-03")?.instruccion).toBe(
+      "Elige el campo que hay que llenar antes que este, porque de él salen " +
+        "sus opciones.",
+    );
+  });
+
+  test("DOC-04 no dice que el compilador «colgó» el documento de una tarea", () => {
+    const p = pistaDeCodigo("DOC-04");
+
+    expect(p?.instruccion).toBe(
+      "El documento quedó en la primera tarea del flujo que ya tiene todos sus " +
+        "datos. Si está bien, confírmalo; si debe salir en otra (por ejemplo, " +
+        "después de una firma), ajústalo en la plataforma.",
+    );
+    expect(p?.instruccion).not.toMatch(/compilador/);
   });
 });

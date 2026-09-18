@@ -140,9 +140,9 @@ it("explica que hacer y ensena un ejemplo", () => {
   );
 
   expect(
-    screen.getByText(/Elige el campo del formulario que la decisión consulta/i),
+    screen.getByText(/Elige el campo del formulario que la decisión mira/i),
   ).toBeInTheDocument();
-  expect(screen.getByText(/consulta el campo «Forma de pago»/)).toBeInTheDocument();
+  expect(screen.getByText(/mira el campo «Forma de pago»/)).toBeInTheDocument();
 });
 
 it("lo tecnico queda plegado pero presente", () => {

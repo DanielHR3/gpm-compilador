@@ -7,6 +7,7 @@ import type { Condicion, Hueco, Propuesta } from "@/lib/types";
 
 import {
   describirCondicion,
+  ejemploDeVisibilidad,
   leerMensajeVisibilidad,
   pistaDeCodigo,
 } from "../lenguaje";
@@ -63,6 +64,9 @@ export default function ControlVisibilidad({
   const leido = leerMensajeVisibilidad(hueco.mensaje);
   const frase = describirCondicion(condicion, campos);
   const pista = pistaDeCodigo(hueco.codigo);
+  // Un ejemplo con los campos de este expediente se lee de una vez; el de
+  // PISTAS habla de otro tramite y solo sirve cuando no hay con que armarlo.
+  const ejemplo = ejemploDeVisibilidad(campos, leido) ?? pista?.ejemplo ?? null;
 
   const resolver = async (cond: Condicion) => {
     const resp = await resolverDic08(sid, hueco.ubicacion, cond);
@@ -121,9 +125,9 @@ export default function ControlVisibilidad({
       {pista ? (
         <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
           <p>{pista.instruccion}</p>
-          {/* El ejemplo es de otro tramite: ayuda a quien nunca ha visto la
-              pantalla y estorba a quien ya tiene su frase delante. Plegado. */}
-          {pista.ejemplo ? (
+          {/* Plegado aunque sea de campos propios: la respuesta a la pregunta
+              es la frase del Diccionario de arriba, no el ejemplo. */}
+          {ejemplo ? (
             <details
               role="group"
               aria-label="¿Cómo se ve un ejemplo?"
@@ -132,7 +136,7 @@ export default function ControlVisibilidad({
               <summary className="cursor-pointer">¿Cómo se ve un ejemplo?</summary>
               <p className="mt-2 flex items-start gap-2">
                 <Lightbulb aria-hidden className="mt-0.5 size-3.5 shrink-0 text-secondary" />
-                <span>{pista.ejemplo}</span>
+                <span>{ejemplo}</span>
               </p>
             </details>
           ) : null}
