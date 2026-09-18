@@ -70,7 +70,10 @@ class ProveedorFalso:
                          duracion_ms=int((time.monotonic() - t0) * 1000))
 
 
-MODELO_POR_OMISION = {"gemini": "gemini-2.5-flash", "openai": "gpt-4o"}
+# Alias, no versiones fijas: `gemini-2.5-flash` dejo de ofrecerse a usuarios
+# nuevos y el generador murio con 404 la primera vez que se llamo de verdad.
+# La version exacta que contesta se registra en la bitacora (ver dic08.py).
+MODELO_POR_OMISION = {"gemini": "gemini-flash-latest", "openai": "gpt-4o"}
 
 
 def _entorno(entorno: Optional[dict]) -> dict:

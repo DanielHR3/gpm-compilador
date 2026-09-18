@@ -404,3 +404,32 @@ def test_esquema_gemini_traduce_uniones_con_null_a_nullable():
     assert item["properties"]["confianza"]["enum"] == ["alta", "media", "baja"]
     # y no muta el original
     assert ESQUEMA_DIC08["properties"]["propuestas"]["items"]["properties"]["motivo"]["type"] == ["string", "null"]
+
+
+# ── Modelo por omision y version realmente resuelta ──
+def test_el_modelo_por_omision_es_un_alias_estable():
+    """Fijar una version concreta la deja caducar: `gemini-2.5-flash` dejo de
+    ofrecerse a usuarios nuevos y el generador murio con 404. El alias sigue
+    vivo; la version exacta se registra en la bitacora, no en el codigo."""
+    from gpmc.agentes.proveedor import MODELO_POR_OMISION
+    assert MODELO_POR_OMISION["gemini"] == "gemini-flash-latest"
+    assert MODELO_POR_OMISION["openai"] == "gpt-4o"
+
+
+def test_la_bitacora_guarda_la_version_resuelta_no_el_alias(tmp_path):
+    """Con un alias, saber QUE modelo contesto es justo lo que exige la
+    demostrabilidad de la Licencia AI."""
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.agentes.bitacora import leer
+
+    class FalsoConVersion(ProveedorFalso):
+        def completar(self, instrucciones, contexto, esquema):
+            r = super().completar(instrucciones, contexto, esquema)
+            r.modelo = "gemini-3.6-flash-002"      # lo que respondio de verdad
+            return r
+
+    m = _manifiesto_dos_pantallas()
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "Solo si es persona moral")]
+    proponer_lote(m, huecos, FalsoConVersion([_respuesta_ok()]), tmp_path, "s" * 16)
+    assert leer(tmp_path)[0]["modelo"] == "gemini-3.6-flash-002"

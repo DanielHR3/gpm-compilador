@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "cn";
 import { decidirPropuesta, reconocer, resolver } from "@/lib/api";
@@ -151,13 +152,18 @@ export default function TarjetaHueco({
           actores={leerActores(manifiesto)}
           onConfirmar={(v) => resolverCon("mmd03", v)}
         />
-        <button
+        {/* Mueve el trabajo a la plataforma en vez de eliminarlo: es la
+            decision con mas consecuencias del flujo y estaba pintada como un
+            enlace gris de 12 px. Boton de contorno: visible, secundario. */}
+        <Button
           type="button"
-          className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+          variant="outline"
+          size="sm"
+          className="self-start"
           onClick={reconocerHueco}
         >
           o lo configuro a mano
-        </button>
+        </Button>
       </div>
     );
   } else if (hueco.codigo === "META-01") {
@@ -214,13 +220,18 @@ export default function TarjetaHueco({
               : undefined
           }
         />
-        <button
+        {/* Mueve el trabajo a la plataforma en vez de eliminarlo: es la
+            decision con mas consecuencias del flujo y estaba pintada como un
+            enlace gris de 12 px. Boton de contorno: visible, secundario. */}
+        <Button
           type="button"
-          className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+          variant="outline"
+          size="sm"
+          className="self-start"
           onClick={reconocerHueco}
         >
           o lo configuro a mano
-        </button>
+        </Button>
       </div>
     );
   } else if (hueco.codigo === "MMD-04") {
@@ -232,13 +243,18 @@ export default function TarjetaHueco({
           manifiesto={manifiesto}
           onResuelto={reportar}
         />
-        <button
+        {/* Mueve el trabajo a la plataforma en vez de eliminarlo: es la
+            decision con mas consecuencias del flujo y estaba pintada como un
+            enlace gris de 12 px. Boton de contorno: visible, secundario. */}
+        <Button
           type="button"
-          className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+          variant="outline"
+          size="sm"
+          className="self-start"
           onClick={reconocerHueco}
         >
           o lo configuro a mano
-        </button>
+        </Button>
       </div>
     );
   } else if (hueco.nivel === "por_confirmar") {

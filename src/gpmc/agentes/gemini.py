@@ -71,7 +71,11 @@ class ProveedorGemini:
         except ValueError:
             raise RespuestaInvalida("no es JSON")
         uso = getattr(r, "usage_metadata", None)
+        # `modelVersion` es la version que de verdad contesto. Con un alias como
+        # `gemini-flash-latest`, es lo unico que permite saber despues que modelo
+        # produjo una propuesta: la demostrabilidad que pide la Licencia AI.
         return Respuesta(texto=texto,
                          tokens_entrada=getattr(uso, "prompt_token_count", None),
                          tokens_salida=getattr(uso, "candidates_token_count", None),
-                         modelo=self._modelo, duracion_ms=int((time.monotonic() - t0) * 1000))
+                         modelo=getattr(r, "model_version", None) or self._modelo,
+                         duracion_ms=int((time.monotonic() - t0) * 1000))

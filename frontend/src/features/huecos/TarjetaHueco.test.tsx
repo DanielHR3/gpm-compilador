@@ -276,3 +276,25 @@ it("MMD-03 por nodo: sí ofrece selector, y también la salida a mano", () => {
     screen.getByRole("button", { name: /o lo configuro a mano/i }),
   ).toBeInTheDocument();
 });
+
+it("«lo configuro a mano» es un botón visible, no un texto gris", () => {
+  // Es la decisión con más consecuencias del flujo —mueve el trabajo a la
+  // plataforma— y estaba pintada como un enlace de 12 px que nadie ve.
+  render(
+    <TarjetaHueco
+      hueco={{
+        nivel: "falta_dato",
+        codigo: "DIC-08",
+        ubicacion: "p1::rfc",
+        mensaje: "la condición de visibilidad de 'RFC' (rfc) no se pudo interpretar: «x»",
+        propuesta: null,
+      }}
+      manifiesto={{}}
+      sid={"a".repeat(16)}
+      onResuelto={vi.fn()}
+    />,
+  );
+  const b = screen.getByRole("button", { name: /a mano/i });
+  expect(b.className).toMatch(/border/);
+  expect(b.className).not.toMatch(/hover:underline/);
+});
