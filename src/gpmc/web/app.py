@@ -376,6 +376,18 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
     # (/api, /simulador, /historial, …) ganen precedencia. `dist` se resuelve
     # una vez al crear la app; la variable de entorno gana para que las pruebas
     # apunten a un arbol falso.
+    # El shell del SPA se revalida en cada carga; los assets, nunca.
+    #
+    # Vite le pone al bundle el hash de su contenido en el nombre
+    # (`index-BFJjVLio.js`), asi que un contenido nuevo es un nombre nuevo:
+    # cachearlos para siempre no arriesga nada y ahorra un viaje por carga. El
+    # `index.html` es lo contrario -- mismo nombre, contenido que cambia en cada
+    # despliegue, y dentro los nombres de los assets. Sin `no-cache`, cada
+    # navegador decide por su cuenta cuanto se lo queda (heuristica sobre
+    # `last-modified`), y un shell viejo pide un `.js` que ya no esta en disco.
+    _CACHE_SHELL = "no-cache"          # revalida siempre; 304 si no cambio
+    _CACHE_ASSET = "public, max-age=31536000, immutable"
+
     dist = Path(os.environ.get(
         "GPMC_FRONTEND_DIST",
         Path(__file__).resolve().parents[3] / "frontend" / "dist",
@@ -415,12 +427,16 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
             # (.js/.css/.woff2) no necesitan la política del documento.
             if cand_r.suffix == ".html":
                 resp.headers["Content-Security-Policy"] = _CSP_SPA
+                resp.headers["Cache-Control"] = _CACHE_SHELL
+            else:
+                resp.headers["Cache-Control"] = _CACHE_ASSET
             return resp
         # Typo bajo un prefijo de handler real: 404, no fallback SPA.
         if ruta and ruta.split("/")[0] in _PREFIJOS_NO_SPA:
             return PlainTextResponse("No encontrado.", status_code=404)
         resp = FileResponse(dist / "index.html")
         resp.headers["Content-Security-Policy"] = _CSP_SPA
+        resp.headers["Cache-Control"] = _CACHE_SHELL
         return resp
 
     # Catch-all de la SPA, declarada al final: `/` y `/<lo-que-sea>`. Las rutas

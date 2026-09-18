@@ -417,3 +417,43 @@ def test_index_html_directo_lleva_csp(monkeypatch, tmp_path):
     r = c.get("/index.html")
     assert r.status_code == 200
     assert r.headers["content-security-policy"].startswith("default-src 'self'")
+
+
+def _dist_falso(tmp_path):
+    """Un dist/ minimo: el shell del SPA y un asset con hash en el nombre."""
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text(
+        "<!doctype html><title>SPA</title>", encoding="utf-8"
+    )
+    (dist / "assets" / "index-abc123.js").write_text("console.log(1)", encoding="utf-8")
+    return dist
+
+
+def test_el_shell_del_spa_se_revalida_siempre(monkeypatch, tmp_path):
+    # Sin cache-control cada navegador decide por su cuenta cuanto se queda con
+    # el index.html. Como el nombre del bundle lleva hash, un index viejo apunta
+    # a un .js que ya no existe: la persona ve una version vieja, o nada, y
+    # vaciar la cache a mano es la unica salida. El shell tiene que revalidarse.
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(_dist_falso(tmp_path)))
+    from gpmc.web.app import crear_app
+    from fastapi.testclient import TestClient
+    c = TestClient(crear_app(almacen=tmp_path))
+
+    for ruta in ("/", "/index.html", "/una/ruta/del/router"):
+        r = c.get(ruta)
+        assert r.status_code == 200, ruta
+        assert r.headers["cache-control"] == "no-cache", ruta
+
+
+def test_los_assets_con_hash_se_cachean_para_siempre(monkeypatch, tmp_path):
+    # El nombre lleva el hash del contenido: si cambia el contenido, cambia el
+    # nombre. Revalidarlos no sirve de nada y cuesta un viaje en cada carga.
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(_dist_falso(tmp_path)))
+    from gpmc.web.app import crear_app
+    from fastapi.testclient import TestClient
+    c = TestClient(crear_app(almacen=tmp_path))
+
+    r = c.get("/assets/index-abc123.js")
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "public, max-age=31536000, immutable"
