@@ -12,6 +12,7 @@ quien incluye este router, con un import local, para no cerrar el ciclo.
 
 import dataclasses
 import json
+import logging
 import re
 import secrets
 import shutil
@@ -39,6 +40,10 @@ from gpmc.simulador.analisis import analizar
 from gpmc.web.reensamblado import reensamblar_flujo, rm_de_tobe
 from gpmc.agentes import crear_proveedor, proponer_dic08
 from gpmc.agentes.proveedor import NingunProveedor
+
+# Identificadores y conteos, NUNCA el contenido de un expediente: este registro
+# es texto plano en la maquina que sirve al equipo.
+log = logging.getLogger("gpmc.web.api")
 from gpmc.extractores.docx import a_markdown
 from gpmc.extractores import pdf as ext_pdf
 from gpmc.web.clasificador import clasificar
@@ -242,11 +247,19 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
             return
         try:
             props = proponer_dic08(m, huecos_vivos(carpeta), _proveedor, raiz, sid)
+            log.info("propuestas sid=%s generadas=%d aceptables=%d declinadas=%d",
+                     sid, len(props),
+                     sum(1 for p in props if p.veredicto == "aceptable"),
+                     sum(1 for p in props if p.veredicto == "modelo_declino"))
             escribir_propuestas(carpeta, {
                 "estado": "listo", "motivo": None,
                 "generadas": datetime.now(timezone.utc).isoformat(),
                 "propuestas": [p.model_dump(mode="json") for p in props]})
         except Exception as exc:  # ErrorDeRed, RespuestaInvalida, o lo que sea
+            # Con `exc_info` va la traza entera: si el fallo es del proveedor su
+            # detalle esta en `bitacora-ia.jsonl`, pero un defecto NUESTRO no
+            # dejaba rastro en ningun sitio.
+            log.error("propuestas sid=%s fallaron: %s", sid, type(exc).__name__, exc_info=exc)
             escribir_propuestas(carpeta, {
                 "estado": "error", "generadas": None, "propuestas": [],
                 "motivo": "No se pudieron generar propuestas con IA; puedes "
@@ -393,6 +406,10 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                 ensure_ascii=False),
             encoding="utf-8",
         )
+        log.info("expediente extraido sid=%s pantallas=%d campos=%d huecos=%d bloquean=%d",
+                 sid, len(res.manifiesto.pantallas),
+                 sum(len(p.campos) for p in res.manifiesto.pantallas),
+                 len(res.huecos), len(bloquean(res.huecos)))
         if _hay_ia and any(h.codigo == "DIC-08" for h in res.huecos):
             escribir_propuestas(carpeta, {"estado": "proponiendo", "motivo": None,
                                           "generadas": None, "propuestas": []})
@@ -495,10 +512,14 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                 i_objetivo = i_pantalla.get(campo_nombre, 0)
                 for cc in campos_condicion:
                     if cc == campo_nombre:
+                        log.warning("regla rechazada sid=%s %s motivo=autorreferencia campo=%s",
+                                    sid, res.ubicacion, cc)
                         return JSONResponse(status_code=422, content={
                             "error": f"'{cc}' no puede decidir su propia "
                                      f"visibilidad: es el mismo campo"})
                     if i_pantalla.get(cc, 0) > i_objetivo:
+                        log.warning("regla rechazada sid=%s %s motivo=campo_futuro campo=%s",
+                                    sid, res.ubicacion, cc)
                         return JSONResponse(status_code=422, content={
                             "error": f"'{cc}' se captura despues que "
                                      f"'{campo_nombre}': cuando se llena esta "

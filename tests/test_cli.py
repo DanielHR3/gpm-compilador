@@ -293,3 +293,57 @@ def test_medir_ia_con_llave_invalida_avisa_sin_traceback(tmp_path, capsys, monke
     out = capsys.readouterr()
     assert rc == 1
     assert "error del proveedor" in out.out and "401" in out.out
+
+
+def _servir_capturando(monkeypatch, argumentos, entorno=None):
+    """Corre `gpmc servir` con un uvicorn de mentira y devuelve lo que recibio."""
+    import gpmc.web.app as web_app
+    from gpmc import cli
+    visto = {}
+    monkeypatch.setattr(web_app, "crear_app", lambda almacen=None: object())
+    monkeypatch.setattr(cli, "cargar_entorno", lambda: None)
+    for k in ("GPMC_LOG_NIVEL", "GPMC_LOG_ARCHIVO"):
+        monkeypatch.delenv(k, raising=False)
+    for k, v in (entorno or {}).items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setitem(
+        __import__("sys").modules, "uvicorn",
+        type("U", (), {"run": staticmethod(lambda *a, **k: visto.update(k))})(),
+    )
+    assert main(["servir"] + argumentos) == 0
+    return visto
+
+
+def test_servir_registra_las_peticiones_y_les_pone_fecha(monkeypatch):
+    # `log_level="warning"` dejaba el log sin una sola peticion y sin fecha en
+    # ninguna linea: tras un mes en marcha tenia 17.
+    visto = _servir_capturando(monkeypatch, [])
+    assert visto.get("access_log") is True
+    assert visto["log_level"] == "info"
+    cfg = visto["log_config"]
+    assert "%(asctime)s" in cfg["formatters"]["con_fecha"]["format"]
+    assert set(cfg["loggers"]) >= {"gpmc", "uvicorn.access", "uvicorn.error"}
+
+
+def test_servir_con_log_escribe_en_un_archivo_que_rota(tmp_path, monkeypatch):
+    destino = tmp_path / "logs" / "asistente.log"
+    visto = _servir_capturando(monkeypatch, ["--log", str(destino)])
+    salida = visto["log_config"]["handlers"]["salida"]
+    assert salida["filename"] == str(destino) and salida["backupCount"] > 0
+
+
+def test_servir_toma_nivel_y_archivo_del_entorno(tmp_path, monkeypatch):
+    # El servicio de launchd lee `~/.config/gpmc/entorno`: se puede subir el
+    # nivel a DEBUG para cazar algo sin tocar el plist ni reinstalar.
+    destino = tmp_path / "desde-entorno.log"
+    visto = _servir_capturando(monkeypatch, [], {"GPMC_LOG_NIVEL": "debug",
+                                                 "GPMC_LOG_ARCHIVO": str(destino)})
+    assert visto["log_level"] == "debug"
+    assert visto["log_config"]["handlers"]["salida"]["filename"] == str(destino)
+    assert visto["log_config"]["loggers"]["gpmc"]["level"] == "DEBUG"
+
+
+def test_servir_el_flag_gana_sobre_el_entorno(tmp_path, monkeypatch):
+    visto = _servir_capturando(monkeypatch, ["--log", str(tmp_path / "flag.log")],
+                               {"GPMC_LOG_ARCHIVO": str(tmp_path / "entorno.log")})
+    assert visto["log_config"]["handlers"]["salida"]["filename"].endswith("flag.log")

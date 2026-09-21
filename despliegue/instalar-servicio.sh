@@ -12,6 +12,10 @@ DESTINO="$HOME/Library/LaunchAgents/$ETIQUETA.plist"
 # arrancar, sin escribir una sola linea que lo explique.
 LOG="${GPMC_LOG:-$HOME/Library/Logs/gpmc/servidor.log}"
 
+# El registro del asistente: peticiones y eventos, con fecha y con rotacion
+# (5 MB x 5). Aparte del anterior porque launchd no rota lo suyo.
+REGISTRO="${GPMC_LOG_ARCHIVO:-$HOME/Library/Logs/gpmc/asistente.log}"
+
 # Sin almacen las sesiones son temporales y se pierden al reiniciar. Vive fuera
 # del repo para que actualizar el codigo no se lleve por delante el trabajo en
 # curso de nadie.
@@ -37,8 +41,9 @@ else
   echo "AVISO: npm no está; se sirve el frontend/dist/ existente (o 503 si no hay)."
 fi
 
-mkdir -p "$HOME/Library/LaunchAgents" "$(dirname "$LOG")" "$ALMACEN"
+mkdir -p "$HOME/Library/LaunchAgents" "$(dirname "$LOG")" "$(dirname "$REGISTRO")" "$ALMACEN"
 sed -e "s|__RUTA__|$RAIZ|g" -e "s|__LOG__|$LOG|g" -e "s|__ALMACEN__|$ALMACEN|g" \
+  -e "s|__REGISTRO__|$REGISTRO|g" \
   "$RAIZ/despliegue/$ETIQUETA.plist" > "$DESTINO"
 
 launchctl bootout "gui/$(id -u)/$ETIQUETA" 2>/dev/null || true
@@ -64,7 +69,8 @@ fi
 echo
 echo "  Manda esta liga al equipo:   http://$IP:8000"
 echo
-echo "  Ver bitacora:   tail -f '$LOG'"
+echo "  Ver registro:   tail -f '$REGISTRO'    (peticiones y eventos, con fecha)"
+echo "  Arranque:       tail -f '$LOG'"
 echo "  Sesiones en:    $ALMACEN"
 echo "  IA:             $([ -f "$HOME/.config/gpmc/entorno" ] && echo 'configurada en ~/.config/gpmc/entorno' || echo 'sin configurar (opcional)')"
 echo "  Detener:        launchctl bootout gui/$(id -u)/$ETIQUETA"

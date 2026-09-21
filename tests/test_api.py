@@ -918,3 +918,69 @@ def test_resolver_dic08_con_campo_de_la_misma_pantalla_sigue_valiendo(tmp_path):
                       "operador": "==", "y": []}}]})
 
     assert r.status_code == 200, r.text
+
+
+# ── El registro: que una anomalia se pueda leer despues ──
+import logging as _logging
+
+
+def test_un_defecto_nuestro_al_generar_propuestas_deja_su_traza(tmp_path, caplog):
+    """`generar_propuestas` captura CUALQUIER excepcion para no tumbar la
+    entrega, y solo guardaba el nombre de la clase en `propuestas.json`. Un
+    fallo del proveedor deja detalle en `bitacora-ia.jsonl`; un defecto nuestro
+    no dejaba traza en ningun sitio."""
+    from gpmc.agentes.proveedor import ProveedorFalso
+
+    class Roto(ProveedorFalso):
+        def completar(self, instrucciones, contexto, esquema):
+            raise RuntimeError("defecto nuestro, no del proveedor")
+
+    c = TestClient(crear_app(almacen=tmp_path, proveedor=Roto([])))
+    with caplog.at_level(_logging.INFO, logger="gpmc"):
+        sid = _subir(c).json()["sid"]
+    assert c.get(f"/api/v1/expedientes/{sid}/propuestas").json()["estado"] == "error"
+    (rec,) = [r for r in caplog.records if r.levelno >= _logging.ERROR]
+    assert rec.name.startswith("gpmc.") and sid in rec.getMessage()
+    assert rec.exc_info is not None and "defecto nuestro" in str(rec.exc_info[1])
+
+
+def test_extraer_deja_una_linea_con_la_sesion_y_los_conteos(tmp_path, caplog):
+    c = _cli(tmp_path)
+    with caplog.at_level(_logging.INFO, logger="gpmc"):
+        r = _subir(c).json()
+    lineas = [x.getMessage() for x in caplog.records if "extraido" in x.getMessage()]
+    assert len(lineas) == 1, caplog.text
+    assert f"sid={r['sid']}" in lineas[0]
+    assert f"huecos={len(r['huecos'])}" in lineas[0] and "bloquean=" in lineas[0]
+
+
+def test_el_registro_no_lleva_el_contenido_del_expediente(tmp_path, caplog):
+    # El contrapeso: registrar «todo por si acaso» meteria en un archivo de
+    # texto plano la prosa de un expediente. Van identificadores y conteos.
+    c = _cli_con_proveedor(tmp_path, [_respuesta_ok_api()])
+    with caplog.at_level(_logging.DEBUG, logger="gpmc"):
+        _subir(c)
+    assert "Visible y obligatoria cuando" in _VIS, "la prosa que NO debe aparecer"
+    assert "Visible y obligatoria" not in caplog.text
+
+
+def test_una_regla_rechazada_deja_su_motivo(tmp_path, caplog):
+    c = _cli(tmp_path)
+    sid = _sid_dos_pantallas(c)
+    with caplog.at_level(_logging.INFO, logger="gpmc"):
+        r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [{
+            "tipo": "dic08", "ubicacion": "p1::vista_observaciones",
+            "condicion": {"campo": "vista_observaciones", "igual": "x",
+                          "operador": "==", "y": []}}]})
+    assert r.status_code == 422
+    (rec,) = [x for x in caplog.records if "rechazada" in x.getMessage()]
+    assert rec.levelno == _logging.WARNING
+    assert f"sid={sid}" in rec.getMessage() and "p1::vista_observaciones" in rec.getMessage()
+
+
+def test_las_propuestas_generadas_dejan_sus_conteos(tmp_path, caplog):
+    c = _cli_con_proveedor(tmp_path, [_respuesta_ok_api()])
+    with caplog.at_level(_logging.INFO, logger="gpmc"):
+        sid = _subir(c).json()["sid"]
+    (linea,) = [x.getMessage() for x in caplog.records if "propuestas" in x.getMessage()]
+    assert f"sid={sid}" in linea and "generadas=1" in linea and "aceptables=1" in linea

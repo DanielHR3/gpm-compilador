@@ -18,6 +18,12 @@
          Un analista a media revision perderia su expediente. -->
     <string>--almacen</string>
     <string>__ALMACEN__</string>
+    <!-- El registro va a un archivo APARTE de StandardOutPath, y con rotacion.
+         launchd mantiene abierto el descriptor de `servidor.log`, asi que ese
+         no se puede rotar desde dentro; ahi quedan solo el arranque y lo que
+         reviente antes de configurar nada. -->
+    <string>--log</string>
+    <string>__REGISTRO__</string>
   </array>
 
   <key>WorkingDirectory</key>

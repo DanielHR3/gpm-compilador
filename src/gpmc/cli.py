@@ -161,6 +161,15 @@ def main(argv: Optional[list[str]] = None) -> int:
             "temporal que el sistema borra al apagar"
         ),
     )
+    srv.add_argument(
+        "--log",
+        type=Path,
+        default=None,
+        help=(
+            "archivo del registro, con rotacion; sin esto va a stderr. Tambien "
+            "GPMC_LOG_ARCHIVO, y GPMC_LOG_NIVEL para el nivel (INFO por omision)"
+        ),
+    )
 
     diag = sub.add_parser("diagnostico", help="herramientas de diagnóstico")
     diag.add_argument("--sintaxis", action="store_true", help="genera archivos de prueba empírica de sintaxis")
@@ -349,11 +358,22 @@ def main(argv: Optional[list[str]] = None) -> int:
                   "cerrar. Usa --almacen para conservarlas.")
         # `crear_app` se resuelve por modulo, no por el nombre importado
         # arriba, para que una prueba pueda sustituirlo.
+        # Hasta el 2026-09-21 esto era `log_level="warning"`: ni una peticion
+        # registrada y ninguna linea con fecha. Una anomalia no se podia leer
+        # despues. El flag gana sobre el entorno; sin ninguno, stderr.
+        from gpmc.web.trazas import config_de_logs, nivel_valido
+        nivel = nivel_valido(os.environ.get("GPMC_LOG_NIVEL"))
+        archivo = args.log or (Path(os.environ["GPMC_LOG_ARCHIVO"])
+                               if os.environ.get("GPMC_LOG_ARCHIVO") else None)
+        if archivo is not None:
+            print(f"Registro en {archivo}")
         uvicorn.run(
             web_app.crear_app(almacen=args.almacen),
             host=args.host,
             port=args.puerto,
-            log_level="warning",
+            log_level=nivel.lower(),
+            access_log=True,
+            log_config=config_de_logs(nivel=nivel, archivo=archivo),
         )
         return 0
 
