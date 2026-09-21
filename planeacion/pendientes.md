@@ -58,6 +58,25 @@ buscar.
   quedan sin decir nada, cuando el invariante es «propone, no adivina». Viene del encargo de
   revision del 2026-08-30, Tarea 2. **Necesita una decision**: el codigo de hueco libre siguiente
   ya no es `API-05` —esta ocupado por el endpoint autenticado—, asi que seria `API-06`.
+- **P-13 — «max. N caracteres» se emite como longitud EXACTA. Lo mas urgente de la lista.**
+  `_LONGITUD = r"(\d+)\s*caracteres"` toma el numero y no mira si delante decia «max.». En
+  Prorroga salen **once campos** asi: `razon_social_institucion` exige exactamente 150 caracteres
+  cuando el Diccionario dice «max. 150», y una razon social de 40 no se puede capturar. Rompe el
+  tramite en produccion y ninguna prueba nuestra lo veia. El reverso del mismo patron: «exactamente
+  4 digitos» de `modelo` no se lee, porque exige la palabra «caracteres». Lo destapo el analisis de
+  Simplificacion del 2026-09-21, que lo reporto como un detalle.
+- **P-14 — «Condicional» en la columna Obligatorio se lee como «No».** `obligatorio` sale de
+  `_babel(celda).startswith("si")`, asi que los 7 campos condicionales de Prorroga salen
+  opcionales. **La plataforma si sabe expresarlo**, comprobado en los exports autenticos: un campo
+  condicional lleva `validacion: "required"` JUNTO con su `dependiente_campo`. Esta asi en cuatro
+  tramites publicados.
+- **P-15 — la `ayuda` de los campos va vacia siempre.** El modelo `Campo` tiene el atributo y la
+  plataforma lo usa para el texto de apoyo que ve el ciudadano. En Prorroga: **0 de 36 campos**
+  con ayuda. El Diccionario trae una Descripcion por campo y una columna «Ejemplo Real» que no
+  leemos: es ayuda ya redactada que se tira.
+- **P-16 — tipos mal derivados y datos de archivo que no se leen.** En Prorroga `fecha_vigencia`
+  sale `text` en vez de `date` y `doc_oficio_resolucion` sale `text` en vez de `file`. Y de los
+  campos de archivo no se lee el formato admitido, el tamano maximo ni la carga multiple.
 - **P-11 — las Notificaciones del Diccionario no se leen, y ni siquiera se reportan.** La
   «Seccion 3 — Notificaciones» documenta pantalla, evento que la dispara, destinatario, medio y
   contenido del mensaje: exactamente lo que necesita el arquetipo `notificacion`. Medido el
