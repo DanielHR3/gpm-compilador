@@ -13,7 +13,23 @@ python3 -m venv .venv
 .venv/bin/pip install -e '.[web]'
 ```
 
-Requiere Python 3.9 o superior, que es el que trae macOS. No hace falta instalar nada más.
+Requiere Python 3.9 o superior, que es el que trae macOS. El núcleo y la CLI no necesitan nada
+más. Dos extras opcionales: `[agentes]` para el generador de propuestas con modelo de lenguaje
+—su configuración está en `despliegue/LEEME.md`— y `[guia]` para regenerar los PDF de
+`docs/guias/`.
+
+### El asistente web hay que compilarlo
+
+La interfaz es una SPA (Vite + React) y `frontend/dist/` **no se comitea**. Sin ese build,
+`gpmc servir` levanta la API pero `/` responde `503`:
+
+```bash
+cd frontend && npm install && npm run build   # deja frontend/dist/
+```
+
+Node y npm hacen falta **solo para el build**: el servicio en marcha no los usa. Para
+desarrollar, `npm run dev` (:5173, con proxy de `/api` al :8000) junto a `gpmc servir`
+(:8000). `bash scripts/check-frontend.sh` corre tipos, pruebas y build de una vez.
 
 ## Asistente web
 
@@ -21,8 +37,11 @@ Requiere Python 3.9 o superior, que es el que trae macOS. No hace falta instalar
 gpmc servir
 ```
 
-Abre `http://127.0.0.1:8000`. Se suben los tres markdown y se obtiene el `.gpm`, el manifiesto,
-el simulador y el reporte de huecos.
+Abre `http://127.0.0.1:8000`. Se elige la carpeta del trámite —o los archivos uno a uno— y el
+asistente los reparte entre AS-IS, TO-BE, Diccionario y documentos de salida; ante un empate
+real deja la zona vacía y dice por qué, en vez de adivinar. Los insumos valen en `.md`, `.docx`
+o PDF con texto, y entre dos candidatos para la misma zona gana el que el extractor lee mejor.
+De ahí salen el `.gpm`, el manifiesto, el simulador y el reporte de huecos.
 
 ## Uso por terminal
 
@@ -40,6 +59,9 @@ gpmc compilar tramite.yaml -o tramite.gpm    # archivo importable
 gpmc compilar --desde-expediente ruta/al/expediente -o tramite.gpm  # re-extrae y aplica la puerta del linter
 gpmc validar  otro.gpm                       # revisar uno existente
 gpmc planear  proyectar --cantidad 35 --analistas 3
+
+gpmc medir-ia carpeta-de-expedientes   # mide el generador de propuestas sobre material real
+gpmc diagnostico --sintaxis            # material para la prueba empírica de sintaxis
 ```
 
 Códigos de salida: `0` correcto · `1` hallazgos bloqueantes · `2` error de uso, o huecos sin resolver con `--estricto` / `--desde-expediente`.
@@ -127,14 +149,17 @@ export GPMC_GPM=~/ruta/a/archivos-gpm
 export GPMC_WIKI=~/ruta/a/wiki/expedientes
 ```
 
-## Cuestión abierta
+## Cuestión resuelta: la sintaxis de transición
 
-`SINTAXIS_ESTRICTA` en `src/gpmc/nucleo/reglas.py` está en `False`. Controla si una regla de
-transición se emite como `@@campo=='valor'` o como `@@campo->value === 'valor'`.
+`SINTAXIS_ESTRICTA` en `src/gpmc/nucleo/reglas.py` controla si una regla de transición se emite
+como `@@campo=='valor'` o como `@@campo->value === 'valor'`. Documentación interna sostenía que
+la primera forma «siempre falla» con campos complejos.
 
-Hay documentación interna que sostiene que la primera forma falla con campos complejos, pero los
-exports de referencia disponibles la usan. Requiere una prueba empírica en la plataforma; cuando
-llegue la respuesta, es lo único que hay que cambiar.
+**Quedó refutado con prueba empírica el 2026-08-31**, con acta en
+`planeacion/actas/2026-08-30-prueba-en-plataforma.md`: cuatro exports de referencia ya publicados
+usan `==` sobre campos `select`, y un trámite compilado con la forma simple avanzó de rama al
+ejercitarlo de punta a punta. La constante se queda en `False` y no se cambia sin otra prueba
+documentada que lo contradiga.
 
 ## Licencia
 

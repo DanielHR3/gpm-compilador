@@ -1,6 +1,7 @@
 # Pendientes — estado verificado
 
-Última verificación: 2026-09-08, suite en **289 passed, 22 skipped**.
+Última verificación: 2026-09-21, suite en **515 passed, 23 skipped** (servidor) y **235
+passed** (interfaz).
 
 Este archivo solo registra lo que se comprobó ejecutando código o importando a la
 plataforma. Una afirmación sin evidencia aquí vale menos que nada: hace que alguien deje de
@@ -44,7 +45,18 @@ buscar.
 
 ## Abiertos
 
-**Ninguno bloqueante en el compilador.** Notas que no son defectos de este repo:
+- **P-06 — los catálogos se parten por coma sin respetar los paréntesis.** `$226.00 (fijo, Ley
+  Estatal de Derechos Art. 40 Fracción V)` sale como **dos** opciones de catálogo. El `.gpm`
+  lleva datos inventados y **no se emite ningún hueco**: nadie se entera. Verificado en código
+  el 2026-09-21 (`extractores/diccionario.py:312` y `:392`). Determinista y fácil de probar;
+  es el trabajo inmediato siguiente.
+- **Revisar los seis expedientes del lote** con el arreglo del falso `DIC-02` puesto (una opción
+  llamada «Pendiente de…» tumbaba el catálogo entero, `5228358`): puede haber varios huecos que
+  desaparecen solos.
+- **`FileResponse` no contesta `304`** ante un `If-None-Match`. Irrelevante en local con medio
+  kilobyte; no lo sería en un servidor de verdad.
+
+Notas que no son defectos de este repo:
 
 - **Externo (otra sesión):** el proceso `1044` ("b5a8defd46ca96d2") de otro agente sigue en la
   plataforma. No es deuda de este compilador; se revisa/borra aparte con quien administra la
