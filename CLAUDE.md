@@ -62,7 +62,7 @@ src/gpmc/
 `nucleo`. Nada por debajo de `web` conoce interfaz de usuario: son funciones sobre archivos, sin
 estado de sesión. Esa separación es la que permite que la CLI y las pruebas existan sin navegador.
 
-### Las 9 órdenes de la CLI
+### Las 10 órdenes de la CLI
 
 | Orden | Hace |
 |---|---|
@@ -75,6 +75,7 @@ estado de sesión. Esa separación es la que permite que la CLI y las pruebas ex
 | `planear` | mide y proyecta el ciclo (`iniciar`/`hito`/`cerrar`/`estado`/`capacidad`/`proyectar`/`sembrar`) |
 | `servir` | levanta el asistente web |
 | `diagnostico` | `--sintaxis` genera los archivos de la prueba empírica de sintaxis en plataforma |
+| `medir-ia` | recorre una carpeta de expedientes y cuenta propuestas aceptadas, rechazadas y declinadas del generador contra el catálogo real. La medida es determinista: no hay un segundo modelo juzgando |
 
 ### La puerta del linter (`nucleo/huecos.bloquean`)
 
@@ -114,6 +115,15 @@ Son reglas de calidad, no configurables:
   evalúan control de flujo en el navegador.
 - **El validador propone, no adivina.** Lo que no puede derivarse de los insumos se reporta como
   hueco, nunca se rellena por inferencia silenciosa.
+- **Una condición de visibilidad solo puede mirar un campo de la misma pantalla o de una
+  anterior, y nunca al campo que condiciona.** Si depende de algo que ocurre después —una
+  decisión del funcionario, un estado que fija el sistema— eso no es visibilidad: es **flujo**, y
+  va en la compuerta del TO-BE. La plataforma no puede evaluar nunca una regla así. Desde el
+  2026-09-18 se aplica en los **dos** caminos: `agentes/verificar.py` para lo que propone el
+  modelo y `POST /resolver` (422) para lo que arma una persona a mano; antes la vía manual era
+  más permisiva que la de la IA. El selector de la SPA (`features/huecos/candidatos.ts`) ordena
+  los campos en sugeridos / usables / inservibles y **deshabilita los inservibles con el motivo a
+  la vista**, en vez de esconderlos.
 - **Las condiciones de visibilidad solo se emiten cuando son inequívocas.** Un campo del
   Diccionario con la forma «Visible solo si X = Y» viaja al `.gpm` como string en
   `dependiente_campo`, que es la forma de los exports. Una condición compuesta o ambigua se
@@ -431,3 +441,46 @@ escribe en el manifiesto**: aceptar/corregir en la SPA llama `resolverDic08` y
 después `decidirPropuesta`. Sin `GPMC_IA_PROVEEDOR`/`GPMC_IA_LLAVE` (o
 `~/.config/gpmc/entorno`), todo se comporta como antes. Spec:
 `docs/superpowers/specs/2026-09-17-agentes-fase2-dic08-design.md`.
+
+### 8. La pantalla deja de hablar como el compilador (2026-09-18)
+
+Dieciséis entregas en `main`. Lo que hay que saber antes de tocar esta zona:
+
+- **`features/huecos/lenguaje.ts` — `redactarHueco`.** Traduce **12 códigos** del backend a
+  castellano llano para quien documenta un trámite. El backend **no se tocó**: la CLI y las actas
+  conservan su texto exacto, que es el que le sirve al equipo técnico.
+  **Invariante de esta capa:** cada redacción va *anclada* al mensaje que la origina; si el
+  mensaje del extractor cambia, la redacción deja de aplicarse y se ve el original. Sin ancla, el
+  día que se reescriba una cadena la pantalla seguiría contando una versión vieja de los hechos.
+  Las seis de metadatos se anclaron **después** de que una prueba existente destapara que se
+  sustituían igual con un mensaje de mentira.
+  Falta la **tanda 2**: `API-*`, `DIC-01/03/04/05/06`, `DOC-02/03`, `INS-*` y `MMD-01/02` siguen
+  cayendo al mensaje crudo.
+- **`features/huecos/observaciones.ts`.** El documento que se le manda a Simplificación se arma
+  **en el cliente** con lo mismo que lee el analista (`redactarHueco`): no hay una segunda
+  redacción que mantener. Va solo lo que ellos pueden corregir, separado en Diccionario y TO-BE;
+  lo que se configura en la plataforma se cuenta al pie y no se les manda. Un código sin
+  clasificar cae en «Otros hallazgos» en vez de desaparecer.
+- **Caché de la SPA** (`web/app.py`): el shell va con `no-cache` (se revalida siempre) y los
+  assets con hash a `public, max-age=31536000, immutable`. Sin eso, un `index.html` viejo pedía un
+  `.js` que ya no está en disco. Anotado y **no hecho**: `FileResponse` no contesta `304` ante un
+  `If-None-Match`.
+- **La SPA escribe `/revisar/{sid}` al extraer** (`features/huecos/useUrlDeRevision.ts`,
+  `pushState`). El simulador y la aprobación son páginas del servidor: al abrirlas se pierde el
+  árbol de React entero, y volver solo funciona si la ruta basta para reconstruir la pantalla.
+  `App` ya sabía *leer* esa ruta desde el flujo viejo, pero desde que la carga la hace la SPA
+  nadie la escribía. Una entrada de historial ya creada no se puede reescribir: tras el arreglo,
+  el defecto seguía para quien tenía la pestaña abierta.
+- **Reintentos del generador** (`agentes/dic08.py`, `ESPERAS_REINTENTO = (2.0, 8.0)`): tres
+  intentos con espera creciente ante `ErrorDeRed`. Una llamada rechazada con `503` **no consume
+  cuota**; `RespuestaInvalida` **no se reintenta**, porque el modelo ya contestó y esa sí gasta
+  tokens. El timeout de 60 s es **por intento**.
+- **La marca de «pendiente» de un catálogo no se busca como subcadena.** Una celda que parte en
+  dos o más opciones gana sobre la marca: «En revisión, Pendiente de regularización, Concluido»
+  es un catálogo de tres, no un `DIC-02`. Las dos pruebas van juntas a propósito — sin el
+  contrapeso, quitar la detección entera dejaría la suite verde.
+- **El primer `@@` de una descripción se lo lleva el campo** (`diccionario.py`, `nombre =
+  tecnicos[0]`, solo cuando la columna Variable no da uno válido). En las filas de «Vista de solo
+  lectura» ese `@@` suele ser una *referencia* a otro campo, no el nombre propio: en Reposición de
+  Certificado produjo **ocho** nombres técnicos duplicados y tres campos llamados
+  `@@estatus_tramite`, de los que ganaba uno sin catálogo. **Sigue abierto.**
