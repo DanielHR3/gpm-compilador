@@ -148,8 +148,8 @@ Y con un riesgo que la propia guía del equipo documenta:
 
 > `guia_modelado_gpm.md`: *"No insertes tokens de APIs en campos `api_ajax`; toda llamada
 > autenticada hazla a través de `Acciones` de tipo PHP."*
-> `Proceso y tiempos…`: **SEG-04, riesgo ALTO** — *"Fuga de secretos: API keys de Keycloak y
-> RENAPO expuestas en las peticiones AJAX del navegador."*
+> Dictamen interno: **`SEG-04`, riesgo ALTO** — una credencial puesta en una llamada que hace
+> el navegador queda a la vista de cualquiera que abra las herramientas de desarrollo.
 
 Hay dos cosas sin resolver que **solo una persona puede decidir**:
 

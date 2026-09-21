@@ -279,8 +279,8 @@ Diseño ya acordado con el responsable técnico, pendiente de spec propio:
   `catalogo_remoto` y `consulta`, el extractor lee las columnas `Dependencia` y
   `Endpoint / API`, y el compilador emite `catalog_type: "url"` y `api_ajax`.
   **Regla de seguridad:** solo se emiten endpoints públicos; uno que requiera credencial
-  —RENAPO, SAT— se reporta como hueco y se manda a una Acción PHP, por SEG-04
-  ("fuga de secretos en las peticiones AJAX del navegador").
+  —RENAPO, SAT— se reporta como hueco y se manda a una Acción PHP, por `SEG-04`
+  del dictamen interno: una credencial que viaja en una llamada del navegador queda a la vista.
 - **Fase B** — el simulador ejecuta esos catálogos y autollenados. Los tres endpoints
   verificados responden `Access-Control-Allow-Origin: *`, así que la página autocontenida
   puede llamarlos sin proxy.

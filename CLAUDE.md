@@ -149,8 +149,9 @@ manual.
 públicos. INEGI, SEPOMEX y SIPUBEH responden sin credencial (verificado el 2026-08-28). RENAPO y
 SAT no, y `guia_modelado_gpm.md` es explícita al respecto —"no insertes tokens de APIs en campos
 `api_ajax`; toda llamada autenticada hazla a través de `Acciones` de tipo PHP"—, en línea con el
-riesgo SEG-04 ("fuga de secretos: API keys de Keycloak y RENAPO expuestas en las peticiones AJAX
-del navegador").
+riesgo `SEG-04` del dictamen interno, que en una línea es esto: una credencial puesta en una
+llamada que hace el navegador queda a la vista de cualquiera que abra las herramientas de
+desarrollo.
 
 Esto **supersede la sección 7 del `Diseño técnico`**, que contemplaba un `apis.yaml` central y
 emitir la cabecera `Authorization` en el cliente. No se hace: un endpoint autenticado conocido
