@@ -58,6 +58,20 @@ buscar.
   quedan sin decir nada, cuando el invariante es «propone, no adivina». Viene del encargo de
   revision del 2026-08-30, Tarea 2. **Necesita una decision**: el codigo de hueco libre siguiente
   ya no es `API-05` —esta ocupado por el endpoint autenticado—, asi que seria `API-06`.
+- **P-09 — el compilador no emite Pasos en modo visualizacion.** De los 19 pasos de ese tipo que
+  hay en los exports autenticos (8 de 12 trámites), nuestro compilador emite **cero**: el flujo
+  sale en linea recta y cada pantalla se muestra una vez, en edicion. Es lo que Simplificacion
+  documenta como «Vista de solo lectura (Origen → Destino)», y la forma de la plataforma es
+  reutilizar la MISMA pantalla: en `acceso-informacion-publica.gpm` el formulario 9250 lo edita el
+  ciudadano (tarea 1) y lo ve el funcionario en visualizacion (tarea 2). El manifiesto ya tiene la
+  pieza —`PasoPantalla.modo` acepta `visualizacion` y `a_gpm` la emite—; falta que el extractor la
+  derive del TO-BE. Ver `docs/guias/Respuesta a Simplificacion - vistas de solo lectura.md`.
+- **P-10 — `is_reusable` se emite distinto a como lo hacen los exports (latente).** Nuestra regla
+  es `is_reusable = (la pantalla se usa en mas de un paso)`. En los exports autenticos hay **11
+  formularios usados por 2, 3 y hasta 4 pasos, y los once traen `is_reusable: "0"`**. O sea que
+  reutilizar una pantalla NO es lo que activa esa clave. Hoy no se dispara porque nunca
+  reutilizamos una pantalla (ver P-09), pero **se disparara en el primer tramite que lleve un Paso
+  de visualizacion**, y seria una forma no observada. Arreglar junto con P-09, no antes.
 - **P-08 — `POST /resolver` y el selector de la SPA aceptan un campo de nombre repetido.** Desde
   el 2026-09-21 `agentes/verificar.py` rechaza como `campo_ambiguo` una condicion que mira un
   nombre tecnico duplicado: ganaba el primer campo, y si ese no traia catalogo se aceptaba
