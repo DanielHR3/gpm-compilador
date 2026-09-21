@@ -46,7 +46,16 @@ _CAMPO_TECNICO = re.compile(r"@@(\w+)")
 # Una fila que solo lo CITA —«[Solo lectura] Muestra `@@observaciones`
 # capturadas por la Direccion»— no lleva esa palabra delante.
 _DECLARA_NOMBRE = re.compile(r"[Cc]ampo\s*`?@@(\w+)")
-_LONGITUD = re.compile(r"(\d+)\s*caracteres")
+# Longitudes. Se distinguen tres formas porque la plataforma las distingue, y
+# confundirlas rompe el tramite: un maximo emitido como exacto exige esa cifra
+# justa. «digitos» cuenta igual que «caracteres»: «exactamente 4 digitos» de
+# `modelo` no se leia por exigir la palabra «caracteres». P-13, 2026-09-21.
+_UNIDAD = r"(?:caracteres?|digitos?|dígitos?)"
+_LONGITUD_RANGO = re.compile(r"entre\s*(\d+)\s*y\s*(\d+)\s*" + _UNIDAD, re.I)
+_LONGITUD_MAX = re.compile(
+    r"(?:m[aá]x(?:imo)?\.?|hasta)\s*(\d+)\s*" + _UNIDAD
+    + r"|(\d+)\s*" + _UNIDAD + r"\s*m[aá]x(?:imo)?\.?", re.I)
+_LONGITUD = re.compile(r"(\d+)\s*" + _UNIDAD, re.I)
 _ENDPOINT = re.compile(r"`?([\w/-]+)`?")
 
 # La columna 'campo.nombre' de la plataforma corta los nombres tecnicos largos y
@@ -503,6 +512,11 @@ def _extraer_campos(
     i_lim = col("limite", "especificaciones")
     i_cat = col("catalogo de valores", "catalogo")
     i_desc = col("descripcion", "comportamiento")
+    # La columna del ejemplo alimenta la `ayuda`: la pista corta que la
+    # plataforma pinta bajo el campo. En los exports autenticos son cosas como
+    # «Ej. Secretaria de Finanzas» o «Teclea el CP para buscar». Iba vacia en
+    # los 36 campos de Prorroga. P-15, 2026-09-21.
+    i_ej = col("ejemplo real", "ejemplo")
     
     # Fase A: Columnas nuevas
     i_dep = col("dependencia")
@@ -591,7 +605,11 @@ def _extraer_campos(
             ))
 
         limite = celdas[i_lim] if i_lim is not None and i_lim < len(celdas) else ""
-        m_long = _LONGITUD.search(limite or "")
+        lim = limite or ""
+        m_rango = _LONGITUD_RANGO.search(lim)
+        m_max = None if m_rango else _LONGITUD_MAX.search(lim)
+        # Solo es exacta si no hay «max.» ni rango delante.
+        m_long = None if (m_rango or m_max) else _LONGITUD.search(lim)
 
         tipo_dato = _babel(celdas[i_tipo] if i_tipo is not None and i_tipo < len(celdas) else "")
         componente = _babel(celdas[i_comp] if i_comp is not None and i_comp < len(celdas) else "")
@@ -638,9 +656,22 @@ def _extraer_campos(
         if catalogo and tipo == "text":
             tipo = "select"
 
-        obligatorio = _babel(
+        ejemplo = (celdas[i_ej].strip() if i_ej is not None and i_ej < len(celdas) else "")
+        # Fuera la marca «*(ilustrativo)*» y los asteriscos: son nota de quien
+        # documenta, no pista para quien captura.
+        ejemplo = re.sub(r"\*+\s*\([^)]*\)\s*\*+", "", ejemplo)
+        ejemplo = re.sub(r"[`*]", "", ejemplo).strip(" .")
+        ayuda = f"Ej. {ejemplo}" if ejemplo and _babel(ejemplo) not in ("n/a", "na", "n.a.", "") else None
+
+        _obl_cruda = _babel(
             celdas[i_obl] if i_obl is not None and i_obl < len(celdas) else ""
-        ).startswith("si")
+        )
+        obligatorio = _obl_cruda.startswith("si")
+        # «Condicional» no es «No»: es obligatorio CUANDO se muestra. Se decide
+        # mas abajo, cuando ya se sabe si la condicion de visibilidad se pudo
+        # interpretar; sin condicion no hay «cuando», y marcarlo obligatorio
+        # dejaria un campo que bloquea el envio sin decir por que.
+        es_condicional = _obl_cruda.startswith("condicional")
 
         # Fase A: dependencia y endpoint, normalizados.
         dep_tipo = None
@@ -687,8 +718,12 @@ def _extraer_campos(
             etiqueta=etiqueta,
             tipo=tipo,
             obligatorio=obligatorio,
+            ayuda=ayuda,
             solo_lectura="solo lectura" in _babel(desc),
             longitud_exacta=int(m_long.group(1)) if m_long else None,
+            longitud_max=(int(m_rango.group(2)) if m_rango
+                          else int(m_max.group(1) or m_max.group(2)) if m_max else None),
+            longitud_min=int(m_rango.group(1)) if m_rango else None,
             catalogo=catalogo,
             dependencia_tipo=dep_tipo,
             dependencia_campo=dep_campo,
@@ -764,6 +799,12 @@ def _extraer_campos(
         if declarado and capado:
             indice["campos"][nombre_original] = campo
         indice["por_etiqueta"].setdefault(_clave_etiqueta(etiqueta), nombre)
+        # P-14: la forma que emiten los exports autenticos para un campo
+        # condicional es `validacion: "required"` JUNTO con su
+        # `dependiente_campo`. Esta asi en cuatro tramites publicados.
+        if es_condicional and campo.condicion_visible is not None:
+            campo.obligatorio = True
+
         pantalla.campos.append(campo)
 
 

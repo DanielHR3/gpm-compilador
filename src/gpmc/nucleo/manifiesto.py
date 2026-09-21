@@ -73,6 +73,13 @@ class Campo(BaseModel):
     obligatorio: bool = False
     solo_lectura: bool = False
     longitud_exacta: Optional[int] = None
+    # «max. 150 caracteres» NO es una longitud exacta: emitirla como tal deja un
+    # campo que exige 150 justos y donde una razon social de 40 no se puede
+    # capturar. La plataforma distingue las dos formas —en los exports
+    # autenticos conviven `exact_length[18]`, `max_length[9]` y
+    # `min_length[12]|max_length[13]`— y nosotros no. P-13, 2026-09-21.
+    longitud_max: Optional[int] = None
+    longitud_min: Optional[int] = None
     ayuda: Optional[str] = None
     catalogo: list[OpcionCatalogo] = []
     # Condicion de visibilidad ('Visible solo si "X" = Y' en el Diccionario).

@@ -26,6 +26,12 @@ def _validacion_de(c: Campo) -> str:
         partes.append("required")
     if c.longitud_exacta is not None:
         partes.append(f"exact_length[{c.longitud_exacta}]")
+    # Formas observadas en los exports autenticos: `max_length[9]` y
+    # `min_length[12]|max_length[13]`, en ese orden.
+    if c.longitud_min is not None:
+        partes.append(f"min_length[{c.longitud_min}]")
+    if c.longitud_max is not None:
+        partes.append(f"max_length[{c.longitud_max}]")
     return "|".join(partes)
 
 

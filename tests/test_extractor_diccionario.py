@@ -1131,3 +1131,105 @@ def test_el_choque_se_detecta_en_los_dos_ordenes():
     r = extraer(texto)
     nombres = [c.nombre for p in r.pantallas for c in p.campos]
     assert len(nombres) == len(set(nombres)), nombres
+
+
+# ── P-13: «max. N caracteres» no es una longitud exacta ──
+#
+# Lo reporto Simplificacion el 2026-09-21 entre los detalles, y era lo mas grave
+# de su lista. `_LONGITUD` tomaba el numero y no miraba si delante decia «max.»:
+# «max. 150 caracteres» salia como longitud EXACTA de 150, o sea que una razon
+# social de 40 no se puede capturar. Once campos de Prorroga salian asi.
+#
+# La plataforma distingue las dos formas: en los exports autenticos conviven
+# `exact_length[18]` y `max_length[9]`, y hasta `min_length[12]|max_length[13]`.
+
+def _campo_con_limite(limite: str):
+    texto = MUESTRA.replace(
+        "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 caracteres | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+        f"| CURP | String | Campo de texto (input) | Sí | Siempre visible | {limite} | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+    )
+    return _campo(extraer(texto), "curp_testador")
+
+
+def test_un_maximo_no_se_emite_como_longitud_exacta():
+    c = _campo_con_limite("máx. 150 caracteres")
+    assert c.longitud_exacta is None, "un máximo NO es una longitud exacta"
+    assert c.longitud_max == 150
+
+
+def test_las_otras_formas_de_decir_maximo():
+    for limite in ("máximo 150 caracteres", "hasta 150 caracteres", "150 caracteres máx."):
+        c = _campo_con_limite(limite)
+        assert c.longitud_max == 150 and c.longitud_exacta is None, limite
+
+
+def test_una_longitud_exacta_sigue_siendo_exacta():
+    # El contrapeso: sin el, tratar TODO como maximo dejaria la CURP sin su
+    # exact_length[18], que es lo que emiten los exports autenticos.
+    for limite in ("18 caracteres", "exactamente 18 caracteres"):
+        c = _campo_con_limite(limite)
+        assert c.longitud_exacta == 18 and c.longitud_max is None, limite
+
+
+def test_los_digitos_tambien_cuentan_como_longitud():
+    # «exactamente 4 dígitos» de `modelo` no se leia: el patrón exigía la
+    # palabra «caracteres» y salía sin longitud ninguna.
+    c = _campo_con_limite("exactamente 4 dígitos")
+    assert c.longitud_exacta == 4
+
+
+def test_un_minimo_y_un_maximo_juntos():
+    c = _campo_con_limite("entre 12 y 13 caracteres")
+    assert c.longitud_min == 12 and c.longitud_max == 13
+
+
+# ── P-14: «Condicional» es obligatorio cuando se muestra ──
+#
+# `obligatorio` salia de `.startswith("si")`, asi que «Condicional» se trataba
+# como «No» y los 7 campos condicionales de Prorroga salian opcionales.
+# La plataforma SI sabe expresarlo: en cuatro exports autenticos un campo
+# condicional lleva `validacion: "required"` junto con su `dependiente_campo`.
+
+def test_condicional_con_condicion_de_visibilidad_es_obligatorio():
+    c = _campo(extraer(_VIS), "curp_solicitante")
+    assert c.condicion_visible is not None, "la fila es «Condicional» y tiene condición"
+    assert c.obligatorio is True
+
+
+def test_condicional_sin_condicion_no_se_declara_obligatorio():
+    # El contrapeso: sin condición no hay «cuando se muestra», así que marcarlo
+    # obligatorio dejaría un campo que bloquea el envío sin decir por qué.
+    texto = MUESTRA.replace(
+        "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 caracteres | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+        "| CURP | String | Campo de texto (input) | Condicional | Siempre visible | 18 caracteres | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+    )
+    assert _campo(extraer(texto), "curp_testador").obligatorio is False
+
+
+def test_un_no_sigue_siendo_opcional():
+    assert _campo(extraer(MUESTRA), "monto_pago").obligatorio is False
+
+
+# ── P-15: el Ejemplo Real es ayuda para el ciudadano y se tiraba ──
+#
+# En Prorroga, `ayuda` iba vacia en los 36 campos. La plataforma la usa para la
+# pista corta que se ve bajo el campo: en los exports autenticos hay
+# «Ej. Secretaria de Finanzas, Obras Publicas» y «Teclea el CP para buscar».
+# El Diccionario trae una columna «Ejemplo Real del Campo» que no leiamos.
+
+def test_el_ejemplo_real_llega_como_ayuda():
+    c = _campo(extraer(MUESTRA), "curp_testador")
+    assert c.ayuda == "Ej. GAGL651506HDFRNN01"
+
+
+def test_la_marca_de_ilustrativo_no_va_en_la_ayuda():
+    # El Diccionario real escribe «OIPL800312HHGLRS05 *(ilustrativo)*»: esa
+    # marca es una nota para ellos, no para el ciudadano.
+    texto = MUESTRA.replace("GAGL651506HDFRNN01", "OIPL800312HHGLRS05 *(ilustrativo)*")
+    assert _campo(extraer(texto), "curp_testador").ayuda == "Ej. OIPL800312HHGLRS05"
+
+
+def test_un_ejemplo_vacio_o_N_A_no_inventa_ayuda():
+    # El contrapeso: «N/A» como pista debajo del campo seria peor que nada.
+    texto = MUESTRA.replace("| GAGL651506HDFRNN01 |", "| N/A |")
+    assert _campo(extraer(texto), "curp_testador").ayuda is None
