@@ -77,6 +77,16 @@ buscar.
 - **P-16 — tipos mal derivados y datos de archivo que no se leen.** En Prorroga `fecha_vigencia`
   sale `text` en vez de `date` y `doc_oficio_resolucion` sale `text` en vez de `file`. Y de los
   campos de archivo no se lee el formato admitido, el tamano maximo ni la carga multiple.
+- **P-17 — todo `.gpm` que emitimos sale OCULTO del portal del ciudadano, y nadie lo dice.**
+  `ruts.publico` nace en `False` y **ningun extractor lo pone nunca en `True`**: no hay una sola
+  ruta que lo derive del AS-IS, del TO-BE ni del Diccionario. El compilador ata `public` y
+  `add_in_menu` correctamente (PLAT-6), asi que el `.gpm` importa limpio, el funcionario ve el
+  tramite en `admin.hidalgo.gob.mx` y el ciudadano **no lo ve en ningun lado**. Paso el
+  2026-09-21 con Prorroga: se importo, se veia del lado del funcionario y no aparecia en
+  `tramites.hidalgo.gob.mx/panel/dashboard`.
+  Faltan dos cosas: derivarlo del expediente cuando se pueda, y **decirlo** —hoy no hay hueco
+  que avise de que el tramite saldra invisible—. Mientras tanto se corrige a mano en el
+  manifiesto (`publico: true`) o en la plataforma.
 - **P-11 — las Notificaciones del Diccionario no se leen, y ni siquiera se reportan.** La
   «Seccion 3 — Notificaciones» documenta pantalla, evento que la dispara, destinatario, medio y
   contenido del mensaje: exactamente lo que necesita el arquetipo `notificacion`. Medido el
