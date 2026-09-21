@@ -58,6 +58,18 @@ buscar.
   quedan sin decir nada, cuando el invariante es «propone, no adivina». Viene del encargo de
   revision del 2026-08-30, Tarea 2. **Necesita una decision**: el codigo de hueco libre siguiente
   ya no es `API-05` —esta ocupado por el endpoint autenticado—, asi que seria `API-06`.
+- **P-11 — las Notificaciones del Diccionario no se leen, y ni siquiera se reportan.** La
+  «Seccion 3 — Notificaciones» documenta pantalla, evento que la dispara, destinatario, medio y
+  contenido del mensaje: exactamente lo que necesita el arquetipo `notificacion`. Medido el
+  2026-09-21 sobre Reposicion de Certificado: **8 notificaciones documentadas, 0 emitidas**, y
+  **ningun hueco** lo dice. Es una perdida silenciosa, que es la clase de defecto contra la que
+  existe la regla de «propone, no adivina». Lo destapo un ejercicio del equipo de Simplificacion.
+- **P-12 — la Ficha tecnica del Diccionario no se mira para los metadatos.** `metadatos.extraer`
+  recibe solo el AS-IS y el TO-BE. En Reposicion emitimos `META-06` («no se encontro 'A quien va
+  dirigido'») mientras su Ficha tecnica declara «Poblacion / usuario objetivo: Propietarios o
+  poseedores de un vehiculo automotor que extraviaron o les robaron su certificado». Le pedimos a
+  mano un dato que ya nos dieron. El patron `_DIRIGIDO` exige la forma `**A quien va dirigido:**`
+  y no contempla la tabla de la Ficha.
 - **P-09 — el compilador no emite Pasos en modo visualizacion.** De los 19 pasos de ese tipo que
   hay en los exports autenticos (8 de 12 trámites), nuestro compilador emite **cero**: el flujo
   sale en linea recta y cada pantalla se muestra una vez, en edicion. Es lo que Simplificacion
