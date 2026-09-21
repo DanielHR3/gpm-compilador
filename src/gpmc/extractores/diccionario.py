@@ -454,19 +454,20 @@ def _resolver_condicion_visible(
     return Condicion(campo=ref_nombre, igual=igual, operador=operador)
 
 
-def _unico(nombre: str, usados: set) -> str:
+def _unico(nombre: str, usados: set, reservados: "Optional[set]" = None) -> str:
     """El mismo nombre no se puede proponer dos veces.
 
     El sufijo entra DENTRO de `LIMITE_NOMBRE_CAMPO`: pasarse del tope es el
     'Data too long for column nombre' de PLAT-7.
     """
-    if nombre not in usados:
+    tomados = usados | (reservados or set())
+    if nombre not in tomados:
         usados.add(nombre)
         return nombre
     for i in range(2, 100):
         sufijo = f"_{i}"
         cand = (nombre[:LIMITE_NOMBRE_CAMPO - len(sufijo)].strip("_") + sufijo)
-        if cand not in usados:
+        if cand not in tomados:
             usados.add(cand)
             return cand
     usados.add(nombre)
@@ -554,7 +555,11 @@ def _extraer_campos(
             # «…(Ciudadano → Área)» quedaban en la misma cadena: eran 74 de los
             # 92 campos fantasma que quedaban el 2026-09-21. El sufijo se
             # aplica DENTRO del limite, que es lo que hace chocar los nombres.
-            nombre = _unico(nombre, indice.setdefault("nombres_usados", set()))
+            # Se evitan los nombres ya usados Y los que declara cualquier fila
+            # del documento, aunque venga despues: el nombre lo proponemos
+            # nosotros, asi que el que cede es el nuestro. Sin `ajenos`, una
+            # etiqueta podia derivar encima de un `@@` declarado mas abajo.
+            nombre = _unico(nombre, indice.setdefault("nombres_usados", set()), ajenos)
             r.huecos.append(Hueco(
                 "por_confirmar", "DIC-01", pantalla.id,
                 f"el campo '{etiqueta}' no declara nombre técnico @@ en su descripción ni en la columna Variable; se propuso '{nombre}'",
@@ -727,8 +732,12 @@ def _extraer_campos(
         # ya construido, para poder decir DONDE esta el gemelo y si parece el
         # mismo dato o dos distintos: visto en pantalla el 2026-09-21, sin eso
         # hay que buscarlo a mano entre 41 campos.
+        # Un solo registro para los dos origenes —nombre declarado por el
+        # Diccionario y nombre propuesto por nosotros—: si viven en sitios
+        # distintos, cada uno es ciego al otro y el choque se escapa segun el
+        # orden de las filas. Paso el 2026-09-21 en los dos sentidos.
+        gemelos = indice.setdefault("gemelos", {})
         if declarado:
-            gemelos = indice.setdefault("gemelos", {})
             previo = gemelos.get(nombre)
             if previo is not None and nombre not in indice.setdefault("dic09_reportados", set()):
                 indice["dic09_reportados"].add(nombre)
@@ -748,7 +757,8 @@ def _extraer_campos(
                     "falta_dato", "DIC-09", pantalla.id,
                     f"el nombre técnico '@@{nombre}' lo declaran dos campos; {que_es}",
                 ))
-            gemelos.setdefault(nombre, (pantalla.nombre or pantalla.id, etiqueta, campo.tipo))
+        gemelos.setdefault(nombre, (pantalla.nombre or pantalla.id, etiqueta, campo.tipo))
+        indice.setdefault("nombres_usados", set()).add(nombre)
 
         indice["campos"][nombre] = campo
         if declarado and capado:

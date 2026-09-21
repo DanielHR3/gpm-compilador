@@ -1098,3 +1098,36 @@ def test_el_hueco_distingue_el_mismo_dato_de_dos_datos_distintos():
     )
     (h2,) = [x for x in extraer(iguales).huecos if x.codigo == "DIC-09"]
     assert "mismo dato" in h2.mensaje.lower(), h2.mensaje
+
+
+def test_un_nombre_propuesto_no_choca_con_uno_ya_declarado():
+    """Regresion del 2026-09-21: al mover la deteccion de duplicados al punto
+    donde el campo ya esta construido, los nombres DECLARADOS dejaron de
+    registrarse en el mismo sitio que los propuestos, y `_unico` dejo de
+    verlos. Resultado: una etiqueta «Modelo» derivaba a `modelo` aunque otra
+    fila ya hubiera declarado `@@modelo`. Lo destapo Holograma Exento, que paso
+    de 0 campos fantasma a 1.
+    """
+    texto = MUESTRA.replace(
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |",
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |\n"
+        "| Sexo testador | String | Campo de texto | No | Siempre visible | N/A | N/A | N/A | Sin nombre técnico declarado. |",
+    )
+    nombres = [c.nombre for p in extraer(texto).pantallas for c in p.campos]
+    assert nombres.count("sexo_testador") == 1, nombres
+    assert len(nombres) == len(set(nombres)), nombres
+
+
+def test_el_choque_se_detecta_en_los_dos_ordenes():
+    """El anterior cubre «declarado primero, derivado despues». Al reves —una
+    etiqueta deriva `modelo` y una fila posterior declara `@@modelo`— el
+    registro de duplicados no miraba, y salian dos campos iguales sin hueco.
+    """
+    texto = MUESTRA.replace(
+        "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 caracteres | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+        "| Monto pago | Number | Campo numérico | No | Siempre visible | N/A | N/A | N/A | Sin nombre técnico declarado. |\n"
+        "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 caracteres | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+    )
+    r = extraer(texto)
+    nombres = [c.nombre for p in r.pantallas for c in p.campos]
+    assert len(nombres) == len(set(nombres)), nombres
