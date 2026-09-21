@@ -254,6 +254,19 @@ export default function TarjetaHueco({
         onConfirmar={reconocerHueco}
       />
     );
+  } else if (hueco.codigo === "DIC-09") {
+    // Un nombre tecnico repetido NO se configura a mano en la plataforma: la
+    // variable duplicada viene del Diccionario y alli no hay nada que tocar.
+    // Ofrecer «Lo configuro a mano» —el control por defecto de `falta_dato`—
+    // mandaba a la persona a un sitio sin solucion. Visto en pantalla el
+    // 2026-09-21 con Reposicion cargada.
+    control = (
+      <p className="text-sm text-muted-foreground">
+        Esto <strong>se corrige en el Diccionario</strong>, que es donde vive el dato: no
+        hay nada que configurar en la plataforma. Va incluido en{" "}
+        <strong>Descargar observaciones</strong> para mandárselo a Simplificación.
+      </p>
+    );
   } else if (hueco.nivel === "falta_dato") {
     control = <BotonReconocer hueco={hueco} onReconocer={reconocerHueco} />;
   } else if (hueco.nivel === "bloqueante") {

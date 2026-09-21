@@ -561,29 +561,6 @@ def _extraer_campos(
                 propuesta=nombre,
             ))
 
-        if declarado:
-            # El nombre lo puso el Diccionario —por la columna Variable o por un
-            # `@@` en la descripcion—. Si ya lo uso otro campo, NO se renombra:
-            # cual de los dos es cual solo lo sabe quien lo escribio. Se reporta
-            # donde vive el dato, y el validador lo vuelve a cazar (EST-08) por
-            # si el `.gpm` llega editado a mano.
-            #
-            # Cubre tambien el caso 2 que Simplificacion planteo el 2026-09-21
-            # —el mismo dato mostrado de nuevo en solo lectura—, cuya respuesta
-            # depende de una prueba en plataforma que aun no se ha hecho. Hasta
-            # entonces no se adivina.
-            usados = indice.setdefault("nombres_usados", set())
-            if nombre in usados:
-                if nombre not in indice.setdefault("dic09_reportados", set()):
-                    indice["dic09_reportados"].add(nombre)
-                    r.huecos.append(Hueco(
-                        "falta_dato", "DIC-09", pantalla.id,
-                        f"el nombre técnico '@@{nombre}' lo declara más de un campo; "
-                        f"la variable no puede ser dos datos a la vez. Si es el mismo "
-                        f"dato mostrado de nuevo, dilo en el TO-BE y déjalo en una "
-                        f"sola fila",
-                    ))
-            usados.add(nombre)
 
         if declarado:
             nombre_original = nombre
@@ -743,6 +720,35 @@ def _extraer_campos(
                     f"la condición de visibilidad de '{etiqueta}' ({nombre}) no se "
                     f"pudo interpretar: «{vis_cruda.strip()}»; configúrala a mano",
                 ))
+
+        # El nombre lo puso el Diccionario —columna Variable o un `@@` en la
+        # descripcion— y ya lo usa otro campo. NO se renombra: cual de los dos
+        # es cual solo lo sabe quien lo escribio. Se reporta aqui, con el campo
+        # ya construido, para poder decir DONDE esta el gemelo y si parece el
+        # mismo dato o dos distintos: visto en pantalla el 2026-09-21, sin eso
+        # hay que buscarlo a mano entre 41 campos.
+        if declarado:
+            gemelos = indice.setdefault("gemelos", {})
+            previo = gemelos.get(nombre)
+            if previo is not None and nombre not in indice.setdefault("dic09_reportados", set()):
+                indice["dic09_reportados"].add(nombre)
+                p_ant, e_ant, t_ant = previo
+                mismo = (t_ant == campo.tipo and _babel(e_ant) == _babel(etiqueta))
+                if mismo:
+                    que_es = (f"parece el mismo dato mostrado de nuevo: «{e_ant}» en "
+                              f"{p_ant} y «{etiqueta}» en {pantalla.nombre or pantalla.id} "
+                              f"son iguales. Déjalo en una sola fila y di en el TO-BE "
+                              f"dónde se vuelve a mostrar")
+                else:
+                    que_es = (f"son dos datos distintos con el mismo nombre: «{e_ant}» "
+                              f"({t_ant}) en {p_ant} y «{etiqueta}» ({campo.tipo}) en "
+                              f"{pantalla.nombre or pantalla.id}. Renombra uno de los dos "
+                              f"en el Diccionario")
+                r.huecos.append(Hueco(
+                    "falta_dato", "DIC-09", pantalla.id,
+                    f"el nombre técnico '@@{nombre}' lo declaran dos campos; {que_es}",
+                ))
+            gemelos.setdefault(nombre, (pantalla.nombre or pantalla.id, etiqueta, campo.tipo))
 
         indice["campos"][nombre] = campo
         if declarado and capado:

@@ -1055,3 +1055,46 @@ def test_la_columna_variable_repetida_tambien_se_reporta():
 """
     r = extraer(texto)
     assert "DIC-09" in [x.codigo for x in r.huecos], [x.codigo for x in r.huecos]
+
+
+def test_el_hueco_del_nombre_repetido_dice_donde_esta_el_gemelo():
+    """Visto en la pantalla el 2026-09-21 con Reposicion cargada: la tarjeta
+    decia «'@@estatus_tramite' lo declara mas de un campo» y nada mas. Con 41
+    campos, encontrar el gemelo a mano es la misma busqueda que costo la tarde
+    del 2026-09-18 y que ya se arreglo en el selector de campo.
+    """
+    texto = MUESTRA.replace(
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |",
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |\n"
+        "| Sexo del cónyuge | String | Lista desplegable (select) | No | Siempre visible | N/A | Hombre · Mujer | Mujer | [Captura] Campo `@@sexo_testador`. |",
+    )
+    (h,) = [x for x in extraer(texto).huecos if x.codigo == "DIC-09"]
+    # Las dos etiquetas, para reconocerlas en pantalla sin buscar.
+    assert "Sexo" in h.mensaje and "Sexo del cónyuge" in h.mensaje
+    # Y en que pantalla, por su NOMBRE: «p1» no le dice nada a quien documenta.
+    assert "Captura del Aviso" in h.mensaje
+    assert h.ubicacion == "p1", "la tarjeta se ancla igual a la pantalla"
+
+
+def test_el_hueco_distingue_el_mismo_dato_de_dos_datos_distintos():
+    """Los tres duplicados reales de los expedientes del 2026-09-21 eran dos
+    cosas distintas: `@@estatus_tramite` (misma etiqueta y tipo: el mismo dato
+    mostrado de nuevo) y `@@doc_certificado_final` (un `file` que sube el
+    ciudadano contra un `text` que emite el tramite: dos datos que colisionan).
+    La accion que toca es distinta, asi que el mensaje tambien.
+    """
+    distintos = MUESTRA.replace(
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |",
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |\n"
+        "| Acta de nacimiento | Archivo | Carga de archivo | No | Siempre visible | N/A | N/A | N/A | [Captura] Campo `@@sexo_testador`. |",
+    )
+    (h,) = [x for x in extraer(distintos).huecos if x.codigo == "DIC-09"]
+    assert "distinto" in h.mensaje.lower(), h.mensaje
+
+    iguales = MUESTRA.replace(
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |",
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |\n"
+        "| Sexo | String | Lista desplegable (select) | No | Siempre visible | N/A | Hombre · Mujer | Hombre | [Solo lectura] Campo `@@sexo_testador`. |",
+    )
+    (h2,) = [x for x in extraer(iguales).huecos if x.codigo == "DIC-09"]
+    assert "mismo dato" in h2.mensaje.lower(), h2.mensaje

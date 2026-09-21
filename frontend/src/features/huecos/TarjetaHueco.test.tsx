@@ -320,3 +320,58 @@ it("la tarjeta pinta el mensaje redactado, no el crudo del compilador", () => {
   ).toBeInTheDocument();
   expect(screen.queryByText(/no se emite/)).not.toBeInTheDocument();
 });
+
+it("DIC-09: no ofrece «Lo configuro a mano», que ahi no se puede hacer", () => {
+  // Visto en pantalla el 2026-09-21 con Reposicion cargada. Un nombre tecnico
+  // repetido viene del Diccionario: en la plataforma NO hay nada que
+  // configurar, asi que ese boton manda a la persona a un sitio sin solucion.
+  render(
+    <TarjetaHueco
+      hueco={{
+        nivel: "falta_dato",
+        codigo: "DIC-09",
+        ubicacion: "p8",
+        mensaje:
+          "el nombre técnico '@@estatus_tramite' lo declaran dos campos; parece el mismo dato mostrado de nuevo",
+        propuesta: null,
+      }}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+  expect(screen.queryByRole("button", { name: /lo configuro a mano/i })).toBeNull();
+  expect(screen.getByText(/se corrige en el Diccionario/i)).toBeTruthy();
+});
+
+it("DIC-09: manda al documento de observaciones, que es como llega a Simplificacion", () => {
+  render(
+    <TarjetaHueco
+      hueco={{
+        nivel: "falta_dato",
+        codigo: "DIC-09",
+        ubicacion: "p8",
+        mensaje: "el nombre técnico '@@x' lo declaran dos campos",
+        propuesta: null,
+      }}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+  expect(screen.getByText(/Descargar observaciones/i)).toBeTruthy();
+});
+
+it("los demas huecos sin control siguen ofreciendo «Lo configuro a mano»", () => {
+  // El contrapeso: sin el, quitar el boton a TODOS dejaria las dos de arriba
+  // en verde y romperia la salida de los demas codigos.
+  render(
+    <TarjetaHueco
+      hueco={{ nivel: "falta_dato", codigo: "DIC-02", ubicacion: "p1", mensaje: "lista pendiente", propuesta: null }}
+      manifiesto={{}}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+  expect(screen.getByRole("button", { name: /lo configuro a mano/i })).toBeTruthy();
+});
