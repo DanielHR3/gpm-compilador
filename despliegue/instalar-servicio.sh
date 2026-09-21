@@ -46,8 +46,29 @@ sed -e "s|__RUTA__|$RAIZ|g" -e "s|__LOG__|$LOG|g" -e "s|__ALMACEN__|$ALMACEN|g" 
   -e "s|__REGISTRO__|$REGISTRO|g" \
   "$RAIZ/despliegue/$ETIQUETA.plist" > "$DESTINO"
 
+# `bootout` vuelve ANTES de que launchd suelte la etiqueta, y un `bootstrap`
+# inmediato falla con «Input/output error» (5). Con `set -e` eso mataba el
+# script justo despues de dar de baja el servicio: quedaba CAIDO, sin aviso.
+# Paso el 2026-09-21 en la maquina de produccion.
 launchctl bootout "gui/$(id -u)/$ETIQUETA" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$DESTINO"
+for _ in $(seq 1 20); do
+  launchctl print "gui/$(id -u)/$ETIQUETA" >/dev/null 2>&1 || break
+  sleep 0.5
+done
+
+for intento in 1 2 3; do
+  if launchctl bootstrap "gui/$(id -u)" "$DESTINO" 2>/dev/null; then
+    break
+  fi
+  if [ "$intento" = 3 ]; then
+    echo "ERROR: launchd no acepto el servicio despues de tres intentos."
+    echo "  Revisa:  launchctl print gui/$(id -u)/$ETIQUETA"
+    echo "  Y vuelve a levantarlo con:"
+    echo "    launchctl bootstrap gui/$(id -u) '$DESTINO'"
+    exit 1
+  fi
+  sleep 2
+done
 launchctl enable "gui/$(id -u)/$ETIQUETA"
 
 sleep 3
