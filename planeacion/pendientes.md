@@ -50,6 +50,14 @@ buscar.
   lleva datos inventados y **no se emite ningún hueco**: nadie se entera. Verificado en código
   el 2026-09-21 (`extractores/diccionario.py:312` y `:392`). Determinista y fácil de probar;
   es el trabajo inmediato siguiente.
+- **P-07 — un `select` con catalogo manual Y endpoint emite una forma que no existe.** Comprobado
+  el 2026-09-21 emitiendo el `.gpm`: el campo sale con `catalog_type: "url"`, su `catalog_url` y
+  ademas `datos` con las opciones manuales. En los exports autenticos, el select manual lleva
+  `datos` y los remotos **no traen esa clave en absoluto**; la combinacion no aparece en ninguno,
+  y la regla del proyecto es no emitir formas no observadas. Ademas las opciones manuales se
+  quedan sin decir nada, cuando el invariante es «propone, no adivina». Viene del encargo de
+  revision del 2026-08-30, Tarea 2. **Necesita una decision**: el codigo de hueco libre siguiente
+  ya no es `API-05` —esta ocupado por el endpoint autenticado—, asi que seria `API-06`.
 - **Revisar los seis expedientes del lote** con el arreglo del falso `DIC-02` puesto (una opción
   llamada «Pendiente de…» tumbaba el catálogo entero, `5228358`): puede haber varios huecos que
   desaparecen solos.

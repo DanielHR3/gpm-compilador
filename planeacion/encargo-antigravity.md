@@ -16,6 +16,21 @@ antes de escribir cualquier cosa sobre el formato `.gpm`**.
 
 ---
 
+## Estado del encargo (revisado el 2026-09-21)
+
+Este documento llevaba tres semanas sin registro de cierre y no lo referenciaba nadie: ni
+`pendientes.md`, ni la bitacora. Revisado tarea por tarea:
+
+| Tarea | Estado |
+| --- | --- |
+| 1a — `test_un_endpoint_no_registrado_no_inventa_una_url` | **Hecha el 2026-09-21.** Parsea el JSON de `const PANTALLAS=` y assertea sobre el campo, con contrapeso. Se midio la ceguera de la version vieja antes de tocarla: fallaba si la URL inventada llevaba el nombre del endpoint, y pasaba si no |
+| 1b — `test_un_select_sin_catalogo_resoluble_sale_deshabilitado` | **Hecha.** Hoy assertea que el campo no se dibuja como `<input>` y que lleva «(sin catalogo resoluble)» |
+| 2 — `select` con catalogo manual **y** endpoint | **ABIERTA.** Comprobado el 2026-09-21 emitiendo el `.gpm`: sale `catalog_type: "url"` con su `catalog_url` **y** `datos` con las opciones manuales. Es la combinacion que no aparece en ningun export. Registrada como **P-07** en `pendientes.md` |
+| 3 — acta de la prueba en plataforma | **Hecha.** `actas/2026-08-30-prueba-en-plataforma.md` |
+| 4 — probar la cascada en plataforma | **Hecha.** Confirmada en el portal el 2026-08-31 (PLAT-3, sexta prueba del acta) |
+
+---
+
 ## Tarea 1 — Dos pruebas del simulador que no pueden fallar
 
 La revisión final las marcó como Important. Ambas guardan criterios de aceptación del spec y
