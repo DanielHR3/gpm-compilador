@@ -93,3 +93,14 @@ describe("documentoDeObservaciones", () => {
     expect(doc).toMatch(/\d{1,2} de \w+ de \d{4}/);
   });
 });
+
+test("DIC-09 va al apartado del Diccionario, no a «Otros hallazgos»", () => {
+  // Un nombre @@ declarado dos veces se corrige donde vive el dato. Si cae en
+  // «Otros hallazgos», Simplificacion tiene que adivinar que le toca.
+  const doc = documentoDeObservaciones(estado([
+    hueco("DIC-09", "p1", "el nombre técnico '@@estatus_tramite' lo declara más de un campo"),
+  ]));
+  expect(doc).toContain("corregir en el Diccionario de Datos  (1)");
+  expect(doc).toContain("estatus_tramite");
+  expect(doc).not.toContain("Otros hallazgos");
+});

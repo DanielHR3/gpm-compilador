@@ -26,6 +26,7 @@ const RESPONSABLE: Record<string, Responsable> = {
   "DIC-00": "diccionario", "DIC-01": "diccionario", "DIC-02": "diccionario",
   "DIC-03": "diccionario", "DIC-04": "diccionario", "DIC-05": "diccionario",
   "DIC-06": "diccionario", "DIC-07": "diccionario", "DIC-08": "diccionario",
+  "DIC-09": "diccionario",
   "DOC-02": "diccionario",
   // La plantilla ilegible la resuelve quien entrega el documento, no la DGT.
   "DOC-03": "diccionario",

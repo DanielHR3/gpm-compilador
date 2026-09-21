@@ -215,3 +215,63 @@ def test_un_catalogo_limpio_no_dispara_EST_07():
          "extra": '{"catalog_type": "manual", "catalog_url": ""}'},
     ]}]
     assert "EST-07" not in _codigos(revisar(g))
+
+
+# ── EST-08: nombres tecnicos repetidos ──
+#
+# Los seis tramites del lote de reingenieria se importaron con 27 campos
+# fantasma por nombre repetido —ocho en Reposicion de Certificado— y pasaron
+# limpios las siete reglas anteriores. Nadie se entero hasta que el analista vio
+# en pantalla una condicion que citaba un catalogo que su campo no tenia.
+
+def test_detecta_dos_campos_con_el_mismo_nombre_en_pantallas_distintas():
+    g = _base()
+    g["Formularios"] = [
+        {"id": "10", "Campos": [{"nombre": "estatus_tramite", "tipo": "text"}]},
+        {"id": "11", "Campos": [{"nombre": "estatus_tramite", "tipo": "text"}]},
+    ]
+    h = [x for x in revisar(g) if x.codigo == "EST-08"]
+    assert h and h[0].gravedad == "bloqueante"
+    assert "estatus_tramite" in h[0].mensaje
+
+
+def test_detecta_dos_campos_con_el_mismo_nombre_en_la_misma_pantalla():
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "observaciones", "tipo": "text"},
+        {"nombre": "observaciones", "tipo": "textarea"},
+    ]}]
+    assert "EST-08" in _codigos(revisar(g))
+
+
+def test_el_mensaje_dice_donde_estan_las_dos_apariciones():
+    # Sin decir DONDE estan, el hallazgo obliga a buscarlas a mano entre 41
+    # campos: es lo que costo la tarde del 2026-09-18.
+    g = _base()
+    g["Formularios"] = [
+        {"id": "10", "Campos": [{"nombre": "dup", "tipo": "text"}]},
+        {"id": "12", "Campos": [{"nombre": "dup", "tipo": "text"}]},
+    ]
+    (h,) = [x for x in revisar(g) if x.codigo == "EST-08"]
+    assert "10" in h.mensaje and "12" in h.mensaje
+
+
+def test_tres_apariciones_producen_un_solo_hallazgo():
+    # Reposicion tenia tres `estatus_tramite`. Un hallazgo por PAR serian tres
+    # lineas para un mismo problema.
+    g = _base()
+    g["Formularios"] = [{"id": str(i), "Campos": [{"nombre": "x", "tipo": "text"}]}
+                        for i in (10, 11, 12)]
+    assert len([x for x in revisar(g) if x.codigo == "EST-08"]) == 1
+
+
+def test_nombres_distintos_no_disparan_EST_08():
+    # El contrapeso: sin el, marcar todo como duplicado dejaria las de arriba
+    # en verde.
+    g = _base()
+    g["Formularios"] = [
+        {"id": "10", "Campos": [{"nombre": "curp", "tipo": "text"},
+                                {"nombre": "rfc", "tipo": "text"}]},
+        {"id": "11", "Campos": [{"nombre": "domicilio", "tipo": "text"}]},
+    ]
+    assert "EST-08" not in _codigos(revisar(g))

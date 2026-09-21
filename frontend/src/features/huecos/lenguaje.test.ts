@@ -21,6 +21,12 @@ describe("tituloDeCodigo", () => {
     expect(tituloDeCodigo("META-04")).toBe("Nombre del trámite");
   });
 
+  test("DIC-09, el nombre tecnico repetido, tiene titulo propio", () => {
+    // Sin el, el analista ve «DIC-09» pelado. El codigo nacio el 2026-09-21,
+    // cuando se midieron 141 campos fantasma en 49 expedientes reales.
+    expect(tituloDeCodigo("DIC-09")).toBe("Nombre técnico repetido");
+  });
+
   test("el titulo de DIC-02 habla del catalogo, que es de lo que habla su mensaje", () => {
     // Decia "Tipo de campo", que no es lo que el hueco reporta: el encabezado
     // y el cuerpo de la tarjeta contaban cosas distintas.

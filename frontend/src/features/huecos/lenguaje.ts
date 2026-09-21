@@ -22,6 +22,7 @@ const TITULOS: Record<string, string> = {
   "DIC-06": "Nombre técnico demasiado largo",
   "DIC-07": "Lista sin opciones",
   "DIC-08": "Visibilidad de un campo",
+  "DIC-09": "Nombre técnico repetido",
   "API-03": "Campo del que depende",
   "API-04": "Conexión con otro sistema",
   "DOC-02": "Variable sin campo en un documento",

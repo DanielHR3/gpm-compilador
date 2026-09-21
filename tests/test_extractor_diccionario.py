@@ -910,3 +910,148 @@ def test_una_celda_declarada_pendiente_sigue_marcandose_pendiente():
         opciones, pendiente = _catalogo_de(celda)
         assert pendiente, celda
         assert not opciones
+
+
+# ── El primer @@ de la descripcion se llevaba el nombre del campo ──
+#
+# Medido el 2026-09-21 sobre el lote de reingenieria: 27 campos fantasma en 5 de
+# los 6 tramites. La causa: las filas de «Vista de solo lectura» escriben su
+# descripcion citando OTRO campo —«Muestra @@observaciones capturadas por la
+# Direccion»— y ese `@@` se tomaba como nombre propio. En Reposicion dejo tres
+# campos llamados `estatus_tramite`, y el que ganaba no traia catalogo.
+#
+# La regla la acordamos con Simplificacion el 2026-09-21: un `@@` que ya esta
+# declarado por otro campo es una REFERENCIA, no un nombre.
+
+_REFERENCIA = MUESTRA.replace(
+    "| Monto | Number | Campo numérico | No | Siempre visible | N/A | N/A | 76.00 | [Solo lectura, generado] Campo `@@monto_pago`. |",
+    "| Monto | Number | Campo numérico | No | Siempre visible | N/A | N/A | 76.00 | [Solo lectura, generado] Campo `@@monto_pago`. |\n"
+    "| Vista de solo lectura (Notario → Área) | N/A | Vista | No | Siempre visible | N/A | N/A | N/A | [Solo lectura] Muestra `@@curp_testador` capturado en la Pantalla 1. |",
+)
+
+
+def test_una_descripcion_que_cita_otro_campo_no_le_roba_el_nombre():
+    r = extraer(_REFERENCIA)
+    nombres = [c.nombre for p in r.pantallas for c in p.campos]
+    assert nombres.count("curp_testador") == 1, f"nombre duplicado: {nombres}"
+
+
+def test_la_fila_de_vista_sigue_produciendo_un_campo_con_nombre_propio():
+    # No se descarta la fila: el compilador aun no sabe emitir un Paso de
+    # visualizacion (P-09). Hasta entonces sale como campo, pero con nombre
+    # propio derivado de su etiqueta, no robado.
+    r = extraer(_REFERENCIA)
+    nombres = [c.nombre for p in r.pantallas for c in p.campos]
+    assert len(nombres) == len(set(nombres)), f"hay duplicados: {nombres}"
+    assert any(n.startswith("vista_de_solo_lectura") for n in nombres), nombres
+
+
+def test_un_campo_que_declara_su_propio_nombre_lo_conserva():
+    # El contrapeso: sin el, ignorar SIEMPRE el @@ de la descripcion romperia
+    # la via normal, que es justo como se declara un nombre tecnico.
+    c = _campo(extraer(MUESTRA), "curp_testador")
+    assert c.nombre == "curp_testador"
+
+
+def test_el_primer_campo_que_declara_un_nombre_gana_sobre_el_que_lo_cita():
+    # Orden inverso: si la fila que CITA va antes que la que declara, sigue sin
+    # poder quedarse el nombre. Se comprueba mirando quien conserva el catalogo.
+    texto = MUESTRA.replace(
+        "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 caracteres | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+        "| Vista previa | N/A | Vista | No | Siempre visible | N/A | N/A | N/A | [Solo lectura] Muestra `@@sexo_testador` ya capturado. |\n"
+        "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 caracteres | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+    )
+    r = extraer(texto)
+    nombres = [c.nombre for p in r.pantallas for c in p.campos]
+    assert nombres.count("sexo_testador") == 1, nombres
+    assert _campo(r, "sexo_testador").catalogo, "el dueño del nombre conserva su catalogo"
+
+
+# ── Un nombre que proponemos nosotros no puede chocar con otro ──
+#
+# Medido el 2026-09-21 sobre 49 expedientes reales: de los 92 campos fantasma
+# que quedaban tras arreglar lo del `@@` citado, **74 eran nombres que
+# inventabamos nosotros** y chocaban entre si al capar a 30 caracteres —tres
+# filas «Vista de solo lectura (X → Y)» distintas se quedaban todas en
+# `vista_de_solo_lectura_ciudadan`—. El Diccionario no tiene la culpa de eso.
+
+_DOS_VISTAS = MUESTRA.replace(
+    "| Monto | Number | Campo numérico | No | Siempre visible | N/A | N/A | 76.00 | [Solo lectura, generado] Campo `@@monto_pago`. |",
+    "| Monto | Number | Campo numérico | No | Siempre visible | N/A | N/A | 76.00 | [Solo lectura, generado] Campo `@@monto_pago`. |\n"
+    "| Vista de solo lectura (Ciudadano → Notario) | N/A | Vista | No | Siempre visible | N/A | N/A | N/A | [Solo lectura] Lo capturado antes. |\n"
+    "| Vista de solo lectura (Ciudadano → Área de Avisos) | N/A | Vista | No | Siempre visible | N/A | N/A | N/A | [Solo lectura] Lo capturado antes. |",
+)
+
+
+def test_dos_etiquetas_que_derivan_al_mismo_nombre_no_producen_dos_campos_iguales():
+    r = extraer(_DOS_VISTAS)
+    nombres = [c.nombre for p in r.pantallas for c in p.campos]
+    assert len(nombres) == len(set(nombres)), f"nombres repetidos: {nombres}"
+
+
+def test_el_nombre_desambiguado_respeta_el_limite_de_la_columna():
+    # El cap de 30 es lo que hace chocar los nombres; la solucion no puede
+    # saltarselo, o vuelve el 'Data too long for column nombre' de PLAT-7.
+    from gpmc.extractores.diccionario import LIMITE_NOMBRE_CAMPO
+    r = extraer(_DOS_VISTAS)
+    for p in r.pantallas:
+        for c in p.campos:
+            assert len(c.nombre) <= LIMITE_NOMBRE_CAMPO, c.nombre
+
+
+def test_un_nombre_propuesto_que_no_choca_se_queda_como_estaba():
+    # El contrapeso: sin el, añadir sufijo a todos cambiaria nombres que hoy
+    # estan bien y romperia las referencias del TO-BE.
+    r = extraer(MUESTRA)
+    nombres = [c.nombre for p in r.pantallas for c in p.campos]
+    assert "curp_testador" in nombres and not any(n.endswith("_2") for n in nombres)
+
+
+def test_un_at_declarado_dos_veces_por_el_diccionario_se_reporta():
+    # Esto NO es culpa nuestra: dos filas dicen «Campo @@x». No se renombra a
+    # la callada —seria adivinar cual es cual—, se reporta para que lo corrijan
+    # en el Diccionario, que es donde vive el dato.
+    texto = MUESTRA.replace(
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |",
+        "| Sexo | String | Lista desplegable (select) | Sí | Siempre visible | N/A | Hombre · Mujer | Hombre | [Captura] Campo `@@sexo_testador`. |\n"
+        "| Sexo del cónyuge | String | Lista desplegable (select) | No | Siempre visible | N/A | Hombre · Mujer | Mujer | [Captura] Campo `@@sexo_testador`. |",
+    )
+    r = extraer(texto)
+    h = [x for x in r.huecos if x.codigo == "DIC-09"]
+    assert h, [x.codigo for x in r.huecos]
+    assert "sexo_testador" in h[0].mensaje
+
+
+def test_un_at_repetido_sin_la_palabra_campo_tambien_se_reporta():
+    """El caso real del expediente del IHM: cuatro filas muestran el mismo
+    folio en pantallas distintas y ninguna escribe «Campo @@…», solo
+    «[Solo lectura] `@@numero_folio`». Sin la palabra clave no habia forma de
+    saber cual declaraba, y las cuatro se quedaban el nombre en silencio.
+
+    Es el caso 2 que Simplificacion planteo el 2026-09-21 —el mismo dato
+    mostrado de nuevo— y cuya respuesta depende de una prueba en plataforma que
+    aun no se ha hecho. Hasta entonces no se adivina: se reporta.
+    """
+    texto = MUESTRA.replace(
+        "| Monto | Number | Campo numérico | No | Siempre visible | N/A | N/A | 76.00 | [Solo lectura, generado] Campo `@@monto_pago`. |",
+        "| Monto | Number | Campo numérico | No | Siempre visible | N/A | N/A | 76.00 | [Solo lectura] `@@monto_pago`. |\n"
+        "| Monto (confirmación) | Number | Solo lectura | No | Siempre visible | N/A | N/A | 76.00 | [Solo lectura] `@@monto_pago` — como constancia. |",
+    )
+    r = extraer(texto)
+    h = [x for x in r.huecos if x.codigo == "DIC-09"]
+    assert h, [x.codigo for x in r.huecos]
+    assert "monto_pago" in h[0].mensaje
+
+
+def test_la_columna_variable_repetida_tambien_se_reporta():
+    # La otra via por la que entra un nombre: la columna Variable.
+    texto = """
+### Pantalla 1 — CIUDADANO — Datos
+
+| Nombre del Campo | Variable | Tipo de Dato | Obligatorio | Descripción |
+| --- | --- | --- | --- | --- |
+| Estatus | estatus_tramite | String | Sí | El estatus. |
+| Estatus (vista) | estatus_tramite | String | No | El mismo, mostrado de nuevo. |
+"""
+    r = extraer(texto)
+    assert "DIC-09" in [x.codigo for x in r.huecos], [x.codigo for x in r.huecos]

@@ -14,6 +14,7 @@ como `@@nombre`. Cuando falta, se reporta como hueco en vez de inventarlo.
 
 from typing import Optional
 import re
+from collections import Counter
 import unicodedata
 from dataclasses import dataclass, field
 
@@ -39,6 +40,12 @@ _ANOTACION_MOCKUP = re.compile(r"\s*\*\(.*\)\*\s*$")
 # Secciones 2 a 5 del Diccionario se absorben dentro de la ultima pantalla.
 _CORTE = re.compile(r"^#{1,3}\s+(?!#)", re.M)
 _CAMPO_TECNICO = re.compile(r"@@(\w+)")
+
+# La forma con la que el Diccionario DECLARA el nombre tecnico de una fila, y
+# que la guia del equipo de Simplificacion enseña: «[Captura] Campo `@@curp`».
+# Una fila que solo lo CITA —«[Solo lectura] Muestra `@@observaciones`
+# capturadas por la Direccion»— no lleva esa palabra delante.
+_DECLARA_NOMBRE = re.compile(r"[Cc]ampo\s*`?@@(\w+)")
 _LONGITUD = re.compile(r"(\d+)\s*caracteres")
 _ENDPOINT = re.compile(r"`?([\w/-]+)`?")
 
@@ -447,6 +454,25 @@ def _resolver_condicion_visible(
     return Condicion(campo=ref_nombre, igual=igual, operador=operador)
 
 
+def _unico(nombre: str, usados: set) -> str:
+    """El mismo nombre no se puede proponer dos veces.
+
+    El sufijo entra DENTRO de `LIMITE_NOMBRE_CAMPO`: pasarse del tope es el
+    'Data too long for column nombre' de PLAT-7.
+    """
+    if nombre not in usados:
+        usados.add(nombre)
+        return nombre
+    for i in range(2, 100):
+        sufijo = f"_{i}"
+        cand = (nombre[:LIMITE_NOMBRE_CAMPO - len(sufijo)].strip("_") + sufijo)
+        if cand not in usados:
+            usados.add(cand)
+            return cand
+    usados.add(nombre)
+    return nombre
+
+
 def _extraer_campos(
     filas: list[str], pantalla: PantallaExtraida, r: Resultado,
     indice: "Optional[dict]" = None,
@@ -490,7 +516,17 @@ def _extraer_campos(
         etiqueta = etiqueta.replace("`", "")
 
         desc = celdas[i_desc] if i_desc is not None and i_desc < len(celdas) else ""
-        tecnicos = _CAMPO_TECNICO.findall(desc)
+        # Un `@@` de la descripcion es el nombre de ESTA fila solo si lo declara
+        # («Campo @@x»). Si solo lo cita y ese nombre lo declara otra fila, es
+        # una REFERENCIA: quedarselo creaba dos campos con el mismo nombre.
+        #
+        # Medido el 2026-09-21 sobre el lote de reingenieria: 27 campos fantasma
+        # en 5 de 6 tramites, ocho en Reposicion de Certificado, donde tres
+        # campos acabaron llamandose `estatus_tramite` y el que ganaba no traia
+        # catalogo. La regla se acordo con Simplificacion ese mismo dia.
+        ajenos = indice.get("declarados") or set()
+        propios = _DECLARA_NOMBRE.findall(desc)
+        tecnicos = propios or [t for t in _CAMPO_TECNICO.findall(desc) if t not in ajenos]
 
         nombre = None
         if es_columna_variable and i_var < len(celdas):
@@ -503,16 +539,51 @@ def _extraer_campos(
         elif tecnicos:
             nombre = tecnicos[0]
             declarado = True
+            # Dos filas que dicen «Campo @@x» declaran el mismo dato dos veces.
+            # No se renombra a la callada —cual de las dos es cual solo lo sabe
+            # quien escribio el Diccionario—: se reporta para que lo corrijan
+            # donde vive el dato. El validador lo vuelve a cazar (EST-08) por si
+            # el `.gpm` llega editado a mano.
         else:
             declarado = False
             # Se recorta a LIMITE_NOMBRE_CAMPO y se limpia el '_' que quede
             # colgando al cortar a mitad de palabra (ver _capar_nombre).
             nombre = re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")[:LIMITE_NOMBRE_CAMPO].strip("_")
+            # Un nombre que proponemos NOSOTROS no puede chocar con otro. Al
+            # capar a 30, «Vista de solo lectura (Ciudadano → Notario)» y
+            # «…(Ciudadano → Área)» quedaban en la misma cadena: eran 74 de los
+            # 92 campos fantasma que quedaban el 2026-09-21. El sufijo se
+            # aplica DENTRO del limite, que es lo que hace chocar los nombres.
+            nombre = _unico(nombre, indice.setdefault("nombres_usados", set()))
             r.huecos.append(Hueco(
                 "por_confirmar", "DIC-01", pantalla.id,
                 f"el campo '{etiqueta}' no declara nombre técnico @@ en su descripción ni en la columna Variable; se propuso '{nombre}'",
                 propuesta=nombre,
             ))
+
+        if declarado:
+            # El nombre lo puso el Diccionario —por la columna Variable o por un
+            # `@@` en la descripcion—. Si ya lo uso otro campo, NO se renombra:
+            # cual de los dos es cual solo lo sabe quien lo escribio. Se reporta
+            # donde vive el dato, y el validador lo vuelve a cazar (EST-08) por
+            # si el `.gpm` llega editado a mano.
+            #
+            # Cubre tambien el caso 2 que Simplificacion planteo el 2026-09-21
+            # —el mismo dato mostrado de nuevo en solo lectura—, cuya respuesta
+            # depende de una prueba en plataforma que aun no se ha hecho. Hasta
+            # entonces no se adivina.
+            usados = indice.setdefault("nombres_usados", set())
+            if nombre in usados:
+                if nombre not in indice.setdefault("dic09_reportados", set()):
+                    indice["dic09_reportados"].add(nombre)
+                    r.huecos.append(Hueco(
+                        "falta_dato", "DIC-09", pantalla.id,
+                        f"el nombre técnico '@@{nombre}' lo declara más de un campo; "
+                        f"la variable no puede ser dos datos a la vez. Si es el mismo "
+                        f"dato mostrado de nuevo, dilo en el TO-BE y déjalo en una "
+                        f"sola fila",
+                    ))
+            usados.add(nombre)
 
         if declarado:
             nombre_original = nombre
@@ -684,7 +755,13 @@ def extraer(texto: str) -> Resultado:
     r = Resultado()
     # Indice de campos vistos, compartido entre pantallas: una condicion de
     # visibilidad casi siempre nombra un campo de una pantalla anterior.
-    indice = {"por_etiqueta": {}, "campos": {}}
+    # Una pasada previa por el documento entero: que nombres tecnicos DECLARA
+    # alguna fila. Hace falta antes de recorrer las pantallas porque una fila
+    # puede citar un campo que se declara mas adelante.
+    declarados = _DECLARA_NOMBRE.findall(texto)
+    indice = {"por_etiqueta": {}, "campos": {},
+              "declarados": set(declarados),
+              "declarados_n": Counter(declarados)}
     encabezados = list(_ENCABEZADO.finditer(texto))
 
     for i, m in enumerate(encabezados):

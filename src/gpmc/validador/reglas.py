@@ -14,6 +14,7 @@ defectos son del proveedor; esta herramienta solo evita *introducirlos*):
 
 import json
 import re
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -234,10 +235,52 @@ def _revisar_sintaxis(g: dict) -> list[Hallazgo]:
     return hallazgos
 
 
+def _revisar_nombres_repetidos(g: dict) -> list[Hallazgo]:
+    """EST-08: dos campos que se llaman igual.
+
+    El nombre tecnico es la variable: `@@estatus_tramite` no puede ser dos datos
+    distintos. Cuando se repite, lo que gana depende de quien lea —el extractor,
+    el verificador de propuestas, la plataforma— y ninguno avisa.
+
+    Medido el 2026-09-21 sobre el lote de reingenieria: 27 campos fantasma en 5
+    de los 6 tramites, ocho de ellos en Reposicion de Certificado, que se
+    importaron sin una sola queja de las siete reglas anteriores. La causa esta
+    en el Diccionario —el primer `@@` de una descripcion se lleva el nombre—,
+    pero un `.gpm` editado a mano cae en lo mismo, asi que la red va aqui.
+
+    Bloqueante: el `.gpm` importa, pero lo que se construye no es el tramite que
+    dice el expediente.
+    """
+    donde = defaultdict(list)
+    for f in g.get("Formularios", []):
+        for c in f.get("Campos", []):
+            nombre = str(c.get("nombre") or "")
+            if nombre:
+                donde[nombre].append(str(f.get("id")))
+    hallazgos = []
+    for nombre, ids in donde.items():
+        if len(ids) < 2:
+            continue
+        # Un hallazgo por NOMBRE, no por par: tres apariciones son un problema,
+        # no tres.
+        conteo = Counter(ids)
+        detalle = ", ".join(f"Formularios/{i}" + (f" (x{n})" if n > 1 else "")
+                            for i, n in conteo.items())
+        hallazgos.append(Hallazgo(
+            "EST-08", "bloqueante",
+            f"el nombre tecnico '{nombre}' esta declarado {len(ids)} veces ({detalle}); "
+            f"la variable no puede ser dos datos distintos, y lo que gana depende de "
+            f"quien lea",
+            f"Formularios/{ids[0]}/{nombre}",
+        ))
+    return hallazgos
+
+
 def revisar(gpm: dict) -> list[Hallazgo]:
     return (
         _revisar_estructura(gpm)
         + _revisar_campos(gpm)
+        + _revisar_nombres_repetidos(gpm)
         + _revisar_acciones(gpm)
         + _revisar_credenciales(gpm)
         + _revisar_sintaxis(gpm)
