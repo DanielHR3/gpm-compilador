@@ -45,6 +45,15 @@ buscar.
 
 ## Abiertos
 
+- **PLAT-10 — `init_capture` iba fijo en "0" y el portal rechazaba el arranque.** La plataforma
+  contesto **403 «Usuario no puede iniciar este proceso»** al intentar arrancar Prorroga desde
+  `tramites.hidalgo.gob.mx` (2026-09-21). `esquema.tarea` emitia `init_capture: "0"` para TODAS
+  las tareas. En los catorce exports autenticos la tarea inicial lleva **siempre** `"1"`; el unico
+  `"0"` con `inicial` esta en los dos tramites que declaran una segunda inicial alternativa.
+  Emitir `"0"` en la unica inicial es una forma que no aparece en ningun tramite que funcione.
+  **Corregido el mismo dia.** Falta la confirmacion en plataforma: reimportar y comprobar que el
+  ciudadano puede arrancarlo. Hasta entonces no se da por cerrado.
+
 - **P-06 — los catálogos se parten por coma sin respetar los paréntesis.** `$226.00 (fijo, Ley
   Estatal de Derechos Art. 40 Fracción V)` sale como **dos** opciones de catálogo. El `.gpm`
   lleva datos inventados y **no se emite ningún hueco**: nadie se entera. Verificado en código

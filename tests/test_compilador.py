@@ -637,3 +637,26 @@ def test_emitir_une_clausulas_y_en_conexion_regla():
     conexiones_con_regla = [c for c in g["Conexiones"] if c["regla"]]
     assert len(conexiones_con_regla) == 1
     assert conexiones_con_regla[0]["regla"] == "@@estado=='hidalgo'&&@@tipo=='foraneo'"
+
+
+def test_la_tarea_inicial_emite_init_capture_en_1():
+    """La plataforma respondio 403 «Usuario no puede iniciar este proceso» al
+    intentar arrancar Prorroga desde el portal (2026-09-21).
+
+    `init_capture` iba fijo en "0" para TODAS las tareas. En los catorce
+    exports autenticos, la tarea inicial lleva **siempre** `init_capture: "1"`;
+    el unico "0" con `inicial` esta en los dos tramites que declaran una
+    segunda tarea inicial alternativa. Emitir "0" en la unica inicial es una
+    forma que no aparece en ningun tramite que funcione.
+    """
+    from gpmc.nucleo.esquema import tarea
+    t = tarea(id="t1", identificador="box_1", nombre="Nueva Solicitud", proceso_id="1", inicial=True)
+    assert t["init_capture"] == "1"
+
+
+def test_una_tarea_que_no_es_inicial_no_captura_el_inicio():
+    # El contrapeso: poner "1" en todas haria que la plataforma creyera que
+    # cualquier paso intermedio arranca el tramite.
+    from gpmc.nucleo.esquema import tarea
+    t = tarea(id="t2", identificador="box_2", nombre="Revisión", proceso_id="1")
+    assert t["init_capture"] == "0"

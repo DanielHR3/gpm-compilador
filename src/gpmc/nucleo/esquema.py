@@ -142,7 +142,13 @@ def tarea(
         "hora_inicio": None,
         "hora_fin": None,
         "horario_atencion": "0",
-        "init_capture": "0",
+        # La tarea inicial es la que CAPTURA el arranque del tramite. Iba fija
+        # en "0" para todas, y la plataforma contestaba 403 «Usuario no puede
+        # iniciar este proceso» al intentar arrancarlo desde el portal
+        # (2026-09-21, Prorroga). En los catorce exports autenticos la inicial
+        # lleva siempre "1"; el unico "0" con `inicial` esta en los dos
+        # tramites que declaran una segunda inicial alternativa.
+        "init_capture": "1" if inicial else "0",
         "extra": None,
         "metadata": None,
         "Pasos": list(pasos),
