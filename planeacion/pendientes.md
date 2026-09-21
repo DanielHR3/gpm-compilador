@@ -1,6 +1,6 @@
 # Pendientes — estado verificado
 
-Última verificación: 2026-09-21, suite en **515 passed, 23 skipped** (servidor) y **235
+Última verificación: 2026-09-21, suite en **533 passed, 23 skipped** (servidor) y **235
 passed** (interfaz).
 
 Este archivo solo registra lo que se comprobó ejecutando código o importando a la
@@ -58,6 +58,12 @@ buscar.
   quedan sin decir nada, cuando el invariante es «propone, no adivina». Viene del encargo de
   revision del 2026-08-30, Tarea 2. **Necesita una decision**: el codigo de hueco libre siguiente
   ya no es `API-05` —esta ocupado por el endpoint autenticado—, asi que seria `API-06`.
+- **P-08 — `POST /resolver` y el selector de la SPA aceptan un campo de nombre repetido.** Desde
+  el 2026-09-21 `agentes/verificar.py` rechaza como `campo_ambiguo` una condicion que mira un
+  nombre tecnico duplicado: ganaba el primer campo, y si ese no traia catalogo se aceptaba
+  cualquier valor. La via manual sigue indexando por nombre y no lo comprueba, asi que vuelve a
+  ser mas permisiva que la de la IA. De raiz se arregla en el extractor: el primer `@@` de una
+  descripcion se lleva el nombre del campo (ocho duplicados en Reposicion de Certificado).
 - **Revisar los seis expedientes del lote** con el arreglo del falso `DIC-02` puesto (una opción
   llamada «Pendiente de…» tumbaba el catálogo entero, `5228358`): puede haber varios huecos que
   desaparecen solos.
