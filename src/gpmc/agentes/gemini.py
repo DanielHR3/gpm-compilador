@@ -7,7 +7,7 @@ proveedor usan los expedientes de ejemplo del repositorio, no los reales.
 import json
 import time
 
-from gpmc.agentes.proveedor import ErrorDeRed, RespuestaInvalida, Respuesta
+from gpmc.agentes.proveedor import RespuestaInvalida, Respuesta, clasificar_error
 
 
 def _esquema_gemini(esquema):
@@ -63,8 +63,8 @@ class ProveedorGemini:
                     temperature=0.1,
                 ),
             )
-        except Exception as e:  # red, timeout, 5xx: el SDK no expone una jerarquia estable
-            raise ErrorDeRed(str(e))
+        except Exception as e:  # el SDK no expone una jerarquia estable, pero si el codigo
+            raise clasificar_error(e)
         texto = r.text or ""
         try:
             json.loads(texto)

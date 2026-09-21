@@ -4,7 +4,7 @@ sombrear al paquete `openai`."""
 import json
 import time
 
-from gpmc.agentes.proveedor import ErrorDeRed, RespuestaInvalida, Respuesta
+from gpmc.agentes.proveedor import RespuestaInvalida, Respuesta, clasificar_error
 
 
 class ProveedorOpenAI:
@@ -26,7 +26,7 @@ class ProveedorOpenAI:
                                  "json_schema": {"name": "propuestas_dic08", "schema": esquema, "strict": False}},
             )
         except Exception as e:
-            raise ErrorDeRed(str(e))
+            raise clasificar_error(e)
         texto = (r.choices[0].message.content or "") if r.choices else ""
         try:
             json.loads(texto)
@@ -36,4 +36,6 @@ class ProveedorOpenAI:
         return Respuesta(texto=texto,
                          tokens_entrada=getattr(uso, "prompt_tokens", None),
                          tokens_salida=getattr(uso, "completion_tokens", None),
-                         modelo=self._modelo, duracion_ms=int((time.monotonic() - t0) * 1000))
+                         # `model` es el snapshot que de verdad contesto; `gpt-4o` es un
+                         # alias. Misma razon que `model_version` en gemini.py.
+                         modelo=getattr(r, "model", None) or self._modelo, duracion_ms=int((time.monotonic() - t0) * 1000))

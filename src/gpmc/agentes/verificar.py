@@ -10,17 +10,27 @@ from typing import Optional
 from gpmc.extractores.diccionario import _babel
 from gpmc.nucleo.manifiesto import Clausula, Condicion, Manifiesto
 
-VEREDICTOS = ("aceptable", "campo_inexistente", "autorreferencia", "campo_futuro",
-              "valor_fuera_de_catalogo", "esquema_invalido", "modelo_declino", "sin_respuesta")
+VEREDICTOS = ("aceptable", "campo_inexistente", "campo_ambiguo", "autorreferencia",
+              "campo_futuro", "valor_fuera_de_catalogo", "esquema_invalido",
+              "modelo_declino", "sin_respuesta")
 
 
-def _indice(m: Manifiesto) -> dict:
-    """nombre_campo -> (indice_pantalla, Campo)"""
-    out = {}
+def _indice(m: Manifiesto):
+    """(nombre_campo -> (indice_pantalla, Campo), nombres repetidos).
+
+    Los nombres tecnicos NO son unicos de hecho: el extractor toma el primer
+    `@@` de una descripcion, y en Reposicion de Certificado (2026-09-18) eso
+    dejo tres campos llamados `estatus_tramite`. Antes ganaba el primero, y si
+    ese no traia catalogo cualquier valor inventado pasaba por «aceptable».
+    Elegir uno seria adivinar, asi que los repetidos se reportan aparte.
+    """
+    out, repetidos = {}, set()
     for i, p in enumerate(m.pantallas):
         for c in p.campos:
+            if c.nombre in out:
+                repetidos.add(c.nombre)
             out.setdefault(c.nombre, (i, c))
-    return out
+    return out, repetidos
 
 
 def _valor_tecnico(campo, igual: str) -> Optional[str]:
@@ -43,7 +53,7 @@ def verificar(condicion: Condicion, ubicacion: str, m: Manifiesto):
     idx_propio = next((i for i, p in enumerate(m.pantallas) if p.id == pantalla_id), None)
     if idx_propio is None:
         return "esquema_invalido", None
-    indice = _indice(m)
+    indice, repetidos = _indice(m)
 
     partes = [(condicion.campo, condicion.igual, condicion.operador)] + [
         (cl.campo, cl.igual, cl.operador) for cl in condicion.y]
@@ -53,6 +63,8 @@ def verificar(condicion: Condicion, ubicacion: str, m: Manifiesto):
             return "autorreferencia", None
         if campo_nombre not in indice:
             return "campo_inexistente", None
+        if campo_nombre in repetidos:
+            return "campo_ambiguo", None
         i, campo = indice[campo_nombre]
         if i > idx_propio:
             return "campo_futuro", None

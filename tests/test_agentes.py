@@ -216,6 +216,45 @@ def test_verificar_revisa_tambien_las_clausulas_y():
     assert v == "campo_inexistente"
 
 
+def _manifiesto_con_nombre_duplicado() -> Manifiesto:
+    """La forma de Reposicion de Certificado (2026-09-18): el extractor toma el
+    primer `@@` de una descripcion como nombre, y una «vista de solo lectura»
+    acaba llamandose igual que el campo real. La vista va primero y sin catalogo."""
+    return Manifiesto(**{
+        "tramite": {"nombre": "Prueba", "dependencia": "DGT"},
+        "actores": [{"id": "c", "nombre": "Ciudadano"}],
+        "pantallas": [
+            {"id": "p1", "nombre": "Vista", "actor": "c", "campos": [
+                {"nombre": "estatus_tramite", "etiqueta": "Estatus (solo lectura)", "tipo": "text"}]},
+            {"id": "p2", "nombre": "Dictamen", "actor": "c", "campos": [
+                {"nombre": "estatus_tramite", "etiqueta": "Estatus del Trámite", "tipo": "select",
+                 "catalogo": [{"etiqueta": "Concluido", "valor": "concluido"}]},
+                {"nombre": "notificacion", "etiqueta": "Notificación", "tipo": "text"}]},
+        ],
+        "flujo": {"tareas": [{"id": "t1", "nombre": "Datos", "actor": "c", "inicial": True,
+                              "terminal": True, "pantallas": ["p1", "p2"]}], "conexiones": []},
+    })
+
+
+def test_verificar_no_acepta_un_valor_inventado_por_un_nombre_duplicado():
+    # Con dos campos del mismo nombre ganaba el primero; si ese no trae catalogo,
+    # CUALQUIER valor pasaba por «aceptable» y el filtro dejaba de filtrar.
+    # Elegir uno de los dos seria adivinar: se rechaza como ambiguo.
+    from gpmc.agentes.verificar import verificar
+    m = _manifiesto_con_nombre_duplicado()
+    v, c = verificar(_cond("estatus_tramite", "un valor que no esta en ningun catalogo"),
+                     "p2::notificacion", m)
+    assert v == "campo_ambiguo" and c is None
+
+
+def test_verificar_un_nombre_unico_no_se_vuelve_ambiguo():
+    # El contrapeso: sin el, marcar TODO como ambiguo dejaria la prueba de
+    # arriba en verde.
+    from gpmc.agentes.verificar import verificar
+    v, c = verificar(_cond("es_moral", "si"), "p2::rfc", _manifiesto_dos_pantallas())
+    assert v == "aceptable"
+
+
 def test_verificar_campo_sin_catalogo_acepta_cualquier_valor():
     from gpmc.agentes.verificar import verificar
     m = _manifiesto_dos_pantallas()
@@ -410,6 +449,57 @@ def test_una_respuesta_invalida_no_se_reintenta(tmp_path, monkeypatch):
     assert pf.llamadas == 1
 
 
+def test_si_una_parte_del_lote_falla_no_se_tira_la_que_si_salio(tmp_path, monkeypatch):
+    # Con el lote partido, un ErrorDeRed en la segunda parte tumbaba todo: la
+    # API escribia `propuestas: []` y la persona leia «no se pudieron generar»,
+    # aunque la primera mitad ya estaba generada y sus tokens gastados.
+    from gpmc.agentes import dic08
+    from gpmc.agentes.proveedor import ProveedorFalso
+    monkeypatch.setattr(dic08, "ESPERAS_REINTENTO", (0.0, 0.0))
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "Solo si es persona moral"),
+              _dic08("p2::domicilio_fiscal", "Domicilio fiscal", "domicilio_fiscal",
+                     "Solo si es persona moral")]
+    pf = ProveedorFalso([_respuesta_ok()])     # alcanza para la 1a parte; la 2a se agota
+    # 180: el lote entero no cabe, cada hueco solo si (medido: ~200 / ~135 / ~160).
+    props = dic08.proponer_lote(_manifiesto_dos_pantallas(), huecos, pf, tmp_path, "s" * 16,
+                                max_tokens=180)
+    por_ubic = {p.ubicacion: p.veredicto for p in props}
+    assert por_ubic == {"p2::rfc": "aceptable", "p2::domicilio_fiscal": "sin_respuesta"}
+
+
+def test_si_fallan_todas_las_partes_el_error_sigue_subiendo(tmp_path, monkeypatch):
+    # El contrapeso: tragarse SIEMPRE el error dejaria la prueba de arriba en
+    # verde y a la API diciendo «listo» con un proveedor caido.
+    from gpmc.agentes import dic08
+    from gpmc.agentes.proveedor import ProveedorFalso, ErrorDeRed
+    monkeypatch.setattr(dic08, "ESPERAS_REINTENTO", (0.0, 0.0))
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "Solo si es persona moral"),
+              _dic08("p2::domicilio_fiscal", "Domicilio fiscal", "domicilio_fiscal",
+                     "Solo si es persona moral")]
+    with pytest.raises(ErrorDeRed):
+        dic08.proponer_lote(_manifiesto_dos_pantallas(), huecos, ProveedorFalso([]),
+                            tmp_path, "s" * 16, max_tokens=180)
+
+
+def test_un_hueco_que_no_cabe_en_el_tope_deja_rastro_en_la_bitacora(tmp_path):
+    # `partir_lote` preparaba la alerta `hueco_omitido`, pero la parte vacia se
+    # saltaba antes de registrar: el hueco desaparecia sin propuesta, sin
+    # llamada y SIN linea en la bitacora, que es justo el archivo que existe
+    # para poder decir que hizo el sistema.
+    from gpmc.agentes.dic08 import proponer_lote
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.agentes.bitacora import leer
+    prov = ProveedorFalso([_respuesta_ok()])
+    huecos = [_dic08("p2::rfc", "RFC", "rfc", "Solo si es persona moral")]
+    out = proponer_lote(_manifiesto_dos_pantallas(), huecos, prov, tmp_path, "s" * 16,
+                        max_tokens=1)
+    assert out == [] and prov.llamadas == 0, "no cabe: no se pregunta ni se inventa propuesta"
+    lineas = leer(tmp_path)
+    assert len(lineas) == 1
+    assert "hueco_omitido:p2::rfc" in lineas[0]["alertas"]
+    assert lineas[0]["respuesta"] is None, "no hubo llamada: no puede haber respuesta"
+
+
 def test_proponer_lote_rechazada_por_filtro_no_es_aceptable(tmp_path):
     from gpmc.agentes.dic08 import proponer_lote
     from gpmc.agentes.proveedor import ProveedorFalso
@@ -510,3 +600,102 @@ def test_la_bitacora_guarda_la_version_resuelta_no_el_alias(tmp_path):
     huecos = [_dic08("p2::rfc", "RFC", "rfc", "Solo si es persona moral")]
     proponer_lote(m, huecos, FalsoConVersion([_respuesta_ok()]), tmp_path, "s" * 16)
     assert leer(tmp_path)[0]["modelo"] == "gemini-3.6-flash-002"
+
+
+# ── Errores que no son de red, y el modelo que de verdad contesto ──
+class _ErrorHttp(Exception):
+    """La forma de los errores de los dos SDK: OpenAI expone `status_code`,
+    google-genai expone `code`."""
+    def __init__(self, atributo, valor):
+        super().__init__(f"HTTP {valor}")
+        setattr(self, atributo, valor)
+
+
+def _openai_con_cliente(crear):
+    """ProveedorOpenAI sin pasar por `__init__` (que importa el SDK): el cliente
+    es un doble cuyo `chat.completions.create` es la funcion dada."""
+    from types import SimpleNamespace
+    from gpmc.agentes.openai_ import ProveedorOpenAI
+    p = object.__new__(ProveedorOpenAI)
+    p._modelo = "gpt-4o"
+    p._cliente = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=crear)))
+    return p
+
+
+def _gemini_con_cliente(generar):
+    from types import SimpleNamespace
+    from gpmc.agentes.gemini import ProveedorGemini
+    p = object.__new__(ProveedorGemini)
+    p._modelo = "gemini-flash-latest"
+    p._types = SimpleNamespace(GenerateContentConfig=lambda **k: k)
+    p._cliente = SimpleNamespace(models=SimpleNamespace(generate_content=generar))
+    return p
+
+
+def _lanza(exc):
+    def f(**_):
+        raise exc
+    return f
+
+
+@pytest.mark.parametrize("codigo", [400, 401, 403, 404])
+def test_openai_un_error_de_configuracion_no_es_de_red(codigo):
+    # Una llave invalida o un modelo inexistente —los dos tropiezos que ya tuvo
+    # este proyecto— se envolvian en ErrorDeRed: tres intentos con esperas para
+    # algo que no va a cambiar, y una bitacora que decia «red» sin serlo.
+    from gpmc.agentes.proveedor import ErrorDeProveedor
+    p = _openai_con_cliente(_lanza(_ErrorHttp("status_code", codigo)))
+    with pytest.raises(ErrorDeProveedor):
+        p.completar("i", "c", {})
+
+
+@pytest.mark.parametrize("codigo", [408, 429, 500, 503])
+def test_openai_lo_pasajero_sigue_siendo_error_de_red(codigo):
+    # El contrapeso: 429 y 5xx SI merecen reintento.
+    from gpmc.agentes.proveedor import ErrorDeRed
+    p = _openai_con_cliente(_lanza(_ErrorHttp("status_code", codigo)))
+    with pytest.raises(ErrorDeRed):
+        p.completar("i", "c", {})
+
+
+def test_openai_un_fallo_sin_codigo_http_es_de_red():
+    from gpmc.agentes.proveedor import ErrorDeRed
+    with pytest.raises(ErrorDeRed):
+        _openai_con_cliente(_lanza(TimeoutError("sin respuesta"))).completar("i", "c", {})
+
+
+def test_gemini_una_llave_invalida_no_es_de_red():
+    from gpmc.agentes.proveedor import ErrorDeProveedor
+    p = _gemini_con_cliente(_lanza(_ErrorHttp("code", 401)))
+    with pytest.raises(ErrorDeProveedor):
+        p.completar("i", "c", {})
+
+
+def test_openai_registra_el_modelo_que_contesto_no_el_alias():
+    # `gpt-4o` es un alias; la respuesta trae el snapshot que de verdad contesto.
+    # Gemini ya lo hacia con `model_version`; el proveedor con licencia, no.
+    from types import SimpleNamespace
+    r = SimpleNamespace(model="gpt-4o-2024-08-06", usage=None, choices=[
+        SimpleNamespace(message=SimpleNamespace(content='{"propuestas": []}'))])
+    assert _openai_con_cliente(lambda **_: r).completar("i", "c", {}).modelo == "gpt-4o-2024-08-06"
+
+
+def test_un_error_de_configuracion_no_se_reintenta_y_queda_dicho_en_la_bitacora(tmp_path, monkeypatch):
+    from gpmc.agentes import dic08
+    from gpmc.agentes.bitacora import leer
+    from gpmc.agentes.proveedor import ErrorDeProveedor, ProveedorFalso
+    monkeypatch.setattr(dic08, "ESPERAS_REINTENTO", (0.0, 0.0))
+
+    class LlaveInvalida(ProveedorFalso):
+        def completar(self, instrucciones, contexto, esquema):
+            self.llamadas += 1
+            raise ErrorDeProveedor("HTTP 401")
+
+    pf = LlaveInvalida([])
+    with pytest.raises(ErrorDeProveedor):
+        dic08.proponer_lote(_manifiesto_dos_pantallas(),
+                            [_dic08("p2::rfc", "RFC", "rfc", "a")], pf, tmp_path, "s" * 16)
+    assert pf.llamadas == 1, "una llave invalida no mejora al tercer intento"
+    linea = leer(tmp_path)[0]
+    assert linea["estado"] == "error" and "error_de_proveedor" in linea["alertas"]
+    assert "error_de_red" not in linea["alertas"]

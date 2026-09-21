@@ -17,7 +17,7 @@ from gpmc.agentes.bitacora import Interaccion, registrar
 from gpmc.agentes.contexto import ContextoLote, contexto_dic08, partir_lote
 from gpmc.agentes.prompt import (ESQUEMA_DIC08, INSTRUCCION_DIC08, VERSION_PROMPT,
                                  hash_instruccion, serializar_datos)
-from gpmc.agentes.proveedor import ErrorDeRed, RespuestaInvalida
+from gpmc.agentes.proveedor import ErrorDeProveedor, ErrorDeRed, RespuestaInvalida
 from gpmc.agentes.verificar import verificar
 from gpmc.nucleo.manifiesto import Condicion, Manifiesto
 
@@ -106,8 +106,9 @@ def _procesar_parte(m: Manifiesto, parte: ContextoLote, proveedor, raiz: Path, s
                      instruccion_hash=hash_instruccion(), estado="procesada", alertas=list(alertas))
     try:
         resp = _llamar(proveedor, datos)
-    except ErrorDeRed as e:
-        it.estado, it.alertas = "error", it.alertas + ["error_de_red"]
+    except (ErrorDeRed, ErrorDeProveedor) as e:
+        alerta = "error_de_red" if isinstance(e, ErrorDeRed) else "error_de_proveedor"
+        it.estado, it.alertas = "error", it.alertas + [alerta]
         it.respuesta = str(e)
         registrar(raiz, it)
         raise
@@ -161,9 +162,31 @@ def proponer_lote(m: Manifiesto, huecos: list, proveedor, raiz: Path, sid: str,
     partes = partir_lote(ctx, max_tokens)
     alertas = ["lote_partido"] if len(partes) > 1 else []
     resultado = []
+    alguna_salio, ultimo_error = False, None
     for parte in partes:
-        if not parte.huecos:
-            continue
         parte_alertas = alertas + [f"hueco_omitido:{u}" for (u, _) in parte.omitidos]
-        resultado.extend(_procesar_parte(m, parte, proveedor, raiz, sid, parte_alertas))
+        if not parte.huecos:
+            # Nada que preguntar, pero si algo que contar: un hueco que no cabe
+            # ni solo en el tope se omite, y sin esta linea desaparecia sin
+            # propuesta, sin llamada y sin rastro en la bitacora.
+            if parte.omitidos:
+                registrar(raiz, Interaccion(
+                    sid=sid, proveedor=proveedor.nombre, modelo="", version_prompt=VERSION_PROMPT,
+                    solicitud={"huecos": [], "n_campos": 0, "n_caracteres": 0},
+                    instruccion_hash=hash_instruccion(), estado="error", alertas=parte_alertas))
+            continue
+        try:
+            resultado.extend(_procesar_parte(m, parte, proveedor, raiz, sid, parte_alertas))
+            alguna_salio = True
+        except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as exc:
+            # La parte ya quedo en la bitacora como `error`. Sus huecos salen
+            # `sin_respuesta` en vez de tumbar el lote: las otras partes ya
+            # estan generadas y sus tokens gastados.
+            ultimo_error = exc
+            resultado.extend(
+                Propuesta(id=uuid.uuid4().hex, ubicacion=h.ubicacion, cita=_cita(m, h),
+                          creada=_ahora(), veredicto="sin_respuesta")
+                for h in parte.huecos)
+    if ultimo_error is not None and not alguna_salio:
+        raise ultimo_error      # nada salio: la API debe decir `error`, no `listo`
     return resultado

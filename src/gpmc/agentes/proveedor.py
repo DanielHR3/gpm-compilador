@@ -28,7 +28,33 @@ class RespuestaInvalida(Exception):
 
 
 class ErrorDeRed(Exception):
-    """Timeout, red o 5xx del proveedor. Se reintenta una vez."""
+    """Timeout, red, 429 o 5xx del proveedor: pasajero. Se reintenta (tres
+    intentos con espera creciente, ver `dic08.ESPERAS_REINTENTO`)."""
+
+
+class ErrorDeProveedor(Exception):
+    """El proveedor contesto que la peticion esta mal: llave invalida, modelo
+    inexistente, esquema rechazado (4xx). No se reintenta: no va a cambiar al
+    tercer intento, y en la bitacora no debe leerse como un fallo de red."""
+
+
+# 408 (timeout) y 429 (cuota o saturacion) son 4xx, pero pasajeros.
+_PASAJEROS_4XX = (408, 429)
+
+
+def clasificar_error(exc: Exception) -> Exception:
+    """La excepcion de un SDK -> ErrorDeRed o ErrorDeProveedor.
+
+    Los SDK no comparten jerarquia, pero si el dato: OpenAI expone el codigo
+    HTTP en `status_code` y google-genai en `code`. Sin codigo (timeout, DNS,
+    conexion rechazada) es de red.
+    """
+    codigo = getattr(exc, "status_code", None)
+    if not isinstance(codigo, int):
+        codigo = getattr(exc, "code", None)
+    if isinstance(codigo, int) and 400 <= codigo < 500 and codigo not in _PASAJEROS_4XX:
+        return ErrorDeProveedor(str(exc))
+    return ErrorDeRed(str(exc))
 
 
 class Proveedor(Protocol):

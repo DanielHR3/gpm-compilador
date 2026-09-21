@@ -270,3 +270,26 @@ def test_medir_ia_con_proveedor_caido_avisa_sin_traceback(tmp_path, capsys, monk
     assert rc == 1
     assert "error del proveedor" in out.out and "guion agotado" in out.out
     assert "Traceback" not in out.err
+
+
+def test_medir_ia_con_llave_invalida_avisa_sin_traceback(tmp_path, capsys, monkeypatch):
+    """`ErrorDeProveedor` (4xx: llave invalida, modelo inexistente) es una
+    excepcion distinta de `ErrorDeRed` desde el 2026-09-21. Si `medir-ia` solo
+    captura la vieja, el 401 de siempre vuelve a salir como traceback."""
+    import sys
+    from pathlib import Path
+    from gpmc import cli
+    from gpmc.agentes.proveedor import ErrorDeProveedor, ProveedorFalso
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from tests.test_extractor_diccionario import _VIS
+
+    class LlaveInvalida(ProveedorFalso):
+        def completar(self, instrucciones, contexto, esquema):
+            raise ErrorDeProveedor("HTTP 401 llave invalida")
+
+    (tmp_path / "exp").mkdir(); (tmp_path / "exp" / "Diccionario de Datos.md").write_text(_VIS, encoding="utf-8")
+    monkeypatch.setattr(cli, "_proveedor_para_medir", lambda: LlaveInvalida([]))
+    rc = cli.main(["medir-ia", str(tmp_path), "--almacen", str(tmp_path / "alm")])
+    out = capsys.readouterr()
+    assert rc == 1
+    assert "error del proveedor" in out.out and "401" in out.out

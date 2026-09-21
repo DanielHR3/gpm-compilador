@@ -15,7 +15,7 @@ from gpmc.estimador import estimar
 from gpmc.extractores.expediente import SinPermiso, extraer_expediente
 from gpmc.agentes.bitacora import RUTA_BITACORA
 from gpmc.agentes.dic08 import proponer_lote
-from gpmc.agentes.proveedor import ErrorDeRed, RespuestaInvalida
+from gpmc.agentes.proveedor import ErrorDeProveedor, ErrorDeRed, RespuestaInvalida
 from gpmc.nucleo.formato import escribir
 from gpmc.nucleo.huecos import NIVELES, bloquean
 from gpmc.nucleo.manifiesto import guardar
@@ -419,7 +419,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             n = sum(1 for h in r.huecos if h.codigo == "DIC-08")
             try:
                 props = proponer_lote(r.manifiesto, r.huecos, prov, raiz, "medir" + "0" * 11)
-            except (ErrorDeRed, RespuestaInvalida) as exc:
+            except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as exc:
                 # Una linea clara, no un traceback: la bitacora ya tiene el detalle.
                 print(f"{d.name[:40]:40} {n:>7}   error del proveedor: {str(exc)[:80]}")
                 errores += 1
