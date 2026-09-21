@@ -154,8 +154,9 @@ def generar(destino: Path):
          "<i>Esto solo pasa la primera vez.</i> Es una protección de la Mac para archivos que no "
          "vienen de la App Store. Después bastará el doble clic."),
         ("Espera un minuto la primera vez",
-         "Se abre una ventana negra con texto. Es normal: está preparando todo. Tarda alrededor "
-         "de un minuto <b>solo la primera vez</b>; después abre en segundos."),
+         "Se abre una ventana negra con texto. Es normal: está preparando el entorno y la "
+         "interfaz. Tarda alrededor de un minuto <b>solo la primera vez</b>; después abre en "
+         "segundos."),
         ("Se abre solo en tu navegador",
          "Cuando termine, tu navegador abre la herramienta. Ya puedes usarla igual que si fuera "
          "una página de internet."),
@@ -183,6 +184,12 @@ def generar(destino: Path):
         [Paragraph("El navegador no abre solo", e["celda"]),
          Paragraph("Abre tu navegador y escribe: <font face='Courier'>127.0.0.1:8000</font>",
                    e["celda"])],
+        [Paragraph('La página abre pero sale un error del servidor, y la ventana negra decía '
+                   '<font face="Courier">AVISO: npm no está</font> o '
+                   '<i>"Falló el build del frontend"</i>', e["celda"]),
+         Paragraph("A esa copia le falta preparar la interfaz, y <b>no es algo que puedas "
+                   "arreglar desde tu equipo</b>. Avisa a la DGT: te mandarán la carpeta con la "
+                   "interfaz ya compilada.", e["celda"])],
     ], colWidths=[7.0 * cm, 9.4 * cm])
     tabla_problemas.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),

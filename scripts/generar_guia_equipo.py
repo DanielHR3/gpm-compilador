@@ -134,9 +134,11 @@ def generar(url: str, destino: Path):
 
     h = []
     h.append(Paragraph(
-        "Esta herramienta toma los tres documentos que ya haces —<b>Análisis AS-IS</b>, "
+        "Esta herramienta toma los documentos que ya haces —<b>Análisis AS-IS</b>, "
         "<b>Propuesta TO-BE</b> y <b>Diccionario de Datos</b>— y genera el archivo que la DGT "
-        "importa a la plataforma de modelado. Antes ese paso se hacía a mano.", e["p"]))
+        "importa a la plataforma de modelado. Antes ese paso se hacía a mano.<br/><br/>"
+        "Los lee en <b>Word, PDF con texto o Markdown</b>. Un PDF escaneado es una imagen: no se "
+        "puede leer, y la herramienta te dirá cuál es y por qué.", e["p"]))
 
     h.append(Paragraph("Cómo entrar", e["h2"]))
     h.append(_caja(
@@ -150,19 +152,25 @@ def generar(url: str, destino: Path):
 
     h.append(Paragraph("Qué vas a hacer", e["h2"]))
     h.append(_pasos([
-        ("Subir tus tres archivos",
-         "El Diccionario de Datos es obligatorio: sin él no hay pantallas que generar. "
-         "Los otros dos ayudan pero no detienen el proceso."),
+        ("Soltar la carpeta del trámite",
+         "Si tienes la carpeta tal como la entregó Simplificación, súbela completa: reparte cada "
+         "archivo en su zona —Diccionario, TO-BE, AS-IS y Vistas— y tú corriges lo que quede mal. "
+         "También puedes subirlos uno por uno.<br/>"
+         "El <b>Diccionario de Datos es obligatorio</b>: sin él no hay pantallas que generar. "
+         "Los demás ayudan pero no detienen el proceso, y las Vistas son solo referencia visual."),
         ("Revisar lo que entendió",
          "Verás las pantallas que encontró, cuántos campos tiene cada una, y una estimación "
          "de complejidad del trámite."),
         ("Resolver los huecos",
-         "Es el paso importante. Abajo se explica qué son."),
+         "Es el paso importante. Muchos se contestan ahí mismo, sin salir de la pantalla. "
+         "Abajo se explica qué son."),
         ("Recorrer el trámite",
          "El simulador te deja avanzar pantalla por pantalla, como lo vería el ciudadano. "
          "Sirve para detectar que algo no cuadra antes de que se construya."),
         ("Descargar el archivo",
-         "Bajas el <b>.gpm</b> y se lo pasas a la DGT. Ellos lo importan a la plataforma."),
+         "Bajas el <b>.gpm</b> y se lo pasas a la DGT. Ellos lo importan a la plataforma.<br/>"
+         "Ahí mismo está <b>Descargar observaciones</b>: el documento con lo que conviene "
+         "corregir en el Diccionario y en el TO-BE, listo para integrarlo a tu documentación."),
     ], e))
 
     h.append(Paragraph("Los huecos: lo más importante de entender", e["h2"]))
@@ -174,10 +182,51 @@ def generar(url: str, destino: Path):
         "por sí sola. Una herramienta que reportara cero huecos sobre documentos reales estaría "
         "adivinando, y esos errores no se notan hasta que el trámite ya está en producción.", e))
 
-    h.append(Paragraph("Cómo lograr menos huecos", e["h2"]))
+    h.append(Paragraph("Los huecos no solo se leen: se contestan", e["h2"]))
     h.append(Paragraph(
+        "Siete de ellos se resuelven <b>en la misma pantalla</b>, eligiendo de una lista. No hace "
+        "falta editar ningún archivo ni saber la sintaxis de la plataforma:", e["p"]))
+    t2 = Table([
+        [Paragraph("<b>Hueco</b>", e["celdaNeg"]), Paragraph("<b>Qué te pregunta</b>", e["celdaNeg"])],
+        [Paragraph("<font face='Courier'>DIC-08</font>", e["celda"]),
+         Paragraph("Cuándo debe verse un campo. Lo armas como una frase: "
+                   "«Muestra «X» solo cuando [campo] [sea] [valor]».", e["celda"])],
+        [Paragraph("<font face='Courier'>MMD-03</font> · <font face='Courier'>MMD-04</font>", e["celda"]),
+         Paragraph("Quién hace una tarea, y por dónde se va el flujo en una bifurcación.", e["celda"])],
+        [Paragraph("<font face='Courier'>META-01/02/04</font>", e["celda"]),
+         Paragraph("Datos del trámite que no aparecían en los documentos: nombre, dependencia, "
+                   "ficha.", e["celda"])],
+        [Paragraph("<font face='Courier'>API-03</font>", e["celda"]),
+         Paragraph("De qué campo depende una lista en cascada (estado → municipio).", e["celda"])],
+    ], colWidths=[4.6 * cm, 11.8 * cm])
+    t2.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
+        ("BOX", (0, 0), (-1, -1), 0.6, LINEA),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, LINEA),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+        ("LEFTPADDING", (0, 0), (-1, -1), 9),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    t2.repeatRows = 1
+    h.append(t2)
+    h.append(Spacer(1, 7))
+    h.append(Paragraph(
+        "Los demás huecos no se contestan aquí: se arreglan en el Diccionario, que es donde "
+        "vive el dato. Para eso está el botón de <b>Descargar observaciones</b>.", e["chico"]))
+    h.append(Spacer(1, 4))
+    h.append(_caja(
+        "<b>Si ves una propuesta ya escrita en un hueco</b>, viene de un asistente automático que "
+        "la DGT está probando. Llega siempre con <b>la frase del Diccionario de la que la sacó</b>, "
+        "y tú decides: aceptarla, corregirla o descartarla. Nada se guarda hasta que tú lo dices, "
+        "y una propuesta que no cuadre con tu trámite <b>se descarta sin más</b>: es una sugerencia, "
+        "no una decisión tomada.", e, color=GRIS, relleno=colors.white))
+
+    menos_huecos = [Paragraph("Cómo lograr menos huecos", e["h2"]), Paragraph(
         "Entre más completo el Diccionario de Datos, menos huecos. Tres cosas ayudan mucho:",
-        e["p"]))
+        e["p"])]
     t = Table([
         [Paragraph("<b>En vez de esto</b>", e["celdaNeg"]),
          Paragraph("<b>Escribe esto</b>", e["celdaNeg"])],
@@ -202,7 +251,10 @@ def generar(url: str, destino: Path):
         ("TOPPADDING", (0, 0), (-1, -1), 8),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
-    h.append(t)
+    # Sin el KeepTogether el encabezado de la tabla se quedaba al pie de una pagina
+    # y sus filas pasaban a la siguiente.
+    menos_huecos.append(t)
+    h.append(KeepTogether(menos_huecos))
 
     h.append(Paragraph("Dos cosas que conviene saber", e["h2"]))
     h.append(KeepTogether([_caja(
