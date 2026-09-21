@@ -162,10 +162,41 @@ def test_la_cascada_declara_de_quien_depende_y_deja_el_hueco_del_padre():
     assert "@@" not in html
 
 
+def _pantallas_embebidas(html):
+    """El JSON de `const PANTALLAS=` que el simulador embebe en la pagina.
+
+    Se parsea en vez de buscar subcadenas sueltas: `"catalogo_url" in html` no
+    dice en QUE campo esta la clave, que es justo lo que hay que comprobar.
+    """
+    crudo = html.split("const PANTALLAS=", 1)[1]
+    return json.JSONDecoder().raw_decode(crudo)[0]
+
+
 def test_un_endpoint_no_registrado_no_inventa_una_url():
-    html = generar(_m(**_CON_CATALOGOS))
-    assert "consultarfc" not in html.split("const PANTALLAS")[1].split("const ACTORES")[0] \
-        or "catalogo_url" not in html.split("raro_sol")[1].split("}")[0]
+    # `consultarfc` no esta en el registro de endpoints, asi que `raro_sol` no
+    # puede salir con una URL: inventarla llevaria al simulador a pedirle datos
+    # a una direccion que nadie ha verificado.
+    #
+    # La version anterior unia dos mitades con un `or`. El encargo de revision
+    # del 2026-08-30 la marco por eso, y al arreglarla (2026-09-21) se midio
+    # hasta donde llegaba su ceguera metiendo el defecto a proposito:
+    #
+    #   url inventada que lleva el nombre del endpoint  -> la vieja SI fallaba
+    #   url inventada generica, sin ese nombre          -> la vieja pasaba
+    #
+    # O sea que no era ciega del todo, pero bastaba con que la URL inventada no
+    # repitiera el nombre del endpoint para que no se enterara. Esta version
+    # falla en los dos casos.
+    campos = {c["nombre"]: c
+              for c in _pantallas_embebidas(generar(_m(**_CON_CATALOGOS)))["p1"]["campos"]}
+
+    # El contrapeso primero: sin el, borrar `catalogo_url` de todos los campos
+    # dejaria esta prueba en verde y no estaria verificando nada.
+    assert "catalogo_url" in campos["estado_sol"], \
+        "un endpoint SI registrado tiene que traer su url"
+
+    assert "catalogo_url" not in campos["raro_sol"]
+    assert "consultarfc" not in json.dumps(campos["raro_sol"], ensure_ascii=False)
 
 
 def test_un_select_sin_catalogo_resoluble_sale_deshabilitado():
