@@ -75,3 +75,17 @@ it("al pulsarlo arma un archivo con el nombre del trámite", async () => {
   expect(await creados[0].text()).toContain("Trámite de Prueba");
   URL.createObjectURL = urlOriginal;
 });
+
+it("el riel se puede enfocar: «Descarga» del menú aterriza aquí", () => {
+  // `href="#entrega"` con el riel ya a la vista (es `sticky`) no movia nada y
+  // el boton parecia muerto. Con `tabIndex -1` el salto enfoca el riel: hay
+  // efecto visible en pantalla ancha, y el teclado cae donde estan las
+  // descargas en vez de seguir al principio de la pagina.
+  pintar();
+  const riel = document.querySelector("#entrega") as HTMLElement;
+  expect(riel).toBeTruthy();
+  expect(riel.getAttribute("tabindex")).toBe("-1");
+  // `focus-visible` no pinta nada cuando el foco llega por un clic en el
+  // enlace, que es justo el caso: el anillo tiene que salir con `focus`.
+  expect(riel.className).toMatch(/\bfocus:ring-2\b/);
+});

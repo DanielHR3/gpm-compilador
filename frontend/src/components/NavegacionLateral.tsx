@@ -43,7 +43,11 @@ export default function NavegacionLateral({
     // En pantalla angosta se reduce a un carril de iconos en vez de
     // desaparecer: perder la navegacion entera es peor que perder las
     // etiquetas, que siguen en el arbol para un lector de pantalla.
-    <div className="flex w-16 shrink-0 flex-col bg-primary text-primary-foreground lg:w-64">
+    // `sticky` + alto de pantalla: al bajar por la lista de huecos el menu se
+    // iba con el scroll, y «Descarga» —el ultimo paso— quedaba inalcanzable
+    // justo al final de la revision, que es cuando se usa. Visto en pantalla
+    // el 2026-09-21 con Prorroga cargada.
+    <div className="sticky top-0 flex h-svh w-16 shrink-0 flex-col overflow-y-auto bg-primary text-primary-foreground lg:w-64">
       <div className="flex h-16 items-center justify-center border-b border-white/10 px-3 lg:justify-start lg:px-6">
         <span className="font-heading text-lg font-bold tracking-tight">
           <span className="lg:hidden" aria-hidden>GPM</span>

@@ -52,3 +52,24 @@ describe("NavegacionLateral", () => {
     );
   });
 });
+
+describe("el menú se queda a la vista", () => {
+  test("la columna es sticky: al bajar por la lista de huecos no desaparece", () => {
+    // Visto en pantalla el 2026-09-21 con Prórroga cargada: al bajar por las
+    // tarjetas, el menú se iba con el scroll. «Descarga» quedaba inalcanzable
+    // justo cuando hace falta, que es al final de la revisión.
+    const { container } = render(<NavegacionLateral sid={sid} />);
+    const columna = container.firstElementChild as HTMLElement;
+    expect(columna.className).toMatch(/\bsticky\b/);
+    expect(columna.className).toMatch(/\bh-svh\b|\bh-screen\b/);
+  });
+
+  test("Descarga apunta al riel de entrega y se puede enfocar al llegar", () => {
+    // `#entrega` con el riel `sticky` y ya a la vista no mueve nada: el boton
+    // parecia muerto. Con `focus` el salto tiene efecto visible tambien en
+    // pantalla ancha, y el teclado aterriza donde estan las descargas.
+    render(<NavegacionLateral sid={sid} />);
+    const descarga = within(pasos()).getByRole("link", { name: /descarga/i });
+    expect(descarga).toHaveAttribute("href", "#entrega");
+  });
+});

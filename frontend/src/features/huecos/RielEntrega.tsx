@@ -61,7 +61,13 @@ export default function RielEntrega({
     <aside
       id="entrega"
       aria-label="Entrega"
-      className="flex shrink-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 lg:sticky lg:top-6 lg:w-60 lg:self-start"
+      // `#entrega` con el riel ya a la vista no movia la pagina, asi que
+      // «Descarga» del menu lateral parecia muerto. Enfocable, y con `focus:`
+      // en vez de `focus-visible:`: el anillo tiene que verse tambien cuando el
+      // foco llega por un clic en el enlace, que es el caso real. Ademas el
+      // teclado aterriza en las descargas y no al principio de la pagina.
+      tabIndex={-1}
+      className="flex shrink-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 lg:sticky lg:top-6 lg:w-60 lg:self-start"
     >
       <div className="flex flex-col gap-2">
         <p className="font-mono text-[0.625rem] uppercase tracking-[0.09em] text-muted-foreground">
