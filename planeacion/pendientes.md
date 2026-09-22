@@ -76,7 +76,20 @@ buscar.
   Windows 10/11 resuelven `.local` de fabrica, pero algunas redes lo bloquean entre segmentos.
   Si queda, conviene renombrar el host a `compilador-gpm` (Ajustes → General → Compartir →
   Nombre de host local) para que la liga sea presentable en la guia: `http://compilador-gpm.local:8000`.
-  Al renombrar, la liga vieja deja de funcionar. Si abre, se acaba lo de mandar la IP sin pedir nada
+  Al renombrar, la liga vieja deja de funcionar.
+  **2026-09-22, 16:00 — deja de ser comodidad y pasa a requisito.** Un miembro de Simplificacion
+  no abre la liga y su navegador da **`ERR_ADDRESS_UNREACHABLE`**: no es `https`, no es proxy y
+  no es el servidor (los tres darian otro error); es la pila de red de su maquina diciendo que
+  **no tiene ruta** hacia `192.168.1.220`. Dato que lo respalda: de todas las maquinas que han
+  llegado al servidor desde que existe —`.119`, `.215`, `.216`, `.217`, `.220`, `.243`— **ninguna
+  esta fuera de `192.168.1.0/24`**, que es justo lo que alcanza la Mac con mascara `/24`.
+  Si el equipo vive en otro segmento, **ninguna IP de esta laptop les va a servir**: no es elegir
+  bien la direccion, es que hace falta un servidor que su red enrute. Falta confirmarlo con su
+  `ipconfig` (linea «Direccion IPv4»).
+  *(Antes de esto afirme que la Mac se habia cambiado de red, a partir de que `.119` dejo de
+  aparecer en la bitacora tras las 14:20. Era falso: la MAC de la puerta de enlace no cambio.
+  Queda escrito porque el error fue mio y el razonamiento —ausencia en un log como prueba de
+  algo— es el que hay que no repetir.)* Si abre, se acaba lo de mandar la IP sin pedir nada
   a nadie. Lo que no arregla: la Mac esta en Wi-Fi con reposo a 1 minuto (hoy no se duerme solo
   porque otros procesos lo impiden); una maquina fija, por cable y encendida resuelve lo mismo
   que la VM. La VM que pediria la opcion 2 es minima: 1 CPU, 2 GB, 10 GB, Debian/Ubuntu.
