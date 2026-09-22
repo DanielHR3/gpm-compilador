@@ -7,6 +7,8 @@ export type Resumen = {
   condicionales: number;
   tareas: number;
   actores: number;
+  /** Acciones de tipo `documento`: lo que el tramite entrega al ciudadano. */
+  documentos: number;
   /** Conexiones del flujo que llevan una condicion: las bifurcaciones. */
   decisiones: number;
 };
@@ -60,6 +62,9 @@ export function resumirManifiesto(manifiesto: Record<string, unknown>): Resumen 
     condicionales,
     tareas: lista(flujo, "tareas").length,
     actores: lista(m, "actores").length,
+    documentos: lista(m, "acciones").filter(
+      (a) => (a as Record<string, unknown>)?.tipo === "documento",
+    ).length,
     decisiones: lista(flujo, "conexiones").filter(
       (c) => (c as Record<string, unknown>)?.cuando != null,
     ).length,

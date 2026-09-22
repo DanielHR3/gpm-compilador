@@ -1,91 +1,65 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { expect, it, vi } from "vitest";
-
-vi.mock("@/lib/api", () => ({
-  urlGpm: () => "/api/v1/x/gpm",
-  urlManifiesto: () => "/api/v1/x/manifiesto",
-}));
+import { expect, it } from "vitest";
 
 import RielEntrega from "./RielEntrega";
-import type { EstadoExpediente, Hueco } from "@/lib/types";
+import type { Hueco } from "@/lib/types";
 
 const HUECO: Hueco = {
   nivel: "falta_dato",
   codigo: "DIC-07",
   ubicacion: "p1::modalidad",
-  mensaje:
-    "el campo 'Modalidad' es select pero no se extrajo ninguna opción (ni en " +
-    "'Catálogo de Valores' ni en 'Límite/Especificaciones'); el compilador lo " +
-    "emite como campo de texto",
+  mensaje: "el campo 'Modalidad' es select pero no se extrajo ninguna opción",
   propuesta: null,
 };
 
-const estado = {
-  sid: "a".repeat(16),
-  manifiesto: { tramite: { nombre: "Trámite de Prueba" }, pantallas: [{ id: "p1", nombre: "Solicitud", campos: [] }] },
-  huecos: [HUECO],
-} as unknown as EstadoExpediente;
-
-function pintar() {
+function pintar(desbloqueado = false) {
   render(
     <RielEntrega
-      sid={estado.sid}
-      desbloqueado={false}
-      bloqueantes={[HUECO]}
-      tieneVistas={false}
-      fraseBloqueo={(n) => `Faltan ${n}`}
-      estado={estado}
+      sid={"a".repeat(16)}
+      desbloqueado={desbloqueado}
+      bloqueantes={desbloqueado ? [] : [HUECO]}
     />,
   );
 }
 
-it("ofrece descargar las observaciones, debajo del manifiesto", () => {
+it("dice si la puerta está abierta y qué la mantiene cerrada", () => {
   pintar();
 
-  const enlaces = screen.getAllByRole("link").map((a) => a.textContent);
-  const boton = screen.getByRole("button", { name: /descargar observaciones/i });
-
-  expect(boton).toBeInTheDocument();
-  expect(enlaces.some((t) => /descargar manifiesto/i.test(t ?? ""))).toBe(true);
+  expect(screen.getByText("1 por revisar")).toBeInTheDocument();
+  expect(screen.getByText("1")).toBeInTheDocument();
 });
 
-it("las observaciones se pueden descargar aunque el expediente esté bloqueado", () => {
-  // Es justo cuando mas falta hacen: lo que bloquea es lo que hay que mandar.
+it("con todo resuelto lo dice sin listar códigos", () => {
+  pintar(true);
+
+  expect(screen.getByText(/todo listo para entregar/i)).toBeInTheDocument();
+  expect(screen.queryByText("DIC-07")).not.toBeInTheDocument();
+});
+
+it("apunta al panel de descargas, también con el expediente bloqueado", () => {
+  // Las observaciones se bajan desde ahi y hacen mas falta justo cuando algo
+  // bloquea: son lo que hay que mandarle a quien documento el tramite.
   pintar();
 
+  expect(screen.getByRole("link", { name: /ver las descargas/i })).toHaveAttribute(
+    "href",
+    "#entrega",
+  );
+});
+
+it("conserva las dos puertas que no son archivos", () => {
+  // La aprobacion no tiene otra entrada en toda la SPA.
+  pintar();
+
+  expect(screen.getByRole("link", { name: /abrir simulador/i })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /abrir aprobación/i })).toBeInTheDocument();
+});
+
+it("ya no carga las descargas: se mudaron al panel", () => {
+  pintar(true);
+
+  expect(screen.queryByText(/\.gpm \(producción\)/)).not.toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: /descargar observaciones/i }),
-  ).toBeEnabled();
-});
-
-it("al pulsarlo arma un archivo con el nombre del trámite", async () => {
-  const creados: Blob[] = [];
-  const urlOriginal = URL.createObjectURL;
-  URL.createObjectURL = vi.fn((b: Blob) => {
-    creados.push(b);
-    return "blob:falso";
-  }) as unknown as typeof URL.createObjectURL;
-  URL.revokeObjectURL = vi.fn();
-  pintar();
-
-  await userEvent.click(screen.getByRole("button", { name: /descargar observaciones/i }));
-
-  expect(creados).toHaveLength(1);
-  expect(await creados[0].text()).toContain("Trámite de Prueba");
-  URL.createObjectURL = urlOriginal;
-});
-
-it("el riel se puede enfocar: «Descarga» del menú aterriza aquí", () => {
-  // `href="#entrega"` con el riel ya a la vista (es `sticky`) no movia nada y
-  // el boton parecia muerto. Con `tabIndex -1` el salto enfoca el riel: hay
-  // efecto visible en pantalla ancha, y el teclado cae donde estan las
-  // descargas en vez de seguir al principio de la pagina.
-  pintar();
-  const riel = document.querySelector("#entrega") as HTMLElement;
-  expect(riel).toBeTruthy();
-  expect(riel.getAttribute("tabindex")).toBe("-1");
-  // `focus-visible` no pinta nada cuando el foco llega por un clic en el
-  // enlace, que es justo el caso: el anillo tiene que salir con `focus`.
-  expect(riel.className).toMatch(/\bfocus:ring-2\b/);
+    screen.queryByRole("button", { name: /descargar observaciones/i }),
+  ).not.toBeInTheDocument();
 });

@@ -49,3 +49,17 @@ describe("resumirManifiesto", () => {
     });
   });
 });
+
+test("cuenta los documentos que el trámite entrega, no las demás acciones", () => {
+  // Solo las acciones `documento` salen impresas para el ciudadano; folio y
+  // costo son mecanica interna y no son «lo que se lleva».
+  const r = resumirManifiesto({
+    acciones: [
+      { tipo: "documento", nombre: "Oficio" },
+      { tipo: "folio", nombre: "Folio" },
+      { tipo: "documento", nombre: "Acuse" },
+    ],
+  });
+
+  expect(r.documentos).toBe(2);
+});

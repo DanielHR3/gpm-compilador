@@ -8,6 +8,8 @@ import { cn } from "cn";
 import { leerPropuestas } from "@/lib/api";
 import type { EstadoExpediente, Hueco, Propuesta, PropuestasOut } from "@/lib/types";
 
+import PanelDescargas from "@/features/entrega/PanelDescargas";
+
 import { agruparPorNivel } from "./agrupar";
 import Adjuntos from "./Adjuntos";
 import ModoFoco from "./ModoFoco";
@@ -364,15 +366,22 @@ export default function WizardHuecos({
           </section>
             ))
           : null}
+
+        {/* La entrega cierra la pagina, a todo lo ancho: el riel de 240 px
+            solo hace de semaforo mientras se trabaja. */}
+        <PanelDescargas
+          sid={estado.sid}
+          desbloqueado={desbloqueado}
+          bloqueantes={bloqueantes}
+          fraseBloqueo={fraseBloqueo}
+          estado={estado}
+        />
       </main>
 
       <RielEntrega
         sid={estado.sid}
         desbloqueado={desbloqueado}
         bloqueantes={bloqueantes}
-        tieneVistas={estado.tieneVistas}
-        fraseBloqueo={fraseBloqueo}
-        estado={estado}
       />
     </div>
   );

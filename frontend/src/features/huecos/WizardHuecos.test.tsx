@@ -259,18 +259,26 @@ const conHuecos = (n: number) => ({
   })),
 });
 
+/** Los titulos de las tarjetas de hueco, sin contar los del panel de
+    descargas: vive en la misma pagina y tambien titula con `h3`. */
+function tarjetasDeHueco() {
+  return screen
+    .getAllByRole("heading", { level: 3 })
+    .filter((h) => !h.closest("#entrega"));
+}
+
 it("con pocos huecos arranca en la lista completa", () => {
   render(<WizardHuecos estado={conHuecos(5) as any} onEstado={() => {}} />);
 
   expect(screen.getByRole("radio", { name: /lista/i })).toBeChecked();
-  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
+  expect(tarjetasDeHueco()).toHaveLength(5);
 });
 
 it("con muchos huecos arranca en foco: una tarjeta a la vez", () => {
   render(<WizardHuecos estado={conHuecos(30) as any} onEstado={() => {}} />);
 
   expect(screen.getByRole("radio", { name: /uno a la vez/i })).toBeChecked();
-  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
+  expect(tarjetasDeHueco()).toHaveLength(1);
   expect(screen.getByText(textoDe("Inconsistencia 1 de 30"))).toBeInTheDocument();
 });
 
@@ -279,7 +287,7 @@ it("se puede cambiar de modo a mano", async () => {
 
   await userEvent.click(screen.getByRole("radio", { name: /lista/i }));
 
-  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(30);
+  expect(tarjetasDeHueco()).toHaveLength(30);
 });
 
 it("en foco, avanzar mueve al hueco siguiente", async () => {
@@ -320,12 +328,14 @@ it("explica qué es una inconsistencia y qué implica 'lo configuro a mano'", ()
   expect(screen.getByText(/No desaparece el trabajo, lo mueve/)).toBeInTheDocument();
 });
 
-it("con la puerta abierta, el riel dice cuál .gpm es cuál", () => {
+it("con la puerta abierta, el panel dice cuál .gpm es cuál", () => {
+  // Elegir mal cuesta una importacion a produccion que hay que deshacer, asi
+  // que la diferencia se explica donde estan los dos botones, no en el riel.
   const est = { ...estado, huecos: [], reconocidos: [] as [string, string][] };
   render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
-  const riel = screen.getByRole("complementary", { name: /entrega/i });
-  expect(within(riel).getByText(/es el que se importa de verdad/)).toBeInTheDocument();
-  expect(within(riel).getByText(/sin llenar nada/)).toBeInTheDocument();
+  const panel = document.querySelector("#entrega") as HTMLElement;
+  expect(within(panel).getByText(/es el que se importa de verdad/)).toBeInTheDocument();
+  expect(within(panel).getByText(/sin llenar nada/)).toBeInTheDocument();
 });
 
 // ── Fase 2: propuestas del generador de IA ──
