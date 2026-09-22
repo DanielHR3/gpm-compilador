@@ -45,6 +45,27 @@ buscar.
 
 ## Abiertos
 
+- **P-23 — ninguna plantilla de documento de los expedientes reales trae `{{variables}}`.**
+  Medido el 2026-09-22 sobre los dos expedientes del lote (`Archivo (1)`), las siete acciones
+  de tipo `documento` tienen **cero** marcas `{{...}}` y `variables: []`:
+
+      62 palabras   1004 chars  (1) Formato de Solicitud de Reposicion
+       1 palabras    128 chars  (5) Repocision de Certificado en el formato establecido
+       0 palabras     28 chars  (1) Solicitud de Ampliacion y o Prorroga
+     140 palabras   1708 chars  (3) Oficio de Prorroga con termino establecido
+     181 palabras   2163 chars  (4) Oficio de Rechazo de Prorroga
+     136 palabras   1668 chars  (5) Oficio de ampliacion de Verificacion
+     181 palabras   2163 chars  (6) Oficio de Rechazo de Ampliacion
+
+  Consecuencias: (a) el documento que emite la plataforma sale **igual para todos los
+  ciudadanos**, sin un solo dato del tramite; (b) por eso el simulador **no puede** ensenar un
+  PDF relleno con lo que el analista capturo: no hay donde meterlo. Las tarjetas del simulador
+  ensenan la plantilla tal cual y marcan las dos rotas —una es una fila de rayas, la otra son
+  las columnas de un certificado escaneado con datos reales de un vehiculo (placa y VIN)—.
+  **Decision pendiente del usuario:** si esto se le devuelve a Simplificacion como observacion
+  (las plantillas hay que redactarlas con `{{campo}}`) o si se acepta que los documentos salgan
+  en blanco para que el funcionario los llene a mano. Relacionado: `DOC-03`, `DOC-04` y P-19.
+
 - **PLAT-11 — nombramos el grupo con una etiqueta legible, no con el identificador real.** El
   extractor toma el nombre del carril del TO-BE y lo emite tal cual: `Direccion De Verificacion
   Vehicular`. La plataforma usa **slugs**: `transparencia_admin`, `area_primer_contacto`,
