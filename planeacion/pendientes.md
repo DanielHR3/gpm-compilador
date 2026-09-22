@@ -131,6 +131,18 @@ buscar.
   **Propuesta, a decidir:** subir `DOC-04` a `falta_dato` y darle control en la pantalla para
   elegir la tarea. Cambia la puerta del linter —un tramite con documentos dejaria de poder
   descargarse hasta asignarlos—, y por eso no se hace sin aprobacion.
+- **P-22 — el repositorio vive en una cuenta personal de GitHub y es publico.** Decision del
+  usuario el 2026-09-22: se migrara a **Bitbucket** de la Direccion; hoy esta en
+  `github.com/DanielHR3` por como nacio el proyecto.
+
+  **Consecuencia mientras tanto:** todo lo que se comitea es publico en el momento del push. Ya
+  obligo a parafrasear la descripcion de `SEG-04` (2026-09-21), y ahora condiciona la seccion de
+  consulta que se pidio: las **tarjetas informativas son de uso exclusivo de la DGT** hasta que un
+  mando superior las solicite, asi que no pueden empaquetarse con el asistente.
+
+  **Regla que conviene mantener incluso despues de migrar:** el material reservado se lee del
+  disco de la maquina, fuera del repo, como ya se hace con las sesiones y el registro. Si el repo
+  cambia de sitio o se clona, lo reservado no viaja con el.
 - **P-21 — el catalogo de endpoints se queda corto frente al de la Direccion.** `integraciones.py`
   conoce **4** catalogos (mgee, mgem, zip_codes, consultacurpn). El «Catalogo Maestro de APIs para
   Tramites Gubernamentales» de la boveda (2026-08-11) documenta **38 APIs, 21 con endpoint**, casi
