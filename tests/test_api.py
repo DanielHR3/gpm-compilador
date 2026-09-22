@@ -984,3 +984,20 @@ def test_las_propuestas_generadas_dejan_sus_conteos(tmp_path, caplog):
         sid = _subir(c).json()["sid"]
     (linea,) = [x.getMessage() for x in caplog.records if "propuestas" in x.getMessage()]
     assert f"sid={sid}" in linea and "generadas=1" in linea and "aceptables=1" in linea
+
+
+def test_get_catalogos_lista_lo_emitible_y_calla_lo_de_pago(tmp_path):
+    """La seccion «Catalogos» del asistente pinta esto tal cual. Solo lo que
+    el compilador puede emitir; lo de pago o convenio no se lista (se
+    configura en la plataforma) y se dice en la nota."""
+    r = _cli(tmp_path).get("/api/v1/catalogos")
+    assert r.status_code == 200
+    d = r.json()
+    claves = {c["clave"] for c in d["catalogos"]}
+    assert claves == {"mgee", "mgem", "zip_codes", "consultacurpn"}
+    assert "repuve" not in claves and "tlaloc" not in claves
+    curp = next(c for c in d["catalogos"] if c["clave"] == "consultacurpn")
+    assert curp["tipo"] == "consulta"
+    assert curp["campos_respuesta"] == ["nombres", "apePat", "apeMat"]
+    assert "curp" in curp["sinonimos"]
+    assert "credencial" in d["nota"].lower()

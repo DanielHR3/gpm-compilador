@@ -167,6 +167,20 @@ class ClasificarIn(BaseModel):
     archivos: List[str] = Field(..., max_length=2000)
 
 
+class CatalogoOut(BaseModel):
+    clave: str
+    proveedor: str
+    tipo: str                     # catalogo | consulta
+    url: str
+    sinonimos: List[str] = []     # lo que un Diccionario escribe para activarlo
+    campos_respuesta: List[str] = []
+
+
+class CatalogosOut(BaseModel):
+    catalogos: List[CatalogoOut]
+    nota: str
+
+
 class ClasificarOut(BaseModel):
     """A que zona del asistente va cada archivo. Solo nombres: el navegador
     sube los bytes despues, ya repartidos, a `POST /expedientes`."""
@@ -264,6 +278,27 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                 "estado": "error", "generadas": None, "propuestas": [],
                 "motivo": "No se pudieron generar propuestas con IA; puedes "
                           f"resolver a mano. ({type(exc).__name__})"})
+
+    @r.get("/catalogos", response_model=CatalogosOut)
+    async def listar_catalogos():
+        """Lo que el compilador sabe emitir, para la seccion «Catalogos».
+
+        Solo `CATALOGOS`: lo de pago o convenio (`PROPUESTAS`) no se lista
+        porque no se emite y se configura en la plataforma. Nada se llama en
+        vivo desde aqui: comprobar que un endpoint responde es del simulador.
+        """
+        from gpmc.nucleo.integraciones import CATALOGOS, SINONIMOS
+        salida = []
+        for clave, c in CATALOGOS.items():
+            sinonimos = sorted(s for s, k in SINONIMOS.items() if k == clave)
+            salida.append(CatalogoOut(
+                clave=clave, proveedor=c.proveedor, tipo=c.tipo, url=c.url,
+                sinonimos=sinonimos, campos_respuesta=list(c.campos_respuesta)))
+        return CatalogosOut(
+            catalogos=salida,
+            nota=("Solo se listan los endpoints que el compilador emite. Los que exigen "
+                  "credencial, pago o convenio no salen aquí: se configuran en la "
+                  "plataforma como Acción PHP."))
 
     @r.post("/clasificar", response_model=ClasificarOut)
     async def clasificar_carpeta(cuerpo: ClasificarIn):
