@@ -131,6 +131,27 @@ buscar.
   **Propuesta, a decidir:** subir `DOC-04` a `falta_dato` y darle control en la pantalla para
   elegir la tarea. Cambia la puerta del linter —un tramite con documentos dejaria de poder
   descargarse hasta asignarlos—, y por eso no se hace sin aprobacion.
+- **P-20 — el autollenado por CURP se puede emitir, y nuestra URL no coincide con la autentica.**
+  La «cuestion abierta» de `CLAUDE.md` (`Api variable` frente a `api_ajax`) **queda contestada el
+  2026-09-22**: la captura del disenador de la plataforma muestra **«Api ajax» y «Api variable»
+  como dos entradas distintas** del catalogo de Scripts. Son componentes distintos, asi que el
+  invariante que prohibe `Api variable` NO cubre `api_ajax`.
+
+  Ademas `api_ajax` esta **observado**: 7 campos en 3 exports autenticos, todos el mismo
+  `api_curp_trigger`. Y no toca RENAPO directo: llama a **SIPUBEH**, que responde sin credencial
+  (verificado el 2026-08-28), asi que no hay `SEG-04` que lo impida.
+
+  **Pero la URL que tenemos registrada no es la que se usa:**
+
+      nuestra:   https://sipubeh.hidalgo.gob.mx/api/consultacurpn/@@{padre}
+      autentica: https://sipubeh.hidalgo.gob.mx/efirma/api/consultacurpn   (GET, param `curp`)
+
+  La forma autentica es un campo aparte, `tipo: api_ajax`, que se dispara con `blur` sobre el
+  campo de la CURP y escribe en tres campos: `nombres`, `apePat`, `apeMat`.
+
+  **Decision pendiente antes de implementar:** el Diccionario de Prorroga declara UN solo campo
+  `@@nombre_propietario` y SIPUBEH devuelve los tres por separado. O se parte en tres, o se
+  escribe solo `nombres`. Eso lo decide Simplificacion.
 - **P-18 — una integracion descrita en prosa no se detecta, y no se reporta.** El extractor busca
   integraciones solo en columnas dedicadas (`Dependencia`, `Endpoint / API`). El Diccionario de
   Prorroga no las tiene: documenta la consulta en la Descripcion —«Dispara la consulta a RENAPO
