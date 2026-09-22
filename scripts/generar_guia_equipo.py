@@ -166,11 +166,20 @@ def generar(url: str, destino: Path):
          "Abajo se explica qué son."),
         ("Recorrer el trámite",
          "El simulador te deja avanzar pantalla por pantalla, como lo vería el ciudadano. "
-         "Sirve para detectar que algo no cuadra antes de que se construya."),
+         "Sirve para detectar que algo no cuadra antes de que se construya.<br/>"
+         "En el menú del simulador está <b>Documentos</b>: una tarjeta por cada oficio o "
+         "formato que entrega el trámite, con la plantilla tal como quedó guardada y en qué "
+         "punto del flujo se genera. Se puede abrir a tamaño de lectura y descargar como PDF "
+         "de prueba. Si una tarjeta dice <b>«Sin texto legible»</b>, la plantilla llegó como "
+         "PDF escaneado o vacía: hay que volverla a mandar como texto."),
         ("Descargar el archivo",
-         "Bajas el <b>.gpm</b> y se lo pasas a la DGT. Ellos lo importan a la plataforma.<br/>"
-         "Ahí mismo está <b>Descargar observaciones</b>: el documento con lo que conviene "
-         "corregir en el Diccionario y en el TO-BE, listo para integrarlo a tu documentación."),
+         "Cada archivo es una tarjeta con <b>Vista previa</b>: puedes mirar dentro antes de "
+         "bajarlo. El <b>.gpm (producción)</b> es el que se le pasa a la DGT para importarlo; "
+         "el de <b>pruebas</b> trae datos de ejemplo ya capturados, para recorrer el trámite "
+         "en la plataforma sin llenar nada.<br/>"
+         "Las <b>Observaciones</b> —lo que conviene corregir en el Diccionario y en el TO-BE— "
+         "se descargan siempre, aunque queden inconsistencias pendientes: son justo lo que hay "
+         "que integrar a tu documentación."),
     ], e))
 
     h.append(Paragraph("Los huecos: lo más importante de entender", e["h2"]))

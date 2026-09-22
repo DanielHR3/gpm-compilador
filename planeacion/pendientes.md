@@ -65,6 +65,12 @@ buscar.
   **Decision pendiente del usuario:** si esto se le devuelve a Simplificacion como observacion
   (las plantillas hay que redactarlas con `{{campo}}`) o si se acepta que los documentos salgan
   en blanco para que el funcionario los llene a mano. Relacionado: `DOC-03`, `DOC-04` y P-19.
+  **Decidido el 2026-09-22 por la tarde: se devuelve a Simplificacion.** Mensaje en
+  `docs/guias/Mensaje a Simplificacion - las plantillas de los documentos.md`, con un antes/despues
+  del oficio de Prorroga y la plantilla de Reposicion reescrita con los campos que ya existen
+  (las once variables citadas se verificaron contra los dos Diccionarios). Enviado el mismo dia.
+  **Esperamos su respuesta.** De paso salieron tres datos que el formato en papel pide y el
+  Diccionario no captura (centro expedidor, semestre/fecha de expedicion, numero de oficio).
 
 - **PLAT-11 — nombramos el grupo con una etiqueta legible, no con el identificador real.** El
   extractor toma el nombre del carril del TO-BE y lo emite tal cual: `Direccion De Verificacion
