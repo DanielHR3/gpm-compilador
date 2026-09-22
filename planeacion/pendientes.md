@@ -143,7 +143,15 @@ buscar.
   **Regla que conviene mantener incluso despues de migrar:** el material reservado se lee del
   disco de la maquina, fuera del repo, como ya se hace con las sesiones y el registro. Si el repo
   cambia de sitio o se clona, lo reservado no viaja con el.
-- **P-21 — el catalogo de endpoints se queda corto frente al de la Direccion.** `integraciones.py`
+- **P-21 — el catalogo de endpoints: hecha la mitad automatica (A) y la seccion (D), 2026-09-22.**
+  El registro distingue `catalogo` de `consulta`; los sinonimos resuelven lo que un Diccionario
+  escribe («CURP», «Codigo Postal», «colonia», «municipio»); lo de pago, llave o convenio queda
+  registrado como propuesta y produce `API-05` con nombre; `GET /api/v1/catalogos` y la seccion
+  «Catalogos» del asistente lo enseñan. **Sigue pendiente B**, el selector en la tarjeta cuando
+  el extractor no puede decidir. Lo que sigue aqui abajo es el texto original, que explica la
+  medicion:
+
+- **P-21 (original) — el catalogo de endpoints se queda corto frente al de la Direccion.** `integraciones.py`
   conoce **4** catalogos (mgee, mgem, zip_codes, consultacurpn). El «Catalogo Maestro de APIs para
   Tramites Gubernamentales» de la boveda (2026-08-11) documenta **38 APIs, 21 con endpoint**, casi
   todas oficiales y gratuitas: REPUVE, CFDI del SAT, padron de notarias, CCT de escuelas, COFEPRIS,
