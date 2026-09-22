@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -55,10 +55,22 @@ it("pinta una tarjeta por cada cosa que se puede descargar", () => {
   expect(screen.getByRole("heading", { name: "Manifiesto" })).toBeInTheDocument();
 });
 
-it("la tarjeta dice qué lleva dentro sin abrir nada", () => {
+it("el panel dice qué entendió el compilador, una sola vez", () => {
   pintar();
 
-  expect(screen.getAllByText(/1 pantalla · 1 campo/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/1 pantalla · 1 campo/)).toHaveLength(1);
+});
+
+it("producción y pruebas no se ven iguales", () => {
+  // Elegir mal cuesta una importacion a produccion que hay que deshacer: el
+  // de verdad lleva el boton lleno; el de pruebas, contorno y franja arena.
+  pintar();
+
+  const produccion = screen.getByRole("heading", { name: ".gpm (producción)" }).closest("[data-enfasis]");
+  const pruebas = screen.getByRole("heading", { name: ".gpm (pruebas)" }).closest("[data-enfasis]");
+
+  expect(produccion).toHaveAttribute("data-enfasis", "primaria");
+  expect(pruebas).toHaveAttribute("data-enfasis", "secundaria");
 });
 
 it("con el expediente bloqueado el .gpm no se puede bajar y dice por qué", () => {
@@ -120,8 +132,28 @@ it("«Descarga» del menú aterriza aquí", () => {
   const panel = document.querySelector("#entrega") as HTMLElement;
   expect(panel).toBeTruthy();
   expect(panel.getAttribute("tabindex")).toBe("-1");
-  // `focus:` y no `focus-visible:`: el foco llega por un clic en el enlace.
-  expect(panel.className).toMatch(/\bfocus:ring-2\b/);
+});
+
+it("al aterrizar destella un momento y se apaga, no se queda enmarcado", () => {
+  // Un anillo de foco permanente alrededor de toda la seccion parecia un
+  // error. El salto se senala con un destello que termina solo — por reloj,
+  // no por `animationend`: con movimiento reducido la animacion no corre y
+  // ese evento nunca llegaria.
+  vi.useFakeTimers();
+  try {
+    pintar();
+    const panel = document.querySelector("#entrega") as HTMLElement;
+
+    fireEvent.focus(panel);
+    expect(panel).toHaveAttribute("data-destello", "true");
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+    expect(panel).not.toHaveAttribute("data-destello");
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("el manifiesto se guarda, no se abre en la pestaña", () => {

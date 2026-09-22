@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, ExternalLink, Eye, FileCode2, FileText, Lock, Package } from "lucide-react";
+import { Download, ExternalLink, Eye, FileCode2, FileText, FlaskConical, Lock, Package } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "cn";
@@ -7,7 +7,7 @@ import { urlGpm, urlManifiesto } from "@/lib/api";
 import { documentoDeObservaciones } from "@/features/huecos/observaciones";
 import type { EstadoExpediente, Hueco } from "@/lib/types";
 
-import { descargasDe, type ClaveDescarga, type Descarga } from "./descargas";
+import { descargasDe, resumenDe, type ClaveDescarga, type Descarga } from "./descargas";
 
 /**
  * Seccion «Descarga»: lo que el analista se lleva del expediente.
@@ -23,9 +23,12 @@ import { descargasDe, type ClaveDescarga, type Descarga } from "./descargas";
  * que es donde vive su castellano.
  */
 
+/** Acoplado a la duracion de `destello-entrega` en index.css. */
+const MS_DESTELLO = 1200;
+
 const ICONO: Record<ClaveDescarga, typeof Download> = {
   gpm_produccion: Package,
-  gpm_pruebas: Package,
+  gpm_pruebas: FlaskConical,
   observaciones: FileText,
   manifiesto: FileCode2,
   vistas: ExternalLink,
@@ -87,6 +90,16 @@ export default function PanelDescargas({
   const [viendo, setViendo] = useState<Descarga | null>(null);
   const [texto, setTexto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // El aterrizaje desde el menu se senala con un destello que termina solo:
+  // un anillo de foco permanente alrededor de toda la seccion parecia error.
+  // Se apaga por reloj y no por `animationend`: con movimiento reducido la
+  // animacion no corre y ese evento nunca llegaria.
+  const [destello, setDestello] = useState(false);
+  useEffect(() => {
+    if (!destello) return;
+    const reloj = setTimeout(() => setDestello(false), MS_DESTELLO);
+    return () => clearTimeout(reloj);
+  }, [destello]);
 
   /** Arma el .md en el navegador. No pasa por el servidor: el castellano de
       las observaciones vive en `redactarHueco`, de este lado. */
@@ -137,7 +150,11 @@ export default function PanelDescargas({
       // teclado sigue al principio de la pagina y el boton parece muerto.
       // `focus:` y no `focus-visible:` porque el foco llega por un clic.
       tabIndex={-1}
-      className="flex flex-col gap-4 scroll-mt-6 rounded-lg border border-border bg-card p-5 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+      data-destello={destello || undefined}
+      onFocus={(e) => {
+        if (e.target === e.currentTarget) setDestello(true);
+      }}
+      className="panel-entrega flex flex-col gap-4 scroll-mt-6 rounded-lg border border-border bg-card p-5 focus:outline-none"
     >
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
@@ -152,6 +169,7 @@ export default function PanelDescargas({
             <span className="font-medium text-foreground">pruebas</span> trae datos de
             ejemplo ya capturados.
           </p>
+          <p className="text-xs tabular-nums text-foreground/80">{resumenDe(estado)}</p>
         </div>
         <p
           className={cn(
@@ -162,18 +180,24 @@ export default function PanelDescargas({
           )}
         >
           {desbloqueado ? null : <Lock aria-hidden className="size-3" />}
-          {desbloqueado ? "Todo listo para entregar" : fraseBloqueo(bloqueantes.length)}
+          {desbloqueado ? "Listo" : fraseBloqueo(bloqueantes.length)}
         </p>
       </header>
 
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(15.5rem,1fr))] gap-3">
+      <ul className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(15.5rem,100%),1fr))] gap-3">
         {descargas.map((d) => {
           const Icono = ICONO[d.clave];
+          // Producion y pruebas se llaman casi igual y elegir mal cuesta una
+          // importacion que hay que deshacer: el de verdad va con boton lleno;
+          // el de pruebas, con contorno y una franja arena que se ve de lejos.
+          const secundaria = d.clave === "gpm_pruebas";
           return (
             <li key={d.clave}>
               <div
+                data-enfasis={secundaria ? "secundaria" : "primaria"}
                 className={cn(
                   "flex h-full flex-col gap-3 rounded-lg border border-border bg-background p-4 transition",
+                  secundaria && "border-t-4 border-t-secondary",
                   d.bloqueada
                     ? "opacity-70"
                     : "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
@@ -199,7 +223,7 @@ export default function PanelDescargas({
                   </div>
                 </header>
 
-                <p className="text-xs leading-relaxed text-muted-foreground">{d.proposito}</p>
+                <p className="text-xs leading-relaxed text-foreground/75">{d.proposito}</p>
 
                 {d.detalles.length > 0 ? (
                   <ul className="flex flex-col gap-0.5 text-xs tabular-nums text-foreground">
@@ -216,7 +240,7 @@ export default function PanelDescargas({
                   </p>
                 ) : null}
 
-                <footer className="mt-auto flex gap-2 pt-1">
+                <footer className="mt-auto flex flex-wrap gap-2 pt-1">
                   {d.clave === "vistas" ? (
                     <Button
                       variant="outline"
@@ -234,7 +258,7 @@ export default function PanelDescargas({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="flex-1"
+                        className="min-w-[7rem] flex-1"
                         aria-label={`Vista previa de ${d.titulo}`}
                         onClick={() => abrirVistaPrevia(d)}
                       >
@@ -254,6 +278,7 @@ export default function PanelDescargas({
                       ) : d.bloqueada ? (
                         <Button
                           type="button"
+                          variant={secundaria ? "outline" : "default"}
                           size="sm"
                           className="flex-1"
                           disabled
@@ -266,6 +291,7 @@ export default function PanelDescargas({
                         </Button>
                       ) : (
                         <Button
+                          variant={secundaria ? "outline" : "default"}
                           size="sm"
                           className="flex-1"
                           render={

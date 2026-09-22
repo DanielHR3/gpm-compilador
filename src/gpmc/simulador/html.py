@@ -93,7 +93,7 @@ button.sec{background:transparent;color:var(--guinda)}
 .docs-cab{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;
           flex-wrap:wrap;margin-bottom:1.4rem}
 .docs-cab h2{margin:0;font-size:1.2rem;letter-spacing:-.01em}
-.docs-cab p{margin:.35rem 0 0;font-size:.86rem;color:var(--gris);max-width:62ch}
+.docs-cab p{margin:.35rem 0 0;font-size:.86rem;color:#4b5563;max-width:62ch}
 .docs-resumen{display:flex;gap:.4rem;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:600;
       padding:.22rem .6rem;border-radius:999px;border:1px solid transparent;white-space:nowrap}
@@ -122,7 +122,7 @@ button.sec{background:transparent;color:var(--guinda)}
 .doc-cuerpo h3{margin:0;font-size:.95rem;line-height:1.35;letter-spacing:-.01em}
 .doc-meta{margin:0;display:grid;gap:.3rem;font-size:.78rem}
 .doc-meta div{display:flex;gap:.45rem}
-.doc-meta dt{color:var(--gris);flex:0 0 5.4rem}
+.doc-meta dt{color:#4b5563;flex:0 0 5.4rem}
 .doc-meta dd{margin:0;color:var(--tinta)}
 .doc-nota{margin:0;font-size:.76rem;color:#8a4b09;background:#fdf2e6;border-radius:.4rem;
           padding:.45rem .6rem;line-height:1.45}
@@ -156,10 +156,18 @@ button.sec{background:transparent;color:var(--guinda)}
 .modal footer{display:flex;justify-content:space-between;align-items:center;gap:.75rem;
               padding:.85rem 1.25rem;border-top:1px solid var(--linea);flex-wrap:wrap}
 .modal footer small{color:var(--gris);font-size:.75rem}
+/* En un telefono la barra lateral fija de 280 px dejaba 110 px al contenido:
+   se apila arriba y la pagina entera hace el scroll. */
 @media (max-width:700px){
+  .layout{flex-direction:column;min-height:auto}
+  .sim-sidebar{width:100%;height:auto;padding:1rem;border-right:0;
+               border-bottom:1px solid var(--linea);box-shadow:none}
+  .sim-main{height:auto;overflow:visible}
+  .marco{padding:1rem .75rem}
   .docs-grid{grid-template-columns:1fr}
   .hoja{padding:1.4rem 1.2rem}
   .modal-cuerpo{padding:.75rem}
+  .velo{padding:.75rem}
 }
 """
 

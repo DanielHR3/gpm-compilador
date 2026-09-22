@@ -206,3 +206,34 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Aterrizaje en el panel de descargas (`#entrega`).
+
+   El salto desde el menu enfoca la seccion; un anillo de foco permanente
+   alrededor de todo el panel parecia un error, asi que se senala con un
+   destello arena que termina solo. `data-destello` lo pone el componente al
+   recibir foco y lo quita en `animationend`.
+   --------------------------------------------------------------------------- */
+@keyframes destello-entrega {
+  from {
+    box-shadow: 0 0 0 4px var(--secondary);
+    background-color: color-mix(in oklch, var(--secondary) 18%, var(--card));
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+    background-color: var(--card);
+  }
+}
+
+.panel-entrega[data-destello] {
+  /* 1200ms = MS_DESTELLO en PanelDescargas.tsx: si uno cambia, el otro tambien. */
+  animation: destello-entrega 1200ms var(--transition-easing-out, cubic-bezier(0, 0, 0.2, 1)) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-entrega[data-destello] {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--secondary);
+  }
+}

@@ -33,19 +33,27 @@ export type Descarga = {
 const plural = (n: number, uno: string, varios: string) =>
   `${n} ${n === 1 ? uno : varios}`;
 
+/**
+ * Lo que el compilador entendio, en una linea. Va una vez en la cabecera del
+ * panel: tres tarjetas repitiendo «8 pantallas · 43 campos…» era ruido que
+ * tapaba lo unico que las distingue.
+ */
+export function resumenDe(estado: EstadoExpediente): string {
+  const r = resumirManifiesto(estado.manifiesto);
+  return [
+    plural(r.pantallas, "pantalla", "pantallas"),
+    plural(r.campos, "campo", "campos"),
+    plural(r.tareas, "tarea", "tareas"),
+    plural(r.decisiones, "decisión", "decisiones"),
+    plural(r.documentos, "documento", "documentos"),
+  ].join(" · ");
+}
+
 export function descargasDe(
   estado: EstadoExpediente,
   desbloqueado: boolean,
   motivoBloqueo: string,
 ): Descarga[] {
-  const r = resumirManifiesto(estado.manifiesto);
-  const contenido = [
-    `${plural(r.pantallas, "pantalla", "pantallas")} · ${plural(r.campos, "campo", "campos")}`,
-    `${plural(r.tareas, "tarea", "tareas")} · ${plural(r.decisiones, "decisión", "decisiones")}`,
-  ];
-  if (r.documentos > 0) {
-    contenido.push(plural(r.documentos, "documento", "documentos"));
-  }
   const cerrado = { bloqueada: !desbloqueado, motivo: desbloqueado ? null : motivoBloqueo };
 
   const lista: Descarga[] = [
@@ -54,16 +62,16 @@ export function descargasDe(
       titulo: ".gpm (producción)",
       proposito: "El archivo que se importa de verdad a la plataforma.",
       formato: "JSON",
-      detalles: contenido,
+      detalles: ["Sin datos capturados"],
       ...cerrado,
     },
     {
       clave: "gpm_pruebas",
       titulo: ".gpm (pruebas)",
       proposito:
-        "El mismo trámite con datos de ejemplo ya capturados, para recorrerlo en la plataforma sin llenar nada.",
+        "El mismo trámite, para recorrerlo en la plataforma sin llenar nada.",
       formato: "JSON",
-      detalles: contenido,
+      detalles: ["Con datos de ejemplo capturados"],
       ...cerrado,
     },
     {
@@ -82,7 +90,7 @@ export function descargasDe(
       proposito:
         "Lo que el compilador entendió del expediente, en texto legible. Sirve para revisarlo sin importar nada.",
       formato: "YAML",
-      detalles: contenido,
+      detalles: [],
       bloqueada: false,
       motivo: null,
     },

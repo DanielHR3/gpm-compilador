@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { EstadoExpediente } from "@/lib/types";
 
-import { descargasDe } from "./descargas";
+import { descargasDe, resumenDe } from "./descargas";
 
 const ESTADO = {
   sid: "a".repeat(16),
@@ -59,12 +59,22 @@ describe("lo que se puede descargar", () => {
     expect(descargasDe(ESTADO, true, "Faltan 2").some((d) => d.bloqueada)).toBe(false);
   });
 
-  it("cada tarjeta cuenta lo que el compilador entendió", () => {
-    const gpm = descargasDe(ESTADO, true, "")[0];
+  it("lo que el compilador entendió se cuenta una vez, no en cada tarjeta", () => {
+    // Tres tarjetas repitiendo «8 pantallas · 43 campos…» era ruido: el conteo
+    // va en la cabecera del panel y cada tarjeta dice solo lo suyo.
+    expect(resumenDe(ESTADO)).toBe(
+      "2 pantallas · 3 campos · 2 tareas · 0 decisiones · 1 documento",
+    );
+    const [produccion, pruebas] = descargasDe(ESTADO, true, "");
+    expect(produccion.detalles.join(" ")).not.toContain("pantallas");
+    expect(pruebas.detalles.join(" ")).not.toContain("pantallas");
+  });
 
-    expect(gpm.detalles.join(" ")).toContain("2 pantallas");
-    expect(gpm.detalles.join(" ")).toContain("3 campos");
-    expect(gpm.detalles.join(" ")).toContain("1 documento");
+  it("producción y pruebas se distinguen por lo que llevan capturado", () => {
+    const [produccion, pruebas] = descargasDe(ESTADO, true, "");
+
+    expect(produccion.detalles.join(" ")).toMatch(/sin datos/i);
+    expect(pruebas.detalles.join(" ")).toMatch(/datos de ejemplo/i);
   });
 
   it("las observaciones cuentan las inconsistencias, no las pantallas", () => {
