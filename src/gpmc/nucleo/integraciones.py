@@ -27,6 +27,11 @@ class Catalogo:
     # una lista. SIPUBEH devuelve nombre y apellidos por separado, y quedarse
     # solo con `nombres` deja el tramite a medias.
     campos_respuesta: tuple = ()
+    # Dos cosas distintas que el catalogo de la Direccion (2026-08-11) mezcla:
+    # "catalogo" devuelve una LISTA para poblar un select; "consulta" recibe
+    # un dato y devuelve otros para autollenar (un `api_ajax`). Solo la
+    # segunda usa `campos_respuesta`.
+    tipo: str = "catalogo"
 
     def url_para(self, padre: Optional[str]) -> str:
         """La URL lista para el .gpm. La plataforma interpola @@campo en tiempo
@@ -70,6 +75,7 @@ CATALOGOS = {
             nodo="data", etiqueta="nombres", valor="nombres",
             requiere_padre=True,
             campos_respuesta=("nombres", "apePat", "apeMat"),
+            tipo="consulta",
         ),
     )
 }

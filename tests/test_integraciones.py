@@ -86,3 +86,23 @@ def test_sipubeh_declara_los_tres_campos_del_nombre():
     from gpmc.nucleo.integraciones import CATALOGOS
     c = CATALOGOS["consultacurpn"]
     assert c.campos_respuesta == ("nombres", "apePat", "apeMat")
+
+
+def test_cada_entrada_dice_si_es_catalogo_o_consulta():
+    """El catalogo de la Direccion mezcla dos cosas que el registro no
+    distinguia: una LISTA para poblar un select (estados, colonias) y una
+    CONSULTA que recibe un dato y devuelve otros para autollenar (CURP ->
+    nombre). La segunda es un `api_ajax` y necesita `campos_respuesta`; la
+    primera no. Sin el tipo, el compilador no sabe cual emitir."""
+    from gpmc.nucleo.integraciones import CATALOGOS
+    tipos = {clave: c.tipo for clave, c in CATALOGOS.items()}
+    assert tipos == {
+        "mgee": "catalogo", "mgem": "catalogo", "zip_codes": "catalogo",
+        "consultacurpn": "consulta",
+    }
+
+
+def test_una_consulta_declara_que_devuelve_y_un_catalogo_no():
+    from gpmc.nucleo.integraciones import CATALOGOS
+    assert CATALOGOS["consultacurpn"].campos_respuesta == ("nombres", "apePat", "apeMat")
+    assert CATALOGOS["mgee"].campos_respuesta == ()
