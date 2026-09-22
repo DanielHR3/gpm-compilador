@@ -32,12 +32,35 @@ def _mapear_nodos_a_pantallas(nodos_tarea, pantallas):
     pantalla 'Cotiza'. Devuelve {id_nodo: pantalla} o None si no casan 1:1."""
     if len(nodos_tarea) != len(pantallas):
         return None
+
+    def _sin_nota(texto):
+        """El titulo sin su nota final entre parentesis.
+
+        El Diccionario titula pantallas con una aclaracion para humanos
+        —«(consulta manual FUERA de GPM)»— que el diagrama no repite. Exigir
+        la cadena identica hacia fallar el mapeo entero por una nota, y con el
+        se perdian todas las compuertas (Reposicion de Certificado, 2026-09-22).
+        """
+        return ext_dicc._babel(re.sub(r"\s*\([^()]*\)\s*$", "", texto or "")).strip()
+
     por_nombre = {ext_dicc._babel(p.nombre): p for p in pantallas}
+    # Indice sin nota, solo con los que quedan SIN ambiguedad: si dos pantallas
+    # se distinguen precisamente por su parentesis, quitarlo las confundiria.
+    sin_nota = {}
+    for p in pantallas:
+        sin_nota.setdefault(_sin_nota(p.nombre), []).append(p)
+    por_nombre_sin_nota = {k: v[0] for k, v in sin_nota.items() if len(v) == 1}
+
     mapa = {}
     for n in nodos_tarea:
-        p = por_nombre.get(ext_dicc._babel(n.texto))
-        if p is None and ":" in n.texto:
-            p = por_nombre.get(ext_dicc._babel(n.texto.split(":", 1)[1]))
+        candidatos = [n.texto]
+        if ":" in n.texto:
+            candidatos.append(n.texto.split(":", 1)[1])
+        p = next((por_nombre.get(ext_dicc._babel(c)) for c in candidatos
+                  if por_nombre.get(ext_dicc._babel(c))), None)
+        if p is None:
+            p = next((por_nombre_sin_nota.get(_sin_nota(c)) for c in candidatos
+                      if por_nombre_sin_nota.get(_sin_nota(c))), None)
         if p is None:
             return None
         mapa[n.id] = p

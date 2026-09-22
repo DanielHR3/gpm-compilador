@@ -491,3 +491,54 @@ def test_un_diccionario_que_nombra_repuve_produce_api05_con_nombre(tmp_path):
     (h,) = [x for x in r.huecos if x.codigo == "API-05"]
     assert "REPUVE" in h.mensaje
     assert "Acción PHP" in h.mensaje
+
+
+def test_una_nota_entre_parentesis_no_rompe_el_mapeo_de_pantallas():
+    """Reposición de Certificado, 2026-09-22: el TO-BE traía las dos compuertas
+    bien formadas —con su `@@campo` y con etiquetas que casan con el catálogo—
+    y aun así salía FLU-01 «no las reproduce».
+
+    La causa no estaba en el diagrama: el Diccionario titula sus pantallas con
+    una nota para humanos —«(consulta manual FUERA de GPM)», «(fuera de GPM)»—
+    que el diagrama no repite. El emparejamiento exigía el nombre identico, y
+    como fallaba una pantalla se caía el mapeo entero.
+
+    Pedirle a Simplificación que iguale las cadenas a mano seria justo el
+    trabajo que este compilador existe para quitar.
+    """
+    from gpmc.extractores.expediente import _mapear_nodos_a_pantallas
+
+    class _N:
+        def __init__(self, id, texto):
+            self.id, self.texto = id, texto
+
+    class _P:
+        def __init__(self, nombre):
+            self.nombre = nombre
+
+    nodos = [_N("P1", "Ciudadano: Nueva Solicitud"),
+             _N("P2", "Dirección: Revisión y Búsqueda del Certificado")]
+    pantallas = [_P("Nueva Solicitud"),
+                 _P("Revisión y Búsqueda del Certificado (consulta manual FUERA de GPM)")]
+
+    mapa = _mapear_nodos_a_pantallas(nodos, pantallas)
+    assert mapa is not None, "la nota entre paréntesis no debe romper el mapeo"
+    assert mapa["P2"].nombre.startswith("Revisión y Búsqueda")
+
+
+def test_dos_pantallas_que_solo_difieren_en_la_nota_no_se_confunden():
+    """El contrapeso: quitar el parentesis no puede hacer que dos pantallas
+    distintas colapsen en la misma. Si quedan ambiguas, mejor no ramificar."""
+    from gpmc.extractores.expediente import _mapear_nodos_a_pantallas
+
+    class _N:
+        def __init__(self, id, texto):
+            self.id, self.texto = id, texto
+
+    class _P:
+        def __init__(self, nombre):
+            self.nombre = nombre
+
+    nodos = [_N("A", "Cargar Documento"), _N("B", "Cargar Documento")]
+    pantallas = [_P("Cargar Documento (ciudadano)"), _P("Cargar Documento (funcionario)")]
+    assert _mapear_nodos_a_pantallas(nodos, pantallas) is None
