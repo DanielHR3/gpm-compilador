@@ -15,6 +15,7 @@ import json
 from gpmc.nucleo.integraciones import resolver
 from gpmc.nucleo.manifiesto import Manifiesto
 from gpmc.simulador.analisis import analizar
+from gpmc.simulador.documentos import documentos_de
 
 
 def _js(obj) -> str:
@@ -84,6 +85,82 @@ button.sec{background:transparent;color:var(--guinda)}
 .problemas h2{font-size:.9rem;margin:0 0 .6rem;color:var(--alerta)}
 .problemas li{font-size:.85rem;margin-bottom:.35rem}
 .rastro{font-size:.8rem;color:var(--gris);margin-top:1.5rem}
+
+/* --- Documentos del tramite ------------------------------------------
+   La miniatura de cada tarjeta es la plantilla de verdad dibujada en
+   pequeno, no un icono: de un vistazo se distingue un oficio redactado de
+   un volcado de PDF escaneado, que es justo lo que hay que cazar. */
+.docs-cab{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;
+          flex-wrap:wrap;margin-bottom:1.4rem}
+.docs-cab h2{margin:0;font-size:1.2rem;letter-spacing:-.01em}
+.docs-cab p{margin:.35rem 0 0;font-size:.86rem;color:var(--gris);max-width:62ch}
+.docs-resumen{display:flex;gap:.4rem;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:600;
+      padding:.22rem .6rem;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.chip.ok{background:#e9f3f0;color:var(--verde);border-color:#c2dcd5}
+.chip.warn{background:#fdf2e6;color:#8a4b09;border-color:#f0d7b6}
+.chip.off{background:var(--suave);color:var(--gris);border-color:var(--linea)}
+.docs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(19rem,1fr));gap:1.15rem}
+.doc{background:#fff;border:1px solid var(--linea);border-radius:.85rem;display:flex;
+     flex-direction:column;overflow:hidden;
+     transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.doc:hover{transform:translateY(-3px);border-color:#d9c4c9;
+           box-shadow:0 16px 30px -20px rgba(94,19,44,.55)}
+.doc:focus-within{border-color:var(--guinda);box-shadow:0 0 0 3px rgba(94,19,44,.13)}
+.doc-hoja{position:relative;height:9.5rem;background:#fff;border-bottom:1px solid var(--linea);
+          overflow:hidden;cursor:pointer}
+.doc-hoja pre{margin:0;padding:.85rem 1rem;white-space:pre-wrap;word-break:break-word;
+              font:6px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3a3d44}
+.doc-hoja::after{content:"";position:absolute;inset:auto 0 0 0;height:3.6rem;
+                 background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 85%)}
+.doc-hoja.rota pre{color:#9b6b17}
+.doc-hoja.vacia{display:grid;place-items:center;color:var(--gris);font-size:.78rem;
+  background:repeating-linear-gradient(45deg,#fcfbfb,#fcfbfb 9px,#f5f2f2 9px,#f5f2f2 18px)}
+.doc-hoja.vacia::after{display:none}
+.doc-cuerpo{padding:.9rem 1.05rem 1rem;display:flex;flex-direction:column;gap:.6rem;flex:1}
+.doc-cuerpo>.chip{align-self:flex-start}
+.doc-cuerpo h3{margin:0;font-size:.95rem;line-height:1.35;letter-spacing:-.01em}
+.doc-meta{margin:0;display:grid;gap:.3rem;font-size:.78rem}
+.doc-meta div{display:flex;gap:.45rem}
+.doc-meta dt{color:var(--gris);flex:0 0 5.4rem}
+.doc-meta dd{margin:0;color:var(--tinta)}
+.doc-nota{margin:0;font-size:.76rem;color:#8a4b09;background:#fdf2e6;border-radius:.4rem;
+          padding:.45rem .6rem;line-height:1.45}
+.doc-pie{display:flex;gap:.5rem;padding:.75rem 1.05rem;border-top:1px solid var(--linea);
+         background:#fffdfd}
+.doc-pie button{flex:1;font-size:.82rem;padding:.45rem .6rem}
+.doc-pie button[disabled]{opacity:.45;cursor:not-allowed}
+.sb-cuenta{background:var(--suave);color:var(--gris);border-radius:999px;padding:0 .4rem;
+           font-size:.72rem;margin-left:.3rem}
+.sim-nav-item.act .sb-cuenta{background:rgba(255,255,255,.25);color:#fff}
+
+/* Vista previa: la hoja a tamano de lectura, sobre un velo oscuro. */
+.velo{position:fixed;inset:0;background:rgba(26,10,15,.55);display:flex;align-items:center;
+      justify-content:center;padding:1.5rem;z-index:50}
+.modal{background:#fff;border-radius:.9rem;width:min(52rem,100%);max-height:100%;
+       display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 60px -20px rgba(0,0,0,.5)}
+.modal header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;
+              padding:1rem 1.25rem;border-bottom:1px solid var(--linea)}
+.modal header h3{margin:0;font-size:1rem}
+.modal header p{margin:.25rem 0 0;font-size:.78rem;color:var(--gris)}
+.modal .cerrar{background:transparent;border:1px solid var(--linea);color:var(--gris);
+               border-radius:.4rem;padding:.25rem .6rem;line-height:1}
+.modal-cuerpo{overflow:auto;padding:1.5rem;background:#f4efef}
+.hoja{background:#fff;max-width:44rem;margin:0 auto;padding:2.6rem 2.8rem;
+      box-shadow:0 2px 14px rgba(0,0,0,.12);border-radius:2px}
+.hoja pre{margin:0;white-space:pre-wrap;word-break:break-word;
+          font:13px/1.65 "Times New Roman",Georgia,serif;color:#111}
+.hoja .firma{margin-top:3rem;text-align:center;font-size:.85rem;color:var(--gris)}
+.hoja .firma b{display:block;color:var(--tinta);border-top:1px solid #999;padding-top:.4rem;
+               max-width:22rem;margin:0 auto .15rem}
+.modal footer{display:flex;justify-content:space-between;align-items:center;gap:.75rem;
+              padding:.85rem 1.25rem;border-top:1px solid var(--linea);flex-wrap:wrap}
+.modal footer small{color:var(--gris);font-size:.75rem}
+@media (max-width:700px){
+  .docs-grid{grid-template-columns:1fr}
+  .hoja{padding:1.4rem 1.2rem}
+  .modal-cuerpo{padding:.75rem}
+}
 """
 
 _GUION = """
@@ -133,20 +210,31 @@ function pintarSidebar() {
   for (const id in TAREAS) {
     const t = TAREAS[id];
     if (t.nombre) {
-        const activa = (id === ESTADO.tarea) ? "act" : "";
+        const activa = (id === ESTADO.tarea && ESTADO.vista !== "documentos") ? "act" : "";
         // data-id + delegación en vez de onclick="saltarA('${id}')": un id con
         // comilla rompería el string JS del atributo.
         html += `<button class="sim-nav-item ${activa}" data-id="${esc(id)}">📄 ${esc(t.nombre)}</button>`;
     }
   }
   html += '</div>';
+  // Los documentos son una vista aparte, no una pantalla mas del recorrido:
+  // no se capturan, se recogen al final.
+  if(DOCUMENTOS.length){
+    const act=(ESTADO.vista==="documentos")?"act":"";
+    html += `<div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--linea)">
+      <b style="font-size:0.9rem;display:block;margin-bottom:0.5rem">Lo que entrega:</b>
+      <button class="sim-nav-item ${act}" data-vista="documentos">🗂️ Documentos<span class="sb-cuenta">${DOCUMENTOS.length}</span></button></div>`;
+  }
   html += `<div style="margin-top:auto"><button class="sim-nav-item" style="color:var(--guinda);border:1px solid var(--guinda)" onclick="window.history.back()">← Salir del Simulador</button></div>`;
   cont.innerHTML = html;
   cont.querySelectorAll("[data-id]").forEach(b =>
     b.addEventListener("click", () => saltarA(b.dataset.id)));
+  cont.querySelectorAll("[data-vista]").forEach(b =>
+    b.addEventListener("click", () => vistaDocumentos()));
 }
 
 function saltarA(id) {
+  ESTADO.vista = "recorrido";
   ESTADO.tarea = id;
   if (!ESTADO.rastro.includes(id)) {
     ESTADO.rastro.push(id);
@@ -155,6 +243,9 @@ function saltarA(id) {
 }
 
 function pintar(){
+  const ayuda=document.querySelector(".ayuda");
+  if(ayuda){ayuda.style.display=(ESTADO.vista==="documentos")?"none":""}
+  if(ESTADO.vista==="documentos"){pintarSidebar();pintarDocumentos();return}
   const t=TAREAS[ESTADO.tarea];
   const cont=document.getElementById("lienzo");
   if(t.terminal){pintarSidebar();
@@ -258,7 +349,180 @@ function conectarCatalogos(campos){
     }
   });
 }
-function reiniciar(){ESTADO.tarea=INICIAL;ESTADO.rastro=[INICIAL];ESTADO.datos={};pintar()}
+
+// --- Documentos --------------------------------------------------------
+// Un documento no es una pantalla del recorrido: no se captura, se recoge.
+// Por eso vive en su propia vista y no en el paso a paso.
+const _CHIP={legible:["ok","Plantilla legible"],
+             ilegible:["warn","Sin texto legible"],
+             sin_plantilla:["off","Sin plantilla"]};
+
+function vistaDocumentos(){ESTADO.vista="documentos";pintar()}
+function volverAlRecorrido(){ESTADO.vista="recorrido";pintar()}
+
+function cuandoSeGenera(d){
+  if(!d.tarea){return "no está enganchado a ninguna tarea"}
+  return (d.instante==="antes"?"al abrir «":"al terminar «")+d.tarea+"»";
+}
+
+function miniatura(d){
+  if(d.estado==="sin_plantilla"){
+    return `<div class="doc-hoja vacia">Sin plantilla en el expediente</div>`}
+  // 1400 caracteres bastan para llenar la miniatura; mandar la plantilla
+  // entera solo engorda el DOM de una vista que se recorre completa.
+  return `<div class="doc-hoja ${d.estado==="ilegible"?"rota":""}" data-ver="${esc(d.id)}"
+    role="button" tabindex="0" aria-label="Vista previa de ${esc(d.nombre)}"
+    ><pre>${esc(d.plantilla.slice(0,1400))}</pre></div>`;
+}
+
+function tarjetaDoc(d){
+  const chip=_CHIP[d.estado]||["off",d.estado];
+  const firma=d.firmador_nombre
+    ? `<div><dt>Firma</dt><dd>${esc(d.firmador_nombre)}${d.firmador_cargo?" — "+esc(d.firmador_cargo):""}</dd></div>`
+    : "";
+  const puede=d.estado!=="sin_plantilla";
+  return `<article class="doc">${miniatura(d)}
+    <div class="doc-cuerpo">
+      <span class="chip ${chip[0]}">${esc(chip[1])}</span>
+      <h3>${esc(d.titulo||d.nombre)}</h3>
+      <dl class="doc-meta">
+        <div><dt>Se genera</dt><dd>${esc(cuandoSeGenera(d))}</dd></div>
+        ${d.actor?`<div><dt>Responsable</dt><dd>${esc(d.actor)}</dd></div>`:""}
+        ${firma}
+      </dl>
+      ${d.nota?`<p class="doc-nota">${esc(d.nota)}</p>`:""}
+    </div>
+    <div class="doc-pie">
+      <button class="sec" data-ver="${esc(d.id)}"${puede?"":" disabled"}>Vista previa</button>
+      <button data-baja="${esc(d.id)}"${puede?"":" disabled"}>Descargar PDF</button>
+    </div></article>`;
+}
+
+function pintarDocumentos(){
+  const cont=document.getElementById("lienzo");
+  const buenos=DOCUMENTOS.filter(d=>d.estado==="legible").length;
+  const revisar=DOCUMENTOS.length-buenos;
+  cont.innerHTML=`<div class="docs-cab">
+      <div>
+        <h2>Documentos que entrega el trámite</h2>
+        <p>Son las acciones de tipo <b>documento</b> del manifiesto. Cada tarjeta
+        muestra la plantilla tal como quedó guardada y en qué punto del flujo se
+        genera. Descargar imprime la hoja; es una simulación, no un documento válido.</p>
+      </div>
+      <div class="docs-resumen">
+        ${buenos?`<span class="chip ok">${buenos} con plantilla legible</span>`:""}
+        ${revisar?`<span class="chip warn">${revisar} por revisar</span>`:""}
+      </div>
+    </div>
+    <div class="docs-grid">${DOCUMENTOS.map(tarjetaDoc).join("")}</div>
+    <div style="margin-top:1.75rem"><button class="sec" onclick="volverAlRecorrido()">← Volver al recorrido</button></div>`;
+  cont.querySelectorAll("[data-ver]").forEach(b=>{
+    b.addEventListener("click",()=>abrirDoc(b.dataset.ver));
+    // La miniatura es un div con role=button: el teclado no lo activa solo.
+    b.addEventListener("keydown",e=>{
+      if(e.key==="Enter"||e.key===" "){e.preventDefault();abrirDoc(b.dataset.ver)}});
+  });
+  cont.querySelectorAll("[data-baja]").forEach(b=>
+    b.addEventListener("click",()=>descargarDoc(b.dataset.baja)));
+}
+
+function firmaHTML(d){
+  if(!d.firmador_nombre){return ""}
+  return `<div class="firma"><b>${esc(d.firmador_nombre)}</b>${esc(d.firmador_cargo||"")}</div>`;
+}
+
+function hojaHTML(d){
+  const sub=d.subtitulo?`<p style="text-align:center;color:#555;margin:.2rem 0 1.4rem">${esc(d.subtitulo)}</p>`:"";
+  return `<article class="hoja">${sub}<pre>${esc(d.plantilla)}</pre>${firmaHTML(d)}</article>`;
+}
+
+let _focoPrevio=null;
+function abrirDoc(id){
+  const d=DOCUMENTOS.find(x=>x.id===id);
+  if(!d||d.estado==="sin_plantilla"){return}
+  cerrarDoc();
+  _focoPrevio=document.activeElement;
+  const velo=document.createElement("div");
+  velo.className="velo";velo.id="velo-doc";
+  velo.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="doc-tit">
+    <header>
+      <div><h3 id="doc-tit">${esc(d.titulo||d.nombre)}</h3>
+      <p>Se genera ${esc(cuandoSeGenera(d))}</p></div>
+      <button class="cerrar" aria-label="Cerrar vista previa">✕</button>
+    </header>
+    <div class="modal-cuerpo">${hojaHTML(d)}</div>
+    <footer>
+      <small>Simulación. La plataforma generará este documento con la plantilla
+      guardada en el expediente.</small>
+      <button data-baja="${esc(d.id)}">Descargar PDF</button>
+    </footer></div>`;
+  document.body.appendChild(velo);
+  velo.addEventListener("click",e=>{if(e.target===velo){cerrarDoc()}});
+  velo.querySelector(".cerrar").addEventListener("click",cerrarDoc);
+  velo.querySelector("[data-baja]").addEventListener("click",()=>descargarDoc(d.id));
+  document.addEventListener("keydown",_teclaModal);
+  velo.querySelector(".cerrar").focus();
+}
+function _teclaModal(e){if(e.key==="Escape"){cerrarDoc()}}
+function cerrarDoc(){
+  const velo=document.getElementById("velo-doc");
+  if(!velo){return}
+  velo.remove();
+  document.removeEventListener("keydown",_teclaModal);
+  if(_focoPrevio&&_focoPrevio.focus){_focoPrevio.focus()}
+}
+
+// La descarga imprime una hoja aparte y deja que el navegador la guarde como
+// PDF. Sin libreria y sin ventana emergente: un iframe oculto no lo bloquea
+// ningun navegador, y lo que se imprime es exactamente lo que se ve.
+function paginaImpresa(d){
+  const titulo=esc(d.titulo||d.nombre);
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${titulo}</title>
+<style>
+@page{size:letter;margin:2.2cm 2.4cm}
+body{font:12pt/1.65 "Times New Roman",Georgia,serif;color:#111;margin:0}
+@media screen{body{padding:2.2cm 2.4cm;max-width:21.6cm;margin:0 auto}}
+.sello{border:1px solid #999;color:#666;font:8pt/1.3 Arial,sans-serif;letter-spacing:.08em;
+       text-align:center;padding:.25rem;margin-bottom:1.4rem;text-transform:uppercase}
+h1{font-size:13pt;text-align:center;margin:0 0 .3rem}
+.sub{text-align:center;color:#555;font-size:10pt;margin:0 0 1.6rem}
+pre{font:inherit;white-space:pre-wrap;word-break:break-word;margin:0}
+.firma{margin-top:3.2rem;text-align:center;font-size:10pt;color:#444}
+.firma b{display:block;border-top:1px solid #777;max-width:22rem;margin:0 auto .2rem;
+         padding-top:.35rem;color:#111}
+.pie{margin-top:2.4rem;border-top:1px solid #ddd;padding-top:.4rem;
+     font:7.5pt/1.4 Arial,sans-serif;color:#888}
+</style></head><body>
+<div class="sello">Simulación — Compilador GPM · ${esc(TRAMITE)}</div>
+<h1>${titulo}</h1>
+${d.subtitulo?`<p class="sub">${esc(d.subtitulo)}</p>`:""}
+<pre>${esc(d.plantilla)}</pre>
+${d.firmador_nombre?`<div class="firma"><b>${esc(d.firmador_nombre)}</b>${esc(d.firmador_cargo||"")}</div>`:""}
+<div class="pie">Documento simulado por el Compilador GPM para revisar la plantilla del
+expediente. No tiene validez oficial y no proviene de ningún sistema de gobierno.</div>
+</body></html>`;
+}
+
+function descargarDoc(id){
+  const d=DOCUMENTOS.find(x=>x.id===id);
+  if(!d||d.estado==="sin_plantilla"){return}
+  let marco=document.getElementById("imprenta");
+  if(!marco){
+    marco=document.createElement("iframe");
+    marco.id="imprenta";
+    marco.setAttribute("aria-hidden","true");
+    marco.setAttribute("tabindex","-1");
+    marco.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    document.body.appendChild(marco);
+  }
+  marco.onload=()=>{
+    try{marco.contentWindow.focus();marco.contentWindow.print()}
+    catch(err){alert("El navegador no dejó imprimir. Abre la vista previa y usa Archivo → Imprimir.")}
+  };
+  marco.srcdoc=paginaImpresa(d);
+}
+
+function reiniciar(){ESTADO.vista="recorrido";cerrarDoc();ESTADO.tarea=INICIAL;ESTADO.rastro=[INICIAL];ESTADO.datos={};pintar()}
 reiniciar();
 """
 
@@ -347,10 +611,14 @@ def generar(m: Manifiesto) -> str:
         f"const TRANSICIONES={_js(a.transiciones)};\n"
         f"const PASOS={_js(pasos)};\n"
         f"const INICIAL={_js(inicial)};\n"
-        "const ESTADO={tarea:INICIAL,rastro:[INICIAL],datos:{}};\n"
+        f"const DOCUMENTOS={_js(documentos_de(m))};\n"
+        f"const TRAMITE={_js(m.tramite.nombre)};\n"
+        "const ESTADO={tarea:INICIAL,rastro:[INICIAL],datos:{},vista:\"recorrido\"};\n"
     )
 
-    return f"""<title>Simulación — {e(m.tramite.nombre)}</title>
+    return f"""<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simulación — {e(m.tramite.nombre)}</title>
 <style>{_ESTILO}</style>
 <div class="layout">
 <div class="sim-sidebar">
