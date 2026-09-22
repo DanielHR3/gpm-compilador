@@ -113,6 +113,24 @@ buscar.
   Faltan dos cosas: derivarlo del expediente cuando se pueda, y **decirlo** —hoy no hay hueco
   que avise de que el tramite saldra invisible—. Mientras tanto se corrige a mano en el
   manifiesto (`publico: true`) o en la plataforma.
+- **P-19 — todos los documentos se generan al enviar la solicitud del ciudadano.** Comprobado en
+  plataforma el 2026-09-22 (proceso 1103): los **cinco** oficios de Prorroga cuelgan de «Nueva
+  Solicitud» con `instante: "despues"`. En cuanto el ciudadano envia, se generan a la vez el
+  oficio de prorroga, el de ampliacion y los **dos de rechazo**, antes de que nadie decida nada.
+
+  La forma autentica es otra: la accion es un objeto suelto y el enganche vive en los `Eventos`
+  de la tarea. En `constancia-de-no-infraccion` (misma direccion, hecha a mano) `crear-folio`
+  cuelga de la tarea del ciudadano y **`generar-constancia-pdf` cuelga de la tarea de validacion
+  del funcionario**.
+
+  **No es silencioso** —se emiten cinco `DOC-04` diciendo «se genera al terminar la tarea Nueva
+  Solicitud, la primera en la que...»— pero el nivel es `por_confirmar`, o sea que no bloquea, y
+  el valor por omision es indefendible: elegir la primera tarea con campos es adivinar, y adivina
+  mal siempre que el documento dependa de una decision.
+
+  **Propuesta, a decidir:** subir `DOC-04` a `falta_dato` y darle control en la pantalla para
+  elegir la tarea. Cambia la puerta del linter —un tramite con documentos dejaria de poder
+  descargarse hasta asignarlos—, y por eso no se hace sin aprobacion.
 - **P-18 — una integracion descrita en prosa no se detecta, y no se reporta.** El extractor busca
   integraciones solo en columnas dedicadas (`Dependencia`, `Endpoint / API`). El Diccionario de
   Prorroga no las tiene: documenta la consulta en la Descripcion —«Dispara la consulta a RENAPO
