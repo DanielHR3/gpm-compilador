@@ -45,6 +45,23 @@ buscar.
 
 ## Abiertos
 
+- **PLAT-11 — nombramos el grupo con una etiqueta legible, no con el identificador real.** El
+  extractor toma el nombre del carril del TO-BE y lo emite tal cual: `Direccion De Verificacion
+  Vehicular`. La plataforma usa **slugs**: `transparencia_admin`, `area_primer_contacto`,
+  `licitaciones_admin`, `verificacion_vehicular`. Comparacion A/B sobre el MISMO tramite:
+
+      Constancia de No Infraccion, hecha a mano:  ['verificacion_vehicular', 'grupo práctica']
+      Constancia de No Infraccion, generada:      ['Direccion De Verificacion Vehicular']
+
+  Consecuencia observada el 2026-09-22: las tareas del funcionario salen con `acceso_modo:
+  grupos_usuarios` **apuntando a un grupo que no existe**, asi que la restriccion no ata y
+  cualquiera puede llenarlas desde el portal del servidor publico. El usuario lo noto antes que
+  nosotros.
+
+  **Necesita una decision de alcance:** el catalogo de grupos vive en la plataforma y el
+  compilador no lo conoce. O se pide como hueco al analista, o se mantiene un mapa de
+  equivalencias, o se deja el nombre y se documenta que hay que reasignarlo tras importar. Hoy no
+  se avisa de nada.
 - **PLAT-10 — `init_capture` iba fijo en "0" y el portal rechazaba el arranque.** La plataforma
   contesto **403 «Usuario no puede iniciar este proceso»** al intentar arrancar Prorroga desde
   `tramites.hidalgo.gob.mx` (2026-09-21). `esquema.tarea` emitia `init_capture: "0"` para TODAS
