@@ -1,4 +1,4 @@
-import { Download, FileUp, History, ListChecks, MonitorPlay } from "lucide-react";
+import { BookOpen, Download, FileUp, History, ListChecks, MonitorPlay } from "lucide-react";
 
 import { cn } from "cn";
 
@@ -103,6 +103,12 @@ export default function NavegacionLateral({
             </span>
           </div>
         ) : null}
+        {/* Referencia, no un paso: va fuera de <nav aria-label="Proceso"> y se
+            alcanza sin expediente. Lista lo que el compilador sabe emitir. */}
+        <a href="/catalogos" className={cn(base, "text-white/70 hover:bg-white/10 hover:text-white")}>
+          <BookOpen aria-hidden className="size-5 shrink-0" />
+          <span className="max-lg:sr-only">Catálogos</span>
+        </a>
         <a href="/historial" className={cn(base, "text-white/70 hover:bg-white/10 hover:text-white")}>
           <History aria-hidden className="size-5 shrink-0" />
           <span className="max-lg:sr-only">Historial</span>

@@ -43,6 +43,15 @@ describe("NavegacionLateral", () => {
     ).toHaveAttribute("href", `/simulador/${sid}`);
   });
 
+  test("Catalogos esta siempre disponible y no es un paso del proceso", () => {
+    // Es referencia, no un paso: no puede marcar `aria-current="step"` ni
+    // depender de que haya expediente. Va junto a Historial.
+    render(<NavegacionLateral sid={null} />);
+    const enlace = screen.getByRole("link", { name: /catálogos/i });
+    expect(enlace).toHaveAttribute("href", "/catalogos");
+    expect(within(pasos()).queryByRole("link", { name: /catálogos/i })).toBeNull();
+  });
+
   test("Historial esta siempre disponible", () => {
     render(<NavegacionLateral sid={null} />);
 

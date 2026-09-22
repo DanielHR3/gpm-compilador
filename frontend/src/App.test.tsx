@@ -14,6 +14,10 @@ vi.mock("@/lib/api", () => ({
   decidirPropuesta: vi.fn(),
   crearExpediente: vi.fn(),
   leerExpediente: vi.fn(),
+  leerCatalogos: vi.fn().mockResolvedValue({
+    catalogos: [],
+    nota: "Solo se listan los endpoints que el compilador emite.",
+  }),
   resolver: vi.fn(),
   reconocer: vi.fn(),
   urlGpm: () => "/api/v1/x/gpm",
@@ -46,6 +50,21 @@ describe("App (SPA SP1)", () => {
     expect(
       await screen.findByText("el expediente se guardo"),
     ).toBeInTheDocument();
+  });
+
+  it("en /catalogos pinta la seccion de catalogos y no la carga de insumos", async () => {
+    // Otras pruebas de este archivo asumen pathname "/": la ruta se fija
+    // aqui y se restaura al final, no en un beforeEach global.
+    window.history.replaceState({}, "", "/catalogos");
+    try {
+      render(<App />);
+      // `AppHeader` pinta el titulo en un <span>, asi que el unico heading
+      // llamado «Catálogos» es el <h1> de la vista.
+      expect(await screen.findByRole("heading", { name: /catálogos/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /extraer/i })).toBeNull();
+    } finally {
+      window.history.replaceState({}, "", "/");
+    }
   });
 
   it("la navegación del proceso acompaña a la pantalla de carga", () => {
