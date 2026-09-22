@@ -149,6 +149,12 @@ buscar.
   La forma autentica es un campo aparte, `tipo: api_ajax`, que se dispara con `blur` sobre el
   campo de la CURP y escribe en tres campos: `nombres`, `apePat`, `apeMat`.
 
+  **Confirmado en la plataforma el 2026-09-22** (acta
+  `actas/2026-09-22-componentes-de-script-en-el-modelador.md`): el panel Scripts lista
+  `Javascript`, `Redireccion`, `Api ajax` y `Api variable` como **cuatro entradas distintas**, y
+  el formulario de *Api ajax* —titulado «Edicion de Web service Ajax»— mapea uno a uno con el
+  `extra` del export autentico.
+
   **Decision pendiente antes de implementar:** el Diccionario de Prorroga declara UN solo campo
   `@@nombre_propietario` y SIPUBEH devuelve los tres por separado. O se parte en tres, o se
   escribe solo `nombres`. Eso lo decide Simplificacion.
