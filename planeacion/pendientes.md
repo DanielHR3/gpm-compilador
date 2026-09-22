@@ -131,6 +131,24 @@ buscar.
   **Propuesta, a decidir:** subir `DOC-04` a `falta_dato` y darle control en la pantalla para
   elegir la tarea. Cambia la puerta del linter —un tramite con documentos dejaria de poder
   descargarse hasta asignarlos—, y por eso no se hace sin aprobacion.
+- **P-21 — el catalogo de endpoints se queda corto frente al de la Direccion.** `integraciones.py`
+  conoce **4** catalogos (mgee, mgem, zip_codes, consultacurpn). El «Catalogo Maestro de APIs para
+  Tramites Gubernamentales» de la boveda (2026-08-11) documenta **38 APIs, 21 con endpoint**, casi
+  todas oficiales y gratuitas: REPUVE, CFDI del SAT, padron de notarias, CCT de escuelas, COFEPRIS,
+  cedula profesional, codigos postales alternos.
+
+  Lo que pidio el usuario el 2026-09-22: **que se puedan seleccionar, o ponerse automaticamente**.
+  Dos mitades distintas:
+  - *Automatico*: ampliar `CATALOGOS` y `SINONIMOS` para que un Diccionario que escriba «REPUVE» o
+    «CURP» resuelva solo. Es lo barato y no necesita interfaz.
+  - *Seleccionable*: cuando el extractor no puede decidir, ofrecer la lista al analista en la
+    pantalla, como ya se hace con el campo de `DIC-08`. Necesita control nuevo.
+
+  **Cuidado al ampliarlo:** las cuatro entradas de hoy salen del export autentico, o sea que son
+  las que GPM usa de verdad. El catalogo de la Direccion es una referencia mas amplia y trae
+  endpoints que la plataforma no ha usado nunca, y otros de pago (Tlaloc, ApiMarket) que van a
+  `API-05` por el invariante. No sustituir una URL observada por una del documento sin prueba.
+
 - **P-20 — el autollenado por CURP se puede emitir, y nuestra URL no coincide con la autentica.**
   La «cuestion abierta» de `CLAUDE.md` (`Api variable` frente a `api_ajax`) **queda contestada el
   2026-09-22**: la captura del disenador de la plataforma muestra **«Api ajax» y «Api variable»

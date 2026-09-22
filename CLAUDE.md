@@ -112,7 +112,10 @@ Son reglas de calidad, no configurables:
 - **No se genera configuración de firma electrónica.** Ningún archivo de referencia disponible
   tiene una firma real configurada; no se infiere una.
 - **No se emiten los componentes `Api variable`, `Javascript` ni `Redirección`.** Los dos últimos
-  evalúan control de flujo en el navegador.
+  evalúan control de flujo en el navegador. **`api_ajax` NO está en esta lista** y sí se emite,
+  pero **solo contra endpoints públicos** (INEGI, SEPOMEX, SIPUBEH). Uno que exija token se
+  reporta como hueco `API-05` y se resuelve con una Acción PHP: la llave no viaja al navegador.
+  Ver la cuestión resuelta más abajo.
 - **El validador propone, no adivina.** Lo que no puede derivarse de los insumos se reporta como
   hueco, nunca se rellena por inferencia silenciosa.
 - **Una condición de visibilidad solo puede mirar un campo de la misma pantalla o de una
@@ -129,46 +132,47 @@ Son reglas de calidad, no configurables:
   `dependiente_campo`, que es la forma de los exports. Una condición compuesta o ambigua se
   reporta como hueco `DIC-08` y el campo queda siempre visible — no se infiere la regla.
 
-## Cuestión abierta: `Api variable` frente a `api_ajax`
+## Cuestión resuelta: `Api variable` frente a `api_ajax` (2026-09-22)
 
-**No se resuelve leyendo archivos. Requiere una respuesta humana.**
+**Son componentes DISTINTOS. `api_ajax` se puede emitir.**
 
-El invariante de arriba prohíbe emitir el componente `Api variable`. Pero el export auténtico
-`acceso-informacion-publica.gpm` **sí contiene** un campo de tipo `api_ajax`, con su
-configuración completa: la URL de SIPUBEH, el evento `blur` que lo dispara y los tres campos
-que autocompleta a partir de la CURP.
+Esta pregunta estuvo abierta desde agosto porque no se resolvía leyendo archivos: hacía falta
+alguien con la plataforma abierta que viera cómo se llama cada componente en su catálogo. Se hizo
+el 2026-09-22 sobre el proceso 1103, y hay acta:
+`planeacion/actas/2026-09-22-componentes-de-script-en-el-modelador.md`.
 
-La pregunta es si son el mismo componente:
+El panel **Scripts** del diseñador de vistas lista cuatro entradas separadas: `Javascript`,
+`Redirección`, `Api ajax` y `Api variable`. El invariante prohíbe las otras tres por nombre y no
+menciona `api_ajax`, así que no hay conflicto.
 
-- Si **`Api variable` == `api_ajax`**, el invariante prohíbe algo que la plataforma produce por
-  su cuenta, y hay que decidir si se relaja y bajo qué condición.
-- Si **son distintos**, no hay conflicto: `api_ajax` puede emitirse y el invariante sigue
-  cubriendo otro componente.
+**La condición que sí se mantiene:** solo endpoints públicos. INEGI, SEPOMEX y SIPUBEH responden
+sin credencial (verificado el 2026-08-28). SAT, RENAPO directo y los de pago (Tláloc, ApiMarket)
+no: se reportan como hueco `API-05` y se resuelven con una Acción PHP, porque una llave en una
+llamada del navegador queda a la vista de cualquiera que abra las herramientas de desarrollo.
 
-La redacción sugiere lo segundo —la justificación dice "los dos últimos evalúan control de flujo
-en el navegador", que solo cubre `Javascript` y `Redirección`— pero eso es una lectura, no una
-confirmación. Lo sabe quien tenga la plataforma abierta y vea cómo se llama cada componente en
-su catálogo.
+**La forma de un `api_ajax`**, confirmada por los dos lados —el `extra` del `api_curp_trigger` de
+`acceso-informacion-publica.gpm` y el formulario «Edición de Web service Ajax» de la plataforma—:
 
-**Consecuencia mientras siga abierta:** la Fase A emite catálogos remotos por URL (que son
-campos `select` normales, sin componente prohibido y sin credencial) y **no** emite el
-autollenado por CURP. Un campo que lo declare se reporta como hueco `API-04` y queda de captura
-manual.
+| En el formulario | En el `.gpm` |
+| --- | --- |
+| URL de afectación/consulta | `url` |
+| Método | `request` |
+| Nombre del campo · Valor · Variable en la misma vista | `campos` · `valores` · `tipo` |
+| Prefijo de respuesta | `prefijo` |
+| Eventos para ejecutar el Ajax | `get_campos` · `get_tipo` · `get_valores` |
+| Cargar datos del ajax | `get_value_campos` · `get_value_tipo` · `get_value_valores` |
 
-**Si se resuelve que sí se puede emitir, la regla no es "emitirlo siempre":** solo endpoints
-públicos. INEGI, SEPOMEX y SIPUBEH responden sin credencial (verificado el 2026-08-28). RENAPO y
-SAT no, y `guia_modelado_gpm.md` es explícita al respecto —"no insertes tokens de APIs en campos
-`api_ajax`; toda llamada autenticada hazla a través de `Acciones` de tipo PHP"—, en línea con el
-riesgo `SEG-04` del dictamen interno, que en una línea es esto: una credencial puesta en una
-llamada que hace el navegador queda a la vista de cualquiera que abra las herramientas de
-desarrollo.
+**El prefijo y la flecha.** La nota del propio formulario explica que el prefijo evita pisar
+resultados entre dos consultas al mismo servicio, y que los datos se citan como
+`@@prefijo->campo` (su ejemplo: `@@hijo->nombres` y `@@padre->nombres`). Eso explica de dónde
+salía la creencia de `guia_modelado_gpm.md` sobre la sintaxis `->` **sin contradecir** la prueba
+del 2026-08-31: la flecha lee un dato dentro de una respuesta de webservice, no compara un
+`select`. Las dos conclusiones siguen en pie y `SINTAXIS_ESTRICTA` se queda en `False`.
 
-Esto **supersede la sección 7 del `Diseño técnico`**, que contemplaba un `apis.yaml` central y
-emitir la cabecera `Authorization` en el cliente. No se hace: un endpoint autenticado conocido
-(`nucleo/integraciones.APIS_CON_TOKEN` — SAT, TLÁLOC…) se reporta como hueco **`API-05`** y el
-trámite lo resuelve con una Acción PHP escrita a mano (que además está fuera de alcance del
-compilador). El validador conserva `CRED-01` (aviso) como red para un `.gpm` editado a mano que
-sí traiga un `Authorization`.
+**El catálogo de endpoints** vive en `nucleo/integraciones.py`. Su referencia ampliada es
+«Catálogo Maestro de APIs para Trámites Gubernamentales» (bóveda de la Dirección, 2026-08-11):
+38 APIs, de las que 21 traen endpoint. Antes de añadir una, la regla es la de siempre — que sea
+pública y gratuita, o va a `API-05`.
 
 ## Cuestión resuelta: `SINTAXIS_ESTRICTA` (2026-08-31)
 

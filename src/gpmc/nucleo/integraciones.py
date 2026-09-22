@@ -22,6 +22,11 @@ class Catalogo:
     etiqueta: str         # la clave que se MUESTRA
     valor: str            # la clave que se GUARDA
     requiere_padre: bool = False
+    # Para un autollenado (`api_ajax`): que claves de la respuesta se escriben
+    # en campos del formulario. Vacio para un catalogo normal, que solo pinta
+    # una lista. SIPUBEH devuelve nombre y apellidos por separado, y quedarse
+    # solo con `nombres` deja el tramite a medias.
+    campos_respuesta: tuple = ()
 
     def url_para(self, padre: Optional[str]) -> str:
         """La URL lista para el .gpm. La plataforma interpola @@campo en tiempo
@@ -53,11 +58,18 @@ CATALOGOS = {
             nodo="zip_codes", etiqueta="d_asenta", valor="d_asenta",
             requiere_padre=True,
         ),
+        # La CURP viaja como PARAMETRO, no dentro de la ruta, y el camino es
+        # `/efirma/api/`. Lo dicen dos fuentes independientes: el `extra` del
+        # `api_curp_trigger` de `acceso-informacion-publica.gpm`, y el «Catalogo
+        # Maestro de APIs» de la Direccion (2026-08-11), que ademas documenta la
+        # respuesta completa. La version anterior —`/api/consultacurpn/@@{padre}`—
+        # no coincidia con ninguna de las dos.
         Catalogo(
             clave="consultacurpn", proveedor="SIPUBEH",
-            url="https://sipubeh.hidalgo.gob.mx/api/consultacurpn/@@{padre}",
+            url="https://sipubeh.hidalgo.gob.mx/efirma/api/consultacurpn?curp=@@{padre}",
             nodo="data", etiqueta="nombres", valor="nombres",
             requiere_padre=True,
+            campos_respuesta=("nombres", "apePat", "apeMat"),
         ),
     )
 }

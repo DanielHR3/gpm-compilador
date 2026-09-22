@@ -60,3 +60,29 @@ def test_los_endpoints_con_token_se_reconocen():
     assert requiere_token("mgee") is False        # público, registrado
     assert requiere_token("cualquier_cosa") is False
     assert requiere_token(None) is False
+
+
+def test_la_url_de_sipubeh_es_la_que_usa_la_plataforma():
+    """Dos fuentes independientes coinciden, y ninguna es la que teniamos:
+
+    - el export autentico `acceso-informacion-publica.gpm`, en el `extra` de su
+      campo `api_curp_trigger`;
+    - el «Catalogo Maestro de APIs» de la Direccion (2026-08-11), que ademas
+      documenta la respuesta.
+
+    Las dos dicen `/efirma/api/consultacurpn` con la CURP como **parametro de
+    consulta**. Nosotros teniamos `/api/consultacurpn/` con la CURP pegada a la
+    ruta: otro camino y otra forma de llamar. Habria fallado al primer intento.
+    """
+    from gpmc.nucleo.integraciones import CATALOGOS
+    c = CATALOGOS["consultacurpn"]
+    assert c.url.startswith("https://sipubeh.hidalgo.gob.mx/efirma/api/consultacurpn")
+    assert "curp=" in c.url, "la CURP viaja como parametro, no dentro de la ruta"
+
+
+def test_sipubeh_declara_los_tres_campos_del_nombre():
+    # SIPUBEH devuelve `nombres`, `apePat` y `apeMat` por separado. Un
+    # autollenado que solo escriba `nombres` deja el tramite a medias.
+    from gpmc.nucleo.integraciones import CATALOGOS
+    c = CATALOGOS["consultacurpn"]
+    assert c.campos_respuesta == ("nombres", "apePat", "apeMat")
