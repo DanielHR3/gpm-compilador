@@ -47,7 +47,8 @@ src/gpmc/
 │   └── reglas.py         hallazgos EST-* (estructura y limite de columna), FOLIO-*, de escapado y de credenciales
 ├── simulador/
 │   ├── analisis.py       analisis estatico del flujo (tareas inalcanzables, ramas muertas, bucles)
-│   └── html.py           recorrido navegable del tramite
+│   ├── documentos.py     las acciones `documento` con su tarea, instante y legibilidad de la plantilla
+│   └── html.py           recorrido navegable del tramite + vista «Documentos»
 ├── planeacion/
 │   ├── registro.py       mide el ciclo real de cada tramite
 │   └── proyeccion.py     proyecta capacidad y tiempo
@@ -488,3 +489,42 @@ Dieciséis entregas en `main`. Lo que hay que saber antes de tocar esta zona:
   lectura» ese `@@` suele ser una *referencia* a otro campo, no el nombre propio: en Reposición de
   Certificado produjo **ocho** nombres técnicos duplicados y tres campos llamados
   `@@estatus_tramite`, de los que ganaba uno sin catálogo. **Sigue abierto.**
+
+### 9. Catálogos, documentos y descargas (2026-09-22)
+
+Veinticinco entregas en `main`. Lo que hay que saber antes de tocar esta zona:
+
+- **Registro de endpoints (`nucleo/integraciones.py`).** Cada `Catalogo` lleva `tipo`
+  (`"catalogo"` | `"consulta"`) y `campos_respuesta`. `clave_de()` resuelve los sinónimos con que
+  un Diccionario lo escribe («CURP», «consulta curp» → `consultacurpn`); un token desconocido se
+  devuelve tal cual para que `API-01` sobreviva. `PROPUESTAS` guarda lo de pago o convenio (SAT,
+  RENAPO directo, REPUVE, INE, Tláloc, codigos.zip) y **nunca sale en `GET /api/v1/catalogos`**
+  (decisión del 2026-09-22: se configura en la plataforma; listarlo invitaría a esperar que salga
+  solo). Un endpoint de `PROPUESTAS` citado en el Diccionario produce `API-05` **con el nombre del
+  servicio**, no silencio. La URL de SIPUBEH es `…/efirma/api/consultacurpn?curp=@@…`
+  (acta `2026-09-22-componentes-de-script-en-el-modelador.md`).
+- **Casamiento tarea–pantalla (`extractores/expediente._mapear_nodos_a_pantallas`).** Se compara
+  también **sin la nota entre paréntesis** al final del nombre de la pantalla
+  («… (consulta manual FUERA de GPM)»), y solo cuando el nombre sin nota es único. Sin esto,
+  Reposición caía a `FLU-01` por culpa nuestra, no del diagrama.
+- **Documentos en el simulador (`simulador/documentos.py`).** `documentos_de(m)` junta cada acción
+  `documento` con la tarea que la dispara (`acciones_antes`/`acciones_despues`). Estado de la
+  plantilla: `sin_plantilla`, `ilegible` (menos de **8** palabras de cuatro letras o más — medido
+  sobre las siete plantillas reales: 0 y 1 en las rotas, 62–181 en las buenas) o `legible`.
+  **Se enseña tal cual y nada se rellena:** ninguna plantilla real trae `{{variables}}` (P-23).
+  La descarga imprime desde un iframe oculto (`paginaImpresa`), sin librería ni ventana emergente.
+  La página lleva `<meta charset="utf-8">` y **sigue sin doctype**: `test_simulador` fija que el
+  artefacto es un fragmento a propósito.
+- **Panel de descargas (`frontend/src/features/entrega/`).** `descargasDe()` es la regla, aparte
+  del componente: **solo los dos `.gpm` se cierran** por el linter; observaciones y manifiesto
+  salen siempre (hacen más falta cuando algo bloquea). La vista previa del `.gpm` se pide al
+  servidor —es el mismo byte a byte— y se sangra para leerlo; la cabecera dice que el archivo va
+  en una sola línea. El manifiesto lleva `download` porque el servidor no manda
+  `Content-Disposition`. `#entrega` vive en el panel: al montar con ese hash se hace scroll a
+  mano (el navegador resuelve el ancla antes de que la SPA pinte); el destello de aterrizaje se
+  apaga **por reloj** (`MS_DESTELLO` = 1200 ms, acoplado a `destello-entrega` en `index.css`), no
+  por `animationend`, que con movimiento reducido nunca llega. `RielEntrega` es semáforo más
+  «Abrir simulador» y «Abrir aprobación»: **la aprobación no tiene otra puerta en la SPA**.
+- **Regla de negocio, pendiente de la respuesta de Simplificación (P-23):** una plantilla de
+  documento debe traer `{{campo}}` con nombres técnicos del Diccionario; el compilador no adivina
+  dónde va un dato y no emite variables que no existan (`DOC-02`).
