@@ -70,8 +70,13 @@ buscar.
   Infraestructura con esta lista y el `systemd`/`Dockerfile` equivalentes al `plist`.
   **Experimento pendiente (2026-09-22, tarde):** la Mac se anuncia por mDNS y el servicio
   contesta por nombre —`http://MacBook-Pro-de-Daniel.local:8000` da 200 desde la propia Mac—.
-  Falta probarlo **desde una PC del equipo**: Windows 10/11 resuelven `.local` de fabrica, pero
-  algunas redes lo bloquean entre segmentos. Si abre, se acaba lo de mandar la IP sin pedir nada
+  **Probado el 2026-09-22 desde el celular del usuario: abre.** Eso confirma que el anuncio sale
+  de la Mac y cruza la red, pero es el caso facil (mismo segmento Wi-Fi, y iOS resuelve mDNS de
+  fabrica). **Falta la prueba que decide: una PC con Windows del equipo, en la red cableada.**
+  Windows 10/11 resuelven `.local` de fabrica, pero algunas redes lo bloquean entre segmentos.
+  Si queda, conviene renombrar el host a `compilador-gpm` (Ajustes → General → Compartir →
+  Nombre de host local) para que la liga sea presentable en la guia: `http://compilador-gpm.local:8000`.
+  Al renombrar, la liga vieja deja de funcionar. Si abre, se acaba lo de mandar la IP sin pedir nada
   a nadie. Lo que no arregla: la Mac esta en Wi-Fi con reposo a 1 minuto (hoy no se duerme solo
   porque otros procesos lo impiden); una maquina fija, por cable y encendida resuelve lo mismo
   que la VM. La VM que pediria la opcion 2 es minima: 1 CPU, 2 GB, 10 GB, Debian/Ubuntu.
