@@ -49,26 +49,34 @@ El catálogo de la Dirección mezcla dos cosas que el registro actual no disting
 Se añade `tipo: Literal["catalogo", "consulta"]` a `Catalogo`. Las cuatro entradas actuales quedan
 como `catalogo` salvo SIPUBEH, que pasa a `consulta`.
 
-### Qué entra
+### Qué entra — y lo que la autorrevisión descartó
 
 Del «Catálogo Maestro de APIs» (bóveda, 2026-08-11), solo lo que es **oficial, gratuito y sin
-token**, y solo si no hay ya una forma observada para lo mismo:
+token**, y solo si no hay ya una forma observada para lo mismo. Al revisar el documento entrada
+por entrada, **ninguna candidata nueva cumple las tres condiciones con lo que hay escrito**:
 
-| Entra | Como | Por qué |
-| --- | --- | --- |
-| INEGI estados/municipios, SEPOMEX, SIPUBEH | ya están | forma observada |
-| `codigos.zip` (códigos postales) | `catalogo`, alternativa a SEPOMEX | gratuito, sin token, 1 000 req/hora |
-| Padrón de notarías (`datos.gob.mx`) | `catalogo` | oficial, gratuito, lista |
-| CCT de escuelas (`datos.gob.mx`) | `catalogo` | oficial, gratuito, lista |
+| Candidata | Por qué NO entra como emitible |
+| --- | --- |
+| `codigos.zip` (códigos postales) | «1 000 req/hora **con API Key**»: pide llave. Va a `APIS_CON_TOKEN` |
+| Padrón de notarías (`datos.gob.mx`) | El endpoint documentado lleva `resource_id=notarias-indaabin`, un **marcador**, no un identificador real (son UUID). Sin forma de respuesta |
+| CCT de escuelas (`datos.gob.mx`) | `resource_id=cct_sep_resource_id`, literalmente un marcador |
 
-**Cada entrada nueva lleva en su comentario la fuente y la fecha**, como las de hoy.
+Así que el registro emitible **sigue en cuatro**: INEGI estados, INEGI municipios, SEPOMEX y
+SIPUBEH, todos con forma observada. Lo que A entrega no es «más endpoints» sino:
+
+1. la distinción `catalogo` / `consulta` en el modelo;
+2. `SINONIMOS` ampliado con lo que un Diccionario escribe de verdad;
+3. que los de pago, llave o convenio queden **registrados** y produzcan `API-05` con un mensaje que
+   diga qué son y por qué no se emiten, en vez de silencio.
+
+Si más adelante alguien verifica el `resource_id` real de notarías o del CCT y su forma de
+respuesta, entran con una prueba y el comentario de fuente y fecha, como las de hoy.
 
 ### Qué se queda fuera, y dónde
 
-Tláloc (CURP con defunción, RFC), ApiMarket (REPUVE), INE, y todo lo de convenio o pago. **No
-aparecen en la sección**; se registran en `APIS_CON_TOKEN` con la nota «propuesta pendiente de
-convenio», para que un Diccionario que escriba «REPUVE» produzca `API-05` con un mensaje que diga
-qué es y por qué no se emite.
+Tláloc (CURP con defunción, RFC), ApiMarket (REPUVE), INE, `codigos.zip`, y todo lo de convenio,
+llave o pago. **No aparecen en la sección**; se registran en `APIS_CON_TOKEN` con la nota
+«propuesta pendiente de convenio», para que un Diccionario que escriba «REPUVE» produzca `API-05`.
 
 ### Sinónimos
 
