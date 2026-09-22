@@ -45,6 +45,30 @@ buscar.
 
 ## Abiertos
 
+- **P-24 — el servidor vive en una laptop y la liga cambia de IP cada vez que se reconecta.**
+  Tres cambios en dos dias (`.215` → `.220` → `.215` → `.220`); cada uno obliga a reenviar la
+  liga y a regenerar el PDF de la guia. Pedido el 2026-09-22 por el usuario: «empezar a pensar
+  en subirlo a algun lugar». Lo que hay hoy: un agente `launchd` en la Mac
+  (`despliegue/local.gpmc.servidor.plist`), sin Docker, sin `systemd`, sin nombre DNS.
+  Lo que la app necesita del sitio que la reciba —medido, no supuesto—: Python ≥ 3.9 con
+  `pydantic` y `pyyaml` (el resto es opcional: FastAPI/uvicorn para servir, el SDK de Gemini
+  solo si hay llave); **ninguna base de datos**: el estado son carpetas de sesion en disco con
+  purga a 7 dias; un solo proceso; el frontend va compilado (Node solo en el build, no en
+  runtime; `GPMC_FRONTEND_DIST` apunta al `dist/`); logs con rotacion ya resueltos
+  (`GPMC_LOG_*`); salida a internet **desde el servidor** unicamente hacia Gemini (si se
+  activa la Fase 2); los catalogos publicos (INEGI, SEPOMEX, SIPUBEH) los pide **el navegador
+  del analista**, asi que su maquina tambien necesita salida. **No hay login**: hoy lo abre
+  cualquiera en la red. Restriccion que no se negocia: los expedientes llevan datos de
+  ciudadanos —el 22-sep aparecio un certificado escaneado con placa y serie de un vehiculo
+  real dentro de una plantilla— asi que **tiene que quedar dentro de la red de gobierno**,
+  no en una nube publica ni detras de un tunel. Depende de P-22 (el codigo se desplegaria
+  desde Bitbucket, no desde la cuenta personal). Opciones, de menor a mayor esfuerzo:
+  (a) nombre DNS interno o IP fija para esta Mac —ya pedido a Infraestructura; no arregla que
+  la Mac se apague—; (b) una VM Linux de la DGT con `systemd` + `nginx` + nombre interno, que es
+  el destino para el que se diseno la SPA; (c) imagen Docker como forma de entrega para (b).
+  **Sin decidir. Primer paso concreto cuando se decida:** escribir la ficha de despliegue para
+  Infraestructura con esta lista y el `systemd`/`Dockerfile` equivalentes al `plist`.
+
 - **P-23 — ninguna plantilla de documento de los expedientes reales trae `{{variables}}`.**
   Medido el 2026-09-22 sobre los dos expedientes del lote (`Archivo (1)`), las siete acciones
   de tipo `documento` tienen **cero** marcas `{{...}}` y `variables: []`:
