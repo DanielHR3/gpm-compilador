@@ -68,6 +68,13 @@ buscar.
   el destino para el que se diseno la SPA; (c) imagen Docker como forma de entrega para (b).
   **Sin decidir. Primer paso concreto cuando se decida:** escribir la ficha de despliegue para
   Infraestructura con esta lista y el `systemd`/`Dockerfile` equivalentes al `plist`.
+  **Experimento pendiente (2026-09-22, tarde):** la Mac se anuncia por mDNS y el servicio
+  contesta por nombre —`http://MacBook-Pro-de-Daniel.local:8000` da 200 desde la propia Mac—.
+  Falta probarlo **desde una PC del equipo**: Windows 10/11 resuelven `.local` de fabrica, pero
+  algunas redes lo bloquean entre segmentos. Si abre, se acaba lo de mandar la IP sin pedir nada
+  a nadie. Lo que no arregla: la Mac esta en Wi-Fi con reposo a 1 minuto (hoy no se duerme solo
+  porque otros procesos lo impiden); una maquina fija, por cable y encendida resuelve lo mismo
+  que la VM. La VM que pediria la opcion 2 es minima: 1 CPU, 2 GB, 10 GB, Debian/Ubuntu.
 
 - **P-23 — ninguna plantilla de documento de los expedientes reales trae `{{variables}}`.**
   Medido el 2026-09-22 sobre los dos expedientes del lote (`Archivo (1)`), las siete acciones
