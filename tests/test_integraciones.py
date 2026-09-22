@@ -106,3 +106,33 @@ def test_una_consulta_declara_que_devuelve_y_un_catalogo_no():
     from gpmc.nucleo.integraciones import CATALOGOS
     assert CATALOGOS["consultacurpn"].campos_respuesta == ("nombres", "apePat", "apeMat")
     assert CATALOGOS["mgee"].campos_respuesta == ()
+
+
+import pytest
+
+
+@pytest.mark.parametrize("texto,clave", [
+    ("CURP", "consultacurpn"),
+    ("curp", "consultacurpn"),
+    ("Código Postal", "zip_codes"),
+    ("codigo postal", "zip_codes"),
+    ("CP", "zip_codes"),
+    ("colonia", "zip_codes"),
+    ("Municipio", "mgem"),
+    ("estado", "mgee"),
+    ("INEGI", "mgee"),
+    ("`mgem` (INEGI)", "mgem"),
+    ("mgee", "mgee"),
+])
+def test_clave_de_resuelve_lo_que_escribe_un_diccionario(texto, clave):
+    # Los Diccionarios escriben el proveedor o el concepto —«CURP», «Código
+    # Postal»—, no la clave tecnica. Y lo escriben con acentos y mayusculas.
+    from gpmc.nucleo.integraciones import clave_de
+    assert clave_de(texto) == clave
+
+
+def test_clave_de_no_inventa():
+    from gpmc.nucleo.integraciones import clave_de
+    assert clave_de("consultarfc") is None
+    assert clave_de("") is None
+    assert clave_de(None) is None

@@ -80,17 +80,44 @@ CATALOGOS = {
     )
 }
 
-# Sinonimos: los Diccionarios del equipo de Simplificacion escriben el nombre
-# del proveedor ("INEGI", "SEPOMEX") en vez de la clave tecnica del endpoint.
-# Sin este mapeo, el compilador no los reconoce y emite huecos API-01 falsos.
-# Cada sinonimo apunta a la clave por omision del proveedor: si un proveedor
-# tiene mas de un endpoint, el Diccionario debe usar la clave tecnica exacta
-# ("mgee" o "mgem"), no el nombre del proveedor, o aclarar cual.
+# Sinonimos: lo que un Diccionario escribe de verdad, no la clave tecnica.
+# Se resuelven sin acentos ni mayusculas. Un proveedor con dos endpoints
+# (INEGI) cae al que no requiere padre; "municipio" y "mgem" van al que si.
 SINONIMOS = {
-    "inegi": "mgee",          # estados; "mgem" requiere padre, se resuelve aparte
-    "sepomex": "zip_codes",
-    "sipubeh": "consultacurpn",
+    "inegi": "mgee", "estado": "mgee", "entidad": "mgee",
+    "municipio": "mgem",
+    "sepomex": "zip_codes", "codigo postal": "zip_codes", "cp": "zip_codes",
+    "colonia": "zip_codes",
+    "sipubeh": "consultacurpn", "curp": "consultacurpn",
 }
+
+
+def _normalizar(texto: str) -> str:
+    import unicodedata
+    sin_acentos = "".join(
+        ch for ch in unicodedata.normalize("NFD", texto) if unicodedata.category(ch) != "Mn"
+    )
+    return " ".join(sin_acentos.lower().split())
+
+
+def clave_de(texto: Optional[str]) -> Optional[str]:
+    """Clave tecnica a partir de una clave o de una frase del Diccionario.
+
+    Acepta «mgem», «`mgem` (INEGI)», «Código Postal» o «CURP». Devuelve None
+    para lo que no conoce: el compilador lo reporta como API-01 en vez de
+    inventar una URL.
+    """
+    if not texto:
+        return None
+    limpio = _normalizar(texto.replace("`", ""))
+    # Primero la clave tecnica sola o seguida de su proveedor entre parentesis.
+    primera = limpio.split("(")[0].strip()
+    if primera in CATALOGOS:
+        return primera
+    if primera in SINONIMOS:
+        return SINONIMOS[primera]
+    return None
+
 
 # Endpoints conocidos que EXIGEN token. El diseño (sección 7) contemplaba
 # emitirlos como `Api ajax` con la cabecera Authorization en el cliente; el
@@ -104,8 +131,8 @@ APIS_CON_TOKEN = frozenset({"sat", "tlaloc_curp", "tlaloc", "renapo_directo"})
 def resolver(clave: Optional[str]) -> Optional[Catalogo]:
     """Un endpoint no registrado devuelve None: el compilador lo reporta como
     hueco API-01 en vez de inventar una URL."""
-    normalizada = (clave or "").strip().lower()
-    return CATALOGOS.get(normalizada) or CATALOGOS.get(SINONIMOS.get(normalizada, ""))
+    resuelta = clave_de(clave)
+    return CATALOGOS.get(resuelta) if resuelta else None
 
 
 def requiere_token(clave: Optional[str]) -> bool:

@@ -18,6 +18,7 @@ from collections import Counter
 import unicodedata
 from dataclasses import dataclass, field
 
+from gpmc.nucleo.integraciones import clave_de as _clave_de, resolver as _resolver
 from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.limites import LIMITE_CAMPO_NOMBRE as LIMITE_NOMBRE_CAMPO
@@ -126,13 +127,22 @@ def _limpiar_celda(celda: str) -> str:
 
 
 def _clave_endpoint(celda: str) -> Optional[str]:
-    """'`mgem` (INEGI)' -> 'mgem'. El proveedor entre parentesis es informativo:
-    el registro de nucleo/integraciones ya sabe de quien es cada endpoint."""
+    """'`mgem` (INEGI)' -> 'mgem'; «Código Postal» -> 'zip_codes'.
+
+    Primero el token tecnico, como siempre. Si no resuelve, se prueba la celda
+    entera como frase del Diccionario. Y si tampoco, se devuelve el TOKEN
+    crudo, no None: `expediente.py` salta los campos sin endpoint, y un
+    endpoint desconocido tiene que llegar hasta alli para producir API-01.
+    N/A y vacio si devuelven None.
+    """
     limpio = _limpiar_celda(celda)
     if not limpio or limpio.upper() == "N/A":
         return None
     m = _ENDPOINT.match(limpio)
-    return m.group(1) if m else None
+    token = m.group(1) if m else None
+    # Se devuelve la clave CANONICA («CURP» -> consultacurpn), no el token
+    # crudo: es lo que va al manifiesto y lo que emite el compilador.
+    return _clave_de(token) or _clave_de(limpio) or token
 
 
 def _tipo_de(componente: str, tipo_dato: str) -> str:

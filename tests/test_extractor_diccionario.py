@@ -1233,3 +1233,23 @@ def test_un_ejemplo_vacio_o_N_A_no_inventa_ayuda():
     # El contrapeso: «N/A» como pista debajo del campo seria peor que nada.
     texto = MUESTRA.replace("| GAGL651506HDFRNN01 |", "| N/A |")
     assert _campo(extraer(texto), "curp_testador").ayuda is None
+
+
+def test_un_endpoint_escrito_como_concepto_se_resuelve():
+    """El Diccionario hibrido escribe `\\`mgem\\` (INEGI)`; el estandar, cuando
+    trae columna Endpoint, escribe «Código Postal» o «CURP». El extractor solo
+    entendia la primera forma."""
+    from gpmc.extractores.diccionario import _clave_endpoint
+    assert _clave_endpoint("`mgem` (INEGI)") == "mgem"
+    assert _clave_endpoint("Código Postal") == "zip_codes"
+    assert _clave_endpoint("CURP") == "consultacurpn"
+    assert _clave_endpoint("N/A") is None
+
+
+def test_un_endpoint_desconocido_sigue_llegando_como_texto():
+    # El contrapeso: si lo desconocido volviera como None, `expediente.py`
+    # lo saltaria (`if not c.endpoint: continue`) y el hueco API-01 «no esta
+    # en el registro» desapareceria. Tiene que llegar como el token crudo.
+    from gpmc.extractores.diccionario import _clave_endpoint
+    assert _clave_endpoint("`consultarfc` (SAT)") == "consultarfc"
+    assert _clave_endpoint("REPUVE") == "REPUVE"
