@@ -181,6 +181,24 @@ export async function crearExpediente(
 }
 
 /** `GET /api/v1/expedientes/{sid}`. */
+export interface CatalogoOut {
+  clave: string;
+  proveedor: string;
+  tipo: "catalogo" | "consulta";
+  url: string;
+  sinonimos: string[];
+  campos_respuesta: string[];
+}
+export interface CatalogosOut {
+  catalogos: CatalogoOut[];
+  nota: string;
+}
+
+/** `GET /api/v1/catalogos` — lo que el compilador sabe emitir. Solo lectura. */
+export async function leerCatalogos(): Promise<CatalogosOut> {
+  return pedirJson(`${BASE}/catalogos`);
+}
+
 export async function leerExpediente(sid: string): Promise<EstadoExpediente> {
   const raw = await pedirJson<unknown>(`${BASE}/expedientes/${sid}`);
   return mapEstado(raw);
