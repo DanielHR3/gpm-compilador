@@ -474,3 +474,20 @@ def test_un_diagrama_con_carriles_no_deja_ningun_mmd03(tmp_path):
     })
     r = extraer_expediente(carpeta)
     assert "MMD-03" not in _cod(r), [str(h) for h in r.huecos]
+
+
+def test_un_diccionario_que_nombra_repuve_produce_api05_con_nombre(tmp_path):
+    """Un endpoint de pago o convenio se reporta con lo que ES, para que el
+    analista sepa que existe y por que no sale solo."""
+    from gpmc.extractores.expediente import extraer_expediente
+    (tmp_path / "Diccionario de Datos.md").write_text(
+        "### Pantalla 1 — CIUDADANO — Datos\n\n"
+        "| Nombre del Campo | Tipo de Dato | Componente | Obligatorio | Endpoint / API | Descripción |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        "| Placa | String | Campo de texto | Sí | REPUVE | [Captura] Campo `@@placa`. |\n",
+        encoding="utf-8",
+    )
+    r = extraer_expediente(tmp_path)
+    (h,) = [x for x in r.huecos if x.codigo == "API-05"]
+    assert "REPUVE" in h.mensaje
+    assert "Acción PHP" in h.mensaje

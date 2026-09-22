@@ -119,13 +119,30 @@ def clave_de(texto: Optional[str]) -> Optional[str]:
     return None
 
 
-# Endpoints conocidos que EXIGEN token. El diseño (sección 7) contemplaba
-# emitirlos como `Api ajax` con la cabecera Authorization en el cliente; el
-# CLAUDE.md lo revirtió (riesgo SEG-04: la llave queda a la vista del ciudadano).
-# El compilador no los emite: se reportan como hueco API-05 y el trámite los
-# resuelve con una Acción PHP escrita a mano (que además está fuera de alcance
-# del compilador). Para CURP, la vía pública es SIPUBEH (`consultacurpn`).
-APIS_CON_TOKEN = frozenset({"sat", "tlaloc_curp", "tlaloc", "renapo_directo"})
+# Propuestas: servicios del «Catalogo Maestro de APIs» de la Direccion
+# (2026-08-11) que piden llave, pago o convenio. NO se emiten en cliente
+# (SEG-04: la llave quedaria a la vista) y NO aparecen en la seccion de
+# catalogos. Se registran para que un Diccionario que los nombre produzca
+# API-05 con su nombre, en vez de silencio. Quedan como propuesta pendiente
+# de convenio; el dia que uno tenga via publica, pasa a CATALOGOS con prueba.
+PROPUESTAS = {
+    "sat": "SAT (validacion de RFC y CFDI)",
+    "rfc": "SAT (validacion de RFC)",
+    "tlaloc": "Tlaloc (CURP con estatus de defuncion, RFC) — de pago",
+    "tlaloc_curp": "Tlaloc (CURP con estatus de defuncion) — de pago",
+    "renapo_directo": "RENAPO directo — requiere convenio",
+    "repuve": "REPUVE via ApiMarket — de pago",
+    "ine": "INE (verificacion de credencial) — requiere convenio",
+    "codigos.zip": "codigos.zip (codigos postales) — requiere API Key",
+}
+APIS_CON_TOKEN = frozenset(PROPUESTAS)
+
+
+def nombre_propuesta(texto: Optional[str]) -> Optional[str]:
+    """El nombre legible de un servicio de pago o convenio, o None."""
+    if not texto:
+        return None
+    return PROPUESTAS.get(_normalizar(texto.replace("`", "")).split("(")[0].strip())
 
 
 def resolver(clave: Optional[str]) -> Optional[Catalogo]:
@@ -138,4 +155,4 @@ def resolver(clave: Optional[str]) -> Optional[Catalogo]:
 def requiere_token(clave: Optional[str]) -> bool:
     """El endpoint es uno conocido que necesita credencial. El compilador no lo
     emite en cliente (SEG-04); se reporta como hueco API-05 → Acción PHP a mano."""
-    return (clave or "").strip().lower() in APIS_CON_TOKEN
+    return nombre_propuesta(clave) is not None

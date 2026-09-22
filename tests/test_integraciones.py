@@ -136,3 +136,20 @@ def test_clave_de_no_inventa():
     assert clave_de("consultarfc") is None
     assert clave_de("") is None
     assert clave_de(None) is None
+
+
+@pytest.mark.parametrize("texto", ["REPUVE", "repuve", "Tláloc", "tlaloc", "RFC", "INE", "codigos.zip", "SAT"])
+def test_lo_de_pago_o_llave_se_reconoce_y_no_se_emite(texto):
+    # Del catalogo de la Direccion: Tlaloc (CURP con defuncion, RFC),
+    # ApiMarket (REPUVE), INE y codigos.zip piden llave, pago o convenio. NO
+    # se emiten (SEG-04) y NO aparecen en la seccion; pero un Diccionario que
+    # los nombre tiene que producir API-05, no silencio.
+    from gpmc.nucleo.integraciones import requiere_token, resolver, nombre_propuesta
+    assert requiere_token(texto) is True
+    assert resolver(texto) is None
+    assert nombre_propuesta(texto)
+
+
+def test_ninguna_propuesta_esta_en_el_registro_emitible():
+    from gpmc.nucleo.integraciones import CATALOGOS, PROPUESTAS
+    assert not set(CATALOGOS) & set(PROPUESTAS)
