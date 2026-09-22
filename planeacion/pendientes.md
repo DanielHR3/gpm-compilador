@@ -113,6 +113,17 @@ buscar.
   Faltan dos cosas: derivarlo del expediente cuando se pueda, y **decirlo** —hoy no hay hueco
   que avise de que el tramite saldra invisible—. Mientras tanto se corrige a mano en el
   manifiesto (`publico: true`) o en la plataforma.
+- **P-18 — una integracion descrita en prosa no se detecta, y no se reporta.** El extractor busca
+  integraciones solo en columnas dedicadas (`Dependencia`, `Endpoint / API`). El Diccionario de
+  Prorroga no las tiene: documenta la consulta en la Descripcion —«Dispara la consulta a RENAPO
+  que autocompleta el nombre», «[Solo lectura, autocompletado por RENAPO]»—. Medido el
+  2026-09-22: **0 huecos `API-*` emitidos** y los dos campos sin `endpoint`. En la plataforma el
+  autocompletado simplemente no existe y nada lo dijo.
+
+  Ojo con el arreglo: detectarlo NO significa emitirlo. RENAPO pide credencial, asi que sigue
+  siendo `API-05` —se resuelve con una Accion PHP del lado del servidor— por el invariante de
+  `CLAUDE.md`. Lo que falta es **enterarse y avisar**, que es justo lo que ese invariante promete
+  y hoy no cumple cuando la integracion viene en prosa.
 - **P-11 — las Notificaciones del Diccionario no se leen, y ni siquiera se reportan.** La
   «Seccion 3 — Notificaciones» documenta pantalla, evento que la dispara, destinatario, medio y
   contenido del mensaje: exactamente lo que necesita el arquetipo `notificacion`. Medido el
