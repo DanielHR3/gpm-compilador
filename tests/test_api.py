@@ -1113,3 +1113,22 @@ def test_un_tramite_sin_nombre_entra_al_tablero_cuando_se_le_da_nombre(tmp_path)
     # Los huecos de la linea son los que habia al momento de nombrarlo,
     # incluido el META-04 que se acaba de resolver.
     assert linea["huecos"].get("META-04", 0) == 1
+
+
+def test_get_tablero_vacio_responde_200_con_listas_vacias(tmp_path):
+    r = _cli(tmp_path).get("/api/v1/tablero")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["total_tramites"] == 0 and d["requisitos"] == [] and d["ultimo_registro"] is None
+
+
+def test_get_tablero_agrega_lo_extraido_y_filtra_por_dependencia(tmp_path):
+    c = _cli(tmp_path)
+    r = _subir_con_nombre(c)
+    assert r.status_code == 201
+    dep = r.json()["manifiesto"]["tramite"]["dependencia"]
+    d = c.get("/api/v1/tablero").json()
+    assert d["total_tramites"] == 1
+    assert len(d["complejidad"]) == 1
+    assert c.get("/api/v1/tablero", params={"dependencia": "NADIE"}).json()["total_tramites"] == 0
+    assert c.get("/api/v1/tablero", params={"dependencia": dep}).json()["total_tramites"] == 1

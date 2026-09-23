@@ -195,6 +195,54 @@ class HistorialOut(BaseModel):
     tramites: List[TramiteHistorialOut]
 
 
+class ConteoOut(BaseModel):
+    nombre: str
+    tramites: int
+    porcentaje: int
+
+
+class HuecoTableroOut(BaseModel):
+    codigo: str
+    tramites: int
+    total: int
+
+
+class ComplejidadOut(BaseModel):
+    clave: str
+    nombre: str
+    dependencia: str
+    nivel: str
+    metricas: dict
+
+
+class DependenciaOut(BaseModel):
+    nombre: str
+    tramites: int
+
+
+class CatalogoTableroOut(BaseModel):
+    clave: str
+    tramites: int
+
+
+class SemanaOut(BaseModel):
+    semana: str
+    tramites: int
+
+
+class TableroOut(BaseModel):
+    """Cuentas del tablero de Simplificación. Solo agregados."""
+    total_tramites: int
+    dependencias: List[DependenciaOut]
+    ultimo_registro: Optional[str]
+    requisitos: List[ConteoOut]
+    campos_compartidos: List[ConteoOut]
+    huecos: List[HuecoTableroOut]
+    complejidad: List[ComplejidadOut]
+    catalogos: List[CatalogoTableroOut]
+    actividad: List[SemanaOut]
+
+
 class ClasificarOut(BaseModel):
     """A que zona del asistente va cada archivo. Solo nombres: el navegador
     sube los bytes despues, ya repartidos, a `POST /expedientes`."""
@@ -321,6 +369,12 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                 modificado=datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat())))
         filas.sort(key=lambda f: f[0], reverse=True)
         return HistorialOut(tramites=[t for _, t in filas])
+
+    @r.get("/tablero", response_model=TableroOut)
+    async def leer_tablero(dependencia: Optional[str] = None):
+        """Las cuentas del tablero de Simplificación. Solo agregados; sin
+        registro responde 200 con listas vacías, nunca 404."""
+        return TableroOut(**tablero.agregar(tablero.leer(raiz), dependencia=dependencia))
 
     @r.get("/catalogos", response_model=CatalogosOut)
     async def listar_catalogos():

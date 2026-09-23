@@ -10,7 +10,7 @@ no lo toca (solo borra carpetas con nombre de sesión). La identidad es
 import json
 import logging
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -107,3 +107,81 @@ def registrar(raiz: Path, linea: dict) -> None:
         "".join(json.dumps(l, ensure_ascii=False) + "\n" for l in lineas),
         encoding="utf-8",
     )
+
+
+# --- agregados para GET /api/v1/tablero -------------------------------------
+
+_ORDEN_NIVEL = {"Alto": 0, "Medio": 1, "Bajo": 2}
+
+
+def _semana(iso: str) -> str:
+    y, w, _ = datetime.fromisoformat(iso).isocalendar()
+    return f"{y}-W{w:02d}"
+
+
+def _ultimas_semanas(hoy: date, n: int = 12) -> "list[str]":
+    lunes = hoy - timedelta(days=hoy.weekday())
+    salida = []
+    for i in range(n - 1, -1, -1):
+        y, w, _ = (lunes - timedelta(weeks=i)).isocalendar()
+        salida.append(f"{y}-W{w:02d}")
+    return salida
+
+
+def _conteo_por_tramite(lineas: "list[dict]", campo: str, minimo: int = 1) -> "list[dict]":
+    """Cuántos trámites traen cada valor de `campo` (lista de strings),
+    agrupando variantes por `clave()` y mostrando el primer nombre visto."""
+    total = len(lineas)
+    cuenta: Counter = Counter()
+    nombre_de: dict = {}
+    for l in lineas:
+        valores = [x for x in l.get(campo, []) if x]
+        for k in {clave(x) for x in valores}:
+            cuenta[k] += 1
+        for x in valores:
+            nombre_de.setdefault(clave(x), x)
+    filas = [{"nombre": nombre_de[k], "tramites": c, "porcentaje": round(100 * c / total)}
+             for k, c in cuenta.items() if c >= minimo]
+    filas.sort(key=lambda f: (-f["tramites"], f["nombre"].lower()))
+    return filas
+
+
+def agregar(lineas: "list[dict]", dependencia: Optional[str] = None,
+            hoy: Optional[date] = None) -> dict:
+    """Las cuentas del tablero, listas para pintar. Nunca falla por vacío."""
+    hoy = hoy or datetime.now(timezone.utc).date()
+    if dependencia:
+        lineas = [l for l in lineas if l.get("dependencia") == dependencia]
+    deps = Counter(l.get("dependencia", "") for l in lineas)
+    huecos_tramites: Counter = Counter()
+    huecos_total: Counter = Counter()
+    for l in lineas:
+        for cod, n in l.get("huecos", {}).items():
+            huecos_tramites[cod] += 1
+            huecos_total[cod] += int(n)
+    huecos = [{"codigo": c, "tramites": huecos_tramites[c], "total": huecos_total[c]}
+              for c in huecos_tramites]
+    # Por tramites y no por total: un expediente con cuarenta DIC-06 no debe
+    # tapar a un codigo que sale en todos.
+    huecos.sort(key=lambda h: (-h["tramites"], -h["total"], h["codigo"]))
+    complejidad = [{"clave": l["clave"], "nombre": l["nombre"],
+                    "dependencia": l.get("dependencia", ""), "nivel": l.get("nivel", ""),
+                    "metricas": l.get("metricas", {})} for l in lineas]
+    complejidad.sort(key=lambda c: (_ORDEN_NIVEL.get(c["nivel"], 9), c["nombre"].lower()))
+    cat: Counter = Counter(k for l in lineas for k in l.get("catalogos", []))
+    por_semana = Counter(_semana(l["registrado"]) for l in lineas if l.get("registrado"))
+    return {
+        "total_tramites": len(lineas),
+        "dependencias": [{"nombre": d, "tramites": n}
+                         for d, n in sorted(deps.items(), key=lambda x: (-x[1], x[0]))],
+        "ultimo_registro": max((l["registrado"] for l in lineas if l.get("registrado")),
+                               default=None),
+        "requisitos": _conteo_por_tramite(lineas, "requisitos"),
+        "campos_compartidos": _conteo_por_tramite(lineas, "campos", minimo=2),
+        "huecos": huecos,
+        "complejidad": complejidad,
+        "catalogos": [{"clave": k, "tramites": n}
+                      for k, n in sorted(cat.items(), key=lambda x: (-x[1], x[0]))],
+        "actividad": [{"semana": s, "tramites": por_semana.get(s, 0)}
+                      for s in _ultimas_semanas(hoy)],
+    }
