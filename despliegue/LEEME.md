@@ -102,6 +102,14 @@ El mismo trámite reemplaza su línea. **No se purga** con las sesiones: es la
 memoria del tablero. Para vaciarlo, borra el archivo; se vuelve a crear en la
 siguiente extracción.
 
+Lo que ya estaba en el almacén antes de que existiera el tablero (2026-09-23) no
+aparece hasta que se vuelva a extraer. Para sacar un trámite de prueba sin
+vaciar todo, quita su línea (una por trámite, con su `"clave"`):
+
+```bash
+grep -v '"clave": "nombre de prueba"' tablero.jsonl > t && mv t tablero.jsonl
+```
+
 ## Limpieza de sesiones
 
 Cada archivo que sube el equipo deja una carpeta bajo `tempfile.mkdtemp(prefix="gpmc-")`. El

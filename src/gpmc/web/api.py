@@ -937,8 +937,11 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
         # extraccion, no los que van quedando. Nunca revienta: el tablero es
         # un registro lateral.
         linea = tablero.resumir(m, huecos_antes)
-        if linea is not None and not tablero.actualizar_rotulos(raiz, linea):
-            tablero.registrar(raiz, linea)
+        if linea is not None:
+            # actualizar_rotulos devuelve False si la clave no estaba: entonces
+            # es la primera vez que el tramite tiene nombre y se registra.
+            if not tablero.actualizar_rotulos(raiz, linea):
+                tablero.registrar(raiz, linea)
 
         ruta_huecos = carpeta / "huecos.json"
         if ruta_huecos.exists():

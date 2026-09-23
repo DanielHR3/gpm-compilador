@@ -68,7 +68,7 @@ it("los huecos salen con su nombre humano, no solo el codigo", async () => {
   render(<Tablero />);
   const seccion = (await screen.findByRole("heading", { name: /se atoran/i })).closest("section")!;
   // La columna del mapa de calor lleva el nombre humano, no solo el codigo.
-  expect(within(seccion).getByRole("columnheader", { name: /condición de visibilidad/i })).toBeInTheDocument();
+  expect(within(seccion).getByRole("columnheader", { name: /visibilidad de un campo/i })).toBeInTheDocument();
 });
 
 it("la complejidad va en una tarjeta por trámite con su nivel y sus métricas", async () => {
@@ -135,7 +135,7 @@ it("habla en palabras: guia plegable, resumen en frases y nombres humanos en tod
   expect(guia).toHaveTextContent(/se llena solo/i);
   // Resumen en frases, generado de los datos.
   expect(screen.getByText(/El documento que más se repite es Identificación Oficial\./)).toBeInTheDocument();
-  expect(screen.getByText(/El pendiente más común es «Condición de visibilidad ambigua»: aparece en 2 de 3 trámites\./)).toBeInTheDocument();
+  expect(screen.getByText(/El pendiente más común es «Visibilidad de un campo»: aparece en 2 de 3 trámites\./)).toBeInTheDocument();
   // Datos compartidos con etiqueta humana y el nombre tecnico en segundo plano.
   const compartidos = screen.getByRole("heading", { name: /se capturan en varios trámites/i }).closest("section")!;
   expect(within(compartidos).getByRole("meter", { name: /CURP del solicitante/ })).toBeInTheDocument();
@@ -146,8 +146,8 @@ it("habla en palabras: guia plegable, resumen en frases y nombres humanos en tod
   expect(within(integ).queryByRole("meter", { name: /^mgee$/ })).toBeNull();
   // El codigo sale del encabezado del mapa y se queda en el tooltip de la celda.
   const atoros = screen.getByRole("heading", { name: /se atoran/i }).closest("section")!;
-  expect(within(atoros).getByRole("columnheader", { name: /condición de visibilidad/i })).not.toHaveTextContent(/DIC-08/);
-  expect(within(atoros).getByRole("gridcell", { name: /Testamento · Condición de visibilidad ambigua \(DIC-08\): 21/ })).toBeInTheDocument();
+  expect(within(atoros).getByRole("columnheader", { name: /visibilidad de un campo/i })).not.toHaveTextContent(/DIC-08/);
+  expect(within(atoros).getByRole("gridcell", { name: /Testamento · Visibilidad de un campo \(DIC-08\): 21/ })).toBeInTheDocument();
   // Cada seccion dice que hacer con lo que muestra.
   expect(within(atoros).getByText(/qué hago con esto/i).closest("details")).not.toBeNull();
 });
@@ -158,4 +158,44 @@ it("las cifras traen contexto en palabras", async () => {
   expect(complejos).toHaveTextContent("1");
   expect(complejos).toHaveTextContent(/de 3 trámites/);
   expect(screen.getByRole("article", { name: /pendientes por trámite/i })).toHaveTextContent("7");
+});
+
+// --- pendientes menores de la revision final ---------------------------------
+
+it("con un filtro activo la cabecera cuenta la dependencia filtrada, no todas", async () => {
+  leerTablero.mockImplementation((dep?: string) =>
+    Promise.resolve(dep ? { ...DATOS, total_tramites: 1, dependencias: [{ nombre: "IIFEH", tramites: 1 }] } : DATOS),
+  );
+  render(<Tablero />);
+  await screen.findByRole("heading", { name: /^tablero$/i });
+  await userEvent.click(screen.getByRole("button", { name: /IIFEH/ }));
+  expect(await screen.findByText(/1 trámites de 1 dependencias/i)).toBeInTheDocument();
+  // Y los botones siguen siendo todos: elegir una no borra las demas.
+  expect(screen.getByRole("button", { name: /SEMARNATH/ })).toBeInTheDocument();
+});
+
+it("tras un fallo, cambiar de filtro vuelve a intentar y limpia el aviso", async () => {
+  leerTablero.mockRejectedValueOnce(new Error("red"));
+  render(<Tablero />);
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /reintentar/i }));
+  expect(await screen.findByRole("heading", { name: /^tablero$/i })).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("una respuesta vieja que llega tarde no pisa a la nueva", async () => {
+  let soltarFiltrada: (v: unknown) => void = () => {};
+  const filtrada = { ...DATOS, total_tramites: 1, dependencias: [{ nombre: "IIFEH", tramites: 1 }] };
+  leerTablero.mockImplementation((dep?: string) =>
+    dep === "IIFEH" ? new Promise((res) => { soltarFiltrada = res; }) : Promise.resolve(DATOS),
+  );
+  render(<Tablero />);
+  await screen.findByRole("heading", { name: /^tablero$/i });
+  await userEvent.click(screen.getByRole("button", { name: /IIFEH/ }));   // queda en vuelo
+  await userEvent.click(screen.getByRole("button", { name: /todas/i }));  // resuelve al instante
+  expect(await screen.findByText(/3 trámites de 2 dependencias/i)).toBeInTheDocument();
+  soltarFiltrada(filtrada);                                                // llega tarde
+  await new Promise((r) => setTimeout(r, 0));
+  expect(screen.getByText(/3 trámites de 2 dependencias/i)).toBeInTheDocument();
+  expect(screen.queryByText(/1 trámites de 1 dependencias/i)).toBeNull();
 });

@@ -85,16 +85,38 @@ export default function Tablero() {
   // filtro): si salieran de la respuesta filtrada, elegir una borraria las demas.
   const [todas, setTodas] = useState<string[] | null>(null);
 
+  // `intento` fuerza una nueva peticion tras un fallo, con el mismo filtro.
+  const [intento, setIntento] = useState(0);
+
   useEffect(() => {
+    // Una respuesta que llega tarde (el usuario ya cambio el filtro) no debe
+    // pisar a la nueva: el cleanup marca la peticion como vieja.
+    let vieja = false;
+    setError(null);
     leerTablero(dependencia)
       .then((d) => {
+        if (vieja) return;
         setDatos(d);
         setTodas((t) => t ?? d.dependencias.map((x) => x.nombre));
       })
-      .catch(() => setError("No se pudo leer el tablero."));
-  }, [dependencia]);
+      .catch(() => {
+        if (!vieja) setError("No se pudo leer el tablero.");
+      });
+    return () => {
+      vieja = true;
+    };
+  }, [dependencia, intento]);
 
-  if (error) return <p role="alert" className="text-sm text-destructive">{error}</p>;
+  if (error) {
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <p role="alert" className="text-sm text-destructive">{error}</p>
+        <Button size="sm" variant="outline" onClick={() => setIntento((n) => n + 1)}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
   if (!datos) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 
   const total = datos.total_tramites;
@@ -129,7 +151,7 @@ export default function Tablero() {
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">Tablero</h1>
         <p className="text-sm text-muted-foreground">
-          {total} trámites de {(todas ?? datos.dependencias).length} dependencias
+          {total} trámites de {(dependencia ? datos.dependencias : todas ?? datos.dependencias).length} dependencias
           {ultimo ? `, último registrado el ${ultimo}` : ""}.
         </p>
       </header>

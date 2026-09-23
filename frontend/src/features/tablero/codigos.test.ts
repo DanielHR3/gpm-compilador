@@ -15,3 +15,8 @@ it("no inventa el significado de un codigo: INS-01 es lo que dice lenguaje.ts", 
 it("un codigo desconocido sale tal cual", () => {
   expect(nombreCorto("ZZZ-99")).toBe("ZZZ-99");
 });
+
+it("usa la misma redaccion que el wizard: un solo nombre por hallazgo", () => {
+  expect(nombreCorto("DIC-08")).toBe(tituloDeCodigo("DIC-08"));
+  expect(nombreCorto("API-05")).toBe("Conexión que exige credencial");
+});

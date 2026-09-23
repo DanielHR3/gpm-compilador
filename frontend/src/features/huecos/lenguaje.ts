@@ -25,6 +25,7 @@ const TITULOS: Record<string, string> = {
   "DIC-09": "Nombre técnico repetido",
   "API-03": "Campo del que depende",
   "API-04": "Conexión con otro sistema",
+  "API-05": "Conexión que exige credencial",
   "DOC-02": "Variable sin campo en un documento",
   "DOC-03": "Plantilla de documento ilegible",
   "DOC-04": "En qué tarea se genera el documento",
