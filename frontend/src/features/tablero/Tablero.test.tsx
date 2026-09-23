@@ -13,7 +13,11 @@ const DATOS = {
   total_tramites: 3,
   dependencias: [{ nombre: "SEMARNATH", tramites: 2 }, { nombre: "IIFEH", tramites: 1 }],
   ultimo_registro: "2026-09-23T18:00:00+00:00",
-  requisitos: [{ nombre: "Identificación Oficial", tramites: 2, porcentaje: 67 }],
+  requisitos: [
+    { nombre: "Identificación Oficial", tramites: 2, porcentaje: 67 },
+    { nombre: "Acta de nacimiento", tramites: 1, porcentaje: 33 },
+    { nombre: "Comprobante de pago", tramites: 1, porcentaje: 33 },
+  ],
   campos_compartidos: [{ nombre: "curp", tramites: 3, porcentaje: 100 }],
   huecos: [{ codigo: "DIC-08", tramites: 2, total: 21 }],
   complejidad: [
@@ -96,4 +100,18 @@ it("si el servidor no contesta avisa", async () => {
   leerTablero.mockRejectedValue(new Error("red"));
   render(<Tablero />);
   expect(await screen.findByRole("alert")).toHaveTextContent(/no se pudo/i);
+});
+
+it("«requisitos mas repetidos» enseña solo los de dos o mas tramites y pliega los de uno", async () => {
+  render(<Tablero />);
+  const seccion = (await screen.findByRole("heading", { name: /requisitos más repetidos/i })).closest("section")!;
+  expect(within(seccion).getByRole("meter", { name: /identificación oficial/i })).toBeInTheDocument();
+  expect(within(seccion).queryByRole("meter", { name: /acta de nacimiento/i })).toBeNull();
+  const plegado = within(seccion).getByText(/2 más aparecen en un solo trámite/i).closest("details")!;
+  expect(plegado).not.toHaveAttribute("open");
+  expect(plegado).toHaveTextContent(/Acta de nacimiento/);
+  expect(plegado).toHaveTextContent(/Comprobante de pago/);
+  // La matriz tampoco cruza los de un solo tramite: seria una fila por documento.
+  const rejilla = within(seccion).getByRole("grid", { name: /requisitos por trámite/i });
+  expect(within(rejilla).queryByRole("rowheader", { name: /acta de nacimiento/i })).toBeNull();
 });
