@@ -115,3 +115,14 @@ it("«requisitos mas repetidos» enseña solo los de dos o mas tramites y pliega
   const rejilla = within(seccion).getByRole("grid", { name: /requisitos por trámite/i });
   expect(within(rejilla).queryByRole("rowheader", { name: /acta de nacimiento/i })).toBeNull();
 });
+
+it("«datos que se capturan en varios tramites» enseña los doce mas compartidos y pliega el resto", async () => {
+  const muchos = Array.from({ length: 15 }, (_, i) => ({ nombre: `campo_${i + 1}`, tramites: 15 - i, porcentaje: 50 }));
+  leerTablero.mockResolvedValue({ ...DATOS, campos_compartidos: muchos });
+  render(<Tablero />);
+  const seccion = (await screen.findByRole("heading", { name: /se capturan en varios trámites/i })).closest("section")!;
+  expect(within(seccion).getAllByRole("meter")).toHaveLength(12);
+  expect(within(seccion).queryByRole("meter", { name: /campo_13/ })).toBeNull();
+  const plegado = within(seccion).getByText(/3 más/i).closest("details")!;
+  expect(plegado).toHaveTextContent(/campo_13/);
+});

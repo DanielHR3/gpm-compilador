@@ -28,7 +28,9 @@ export default function MapaCalor({
   }
   const tope = modo === "presencia" ? 1 : (maximo ?? Math.max(0, ...celdas.flat()));
   const texto = (v: number) => (modo === "presencia" ? (v ? "sí" : "no") : String(v));
-  const columnasCss = `minmax(9rem, 1.4fr) repeat(${columnas.length}, minmax(3rem, 1fr))`;
+  // Ancho minimo por columna: con veinte inconsistencias las cabeceras se
+  // pisaban; el contenedor ya desplaza en horizontal.
+  const columnasCss = `minmax(9rem, 1.4fr) repeat(${columnas.length}, minmax(4.5rem, 1fr))`;
 
   return (
     <div className="flex flex-col gap-3">
@@ -40,7 +42,7 @@ export default function MapaCalor({
                 de fila acaban a la derecha. */}
             <div role="columnheader" aria-label="Fila" className="min-h-4" />
             {columnas.map((c) => (
-              <div key={c} role="columnheader" className="flex flex-col justify-end px-1 pb-1 text-center leading-tight">
+              <div key={c} role="columnheader" className="flex flex-col justify-end px-1 pb-1 text-center leading-tight break-words hyphens-auto">
                 <span className="font-medium">{etiquetaColumna(c)}</span>
                 {subtituloColumna(c) ? (
                   <span className="font-mono text-[0.625rem] text-muted-foreground">{subtituloColumna(c)}</span>
@@ -74,6 +76,15 @@ export default function MapaCalor({
           ))}
         </div>
       </div>
+      {modo === "cuenta" && tope > 0 ? (
+        <div role="img" aria-label={`Escala: de 1 a ${tope}`} className="flex items-center gap-1.5 self-end text-[0.6875rem] text-muted-foreground">
+          <span>1</span>
+          {[1, 2, 3, 4, 5].map((p) => (
+            <span key={p} aria-hidden className="inline-block h-2.5 w-4 rounded-sm" style={{ background: colorDe(p) }} />
+          ))}
+          <span>{tope}</span>
+        </div>
+      ) : null}
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Ver como lista</summary>
         <ul className="mt-1 flex flex-col gap-0.5">

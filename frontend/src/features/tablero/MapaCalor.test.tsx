@@ -43,3 +43,15 @@ it("la esquina de la cabecera ocupa su celda (sin sr-only), o la rejilla se corr
   expect(cabecera.children).toHaveLength(M.columnas.length + 1);
   expect(cabecera.firstElementChild).not.toHaveClass("sr-only");
 });
+
+it("en modo cuenta trae la leyenda de la rampa, del minimo al maximo", () => {
+  render(<MapaCalor titulo="X" {...M} />);
+  const leyenda = screen.getByRole("img", { name: /escala/i });
+  expect(leyenda).toHaveTextContent(/^1/);
+  expect(leyenda).toHaveTextContent(/20$/);
+});
+
+it("en modo presencia no hay leyenda de rampa", () => {
+  render(<MapaCalor titulo="Requisitos" filas={["Acta"]} columnas={["Testamento"]} celdas={[[1]]} modo="presencia" />);
+  expect(screen.queryByRole("img", { name: /escala/i })).toBeNull();
+});

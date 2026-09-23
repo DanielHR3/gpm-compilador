@@ -19,6 +19,7 @@ import { nombreCorto } from "./codigos";
  * del color (valor escrito, lista alterna, leyenda).
  */
 
+const TOPE_LISTA = 12;
 const FECHA = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "long", year: "numeric" });
 const METRICAS: { clave: string; etiqueta: string }[] = [
   { clave: "tareas", etiqueta: "Pasos" },
@@ -78,6 +79,10 @@ export default function Tablero() {
   const repetidos = datos.requisitos.filter((r) => r.tramites >= 2);
   const unicos = datos.requisitos.filter((r) => r.tramites < 2);
   const filasRepetidas = new Set(repetidos.map((r) => r.nombre));
+  // Con diez tramites, «compartidos» son decenas de campos a «2 de 10»: se
+  // enseñan los doce mas compartidos y el resto se pliega.
+  const compartidosTop = datos.campos_compartidos.slice(0, TOPE_LISTA);
+  const compartidosResto = datos.campos_compartidos.slice(TOPE_LISTA);
   const matrizRequisitos = {
     filas: datos.matriz_requisitos.filas.filter((f) => filasRepetidas.has(f)),
     columnas: datos.matriz_requisitos.columnas,
@@ -154,7 +159,21 @@ export default function Tablero() {
       </Seccion>
 
       <Seccion titulo="Datos que se capturan en varios trámites" nota="Estos datos podrían capturarse una sola vez.">
-        <Barras filas={datos.campos_compartidos} total={total} />
+        <div className="flex flex-col gap-3">
+          <Barras filas={compartidosTop} total={total} />
+          {compartidosResto.length > 0 ? (
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer">{compartidosResto.length} más, en menos trámites</summary>
+              <ul className="mt-1 columns-2 gap-4 md:columns-3">
+                {compartidosResto.map((r) => (
+                  <li key={r.nombre} className="break-inside-avoid">
+                    {r.nombre} · {r.tramites} de {total}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </div>
       </Seccion>
 
       <Seccion titulo="Dónde se atoran los expedientes" nota="Cuántas veces sale cada inconsistencia en cada trámite, al extraer. Más oscuro, más veces.">
