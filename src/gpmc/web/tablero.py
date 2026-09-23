@@ -28,6 +28,10 @@ _SIN_NOMBRE = {"", "[por confirmar]"}
 # Las etiquetas de los campos archivo del Diccionario vienen como
 # «Documento: Tarjeta de Circulación»; el prefijo no es parte del requisito.
 _PREFIJO_DOC = "documento:"
+# La fila «Vista de solo lectura (Origen → Destino)» del Diccionario es de tipo
+# N/A y nombra una pantalla; el extractor la clasifica como archivo por el
+# «visor de archivos», pero no es un documento que entregue el ciudadano.
+_NO_ES_REQUISITO = ("vista de solo lectura",)
 
 
 def _requisito(etiqueta: str) -> str:
@@ -51,6 +55,8 @@ def resumir(m: Manifiesto, huecos: "list[Hueco]",
         if c.tipo != "file":
             continue
         r = _requisito(c.etiqueta or c.nombre)
+        if r.lower().startswith(_NO_ES_REQUISITO):
+            continue
         k = clave(r)
         if r and k not in vistos:
             vistos.add(k)
@@ -166,7 +172,9 @@ def actualizar_rotulos(raiz: Path, linea: dict) -> bool:
 
 # --- agregados para GET /api/v1/tablero -------------------------------------
 
-_ORDEN_NIVEL = {"Alto": 0, "Medio": 1, "Bajo": 2}
+# Los nombres son los que emite estimador.py (`orden = {"Bajo", "Medio", "Complejo"}`).
+_NIVELES = ("Complejo", "Medio", "Bajo")
+_ORDEN_NIVEL = {n: i for i, n in enumerate(_NIVELES)}
 
 
 def _semana(iso: str) -> str:
@@ -263,7 +271,7 @@ def agregar(lineas: "list[dict]", dependencia: Optional[str] = None,
         "matriz_requisitos": {"filas": [r["nombre"] for r in requisitos], "columnas": nombres,
                               "celdas": matriz_requisitos},
         "niveles": [{"nivel": n, "tramites": sum(1 for l in lineas if l.get("nivel") == n)}
-                    for n in ("Alto", "Medio", "Bajo")],
+                    for n in _NIVELES],
         "metricas_max": {k: max((int(m.get(k, 0)) for m in metricas), default=0)
                          for k in claves_metricas},
         "total_tramites": len(lineas),

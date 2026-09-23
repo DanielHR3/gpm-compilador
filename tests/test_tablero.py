@@ -126,7 +126,7 @@ TRES = [
            ["curp", "folio_anterior"], {"DIC-08": 1, "FLU-01": 1}, catalogos=["mgee", "zip_codes"],
            registrado="2026-09-16T10:00:00+00:00"),
     _linea("Testamento", "IIFEH", ["Acta de nacimiento"],
-           ["curp", "nombre"], {"FLU-01": 1}, nivel="Alto",
+           ["curp", "nombre"], {"FLU-01": 1}, nivel="Complejo",
            registrado="2026-06-01T10:00:00+00:00"),
 ]
 HOY = date(2026, 9, 23)
@@ -263,7 +263,8 @@ def test_agregar_matriz_requisitos_presencia_por_tramite():
 
 def test_agregar_niveles_y_maximos_de_metricas():
     d = tablero.agregar(TRES, hoy=HOY)
-    assert d["niveles"] == [{"nivel": "Alto", "tramites": 1}, {"nivel": "Medio", "tramites": 1},
+    # Los nombres son los del estimador (Complejo/Medio/Bajo), no «Alto».
+    assert d["niveles"] == [{"nivel": "Complejo", "tramites": 1}, {"nivel": "Medio", "tramites": 1},
                             {"nivel": "Bajo", "tramites": 1}]
     assert d["metricas_max"]["campos"] == 2 and d["metricas_max"]["integraciones"] == 2
 
@@ -274,5 +275,25 @@ def test_agregar_vacio_trae_indicadores_en_cero_y_matrices_vacias():
                                 "promedio_huecos": 0.0, "con_integracion": 0}
     assert d["matriz_huecos"] == {"filas": [], "columnas": [], "celdas": [], "maximo": 0}
     assert d["matriz_requisitos"] == {"filas": [], "columnas": [], "celdas": []}
-    assert d["niveles"] == [{"nivel": "Alto", "tramites": 0}, {"nivel": "Medio", "tramites": 0},
+    assert d["niveles"] == [{"nivel": "Complejo", "tramites": 0}, {"nivel": "Medio", "tramites": 0},
                             {"nivel": "Bajo", "tramites": 0}]
+
+
+def test_agregar_ordena_complejo_primero_con_el_nombre_real_del_estimador():
+    lineas = [_linea("B", "D", [], ["a"], {}, nivel="Bajo"), _linea("C", "D", [], ["a"], {}, nivel="Complejo"),
+              _linea("M", "D", [], ["a"], {}, nivel="Medio")]
+    d = tablero.agregar(lineas, hoy=HOY)
+    assert [c["nombre"] for c in d["complejidad"]] == ["C", "M", "B"]
+    assert d["niveles"][0] == {"nivel": "Complejo", "tramites": 1}
+
+
+def test_resumir_no_cuenta_la_vista_de_solo_lectura_como_requisito():
+    """La fila «Vista de solo lectura (Origen → Destino)» del Diccionario es de
+    tipo N/A y nombra una pantalla; el extractor la clasifica como archivo por
+    el «visor de archivos», pero no es un documento que entregue el ciudadano."""
+    campos = [
+        Campo(nombre="vista_p1", etiqueta="Vista de solo lectura (Ciudadano → Funcionario)", tipo="file"),
+        Campo(nombre="doc_ine", etiqueta="Documento: Identificación Oficial", tipo="file"),
+    ]
+    linea = tablero.resumir(_manifiesto(campos=campos), [], ahora=AHORA)
+    assert linea["requisitos"] == ["Identificación Oficial"]
