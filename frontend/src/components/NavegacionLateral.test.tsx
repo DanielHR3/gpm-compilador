@@ -60,6 +60,13 @@ describe("NavegacionLateral", () => {
       "/historial",
     );
   });
+
+  test("Tablero esta siempre disponible, junto a Catalogos e Historial", () => {
+    render(<NavegacionLateral sid={null} />);
+
+    expect(screen.getByRole("link", { name: /tablero/i })).toHaveAttribute("href", "/tablero");
+    expect(within(pasos()).queryByRole("link", { name: /tablero/i })).toBeNull();
+  });
 });
 
 describe("el menú se queda a la vista", () => {

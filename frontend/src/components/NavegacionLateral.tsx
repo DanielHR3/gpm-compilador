@@ -1,4 +1,4 @@
-import { BookOpen, Download, FileUp, History, ListChecks, MonitorPlay } from "lucide-react";
+import { BarChart3, BookOpen, Download, FileUp, History, ListChecks, MonitorPlay } from "lucide-react";
 
 import { cn } from "cn";
 
@@ -112,6 +112,10 @@ export default function NavegacionLateral({
         <a href="/historial" className={cn(base, "text-white/70 hover:bg-white/10 hover:text-white")}>
           <History aria-hidden className="size-5 shrink-0" />
           <span className="max-lg:sr-only">Historial</span>
+        </a>
+        <a href="/tablero" className={cn(base, "text-white/70 hover:bg-white/10 hover:text-white")}>
+          <BarChart3 aria-hidden className="size-5 shrink-0" />
+          <span className="max-lg:sr-only">Tablero</span>
         </a>
       </div>
     </div>

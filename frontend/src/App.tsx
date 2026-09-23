@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import CargaInsumos from "@/features/carga/CargaInsumos";
 import Catalogos from "@/features/catalogos/Catalogos";
 import Historial from "@/features/historial/Historial";
+import Tablero from "@/features/tablero/Tablero";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
 import { useUrlDeRevision } from "@/features/huecos/useUrlDeRevision";
 import { leerExpediente } from "@/lib/api";
@@ -54,6 +55,7 @@ export default function App() {
   const enCatalogos = window.location.pathname === "/catalogos";
   // Hasta el 2026-09-23 era HTML del servidor (`plantillas.historial`).
   const enHistorial = window.location.pathname === "/historial";
+  const enTablero = window.location.pathname === "/tablero";
 
   return (
     <div className="flex min-h-svh bg-background">
@@ -64,6 +66,7 @@ export default function App() {
             titulo={
               enCatalogos ? "Catálogos"
               : enHistorial ? "Historial"
+              : enTablero ? "Tablero"
               : est ? "Revisión del expediente"
               : "Carga de insumos"
             }
@@ -78,6 +81,8 @@ export default function App() {
             <Catalogos />
           ) : enHistorial ? (
             <Historial />
+          ) : enTablero ? (
+            <Tablero />
           ) : est ? (
             <WizardHuecos estado={est} onEstado={setEst} />
           ) : (

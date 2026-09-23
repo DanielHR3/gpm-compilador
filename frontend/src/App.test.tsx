@@ -19,6 +19,10 @@ vi.mock("@/lib/api", () => ({
     nota: "Solo se listan los endpoints que el compilador emite.",
   }),
   leerHistorial: vi.fn().mockResolvedValue({ tramites: [] }),
+  leerTablero: vi.fn().mockResolvedValue({
+    total_tramites: 0, dependencias: [], ultimo_registro: null, requisitos: [],
+    campos_compartidos: [], huecos: [], complejidad: [], catalogos: [], actividad: [],
+  }),
   resolver: vi.fn(),
   reconocer: vi.fn(),
   urlGpm: () => "/api/v1/x/gpm",
@@ -73,6 +77,17 @@ describe("App (SPA SP1)", () => {
     try {
       render(<App />);
       expect(await screen.findByRole("heading", { name: /historial/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /extraer/i })).toBeNull();
+    } finally {
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
+  it("en /tablero pinta el tablero y no la carga de insumos", async () => {
+    window.history.replaceState({}, "", "/tablero");
+    try {
+      render(<App />);
+      expect(await screen.findByRole("heading", { name: /^tablero$/i })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /extraer/i })).toBeNull();
     } finally {
       window.history.replaceState({}, "", "/");

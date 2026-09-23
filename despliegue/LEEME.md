@@ -92,6 +92,16 @@ o contenedor interno siempre encendido.
 Mientras eso llega, la laptop sirve para que el equipo lo pruebe y dé retroalimentación — pero
 sin repartir la liga de forma amplia hasta tener dirección estable.
 
+## Tablero de Simplificación (`tablero.jsonl`)
+
+Cada extracción escribe una línea en `<almacén>/tablero.jsonl` con **solo
+agregados** del trámite (requisitos, nombres de campo, códigos de hueco,
+métricas, catálogos): nunca valores de catálogo, plantillas ni adjuntos. Un
+expediente que se sube sin AS-IS entra cuando recibe nombre en el asistente.
+El mismo trámite reemplaza su línea. **No se purga** con las sesiones: es la
+memoria del tablero. Para vaciarlo, borra el archivo; se vuelve a crear en la
+siguiente extracción.
+
 ## Limpieza de sesiones
 
 Cada archivo que sube el equipo deja una carpeta bajo `tempfile.mkdtemp(prefix="gpmc-")`. El
