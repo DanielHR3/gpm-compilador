@@ -1132,3 +1132,34 @@ def test_get_tablero_agrega_lo_extraido_y_filtra_por_dependencia(tmp_path):
     assert len(d["complejidad"]) == 1
     assert c.get("/api/v1/tablero", params={"dependencia": "NADIE"}).json()["total_tramites"] == 0
     assert c.get("/api/v1/tablero", params={"dependencia": dep}).json()["total_tramites"] == 1
+
+
+def test_si_el_registro_del_tablero_falla_la_extraccion_sigue_dando_201(tmp_path, monkeypatch):
+    """El tablero es un registro lateral: su fallo no rompe el flujo principal."""
+    import os
+    def revienta(*a, **k):
+        raise OSError("disco lleno")
+    monkeypatch.setattr(os, "replace", revienta)
+    r = _subir_con_nombre(_cli(tmp_path))
+    assert r.status_code == 201, r.text
+
+
+def test_resolver_actualiza_la_dependencia_del_tramite_ya_registrado(tmp_path):
+    """Sin AS-IS el manifiesto nace con dependencia «[por confirmar]». Si el
+    analista resuelve META-04 antes que META-02, la linea se escribe con esa
+    dependencia y tiene que corregirse al resolver META-02."""
+    from gpmc.web import tablero
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+    c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [
+        {"tipo": "meta04", "ubicacion": "metadatos", "valor": "Constancia de residencia"}]})
+    (l,) = tablero.leer(tmp_path)
+    assert l["dependencia"] == "[por confirmar]"
+    huecos_al_nombrar = l["huecos"]
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={"resoluciones": [
+        {"tipo": "meta02", "ubicacion": "metadatos", "valor": "SEGOB"}]})
+    assert r.status_code == 200
+    (l,) = tablero.leer(tmp_path)
+    assert l["dependencia"] == "SEGOB"
+    assert l["huecos"] == huecos_al_nombrar

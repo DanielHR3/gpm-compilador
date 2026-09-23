@@ -181,3 +181,52 @@ def test_agregar_dependencia_inexistente_o_sin_lineas_da_vacio_sin_error():
         assert d["total_tramites"] == 0 and d["ultimo_registro"] is None
         assert d["requisitos"] == [] and d["huecos"] == [] and d["complejidad"] == []
         assert len(d["actividad"]) == 12
+
+
+# --- revision final: registro lateral, permanente y tolerante -----------------
+
+def test_registrar_no_pierde_lo_que_habia_si_la_escritura_falla(tmp_path, monkeypatch, caplog):
+    """El archivo es la memoria del tablero: un corte a mitad de escritura no
+    puede dejarlo vacio. Se escribe aparte y se reemplaza de golpe."""
+    tablero.registrar(tmp_path, tablero.resumir(_manifiesto(nombre="Uno"), [], ahora=AHORA))
+    import os
+    def revienta(*a, **k):
+        raise OSError("disco lleno")
+    monkeypatch.setattr(os, "replace", revienta)
+    with caplog.at_level("ERROR", logger="gpmc.web.tablero"):
+        ok = tablero.registrar(tmp_path, tablero.resumir(_manifiesto(nombre="Dos"), [], ahora=AHORA))
+    assert ok is False
+    assert [l["nombre"] for l in tablero.leer(tmp_path)] == ["Uno"]
+    assert any("tablero" in r.getMessage() for r in caplog.records)
+
+
+def test_registrar_no_deja_archivo_temporal(tmp_path):
+    tablero.registrar(tmp_path, tablero.resumir(_manifiesto(), [], ahora=AHORA))
+    assert [p.name for p in tmp_path.iterdir()] == [tablero.ARCHIVO]
+
+
+def test_leer_salta_una_linea_bien_formada_pero_degradada(tmp_path, caplog):
+    """Una linea de una version anterior del esquema, o editada a mano, no
+    puede tumbar el endpoint entero: se salta y se anota, como la ilegible."""
+    tablero.registrar(tmp_path, tablero.resumir(_manifiesto(nombre="Uno"), [], ahora=AHORA))
+    with (tmp_path / tablero.ARCHIVO).open("a", encoding="utf-8") as f:
+        f.write(json.dumps({"clave": "x", "nombre": "X", "registrado": "ayer"}) + "\n")
+        f.write(json.dumps({"clave": "y", "registrado": AHORA.isoformat()}) + "\n")
+        f.write(json.dumps(["no", "es", "dict"]) + "\n")
+    with caplog.at_level("WARNING", logger="gpmc.web.tablero"):
+        lineas = tablero.leer(tmp_path)
+    assert [l["nombre"] for l in lineas] == ["Uno"]
+    assert sum(1 for r in caplog.records if "se salta" in r.getMessage()) == 3
+    d = tablero.agregar(lineas, hoy=HOY)
+    assert d["total_tramites"] == 1
+
+
+def test_actualizar_rotulos_cambia_dependencia_y_conserva_huecos(tmp_path):
+    linea = tablero.resumir(_manifiesto(), [Hueco("falta_dato", "META-02", "metadatos", "dep")], ahora=AHORA)
+    tablero.registrar(tmp_path, linea)
+    nueva = tablero.resumir(_manifiesto(dependencia="SEGOB"), [], ahora=AHORA)
+    assert tablero.actualizar_rotulos(tmp_path, nueva) is True
+    (l,) = tablero.leer(tmp_path)
+    assert l["dependencia"] == "SEGOB"
+    assert l["huecos"] == {"META-02": 1} and l["registrado"] == AHORA.isoformat()
+    assert tablero.actualizar_rotulos(tmp_path, tablero.resumir(_manifiesto(nombre="Otro"), [], ahora=AHORA)) is False

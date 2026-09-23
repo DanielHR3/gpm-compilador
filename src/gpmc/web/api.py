@@ -905,11 +905,12 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
 
         guardar(m, carpeta / "manifiesto.yaml")
         # Si al extraer no habia nombre, el tramite no entro al tablero; entra
-        # la primera vez que lo tiene. Una linea ya registrada no se toca:
-        # sus huecos son los de la extraccion, no los que van quedando.
+        # la primera vez que lo tiene. Una linea ya registrada solo corrige sus
+        # rotulos (nombre, dependencia, homoclave): sus huecos son los de la
+        # extraccion, no los que van quedando. Nunca revienta: el tablero es
+        # un registro lateral.
         linea = tablero.resumir(m, huecos_antes)
-        if linea is not None and not any(
-                l["clave"] == linea["clave"] for l in tablero.leer(raiz)):
+        if linea is not None and not tablero.actualizar_rotulos(raiz, linea):
             tablero.registrar(raiz, linea)
 
         ruta_huecos = carpeta / "huecos.json"

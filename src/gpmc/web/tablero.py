@@ -9,6 +9,7 @@ no lo toca (solo borra carpetas con nombre de sesión). La identidad es
 
 import json
 import logging
+import os
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -92,21 +93,75 @@ def leer(raiz: Path) -> "list[dict]":
         except json.JSONDecodeError:
             log.warning("tablero.jsonl: linea %d ilegible, se salta", n)
             continue
-        if isinstance(d, dict) and d.get("clave"):
-            salida.append(d)
+        # Una linea de un esquema anterior o editada a mano no puede tumbar
+        # el endpoint entero: se exige lo minimo que `agregar` va a usar.
+        if not _bien_formada(d):
+            log.warning("tablero.jsonl: linea %d sin clave, nombre o fecha valida, se salta", n)
+            continue
+        salida.append(d)
     return salida
 
 
-def registrar(raiz: Path, linea: dict) -> None:
-    """Escribe `linea` reemplazando la de la misma clave. El archivo es chico:
-    se reescribe entero en un solo write_text, así nunca quedan dos líneas de
-    un mismo trámite aunque dos extracciones terminen casi a la vez."""
+def _bien_formada(d) -> bool:
+    if not isinstance(d, dict) or not d.get("clave") or not d.get("nombre"):
+        return False
+    try:
+        datetime.fromisoformat(str(d.get("registrado", "")))
+    except ValueError:
+        return False
+    return True
+
+
+def _escribir(raiz: Path, lineas: "list[dict]") -> bool:
+    """Reescribe el archivo entero de forma atomica (temporal + os.replace):
+    un corte a mitad de escritura deja el archivo anterior, no uno vacio.
+    Nunca propaga un error: el tablero es un registro lateral y su fallo no
+    debe tumbar la extraccion ni dejar una sesion a medias."""
+    destino = raiz / ARCHIVO
+    temporal = raiz / (ARCHIVO + ".tmp")
+    try:
+        temporal.write_text(
+            "".join(json.dumps(l, ensure_ascii=False) + "\n" for l in lineas),
+            encoding="utf-8",
+        )
+        os.replace(temporal, destino)
+        return True
+    except OSError:
+        log.exception("tablero.jsonl: no se pudo escribir el registro")
+        try:
+            temporal.unlink()
+        except OSError:
+            pass
+        return False
+
+
+def registrar(raiz: Path, linea: dict) -> bool:
+    """Escribe `linea` reemplazando la de la misma clave. Devuelve False si no
+    se pudo escribir (ya quedo en el log).
+
+    Es leer-modificar-escribir sin candado. No hay carrera porque el asistente
+    corre en un solo proceso de uvicorn y los handlers son `async def` sobre
+    el mismo loop (igual que `reconocidos.json` y `huecos.json`). Si algun dia
+    se sirve con `--workers > 1`, hay que serializar este archivo, o un
+    proceso pisaria la linea que otro acaba de escribir.
+    """
     lineas = [l for l in leer(raiz) if l["clave"] != linea["clave"]]
     lineas.append(linea)
-    (raiz / ARCHIVO).write_text(
-        "".join(json.dumps(l, ensure_ascii=False) + "\n" for l in lineas),
-        encoding="utf-8",
-    )
+    return _escribir(raiz, lineas)
+
+
+def actualizar_rotulos(raiz: Path, linea: dict) -> bool:
+    """Corrige nombre, dependencia y homoclave de una linea ya registrada y
+    conserva todo lo demas (huecos, metricas, fecha). Sin AS-IS el manifiesto
+    nace con dependencia «[por confirmar]» y el analista la resuelve despues,
+    en el orden que quiera. Devuelve False si la clave no estaba."""
+    lineas = leer(raiz)
+    for l in lineas:
+        if l["clave"] == linea["clave"]:
+            for k in ("nombre", "dependencia", "homoclave"):
+                l[k] = linea[k]
+            return _escribir(raiz, lineas)
+    return False
 
 
 # --- agregados para GET /api/v1/tablero -------------------------------------
@@ -130,7 +185,12 @@ def _ultimas_semanas(hoy: date, n: int = 12) -> "list[str]":
 
 def _conteo_por_tramite(lineas: "list[dict]", campo: str, minimo: int = 1) -> "list[dict]":
     """Cuántos trámites traen cada valor de `campo` (lista de strings),
-    agrupando variantes por `clave()` y mostrando el primer nombre visto."""
+    agrupando variantes por `clave()` y mostrando el primer nombre visto.
+
+    `clave()` solo iguala acentos, mayúsculas y puntuación: «Identificación
+    Oficial» e «identificacion oficial» son una; «identificación oficial
+    vigente» es otra. Un calificativo no agrupa, a propósito: decidir que
+    «vigente» o «(copia)» sobran es inferir, y aquí no se infiere."""
     total = len(lineas)
     cuenta: Counter = Counter()
     nombre_de: dict = {}
