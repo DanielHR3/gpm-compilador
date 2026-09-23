@@ -18,18 +18,18 @@ const DATOS = {
     { nombre: "Acta de nacimiento", tramites: 1, porcentaje: 33 },
     { nombre: "Comprobante de pago", tramites: 1, porcentaje: 33 },
   ],
-  campos_compartidos: [{ nombre: "curp", tramites: 3, porcentaje: 100 }],
+  campos_compartidos: [{ nombre: "curp", etiqueta: "CURP del solicitante", tramites: 3, porcentaje: 100 }],
   huecos: [{ codigo: "DIC-08", tramites: 2, total: 21 }],
   complejidad: [
-    { clave: "testamento", nombre: "Testamento", dependencia: "IIFEH", nivel: "Alto",
+    { clave: "testamento", nombre: "Testamento", dependencia: "IIFEH", nivel: "Complejo",
       metricas: { tareas: 10, bifurcaciones: 3, vistas: 9, campos: 46, acciones: 2, integraciones: 1 } },
   ],
-  catalogos: [{ clave: "mgee", tramites: 2 }],
+  catalogos: [{ clave: "mgee", proveedor: "INEGI", descripcion: "Lista de estados", tramites: 2 }],
   actividad: [{ semana: "2026-W38", tramites: 1 }, { semana: "2026-W39", tramites: 2 }],
   indicadores: { requisitos_distintos: 1, promedio_campos: 23.5, promedio_huecos: 7.0, con_integracion: 2 },
   matriz_huecos: { filas: ["Testamento"], columnas: ["DIC-08"], celdas: [[21]], maximo: 21 },
   matriz_requisitos: { filas: ["Identificación Oficial"], columnas: ["Testamento"], celdas: [[1]], maximo: 0 },
-  niveles: [{ nivel: "Alto", tramites: 1 }, { nivel: "Medio", tramites: 0 }, { nivel: "Bajo", tramites: 2 }],
+  niveles: [{ nivel: "Complejo", tramites: 1 }, { nivel: "Medio", tramites: 0 }, { nivel: "Bajo", tramites: 2 }],
   metricas_max: { tareas: 10, bifurcaciones: 3, vistas: 9, campos: 46, acciones: 2, integraciones: 1 },
 };
 
@@ -44,7 +44,7 @@ it("pinta las seis secciones en tarjetas y sin ninguna tabla", async () => {
   expect(screen.getByText(/3 trámites de 2 dependencias/i)).toBeInTheDocument();
   for (const titulo of [
     /requisitos más repetidos/i, /se capturan en varios trámites/i, /se atoran/i,
-    /complejidad por trámite/i, /integraciones/i, /actividad/i,
+    /complejidad por trámite/i, /consultas a otros sistemas/i, /actividad/i,
   ]) {
     expect(screen.getByRole("heading", { name: titulo })).toBeInTheDocument();
   }
@@ -74,10 +74,10 @@ it("los huecos salen con su nombre humano, no solo el codigo", async () => {
 it("la complejidad va en una tarjeta por trámite con su nivel y sus métricas", async () => {
   render(<Tablero />);
   const tarjeta = await screen.findByRole("article", { name: /testamento/i });
-  expect(tarjeta).toHaveTextContent("Alto");
+  expect(tarjeta).toHaveTextContent("Complejo");
   expect(tarjeta).toHaveTextContent(/pasos\s*10/i);
   expect(tarjeta).toHaveTextContent(/campos\s*46/i);
-  expect(screen.getByText(/no está calibrada/i)).toBeInTheDocument();
+  expect(screen.getByText(/la escala es orientativa/i)).toBeInTheDocument();
 });
 
 it("elegir una dependencia vuelve a pedir el tablero filtrado", async () => {
@@ -125,4 +125,37 @@ it("«datos que se capturan en varios tramites» enseña los doce mas compartido
   expect(within(seccion).queryByRole("meter", { name: /campo_13/ })).toBeNull();
   const plegado = within(seccion).getByText(/3 más/i).closest("details")!;
   expect(plegado).toHaveTextContent(/campo_13/);
+});
+
+it("habla en palabras: guia plegable, resumen en frases y nombres humanos en todo", async () => {
+  render(<Tablero />);
+  await screen.findByRole("heading", { name: /^tablero$/i });
+  // Guia de lectura, plegable.
+  const guia = screen.getByText(/cómo leer este tablero/i).closest("details")!;
+  expect(guia).toHaveTextContent(/se llena solo/i);
+  // Resumen en frases, generado de los datos.
+  expect(screen.getByText(/El documento que más se repite es Identificación Oficial\./)).toBeInTheDocument();
+  expect(screen.getByText(/El pendiente más común es «Condición de visibilidad ambigua»: aparece en 2 de 3 trámites\./)).toBeInTheDocument();
+  // Datos compartidos con etiqueta humana y el nombre tecnico en segundo plano.
+  const compartidos = screen.getByRole("heading", { name: /se capturan en varios trámites/i }).closest("section")!;
+  expect(within(compartidos).getByRole("meter", { name: /CURP del solicitante/ })).toBeInTheDocument();
+  expect(within(compartidos).getByText("curp")).toBeInTheDocument();
+  // Integraciones con proveedor y descripcion, no la clave.
+  const integ = screen.getByRole("heading", { name: /consultas a otros sistemas/i }).closest("section")!;
+  expect(within(integ).getByRole("meter", { name: /INEGI · Lista de estados/ })).toBeInTheDocument();
+  expect(within(integ).queryByRole("meter", { name: /^mgee$/ })).toBeNull();
+  // El codigo sale del encabezado del mapa y se queda en el tooltip de la celda.
+  const atoros = screen.getByRole("heading", { name: /se atoran/i }).closest("section")!;
+  expect(within(atoros).getByRole("columnheader", { name: /condición de visibilidad/i })).not.toHaveTextContent(/DIC-08/);
+  expect(within(atoros).getByRole("gridcell", { name: /Testamento · Condición de visibilidad ambigua \(DIC-08\): 21/ })).toBeInTheDocument();
+  // Cada seccion dice que hacer con lo que muestra.
+  expect(within(atoros).getByText(/qué hago con esto/i).closest("details")).not.toBeNull();
+});
+
+it("las cifras traen contexto en palabras", async () => {
+  render(<Tablero />);
+  const complejos = await screen.findByRole("article", { name: /^complejos$/i });
+  expect(complejos).toHaveTextContent("1");
+  expect(complejos).toHaveTextContent(/de 3 trámites/);
+  expect(screen.getByRole("article", { name: /pendientes por trámite/i })).toHaveTextContent("7");
 });

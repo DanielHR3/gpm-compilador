@@ -215,7 +215,7 @@ export async function leerHistorial(): Promise<HistorialOut> {
   return pedirJson(`${BASE}/historial`);
 }
 
-export interface ConteoTablero { nombre: string; tramites: number; porcentaje: number }
+export interface ConteoTablero { nombre: string; tramites: number; porcentaje: number; etiqueta?: string }
 export interface HuecoTablero { codigo: string; tramites: number; total: number }
 export interface ComplejidadTablero {
   clave: string; nombre: string; dependencia: string; nivel: string;
@@ -229,7 +229,7 @@ export interface TableroOut {
   campos_compartidos: ConteoTablero[];
   huecos: HuecoTablero[];
   complejidad: ComplejidadTablero[];
-  catalogos: { clave: string; tramites: number }[];
+  catalogos: { clave: string; proveedor?: string; descripcion?: string; tramites: number }[];
   actividad: { semana: string; tramites: number }[];
   indicadores: { requisitos_distintos: number; promedio_campos: number; promedio_huecos: number; con_integracion: number };
   matriz_huecos: MatrizTablero;

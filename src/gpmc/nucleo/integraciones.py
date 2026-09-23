@@ -27,6 +27,8 @@ class Catalogo:
     # una lista. SIPUBEH devuelve nombre y apellidos por separado, y quedarse
     # solo con `nombres` deja el tramite a medias.
     campos_respuesta: tuple = ()
+    # En palabras, para quien no es tecnico (el tablero): «Lista de estados».
+    descripcion: str = ""
     # Dos cosas distintas que el catalogo de la Direccion (2026-08-11) mezcla:
     # "catalogo" devuelve una LISTA para poblar un select; "consulta" recibe
     # un dato y devuelve otros para autollenar (un `api_ajax`). Solo la
@@ -47,18 +49,18 @@ CATALOGOS = {
     c.clave: c
     for c in (
         Catalogo(
-            clave="mgee", proveedor="INEGI",
+            clave="mgee", proveedor="INEGI", descripcion="Lista de estados",
             url="https://gaia.inegi.org.mx/wscatgeo/v2/mgee",
             nodo="datos", etiqueta="nomgeo", valor="cvegeo",
         ),
         Catalogo(
-            clave="mgem", proveedor="INEGI",
+            clave="mgem", proveedor="INEGI", descripcion="Municipios del estado elegido",
             url="https://gaia.inegi.org.mx/wscatgeo/v2/mgem/@@{padre}",
             nodo="datos", etiqueta="nomgeo", valor="cvegeo",
             requiere_padre=True,
         ),
         Catalogo(
-            clave="zip_codes", proveedor="SEPOMEX",
+            clave="zip_codes", proveedor="SEPOMEX", descripcion="Colonias por código postal",
             url="https://sepomex.kurenn.dev/api/v1/zip_codes?zip_code=@@{padre}",
             nodo="zip_codes", etiqueta="d_asenta", valor="d_asenta",
             requiere_padre=True,
@@ -71,6 +73,7 @@ CATALOGOS = {
         # no coincidia con ninguna de las dos.
         Catalogo(
             clave="consultacurpn", proveedor="SIPUBEH",
+            descripcion="Datos de la persona a partir de su CURP",
             url="https://sipubeh.hidalgo.gob.mx/efirma/api/consultacurpn?curp=@@{padre}",
             nodo="data", etiqueta="nombres", valor="nombres",
             requiere_padre=True,

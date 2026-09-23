@@ -142,7 +142,7 @@ def test_agregar_cuenta_requisitos_agrupando_variantes_por_clave():
 
 def test_agregar_campos_compartidos_solo_los_de_dos_o_mas():
     d = tablero.agregar(TRES, hoy=HOY)
-    assert d["campos_compartidos"] == [{"nombre": "curp", "tramites": 3, "porcentaje": 100}]
+    assert d["campos_compartidos"] == [{"nombre": "curp", "etiqueta": "curp", "tramites": 3, "porcentaje": 100}]
 
 
 def test_agregar_ordena_huecos_por_tramites_no_por_total():
@@ -158,7 +158,7 @@ def test_agregar_complejidad_ordenada_por_nivel_y_dependencias_con_cuenta():
     assert d["complejidad"][0]["metricas"]["tareas"] == 3
     assert d["dependencias"] == [{"nombre": "SEMARNATH", "tramites": 2}, {"nombre": "IIFEH", "tramites": 1}]
     assert d["ultimo_registro"] == "2026-09-23T18:00:00+00:00"
-    assert d["catalogos"] == [{"clave": "mgee", "tramites": 2}, {"clave": "zip_codes", "tramites": 1}]
+    assert [(c["clave"], c["tramites"]) for c in d["catalogos"]] == [("mgee", 2), ("zip_codes", 1)]
 
 
 def test_agregar_actividad_son_doce_semanas_con_ceros():
@@ -297,3 +297,37 @@ def test_resumir_no_cuenta_la_vista_de_solo_lectura_como_requisito():
     ]
     linea = tablero.resumir(_manifiesto(campos=campos), [], ahora=AHORA)
     assert linea["requisitos"] == ["Identificación Oficial"]
+
+
+# --- lenguaje llano: etiquetas humanas y proveedores con descripcion ------------
+
+def test_resumir_guarda_la_etiqueta_humana_de_cada_campo():
+    campos = [Campo(nombre="curp_propietario", etiqueta="CURP del propietario"),
+              Campo(nombre="placa")]
+    linea = tablero.resumir(_manifiesto(campos=campos), [], ahora=AHORA)
+    assert linea["etiquetas"] == {"curp_propietario": "CURP del propietario"}
+    # Sigue sin salir nada del contenido: la etiqueta es el rotulo del campo, no un valor.
+    assert "Hidalgo" not in json.dumps(linea, ensure_ascii=False)
+
+
+def test_agregar_campos_compartidos_traen_etiqueta_humana():
+    a = _linea("A", "D", [], ["curp_propietario", "placa"], {})
+    b = _linea("B", "D", [], ["curp_propietario"], {})
+    a["etiquetas"] = {"curp_propietario": "CURP del propietario"}
+    d = tablero.agregar([a, b], hoy=HOY)
+    (c,) = d["campos_compartidos"]
+    assert c == {"nombre": "curp_propietario", "etiqueta": "CURP del propietario", "tramites": 2, "porcentaje": 100}
+    # Sin etiqueta en ninguna linea, la etiqueta es el nombre tecnico.
+    d2 = tablero.agregar([_linea("A", "D", [], ["placa"], {}), _linea("B", "D", [], ["placa"], {})], hoy=HOY)
+    assert d2["campos_compartidos"][0]["etiqueta"] == "placa"
+
+
+def test_agregar_catalogos_traen_proveedor_y_descripcion():
+    d = tablero.agregar(TRES, hoy=HOY)
+    assert d["catalogos"][0] == {"clave": "mgee", "proveedor": "INEGI", "descripcion": "Lista de estados",
+                                 "tramites": 2}
+    assert d["catalogos"][1]["proveedor"] == "SEPOMEX"
+    # Una clave que ya no este en el catalogo no revienta: sale tal cual.
+    l = _linea("Z", "D", [], ["a"], {}, catalogos=["viejo"])
+    d = tablero.agregar([l], hoy=HOY)
+    assert d["catalogos"][0] == {"clave": "viejo", "proveedor": "viejo", "descripcion": "", "tramites": 1}

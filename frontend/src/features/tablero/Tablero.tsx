@@ -10,6 +10,7 @@ import Barras from "./Barras";
 import Indicadores from "./Indicadores";
 import MapaCalor from "./MapaCalor";
 import { nombreCorto } from "./codigos";
+import { resumenEnPalabras } from "./resumen";
 
 /**
  * Seccion «Tablero»: agregados entre tramites para Simplificacion. Solo pinta
@@ -34,7 +35,7 @@ function pct(n: number, total: number): number {
   return total ? Math.round((100 * n) / total) : 0;
 }
 
-function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
+function Seccion({ titulo, nota, accion, children }: { titulo: string; nota?: string; accion?: string; children: ReactNode }) {
   return (
     <section>
       <Card>
@@ -44,10 +45,36 @@ function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; ch
           </CardTitle>
           {nota ? <CardDescription>{nota}</CardDescription> : null}
         </CardHeader>
-        <CardContent>{children}</CardContent>
+        <CardContent className="flex flex-col gap-4">
+          {children}
+          {accion ? (
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer">¿Qué hago con esto?</summary>
+              <p className="mt-1 max-w-prose">{accion}</p>
+            </details>
+          ) : null}
+        </CardContent>
       </Card>
     </section>
   );
+}
+
+const LLAVE_GUIA = "gpmc.tablero.guia";
+
+function guiaAbierta(): boolean {
+  try {
+    return window.localStorage.getItem(LLAVE_GUIA) !== "cerrada";
+  } catch {
+    return true;
+  }
+}
+
+function recordarGuia(abierta: boolean) {
+  try {
+    window.localStorage.setItem(LLAVE_GUIA, abierta ? "abierta" : "cerrada");
+  } catch {
+    /* sin almacenamiento, la guia simplemente vuelve a salir */
+  }
 }
 
 export default function Tablero() {
@@ -83,6 +110,14 @@ export default function Tablero() {
   // enseñan los doce mas compartidos y el resto se pliega.
   const compartidosTop = datos.campos_compartidos.slice(0, TOPE_LISTA);
   const compartidosResto = datos.campos_compartidos.slice(TOPE_LISTA);
+  const complejos = datos.niveles.find((n) => n.nivel === "Complejo")?.tramites ?? 0;
+  const resumen = resumenEnPalabras(datos);
+  // Nombre humano primero; el tecnico en segundo plano, para quien lo necesite.
+  const conEtiqueta = (r: { nombre: string; etiqueta?: string; tramites: number; porcentaje: number }) => ({
+    ...r,
+    nombre: r.etiqueta || r.nombre,
+    detalle: r.etiqueta && r.etiqueta !== r.nombre ? r.nombre : undefined,
+  });
   const matrizRequisitos = {
     filas: datos.matriz_requisitos.filas.filter((f) => filasRepetidas.has(f)),
     columnas: datos.matriz_requisitos.columnas,
@@ -118,18 +153,56 @@ export default function Tablero() {
         </p>
       ) : null}
 
+      <details
+        open={guiaAbierta()}
+        onToggle={(e) => recordarGuia((e.currentTarget as HTMLDetailsElement).open)}
+        className="rounded-lg border border-border bg-card px-4 py-3 text-sm"
+      >
+        <summary className="cursor-pointer font-medium">Cómo leer este tablero</summary>
+        <div className="mt-2 flex max-w-prose flex-col gap-2 text-muted-foreground">
+          <p>
+            Este tablero compara entre sí los trámites que el equipo ha subido al compilador. Se llena solo:
+            cada vez que alguien sube un expediente, el trámite entra o se actualiza aquí.
+          </p>
+          <p>
+            Sirve para ver patrones que no se notan trámite por trámite: qué documentos se piden una y otra vez,
+            qué datos se capturan en varios lados, en qué se atoran los expedientes y cuáles son los trámites
+            más grandes.
+          </p>
+          <p>
+            Cada sección tiene un «¿Qué hago con esto?» con una sugerencia concreta. Los botones de arriba
+            filtran todo por dependencia.
+          </p>
+        </div>
+      </details>
+
+      {resumen.length > 0 ? (
+        <Card className="border-l-4 border-l-primary py-4">
+          <CardContent className="flex flex-col gap-1 text-sm">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">En resumen</span>
+            {resumen.map((f) => (
+              <p key={f}>{f}</p>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Indicadores
         cifras={[
-          { etiqueta: "Trámites", valor: total },
-          { etiqueta: "Dependencias", valor: datos.dependencias.length },
-          { etiqueta: "Requisitos distintos", valor: ind.requisitos_distintos },
-          { etiqueta: "Campos por trámite", valor: ind.promedio_campos, nota: "promedio" },
-          { etiqueta: "Inconsistencias por trámite", valor: ind.promedio_huecos, nota: "promedio al extraer" },
-          { etiqueta: "Con integración", valor: ind.con_integracion, nota: "usan un endpoint público" },
+          { etiqueta: "Trámites", valor: total, nota: `de ${datos.dependencias.length} dependencias` },
+          { etiqueta: "Complejos", valor: complejos, nota: `de ${total} trámites` },
+          { etiqueta: "Requisitos distintos", valor: ind.requisitos_distintos, nota: "documentos que piden los trámites" },
+          { etiqueta: "Campos por trámite", valor: ind.promedio_campos, nota: "promedio de datos que se capturan" },
+          { etiqueta: "Pendientes por trámite", valor: ind.promedio_huecos, nota: "promedio al subir el expediente" },
+          { etiqueta: "Consultan otro sistema", valor: ind.con_integracion, nota: "INEGI, SEPOMEX o SIPUBEH" },
         ]}
       />
 
-      <Seccion titulo="Requisitos más repetidos" nota="Documentos que el ciudadano entrega en más de un trámite, y qué trámite pide cada uno.">
+      <Seccion
+        titulo="Requisitos más repetidos"
+        nota="Documentos que el ciudadano entrega en más de un trámite, y qué trámite pide cada uno."
+        accion="Si un documento se pide en varios trámites, es candidato a pedirse una sola vez y compartirse entre dependencias, o a sustituirse por una consulta a otro sistema (por ejemplo, la CURP en vez de la identificación)."
+      >
         <div className="flex flex-col gap-6">
           {repetidos.length === 0 && unicos.length > 0 ? (
             <p className="text-sm text-muted-foreground">Ningún requisito se repite todavía entre trámites.</p>
@@ -158,16 +231,20 @@ export default function Tablero() {
         </div>
       </Seccion>
 
-      <Seccion titulo="Datos que se capturan en varios trámites" nota="Estos datos podrían capturarse una sola vez.">
+      <Seccion
+        titulo="Datos que se capturan en varios trámites"
+        nota="Lo que el ciudadano escribe en más de un trámite."
+        accion="Estos datos podrían capturarse una sola vez y reutilizarse: son la base para una ficha del ciudadano compartida, o para autollenar con una consulta (CURP, código postal)."
+      >
         <div className="flex flex-col gap-3">
-          <Barras filas={compartidosTop} total={total} />
+          <Barras filas={compartidosTop.map(conEtiqueta)} total={total} />
           {compartidosResto.length > 0 ? (
             <details className="text-xs text-muted-foreground">
               <summary className="cursor-pointer">{compartidosResto.length} más, en menos trámites</summary>
               <ul className="mt-1 columns-2 gap-4 md:columns-3">
                 {compartidosResto.map((r) => (
                   <li key={r.nombre} className="break-inside-avoid">
-                    {r.nombre} · {r.tramites} de {total}
+                    {r.etiqueta || r.nombre} · {r.tramites} de {total}
                   </li>
                 ))}
               </ul>
@@ -176,7 +253,11 @@ export default function Tablero() {
         </div>
       </Seccion>
 
-      <Seccion titulo="Dónde se atoran los expedientes" nota="Cuántas veces sale cada inconsistencia en cada trámite, al extraer. Más oscuro, más veces.">
+      <Seccion
+        titulo="Dónde se atoran los expedientes"
+        nota="Qué quedó pendiente en cada trámite al subir su expediente, y cuántas veces. Más oscuro, más veces."
+        accion="Una columna oscura en casi todos los trámites señala algo que falta en la plantilla del expediente (por ejemplo, la homoclave o el tiempo de respuesta): conviene añadirlo a la plantilla para que deje de faltar. Una fila oscura es un expediente que necesita una segunda pasada."
+      >
         <MapaCalor
           titulo="Inconsistencias por trámite"
           filas={datos.matriz_huecos.filas}
@@ -184,13 +265,14 @@ export default function Tablero() {
           celdas={datos.matriz_huecos.celdas}
           maximo={datos.matriz_huecos.maximo}
           etiquetaColumna={nombreCorto}
-          subtituloColumna={(c) => c}
+          detalleColumna={(c) => c}
         />
       </Seccion>
 
       <Seccion
         titulo="Complejidad por trámite"
-        nota="La escala del estimador no está calibrada: solo el nivel Bajo tiene medición real."
+        nota="Qué tan grande es cada trámite: cuántos pasos, pantallas y datos tiene. Bajo: hasta 4 pasos y pocas pantallas. Medio: entre 5 y 8 pasos o consulta a otro sistema. Complejo: más de eso. La escala es orientativa; solo el nivel Bajo se ha medido en tiempo real."
+        accion="Un trámite complejo tarda más en modelarse y en probarse. Si hay varios, conviene empezar por los medios para tener resultados pronto, y partir los complejos en etapas."
       >
         <div className="flex flex-col gap-5">
           <BarraApilada
@@ -244,17 +326,22 @@ export default function Tablero() {
       </Seccion>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Seccion titulo="Integraciones" nota="Cuántos trámites usan cada endpoint público.">
+        <Seccion
+          titulo="Consultas a otros sistemas"
+          nota="Cuántos trámites toman datos de un sistema público en vez de pedírselos al ciudadano."
+          accion="Cada consulta ahorra una captura y un error de dedo. Si un dato se captura en varios trámites y existe una consulta para él, conviene usarla."
+        >
           <Barras
             total={total}
             filas={datos.catalogos.map((k) => ({
-              nombre: k.clave,
+              nombre: k.proveedor && k.descripcion ? `${k.proveedor} · ${k.descripcion}` : k.clave,
+              detalle: k.proveedor && k.descripcion ? k.clave : undefined,
               tramites: k.tramites,
               porcentaje: pct(k.tramites, total),
             }))}
           />
         </Seccion>
-        <Seccion titulo="Actividad" nota="Trámites registrados por semana, últimas doce.">
+        <Seccion titulo="Actividad" nota="Cuántos trámites se subieron cada semana, en las últimas doce.">
           <Actividad semanas={datos.actividad} />
         </Seccion>
       </div>

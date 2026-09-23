@@ -153,3 +153,11 @@ def test_lo_de_pago_o_llave_se_reconoce_y_no_se_emite(texto):
 def test_ninguna_propuesta_esta_en_el_registro_emitible():
     from gpmc.nucleo.integraciones import CATALOGOS, PROPUESTAS
     assert not set(CATALOGOS) & set(PROPUESTAS)
+
+
+def test_cada_catalogo_publico_tiene_descripcion_en_palabras():
+    """El tablero la enseña a gente no tecnica: «INEGI · Lista de estados»."""
+    from gpmc.nucleo.integraciones import CATALOGOS
+    for c in CATALOGOS.values():
+        assert c.descripcion and c.descripcion[0].isupper(), c.clave
+    assert CATALOGOS["consultacurpn"].descripcion == "Datos de la persona a partir de su CURP"

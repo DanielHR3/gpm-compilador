@@ -199,6 +199,7 @@ class ConteoOut(BaseModel):
     nombre: str
     tramites: int
     porcentaje: int
+    etiqueta: Optional[str] = None
 
 
 class HuecoTableroOut(BaseModel):
@@ -222,6 +223,8 @@ class DependenciaOut(BaseModel):
 
 class CatalogoTableroOut(BaseModel):
     clave: str
+    proveedor: str = ""
+    descripcion: str = ""
     tramites: int
 
 

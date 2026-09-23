@@ -15,14 +15,22 @@ interface Props {
   modo?: "cuenta" | "presencia";
   etiquetaFila?: (f: string) => string;
   etiquetaColumna?: (c: string) => string;
-  /** Segunda linea bajo la cabecera de columna (p. ej. el codigo). */
+  /** Segunda linea bajo la cabecera de columna. */
   subtituloColumna?: (c: string) => string | null;
+  /** Detalle tecnico (p. ej. el codigo): va al tooltip y al nombre accesible de
+   *  la celda, no al encabezado, para que la rejilla hable en palabras. */
+  detalleColumna?: (c: string) => string | null;
 }
 
 export default function MapaCalor({
   titulo, filas, columnas, celdas, maximo, modo = "cuenta",
   etiquetaFila = (f) => f, etiquetaColumna = (c) => c, subtituloColumna = () => null,
+  detalleColumna = () => null,
 }: Props) {
+  const nombreColumna = (c: string) => {
+    const d = detalleColumna(c);
+    return d ? `${etiquetaColumna(c)} (${d})` : etiquetaColumna(c);
+  };
   if (filas.length === 0 || columnas.length === 0) {
     return <p className="text-sm text-muted-foreground">Nada que cruzar todavía.</p>;
   }
@@ -62,8 +70,8 @@ export default function MapaCalor({
                   <div
                     key={c}
                     role="gridcell"
-                    aria-label={`${etiquetaFila(f)} · ${etiquetaColumna(c)}: ${texto(v)}`}
-                    title={`${etiquetaFila(f)} · ${etiquetaColumna(c)}: ${texto(v)}`}
+                    aria-label={`${etiquetaFila(f)} · ${nombreColumna(c)}: ${texto(v)}`}
+                    title={`${etiquetaFila(f)} · ${nombreColumna(c)}: ${texto(v)}`}
                     data-paso={paso}
                     className="flex h-9 items-center justify-center rounded-sm transition-colors"
                     style={{ background: colorDe(paso), color: tintaDe(paso) }}

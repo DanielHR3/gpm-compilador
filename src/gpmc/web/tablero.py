@@ -72,6 +72,10 @@ def resumir(m: Manifiesto, huecos: "list[Hueco]",
         "registrado": ahora.isoformat(),
         "requisitos": requisitos,
         "campos": [c.nombre.lstrip("@") for c in campos],
+        # Rotulo humano de cada campo (solo si difiere del nombre tecnico): el
+        # tablero enseña «CURP del propietario», no `curp_propietario`.
+        "etiquetas": {c.nombre.lstrip("@"): c.etiqueta for c in campos
+                      if c.etiqueta and c.etiqueta != c.nombre},
         "huecos": dict(Counter(h.codigo for h in huecos)),
         "metricas": {
             "tareas": est.metricas.tareas, "bifurcaciones": est.metricas.bifurcaciones,
@@ -210,6 +214,13 @@ def _conteo_por_tramite(lineas: "list[dict]", campo: str, minimo: int = 1) -> "l
             nombre_de.setdefault(clave(x), x)
     filas = [{"nombre": nombre_de[k], "tramites": c, "porcentaje": round(100 * c / total)}
              for k, c in cuenta.items() if c >= minimo]
+    if campo == "campos":
+        etiqueta_de: dict = {}
+        for l in lineas:
+            for nombre, etiqueta in l.get("etiquetas", {}).items():
+                etiqueta_de.setdefault(clave(nombre), etiqueta)
+        for f in filas:
+            f["etiqueta"] = etiqueta_de.get(clave(f["nombre"]), f["nombre"])
     filas.sort(key=lambda f: (-f["tramites"], f["nombre"].lower()))
     return filas
 
@@ -283,7 +294,9 @@ def agregar(lineas: "list[dict]", dependencia: Optional[str] = None,
         "campos_compartidos": _conteo_por_tramite(lineas, "campos", minimo=2),
         "huecos": huecos,
         "complejidad": complejidad,
-        "catalogos": [{"clave": k, "tramites": n}
+        "catalogos": [{"clave": k, "proveedor": CATALOGOS[k].proveedor if k in CATALOGOS else k,
+                       "descripcion": CATALOGOS[k].descripcion if k in CATALOGOS else "",
+                       "tramites": n}
                       for k, n in sorted(cat.items(), key=lambda x: (-x[1], x[0]))],
         "actividad": [{"semana": s, "tramites": por_semana.get(s, 0)}
                       for s in _ultimas_semanas(hoy)],

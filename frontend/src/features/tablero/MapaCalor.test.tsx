@@ -55,3 +55,10 @@ it("en modo presencia no hay leyenda de rampa", () => {
   render(<MapaCalor titulo="Requisitos" filas={["Acta"]} columnas={["Testamento"]} celdas={[[1]]} modo="presencia" />);
   expect(screen.queryByRole("img", { name: /escala/i })).toBeNull();
 });
+
+it("el detalle de columna va al tooltip y al nombre accesible de la celda, no al encabezado", () => {
+  render(<MapaCalor titulo="X" {...M} etiquetaColumna={(c) => (c === "DIC-08" ? "Visibilidad" : c)} detalleColumna={(c) => c} />);
+  expect(screen.getByRole("columnheader", { name: "Visibilidad" })).not.toHaveTextContent("DIC-08");
+  const celda = screen.getByRole("gridcell", { name: "Reposición · Visibilidad (DIC-08): 20" });
+  expect(celda).toHaveAttribute("title", "Reposición · Visibilidad (DIC-08): 20");
+});
