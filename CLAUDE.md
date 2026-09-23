@@ -528,3 +528,28 @@ Veinticinco entregas en `main`. Lo que hay que saber antes de tocar esta zona:
 - **Regla de negocio, pendiente de la respuesta de Simplificación (P-23):** una plantilla de
   documento debe traer `{{campo}}` con nombres técnicos del Diccionario; el compilador no adivina
   dónde va un dato y no emite variables que no existan (`DOC-02`).
+
+### 10. Historial y tablero en la SPA (2026-09-23)
+
+- **`/historial` ya es de la SPA.** `GET /api/v1/historial` lista las sesiones del
+  almacén con fecha de última actividad; `plantillas.historial` queda sin uso, para
+  que SP3 lo tire con `portada`/`revision`.
+- **Tablero de Simplificación.** `web/tablero.py` mantiene `<almacén>/tablero.jsonl`:
+  una línea por trámite con **solo agregados** (requisitos = etiquetas de campos
+  `file` sin la fila «Vista de solo lectura»; datos capturados = campos que escribe
+  el ciudadano, con su etiqueta; huecos por código al extraer; seis métricas y nivel
+  del estimador, que se llama **Complejo/Medio/Bajo**; catálogos). Se escribe al
+  extraer (`POST /expedientes`) y, si el expediente no traía nombre, la primera vez
+  que lo recibe en `/resolver` (META-04); después `/resolver` solo corrige rótulos.
+  Escritura atómica, lectura tolerante, `_purgar_sesiones` no lo toca. `GET
+  /api/v1/tablero?dependencia=` devuelve las cuentas (indicadores, matrices
+  trámite×código y requisito×trámite, niveles, actividad por semana) y
+  `features/tablero/` las pinta en SVG/CSS con la rampa `--viz-1..5` de
+  `index.css`, validada con el validador de la guía `dataviz` en claro y oscuro.
+  La vista habla en palabras: guía plegable, resumen determinista
+  (`resumen.ts`), «¿Qué hago con esto?» por sección, nombres humanos
+  (`Catalogo.descripcion`, etiquetas del Diccionario, `nombreCorto`). Spec y plan
+  en `docs/superpowers/`.
+- **En la SPA no hay tablas:** una `Card` por elemento; los mapas de calor son
+  rejillas CSS con `role="grid"`. `Catalogos.tsx` sigue en tabla desde antes de la
+  regla; se convierte cuando se toque.
