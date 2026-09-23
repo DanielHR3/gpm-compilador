@@ -231,7 +231,13 @@ export interface TableroOut {
   complejidad: ComplejidadTablero[];
   catalogos: { clave: string; tramites: number }[];
   actividad: { semana: string; tramites: number }[];
+  indicadores: { requisitos_distintos: number; promedio_campos: number; promedio_huecos: number; con_integracion: number };
+  matriz_huecos: MatrizTablero;
+  matriz_requisitos: MatrizTablero;
+  niveles: { nivel: string; tramites: number }[];
+  metricas_max: Record<string, number>;
 }
+export interface MatrizTablero { filas: string[]; columnas: string[]; celdas: number[][]; maximo: number }
 
 /** `GET /api/v1/tablero?dependencia=` — cuentas del tablero de Simplificación. Solo agregados. */
 export async function leerTablero(dependencia?: string): Promise<TableroOut> {

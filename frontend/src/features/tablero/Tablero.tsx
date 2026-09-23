@@ -4,16 +4,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { leerTablero, type TableroOut } from "@/lib/api";
 
+import Actividad from "./Actividad";
+import BarraApilada from "./BarraApilada";
 import Barras from "./Barras";
+import Indicadores from "./Indicadores";
+import MapaCalor from "./MapaCalor";
 import { nombreCorto } from "./codigos";
 
 /**
  * Seccion «Tablero»: agregados entre tramites para Simplificacion. Solo pinta
  * lo que `GET /api/v1/tablero` devuelve ya contado; el filtro por dependencia
- * vuelve a pedirlo. Todo en tarjetas: en la SPA no hay tablas.
+ * vuelve a pedirlo. Todo en tarjetas: en la SPA no hay tablas. Las graficas
+ * son SVG/CSS con la rampa `--viz-*` validada; ninguna lectura depende solo
+ * del color (valor escrito, lista alterna, leyenda).
  */
 
 const FECHA = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+const METRICAS: { clave: string; etiqueta: string }[] = [
+  { clave: "tareas", etiqueta: "Pasos" },
+  { clave: "bifurcaciones", etiqueta: "Bifurcaciones" },
+  { clave: "vistas", etiqueta: "Pantallas" },
+  { clave: "campos", etiqueta: "Campos" },
+  { clave: "acciones", etiqueta: "Acciones" },
+  { clave: "integraciones", etiqueta: "Integraciones" },
+];
 
 function pct(n: number, total: number): number {
   return total ? Math.round((100 * n) / total) : 0;
@@ -57,7 +71,7 @@ export default function Tablero() {
 
   const total = datos.total_tramites;
   const ultimo = datos.ultimo_registro ? FECHA.format(new Date(datos.ultimo_registro)) : null;
-  const maxSemana = Math.max(1, ...datos.actividad.map((a) => a.tramites));
+  const ind = datos.indicadores;
 
   return (
     <div className="flex flex-col gap-4 text-foreground">
@@ -88,23 +102,43 @@ export default function Tablero() {
         </p>
       ) : null}
 
-      <Seccion titulo="Requisitos más repetidos" nota="Documentos que el ciudadano entrega en más de un trámite.">
-        <Barras filas={datos.requisitos} total={total} />
+      <Indicadores
+        cifras={[
+          { etiqueta: "Trámites", valor: total },
+          { etiqueta: "Dependencias", valor: datos.dependencias.length },
+          { etiqueta: "Requisitos distintos", valor: ind.requisitos_distintos },
+          { etiqueta: "Campos por trámite", valor: ind.promedio_campos, nota: "promedio" },
+          { etiqueta: "Inconsistencias por trámite", valor: ind.promedio_huecos, nota: "promedio al extraer" },
+          { etiqueta: "Con integración", valor: ind.con_integracion, nota: "usan un endpoint público" },
+        ]}
+      />
+
+      <Seccion titulo="Requisitos más repetidos" nota="Documentos que el ciudadano entrega en más de un trámite, y qué trámite pide cada uno.">
+        <div className="flex flex-col gap-6">
+          <Barras filas={datos.requisitos} total={total} />
+          <MapaCalor
+            titulo="Requisitos por trámite"
+            modo="presencia"
+            filas={datos.matriz_requisitos.filas}
+            columnas={datos.matriz_requisitos.columnas}
+            celdas={datos.matriz_requisitos.celdas}
+          />
+        </div>
       </Seccion>
 
       <Seccion titulo="Datos que se capturan en varios trámites" nota="Estos datos podrían capturarse una sola vez.">
         <Barras filas={datos.campos_compartidos} total={total} />
       </Seccion>
 
-      <Seccion titulo="Dónde se atoran los expedientes" nota="En cuántos trámites sale cada inconsistencia al extraer.">
-        <Barras
-          total={total}
-          filas={datos.huecos.map((h) => ({
-            nombre: nombreCorto(h.codigo),
-            tramites: h.tramites,
-            porcentaje: pct(h.tramites, total),
-            detalle: `${h.codigo} · ${h.total} en total`,
-          }))}
+      <Seccion titulo="Dónde se atoran los expedientes" nota="Cuántas veces sale cada inconsistencia en cada trámite, al extraer. Más oscuro, más veces.">
+        <MapaCalor
+          titulo="Inconsistencias por trámite"
+          filas={datos.matriz_huecos.filas}
+          columnas={datos.matriz_huecos.columnas}
+          celdas={datos.matriz_huecos.celdas}
+          maximo={datos.matriz_huecos.maximo}
+          etiquetaColumna={nombreCorto}
+          subtituloColumna={(c) => c}
         />
       </Seccion>
 
@@ -112,32 +146,55 @@ export default function Tablero() {
         titulo="Complejidad por trámite"
         nota="La escala del estimador no está calibrada: solo el nivel Bajo tiene medición real."
       >
-        {datos.complejidad.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nada que contar todavía.</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {datos.complejidad.map((c) => (
-              <li key={c.clave}>
-                <Card role="article" aria-label={c.nombre} className="py-4">
-                  <CardHeader className="gap-1">
-                    <CardTitle className="text-base">{c.nombre}</CardTitle>
-                    <CardDescription>
-                      {c.dependencia} · Nivel <strong>{c.nivel}</strong>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Pasos {c.metricas.tareas}</span>
-                    <span>Bifurcaciones {c.metricas.bifurcaciones}</span>
-                    <span>Pantallas {c.metricas.vistas}</span>
-                    <span>Campos {c.metricas.campos}</span>
-                    <span>Acciones {c.metricas.acciones}</span>
-                    <span>Integraciones {c.metricas.integraciones}</span>
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="flex flex-col gap-5">
+          <BarraApilada
+            titulo="Nivel de complejidad"
+            segmentos={datos.niveles.map((n) => ({ nombre: n.nivel, valor: n.tramites }))}
+          />
+          {datos.complejidad.length === 0 ? null : (
+            <ul className="grid gap-3 md:grid-cols-2">
+              {datos.complejidad.map((c) => (
+                <li key={c.clave}>
+                  <Card role="article" aria-label={c.nombre} className="h-full py-4">
+                    <CardHeader className="gap-1">
+                      <CardTitle className="text-base">{c.nombre}</CardTitle>
+                      <CardDescription>
+                        {c.dependencia} · Nivel <strong>{c.nivel}</strong>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                        {METRICAS.map((m) => {
+                          const v = Number((c.metricas as Record<string, number>)[m.clave] ?? 0);
+                          const max = Math.max(1, datos.metricas_max[m.clave] ?? 0);
+                          return (
+                            <li key={m.clave} className="flex flex-col gap-1">
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>{m.etiqueta}</span>
+                                <span className="font-medium text-foreground">{v}</span>
+                              </div>
+                              <div
+                                role="meter"
+                                aria-label={m.etiqueta}
+                                aria-valuemin={0}
+                                aria-valuemax={max}
+                                aria-valuenow={v}
+                                title={`${m.etiqueta}: ${v} de ${max} (máximo entre trámites)`}
+                                className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                              >
+                                <div className="h-full rounded-full" style={{ width: `${(100 * v) / max}%`, background: "var(--viz-3)" }} />
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </Seccion>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -152,17 +209,7 @@ export default function Tablero() {
           />
         </Seccion>
         <Seccion titulo="Actividad" nota="Trámites registrados por semana, últimas doce.">
-          <ul className="flex h-24 items-end gap-1" aria-label="Trámites por semana">
-            {datos.actividad.map((a) => (
-              <li
-                key={a.semana}
-                aria-label={`${a.semana}: ${a.tramites}`}
-                title={`${a.semana}: ${a.tramites}`}
-                className="flex-1 rounded-t bg-primary/80"
-                style={{ height: `${Math.max(4, (100 * a.tramites) / maxSemana)}%` }}
-              />
-            ))}
-          </ul>
+          <Actividad semanas={datos.actividad} />
         </Seccion>
       </div>
     </div>

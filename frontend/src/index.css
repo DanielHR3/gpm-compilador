@@ -76,6 +76,13 @@
     --secondary: var(--action-secondary);
     --secondary-foreground: var(--text-inverse);
     --muted: var(--gray-100);
+    /* Rampa secuencial de datos (guinda claro→oscuro), validada el 2026-09-23
+       con validate_palette.js --ordinal sobre la superficie de tarjeta. */
+    --viz-1: #E2A3B6;
+    --viz-2: #CF7A95;
+    --viz-3: #BA5171;
+    --viz-4: #A22D4E;
+    --viz-5: #7A1833;
     --muted-foreground: var(--text-muted);
     --accent: var(--gray-100);
     --accent-foreground: var(--text-primary);
@@ -112,6 +119,12 @@
     --secondary: var(--action-secondary);
     --secondary-foreground: var(--text-inverse);
     --muted: var(--gray-700);
+    /* La misma rampa re-escalada para la superficie oscura (validada aparte). */
+    --viz-1: #9A3355;
+    --viz-2: #B24A6E;
+    --viz-3: #C7688A;
+    --viz-4: #D98BA5;
+    --viz-5: #EAB0C1;
     --muted-foreground: var(--gray-300);
     --accent: var(--gray-700);
     --accent-foreground: var(--gray-50);

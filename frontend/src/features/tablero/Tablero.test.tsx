@@ -22,6 +22,11 @@ const DATOS = {
   ],
   catalogos: [{ clave: "mgee", tramites: 2 }],
   actividad: [{ semana: "2026-W38", tramites: 1 }, { semana: "2026-W39", tramites: 2 }],
+  indicadores: { requisitos_distintos: 1, promedio_campos: 23.5, promedio_huecos: 7.0, con_integracion: 2 },
+  matriz_huecos: { filas: ["Testamento"], columnas: ["DIC-08"], celdas: [[21]], maximo: 21 },
+  matriz_requisitos: { filas: ["Identificación Oficial"], columnas: ["Testamento"], celdas: [[1]], maximo: 0 },
+  niveles: [{ nivel: "Alto", tramites: 1 }, { nivel: "Medio", tramites: 0 }, { nivel: "Bajo", tramites: 2 }],
+  metricas_max: { tareas: 10, bifurcaciones: 3, vistas: 9, campos: 46, acciones: 2, integraciones: 1 },
 };
 
 beforeEach(() => {
@@ -42,11 +47,24 @@ it("pinta las seis secciones en tarjetas y sin ninguna tabla", async () => {
   expect(screen.queryByRole("table")).toBeNull();
 });
 
+it("arriba va la fila de cifras y las secciones traen mapa de calor, matriz y distribucion", async () => {
+  render(<Tablero />);
+  expect(await screen.findByRole("article", { name: /^trámites$/i })).toHaveTextContent("3");
+  expect(screen.getByRole("article", { name: /campos por trámite/i })).toHaveTextContent("23.5");
+  expect(screen.getByRole("grid", { name: /inconsistencias por trámite/i })).toBeInTheDocument();
+  expect(screen.getByRole("grid", { name: /requisitos por trámite/i })).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: /nivel de complejidad/i })).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: /trámites por semana/i })).toBeInTheDocument();
+  // las tarjetas de complejidad comparan cada metrica con el maximo entre tramites
+  const tarjeta = screen.getByRole("article", { name: /testamento/i });
+  expect(within(tarjeta).getByRole("meter", { name: /campos/i })).toHaveAttribute("aria-valuenow", "46");
+});
+
 it("los huecos salen con su nombre humano, no solo el codigo", async () => {
   render(<Tablero />);
   const seccion = (await screen.findByRole("heading", { name: /se atoran/i })).closest("section")!;
-  expect(within(seccion).getByRole("listitem", { name: /condición de visibilidad/i }))
-    .toHaveTextContent(/2 de 3/);
+  // La columna del mapa de calor lleva el nombre humano, no solo el codigo.
+  expect(within(seccion).getByRole("columnheader", { name: /condición de visibilidad/i })).toBeInTheDocument();
 });
 
 it("la complejidad va en una tarjeta por trámite con su nivel y sus métricas", async () => {

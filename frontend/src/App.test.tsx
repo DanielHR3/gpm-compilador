@@ -22,6 +22,10 @@ vi.mock("@/lib/api", () => ({
   leerTablero: vi.fn().mockResolvedValue({
     total_tramites: 0, dependencias: [], ultimo_registro: null, requisitos: [],
     campos_compartidos: [], huecos: [], complejidad: [], catalogos: [], actividad: [],
+    indicadores: { requisitos_distintos: 0, promedio_campos: 0, promedio_huecos: 0, con_integracion: 0 },
+    matriz_huecos: { filas: [], columnas: [], celdas: [], maximo: 0 },
+    matriz_requisitos: { filas: [], columnas: [], celdas: [], maximo: 0 },
+    niveles: [], metricas_max: {},
   }),
   resolver: vi.fn(),
   reconocer: vi.fn(),
