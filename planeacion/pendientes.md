@@ -93,6 +93,14 @@ buscar.
   a nadie. Lo que no arregla: la Mac esta en Wi-Fi con reposo a 1 minuto (hoy no se duerme solo
   porque otros procesos lo impiden); una maquina fija, por cable y encendida resuelve lo mismo
   que la VM. La VM que pediria la opcion 2 es minima: 1 CPU, 2 GB, 10 GB, Debian/Ubuntu.
+  **2026-09-23, 09:30 — el companero SI esta en el mismo segmento.** Su captura de red (Wi-Fi
+  «DGT») da `192.168.1.224`; desde la Mac responde a `ping` y aparece en la tabla ARP. Asi que
+  para el, `ERR_ADDRESS_UNREACHABLE` no fue falta de ruta entre segmentos: la hipotesis que queda
+  es que la liga que tenia apuntaba a una IP que la Mac ya habia soltado (hoy amanecio en
+  `.226`, cuarto cambio). Le va la liga por nombre mDNS, que no depende de la IP. **No se abre
+  tunel publico:** los expedientes traen datos de ciudadanos y el requisito de arriba es que
+  no salgan de la red de gobierno. El build del frontend se rehizo hoy (el `dist/` era de las
+  14:15 de ayer y el ultimo commit de `frontend/src` es de las 14:18).
 
 - **P-23 — ninguna plantilla de documento de los expedientes reales trae `{{variables}}`.**
   Medido el 2026-09-22 sobre los dos expedientes del lote (`Archivo (1)`), las siete acciones
