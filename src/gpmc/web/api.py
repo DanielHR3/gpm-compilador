@@ -47,6 +47,7 @@ log = logging.getLogger("gpmc.web.api")
 from gpmc.extractores.docx import a_markdown
 from gpmc.extractores import pdf as ext_pdf
 from gpmc.web.clasificador import clasificar
+from gpmc.web import tablero
 from gpmc.web.sesiones import (
     CARPETA_ADJUNTOS,
     CARPETA_DOCUMENTOS,
@@ -487,6 +488,13 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                  sid, len(res.manifiesto.pantallas),
                  sum(len(p.campos) for p in res.manifiesto.pantallas),
                  len(res.huecos), len(bloquean(res.huecos)))
+        # Registro del tablero: solo agregados, y se hace aqui (al extraer) y
+        # no al descargar el .gpm, por decision del usuario del 2026-09-23.
+        linea = tablero.resumir(res.manifiesto, res.huecos)
+        if linea is None:
+            log.info("tablero: sid=%s sin nombre de tramite, no se registra", sid)
+        else:
+            tablero.registrar(raiz, linea)
         if _hay_ia and any(h.codigo == "DIC-08" for h in res.huecos):
             escribir_propuestas(carpeta, {"estado": "proponiendo", "motivo": None,
                                           "generadas": None, "propuestas": []})
@@ -558,6 +566,9 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
         # `meta01`/`meta02` siempre se emiten con ubicacion "metadatos": el
         # handler HTML de referencia la fija a mano (`app.py` lineas 245, 250),
         # asi que aqui se ignora la `ubicacion` del cliente para la purga.
+        # Para el tablero: un expediente sin AS-IS recibe su nombre aqui
+        # (META-04), y la linea lleva los huecos que habia al nombrarlo.
+        huecos_antes = huecos_vivos(carpeta)
         resueltos = []  # type: List[Tuple[str, str]]
         for res in cuerpo.resoluciones:
             if res.tipo == "dic08":
@@ -839,6 +850,13 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                     resueltos.append((codigo, res.ubicacion))
 
         guardar(m, carpeta / "manifiesto.yaml")
+        # Si al extraer no habia nombre, el tramite no entro al tablero; entra
+        # la primera vez que lo tiene. Una linea ya registrada no se toca:
+        # sus huecos son los de la extraccion, no los que van quedando.
+        linea = tablero.resumir(m, huecos_antes)
+        if linea is not None and not any(
+                l["clave"] == linea["clave"] for l in tablero.leer(raiz)):
+            tablero.registrar(raiz, linea)
 
         ruta_huecos = carpeta / "huecos.json"
         if ruta_huecos.exists():

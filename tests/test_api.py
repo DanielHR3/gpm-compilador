@@ -1062,3 +1062,54 @@ def test_get_historial_trae_fecha_y_ordena_del_mas_reciente_al_mas_viejo(tmp_pat
     from datetime import datetime
     marca = datetime.fromisoformat(r.json()["tramites"][0]["modificado"])
     assert marca.tzinfo is not None and marca.timestamp() == hace_1h
+
+
+# --- registro del tablero al extraer ----------------------------------------
+
+_AS_IS_CON_NOMBRE = "# Análisis AS-IS — Constancia de residencia\n\n- **Dependencia:** SEGOB\n"
+
+
+def _subir_con_nombre(c):
+    return c.post("/api/v1/expedientes", files={
+        "as_is": ("as.md", _AS_IS_CON_NOMBRE.encode("utf-8"), "text/markdown"),
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")})
+
+
+def test_post_expedientes_registra_el_tramite_en_el_tablero(tmp_path):
+    """El tablero se llena al extraer (decisión del usuario, 2026-09-23):
+    entra todo lo que se sube, resuelto o no."""
+    from gpmc.web import tablero
+    r = _subir_con_nombre(_cli(tmp_path))
+    assert r.status_code == 201, r.text
+    (linea,) = tablero.leer(tmp_path)
+    assert linea["nombre"] == "Constancia de residencia"
+    assert "curp" in linea["campos"]
+    assert sum(linea["huecos"].values()) >= 1        # con huecos tambien se registra
+    assert "sid" not in linea
+
+
+def test_extraer_dos_veces_el_mismo_tramite_deja_una_linea(tmp_path):
+    from gpmc.web import tablero
+    c = _cli(tmp_path)
+    for _ in range(2):
+        assert _subir_con_nombre(c).status_code == 201
+    assert len(tablero.leer(tmp_path)) == 1
+
+
+def test_un_tramite_sin_nombre_entra_al_tablero_cuando_se_le_da_nombre(tmp_path):
+    """Sin AS-IS el nombre llega despues, al resolver META-04 en el wizard.
+    Si solo se registrara al extraer, ese tramite nunca entraria al tablero."""
+    from gpmc.web import tablero
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+    assert tablero.leer(tmp_path) == []
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={
+        "resoluciones": [{"tipo": "meta04", "ubicacion": "metadatos",
+                          "valor": "Constancia de residencia"}]})
+    assert r.status_code == 200
+    (linea,) = tablero.leer(tmp_path)
+    assert linea["nombre"] == "Constancia de residencia"
+    # Los huecos de la linea son los que habia al momento de nombrarlo,
+    # incluido el META-04 que se acaba de resolver.
+    assert linea["huecos"].get("META-04", 0) == 1
