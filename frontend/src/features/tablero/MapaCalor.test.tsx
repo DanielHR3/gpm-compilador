@@ -35,3 +35,11 @@ it("sin filas dice que no hay nada que cruzar", () => {
   render(<MapaCalor titulo="X" filas={[]} columnas={[]} celdas={[]} />);
   expect(screen.getByText(/nada que cruzar todavía/i)).toBeInTheDocument();
 });
+
+it("la esquina de la cabecera ocupa su celda (sin sr-only), o la rejilla se corre una columna", () => {
+  render(<MapaCalor titulo="X" {...M} />);
+  const rejilla = screen.getByRole("grid", { name: "X" });
+  const cabecera = rejilla.firstElementChild!;
+  expect(cabecera.children).toHaveLength(M.columnas.length + 1);
+  expect(cabecera.firstElementChild).not.toHaveClass("sr-only");
+});

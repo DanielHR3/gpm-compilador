@@ -35,7 +35,10 @@ export default function MapaCalor({
       <div className="overflow-x-auto">
         <div role="grid" aria-label={titulo} className="grid gap-0.5 text-xs" style={{ gridTemplateColumns: columnasCss }}>
           <div role="row" className="contents">
-            <div role="columnheader" className="sr-only">{/* esquina */}</div>
+            {/* La esquina tiene que OCUPAR su celda: con `sr-only` (posicion
+                absoluta) la rejilla entera se corre una columna y las etiquetas
+                de fila acaban a la derecha. */}
+            <div role="columnheader" aria-label="Fila" className="min-h-4" />
             {columnas.map((c) => (
               <div key={c} role="columnheader" className="flex flex-col justify-end px-1 pb-1 text-center leading-tight">
                 <span className="font-medium">{etiquetaColumna(c)}</span>
