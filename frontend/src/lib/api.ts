@@ -215,6 +215,30 @@ export async function leerHistorial(): Promise<HistorialOut> {
   return pedirJson(`${BASE}/historial`);
 }
 
+export interface ConteoTablero { nombre: string; tramites: number; porcentaje: number }
+export interface HuecoTablero { codigo: string; tramites: number; total: number }
+export interface ComplejidadTablero {
+  clave: string; nombre: string; dependencia: string; nivel: string;
+  metricas: { tareas: number; bifurcaciones: number; vistas: number; campos: number; acciones: number; integraciones: number };
+}
+export interface TableroOut {
+  total_tramites: number;
+  dependencias: { nombre: string; tramites: number }[];
+  ultimo_registro: string | null;
+  requisitos: ConteoTablero[];
+  campos_compartidos: ConteoTablero[];
+  huecos: HuecoTablero[];
+  complejidad: ComplejidadTablero[];
+  catalogos: { clave: string; tramites: number }[];
+  actividad: { semana: string; tramites: number }[];
+}
+
+/** `GET /api/v1/tablero?dependencia=` — cuentas del tablero de Simplificación. Solo agregados. */
+export async function leerTablero(dependencia?: string): Promise<TableroOut> {
+  const q = dependencia ? `?dependencia=${encodeURIComponent(dependencia)}` : "";
+  return pedirJson(`${BASE}/tablero${q}`);
+}
+
 export async function leerExpediente(sid: string): Promise<EstadoExpediente> {
   const raw = await pedirJson<unknown>(`${BASE}/expedientes/${sid}`);
   return mapEstado(raw);
