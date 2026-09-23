@@ -45,6 +45,23 @@ buscar.
 
 ## Abiertos
 
+- **P-25 — el servidor corre con Gemini y las propuestas de `DIC-08` sobre expedientes reales
+  pasan por el.** Detectado el 2026-09-23 al agotar la cuota diaria gratuita (20 llamadas por
+  modelo) con tres siembras del tablero: cada expediente que se sube dispara una propuesta de
+  `DIC-08` al proveedor configurado, y el configurado en la Mac es Gemini. Choca con la decision
+  de la Direccion del 2026-09-17 (Gemini solo con `ejemplos/expedientes/`; la licencia de
+  Planeacion con OpenAI para lo real). `contexto_dic08` manda solo prosa y catalogo tecnico, no
+  el expediente entero, pero la regla es la regla. Salidas: cambiar `GPMC_IA_PROVEEDOR` a
+  `openai` con la llave de la licencia, o quitar la llave de Gemini del servidor para que las
+  propuestas no corran. La Fase 3 (spec `docs/superpowers/specs/2026-09-23-fase3-propuestas-desde-as-is-design.md`)
+  ya nace con candado: solo corre con `openai`. **Sin decidir.**
+
+- **P-26 — tres tramites del tablero con dependencia «[por confirmar]».** Digitalizacion de
+  Acciones IHM, Acceso a la Informacion y Pago de Bases Licitaciones: sus AS-IS, TO-BE y
+  Diccionario no dicen la dependencia responsable de forma explicita (solo pistas: «IHM» en el
+  titulo, la Unidad de Transparencia como area). Se resuelven en el asistente con `META-02`
+  cuando alguien del equipo diga cual es; el tablero se acomoda solo. No se adivina.
+
 - **P-24 — el servidor vive en una laptop y la liga cambia de IP cada vez que se reconecta.**
   Tres cambios en dos dias (`.215` → `.220` → `.215` → `.220`); cada uno obliga a reenviar la
   liga y a regenerar el PDF de la guia. Pedido el 2026-09-22 por el usuario: «empezar a pensar
