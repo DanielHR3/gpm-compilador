@@ -36,7 +36,8 @@ def test_resumir_saca_solo_agregados_y_nada_del_contenido():
     assert linea["nombre"] == "Reposición de Certificado" and linea["dependencia"] == "SEMARNATH"
     assert linea["registrado"] == "2026-09-23T18:00:00+00:00"
     assert linea["requisitos"] == ["Identificación Oficial", "Tarjeta de Circulación"]
-    assert linea["campos"] == ["curp", "doc_ine", "doc_tc", "estado"]
+    # Los archivos ya cuentan como requisitos; «campos» son los datos que se capturan.
+    assert linea["campos"] == ["curp", "estado"]
     assert linea["huecos"] == {"DIC-08": 2, "FLU-01": 1}
     assert linea["metricas"]["campos"] == 4 and linea["nivel"]
     assert linea["catalogos"] == ["mgee"]
@@ -331,3 +332,23 @@ def test_agregar_catalogos_traen_proveedor_y_descripcion():
     l = _linea("Z", "D", [], ["a"], {}, catalogos=["viejo"])
     d = tablero.agregar([l], hoy=HOY)
     assert d["catalogos"][0] == {"clave": "viejo", "proveedor": "viejo", "descripcion": "", "tramites": 1}
+
+
+def test_resumir_solo_cuenta_como_datos_capturados_lo_que_escribe_el_ciudadano():
+    """«Datos que se capturan en varios tramites» son entradas: un archivo ya
+    cuenta como requisito, y un parrafo, subtitulo, vista de solo lectura o
+    documento generado no se capturan."""
+    campos = [
+        Campo(nombre="curp", etiqueta="CURP"),
+        Campo(nombre="estado", etiqueta="Estado", tipo="select"),
+        Campo(nombre="doc_tc", etiqueta="Documento: Tarjeta de Circulación", tipo="file"),
+        Campo(nombre="aviso", etiqueta="Aviso de privacidad", tipo="paragraph"),
+        Campo(nombre="titulo", etiqueta="Datos del vehículo", tipo="subtitle"),
+        Campo(nombre="vista_p1", etiqueta="Vista de solo lectura (Ciudadano → Funcionario)", tipo="text"),
+        Campo(nombre="oficio", etiqueta="Oficio", tipo="documento"),
+    ]
+    linea = tablero.resumir(_manifiesto(campos=campos), [], ahora=AHORA)
+    assert linea["campos"] == ["curp", "estado"]
+    assert linea["requisitos"] == ["Tarjeta de Circulación"]
+    # La metrica del estimador sigue contando todos los campos, como siempre.
+    assert linea["metricas"]["campos"] == 7

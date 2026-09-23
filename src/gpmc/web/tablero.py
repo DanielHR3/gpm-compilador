@@ -32,6 +32,15 @@ _PREFIJO_DOC = "documento:"
 # N/A y nombra una pantalla; el extractor la clasifica como archivo por el
 # «visor de archivos», pero no es un documento que entregue el ciudadano.
 _NO_ES_REQUISITO = ("vista de solo lectura",)
+# Tipos que no son una captura del ciudadano: el archivo ya cuenta como
+# requisito; parrafo, subtitulo y documento generado no se escriben.
+_NO_SE_CAPTURA = {"file", "paragraph", "subtitle", "documento", "cart"}
+
+
+def _se_captura(c) -> bool:
+    if c.tipo in _NO_SE_CAPTURA:
+        return False
+    return not (c.etiqueta or "").strip().lower().startswith(_NO_ES_REQUISITO)
 
 
 def _requisito(etiqueta: str) -> str:
@@ -71,11 +80,11 @@ def resumir(m: Manifiesto, huecos: "list[Hueco]",
         "homoclave": m.tramite.homoclave,
         "registrado": ahora.isoformat(),
         "requisitos": requisitos,
-        "campos": [c.nombre.lstrip("@") for c in campos],
+        "campos": [c.nombre.lstrip("@") for c in campos if _se_captura(c)],
         # Rotulo humano de cada campo (solo si difiere del nombre tecnico): el
         # tablero enseña «CURP del propietario», no `curp_propietario`.
         "etiquetas": {c.nombre.lstrip("@"): c.etiqueta for c in campos
-                      if c.etiqueta and c.etiqueta != c.nombre},
+                      if _se_captura(c) and c.etiqueta and c.etiqueta != c.nombre},
         "huecos": dict(Counter(h.codigo for h in huecos)),
         "metricas": {
             "tareas": est.metricas.tareas, "bifurcaciones": est.metricas.bifurcaciones,
