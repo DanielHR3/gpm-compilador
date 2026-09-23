@@ -35,7 +35,7 @@ def test_la_raiz_sirve_la_spa_no_html_viejo(monkeypatch, tmp_path):
     c = TestClient(crear_app(almacen=tmp_path))
     assert 'id=root' in c.get("/").text
     assert 'id=root' in c.get("/revisar/" + "a" * 16).text     # fallback SPA
-    assert c.get("/historial").status_code == 200               # HTML viejo sigue
+    assert 'id=root' in c.get("/historial").text               # la SPA lo toma (2026-09-23)
 
 
 def test_subir_los_insumos_crea_una_sesion_y_extrae(cliente):
@@ -180,39 +180,6 @@ def test_el_identificador_de_sesion_no_permite_salir_del_almacen(cliente):
 
 
 # Manifiesto minimo y valido, inline: no depende de GPMC_WIKI.
-_MANIFIESTO_BUENO = """tramite: {nombre: "Trámite Bueno", dependencia: "DEP"}
-actores: [{id: u, nombre: U}]
-flujo:
-  tareas:
-  - {id: t1, nombre: T1, actor: u, inicial: true, terminal: true}
-  conexiones: []
-"""
-
-# Valido como YAML pero de un esquema anterior: 'cargar' revienta al validarlo.
-_MANIFIESTO_CORRUPTO = """tramite: {nombre: "Viejo"}
-campos_antiguos: []
-"""
-
-
-def test_historial_vacio_responde_200(cliente):
-    r = cliente.get("/historial")
-    assert r.status_code == 200
-    assert "Historial" in r.text
-
-
-def test_historial_sobrevive_a_una_sesion_con_manifiesto_corrupto(cliente, tmp_path):
-    buena = tmp_path / ("a" * 16)
-    buena.mkdir()
-    (buena / "manifiesto.yaml").write_text(_MANIFIESTO_BUENO, encoding="utf-8")
-    mala = tmp_path / ("b" * 16)
-    mala.mkdir()
-    (mala / "manifiesto.yaml").write_text(_MANIFIESTO_CORRUPTO, encoding="utf-8")
-
-    r = cliente.get("/historial")
-    assert r.status_code == 200
-    assert "Trámite Bueno" in r.text
-
-
 def test_descargar_plantilla_responde_con_contenido(cliente):
     r = cliente.get("/descargar-plantilla")
     assert r.status_code == 200

@@ -1001,3 +1001,64 @@ def test_get_catalogos_lista_lo_emitible_y_calla_lo_de_pago(tmp_path):
     assert curp["campos_respuesta"] == ["nombres", "apePat", "apeMat"]
     assert "curp" in curp["sinonimos"]
     assert "credencial" in d["nota"].lower()
+
+
+# --- GET /api/v1/historial --------------------------------------------------
+# La seccion «Historial» de la SPA pinta esto tal cual. Antes era una pagina
+# HTML del servidor (`plantillas.historial`); desde el 2026-09-23 la SPA la
+# toma, igual que /catalogos, y este endpoint es su unica fuente.
+
+_MANIFIESTO_BUENO = """tramite: {nombre: "Trámite Bueno", dependencia: "DEP"}
+actores: [{id: u, nombre: U}]
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, terminal: true}
+  conexiones: []
+"""
+
+# Valido como YAML pero de un esquema anterior: `cargar` revienta al validarlo.
+_MANIFIESTO_CORRUPTO = """tramite: {nombre: "Viejo"}
+campos_antiguos: []
+"""
+
+
+def _sesion(tmp_path, sid, manifiesto):
+    carpeta = tmp_path / sid
+    carpeta.mkdir()
+    (carpeta / "manifiesto.yaml").write_text(manifiesto, encoding="utf-8")
+    return carpeta
+
+
+def test_get_historial_vacio_devuelve_lista_vacia(tmp_path):
+    r = _cli(tmp_path).get("/api/v1/historial")
+    assert r.status_code == 200
+    assert r.json() == {"tramites": []}
+
+
+def test_get_historial_omite_la_sesion_con_manifiesto_corrupto(tmp_path):
+    """Un manifiesto de un esquema anterior no tumba el historial entero."""
+    _sesion(tmp_path, "a" * 16, _MANIFIESTO_BUENO)
+    _sesion(tmp_path, "b" * 16, _MANIFIESTO_CORRUPTO)
+    r = _cli(tmp_path).get("/api/v1/historial")
+    assert r.status_code == 200
+    (t,) = r.json()["tramites"]
+    assert t["sid"] == "a" * 16
+    assert t["nombre"] == "Trámite Bueno" and t["dependencia"] == "DEP"
+
+
+def test_get_historial_trae_fecha_y_ordena_del_mas_reciente_al_mas_viejo(tmp_path):
+    """Sin fecha, un historial de veinte expedientes no sirve para encontrar
+    nada. `modificado` sale de la carpeta de sesion, en ISO 8601 con zona."""
+    # Dentro de la ventana de purga (7 dias): crear_app borra lo mas viejo.
+    import os, time
+    hace_2h, hace_1h = int(time.time()) - 7200, int(time.time()) - 3600
+    vieja = _sesion(tmp_path, "a" * 16, _MANIFIESTO_BUENO)
+    nueva = _sesion(tmp_path, "b" * 16, _MANIFIESTO_BUENO.replace("Bueno", "Nuevo"))
+    os.utime(vieja, (hace_2h, hace_2h))
+    os.utime(nueva, (hace_1h, hace_1h))
+    r = _cli(tmp_path).get("/api/v1/historial")
+    sids = [t["sid"] for t in r.json()["tramites"]]
+    assert sids == ["b" * 16, "a" * 16]
+    from datetime import datetime
+    marca = datetime.fromisoformat(r.json()["tramites"][0]["modificado"])
+    assert marca.tzinfo is not None and marca.timestamp() == hace_1h

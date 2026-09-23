@@ -18,6 +18,7 @@ vi.mock("@/lib/api", () => ({
     catalogos: [],
     nota: "Solo se listan los endpoints que el compilador emite.",
   }),
+  leerHistorial: vi.fn().mockResolvedValue({ tramites: [] }),
   resolver: vi.fn(),
   reconocer: vi.fn(),
   urlGpm: () => "/api/v1/x/gpm",
@@ -61,6 +62,17 @@ describe("App (SPA SP1)", () => {
       // `AppHeader` pinta el titulo en un <span>, asi que el unico heading
       // llamado «Catálogos» es el <h1> de la vista.
       expect(await screen.findByRole("heading", { name: /catálogos/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /extraer/i })).toBeNull();
+    } finally {
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
+  it("en /historial pinta el historial y no la carga de insumos (antes era HTML del servidor)", async () => {
+    window.history.replaceState({}, "", "/historial");
+    try {
+      render(<App />);
+      expect(await screen.findByRole("heading", { name: /historial/i })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /extraer/i })).toBeNull();
     } finally {
       window.history.replaceState({}, "", "/");

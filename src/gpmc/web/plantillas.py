@@ -415,6 +415,8 @@ document.querySelectorAll('button[formaction^="/reconocer/"]').forEach(b => {{
 </script>""", 2, sid=sid)
 
 def historial(archivos) -> str:
+    # Sin uso desde el 2026-09-23: la SPA pinta /historial con GET /api/v1/historial.
+    # Se borra con portada/revision cuando SP3 tire simulador/html.py.
     lista = ""
     for a in archivos:
         lista += f'<li><a href="/revisar/{a["sid"]}"><strong>{_h.escape(a["nombre"])}</strong></a> - {_h.escape(a["dependencia"])} <a class="btn" href="/descargar/{a["sid"]}/gpm" style="margin-left:1rem;padding:0.2rem 0.5rem">Descargar .gpm</a></li>'

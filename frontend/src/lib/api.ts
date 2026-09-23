@@ -199,6 +199,22 @@ export async function leerCatalogos(): Promise<CatalogosOut> {
   return pedirJson(`${BASE}/catalogos`);
 }
 
+export interface TramiteHistorial {
+  sid: string;
+  nombre: string;
+  dependencia: string;
+  /** ISO 8601 con zona: ultima vez que alguien trabajo en la sesion. */
+  modificado: string;
+}
+export interface HistorialOut {
+  tramites: TramiteHistorial[];
+}
+
+/** `GET /api/v1/historial` — expedientes del almacen, del mas reciente al mas viejo. */
+export async function leerHistorial(): Promise<HistorialOut> {
+  return pedirJson(`${BASE}/historial`);
+}
+
 export async function leerExpediente(sid: string): Promise<EstadoExpediente> {
   const raw = await pedirJson<unknown>(`${BASE}/expedientes/${sid}`);
   return mapEstado(raw);

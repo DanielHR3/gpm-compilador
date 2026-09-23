@@ -6,6 +6,7 @@ import PieInstitucional from "@/components/PieInstitucional";
 import { Toaster } from "@/components/ui/sonner";
 import CargaInsumos from "@/features/carga/CargaInsumos";
 import Catalogos from "@/features/catalogos/Catalogos";
+import Historial from "@/features/historial/Historial";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
 import { useUrlDeRevision } from "@/features/huecos/useUrlDeRevision";
 import { leerExpediente } from "@/lib/api";
@@ -51,13 +52,22 @@ export default function App() {
   // Referencia, no un paso: se sirve sin expediente. El servidor entrega
   // index.html para cualquier ruta que no sea de un handler real.
   const enCatalogos = window.location.pathname === "/catalogos";
+  // Hasta el 2026-09-23 era HTML del servidor (`plantillas.historial`).
+  const enHistorial = window.location.pathname === "/historial";
 
   return (
     <div className="flex min-h-svh bg-background">
       <Toaster />
       <NavegacionLateral sid={est?.sid ?? null} tramite={nombreDelTramite(est)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader titulo={enCatalogos ? "Catálogos" : est ? "Revisión del expediente" : "Carga de insumos"} />
+        <AppHeader
+            titulo={
+              enCatalogos ? "Catálogos"
+              : enHistorial ? "Historial"
+              : est ? "Revisión del expediente"
+              : "Carga de insumos"
+            }
+          />
         <main className="flex-1 px-6 py-8">
           {aviso ? (
             <p role="alert" className="pb-4 text-sm text-destructive">
@@ -66,6 +76,8 @@ export default function App() {
           ) : null}
           {enCatalogos ? (
             <Catalogos />
+          ) : enHistorial ? (
+            <Historial />
           ) : est ? (
             <WizardHuecos estado={est} onEstado={setEst} />
           ) : (

@@ -181,6 +181,19 @@ class CatalogosOut(BaseModel):
     nota: str
 
 
+class TramiteHistorialOut(BaseModel):
+    sid: str
+    nombre: str
+    dependencia: str
+    # ISO 8601 con zona. Sale de la carpeta de sesion: cada resolver/reconocer
+    # la toca, asi que es "ultima vez que alguien trabajo en esto".
+    modificado: str
+
+
+class HistorialOut(BaseModel):
+    tramites: List[TramiteHistorialOut]
+
+
 class ClasificarOut(BaseModel):
     """A que zona del asistente va cada archivo. Solo nombres: el navegador
     sube los bytes despues, ya repartidos, a `POST /expedientes`."""
@@ -278,6 +291,35 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                 "estado": "error", "generadas": None, "propuestas": [],
                 "motivo": "No se pudieron generar propuestas con IA; puedes "
                           f"resolver a mano. ({type(exc).__name__})"})
+
+    @r.get("/historial", response_model=HistorialOut)
+    async def listar_historial():
+        """Los expedientes que hay en el almacen, para la seccion «Historial».
+
+        Una carpeta de sesion puede guardar un manifiesto de un esquema
+        anterior o a medio escribir; `cargar` revienta en ese caso y se omite
+        esa sesion en vez de tumbar la lista entera para las demas.
+        """
+        from gpmc.nucleo.manifiesto import cargar
+        from gpmc.web.sesiones import _SESION_VALIDA
+        filas = []
+        for carpeta in raiz.iterdir():
+            if not carpeta.is_dir() or not _SESION_VALIDA.match(carpeta.name):
+                continue
+            ruta = carpeta / "manifiesto.yaml"
+            if not ruta.exists():
+                continue
+            try:
+                m = cargar(ruta)
+            except Exception:
+                continue
+            mtime = carpeta.stat().st_mtime
+            filas.append((mtime, TramiteHistorialOut(
+                sid=carpeta.name, nombre=m.tramite.nombre,
+                dependencia=m.tramite.dependencia,
+                modificado=datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat())))
+        filas.sort(key=lambda f: f[0], reverse=True)
+        return HistorialOut(tramites=[t for _, t in filas])
 
     @r.get("/catalogos", response_model=CatalogosOut)
     async def listar_catalogos():

@@ -66,8 +66,9 @@ versiona**: hay que construirla.
   otra carpeta `dist/` (por defecto `frontend/dist/` junto al repo). Útil para
   servir un build hecho en otra máquina o ruta.
 
-`/simulador/{sid}`, `/aprobacion/{sid}`, `/historial`, `/vistas/{sid}` y las
-descargas siguen siendo HTML del servidor hasta SP3.
+`/historial` pasó a la SPA el 2026-09-23 (`GET /api/v1/historial` + vista).
+`/simulador/{sid}`, `/aprobacion/{sid}`, `/vistas/{sid}` y las descargas siguen
+siendo HTML del servidor hasta que se termine SP3.
 
 ## La limitación que hay que resolver
 

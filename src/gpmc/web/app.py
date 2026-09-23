@@ -38,7 +38,6 @@ from gpmc.web.sesiones import (
     huecos_vivos,
     reconocidos_de,
     escribir_reconocidos,
-    _SESION_VALIDA,
     # Movidos a sesiones.py en Task 3: api.py los necesita y app.py importa
     # api.py de forma local dentro de crear_app; tenerlos aqui crearia el
     # ciclo api.py -> app.py -> api.py.
@@ -107,29 +106,6 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
             headers={"content-disposition": 'attachment; filename="plantilla-tobe.md"'},
         )
 
-
-    @app.get("/historial", response_class=HTMLResponse)
-    def historial():
-        archivos = []
-        for carpeta in raiz.iterdir():
-            if not carpeta.is_dir() or not _SESION_VALIDA.match(carpeta.name):
-                continue
-            manifiesto_path = carpeta / "manifiesto.yaml"
-            if manifiesto_path.exists():
-                try:
-                    m = cargar(manifiesto_path)
-                except Exception:
-                    # Un directorio de sesion puede guardar un manifiesto de un
-                    # esquema anterior o a medio escribir. cargar() revienta en
-                    # ese caso; se omite esa sesion en vez de tumbar la pagina
-                    # entera para todas las demas.
-                    continue
-                archivos.append({
-                    "sid": carpeta.name,
-                    "nombre": m.tramite.nombre,
-                    "dependencia": m.tramite.dependencia,
-                })
-        return HTMLResponse(plantillas.historial(archivos))
 
     @app.post("/extraer", response_class=HTMLResponse)
     async def extraer(
@@ -373,7 +349,7 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
 
     # SPA React compilada (Task 6). Task 11 la movió de /app a / y a la
     # catch-all `/{ruta:path}`, registrada al final para que las rutas exactas
-    # (/api, /simulador, /historial, …) ganen precedencia. `dist` se resuelve
+    # (/api, /simulador, /aprobacion, …) ganen precedencia. `dist` se resuelve
     # una vez al crear la app; la variable de entorno gana para que las pruebas
     # apunten a un arbol falso.
     # El shell del SPA se revalida en cada carga; los assets, nunca.
@@ -397,12 +373,12 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
     # La catch-all está declarada al final, así que estas rutas ya se resuelven
     # antes por su handler exacto. La comprobación de abajo es por segmento
     # exacto (`ruta.split("/")[0] in _PREFIJOS_NO_SPA`): sólo un prefijo conocido
-    # seguido de `/...` (p. ej. `/api/bogus`, `/historial/x`) da 404. Un typo
-    # como `/historial-xyz` o `/simuladorr/x` NO casa y cae al shell del SPA con
+    # seguido de `/...` (p. ej. `/api/bogus`, `/simulador/x/y`) da 404. Un typo
+    # como `/simuladorr/x` NO casa y cae al shell del SPA con
     # 200 + index.html — comportamiento estándar de una SPA (cualquier ruta
     # desconocida la resuelve el router de cliente).
     _PREFIJOS_NO_SPA = {
-        "api", "simulador", "aprobacion", "historial", "vistas",
+        "api", "simulador", "aprobacion", "vistas",
         "descargar", "descargar-plantilla", "extraer", "resolver", "reconocer",
     }
 
@@ -440,7 +416,7 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
         return resp
 
     # Catch-all de la SPA, declarada al final: `/` y `/<lo-que-sea>`. Las rutas
-    # exactas de arriba (/api, /simulador, /historial, …) se resuelven primero;
+    # exactas de arriba (/api, /simulador, /aprobacion, …) se resuelven primero;
     # todo lo demás cae aquí y sirve el index.html (client-side routing), salvo
     # un archivo real de dist/ o un typo bajo un prefijo conocido (→ 404).
     @app.get("/")
