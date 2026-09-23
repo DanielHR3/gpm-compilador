@@ -206,6 +206,10 @@ def _conteo_por_tramite(lineas: "list[dict]", campo: str, minimo: int = 1) -> "l
     return filas
 
 
+def _por_clave(lineas: "list[dict]", k: str) -> dict:
+    return next(l for l in lineas if l["clave"] == k)
+
+
 def agregar(lineas: "list[dict]", dependencia: Optional[str] = None,
             hoy: Optional[date] = None) -> dict:
     """Las cuentas del tablero, listas para pintar. Nunca falla por vacío."""
@@ -230,13 +234,44 @@ def agregar(lineas: "list[dict]", dependencia: Optional[str] = None,
     complejidad.sort(key=lambda c: (_ORDEN_NIVEL.get(c["nivel"], 9), c["nombre"].lower()))
     cat: Counter = Counter(k for l in lineas for k in l.get("catalogos", []))
     por_semana = Counter(_semana(l["registrado"]) for l in lineas if l.get("registrado"))
+    requisitos = _conteo_por_tramite(lineas, "requisitos")
+    total = len(lineas)
+    # Matriz tramite x codigo (mapa de calor): filas en el orden de complejidad,
+    # columnas en el de la lista de huecos, para que las dos vistas coincidan.
+    codigos = [h["codigo"] for h in huecos]
+    matriz_huecos = [[int(l.get("huecos", {}).get(c, 0)) for c in codigos]
+                     for l in (_por_clave(lineas, x["clave"]) for x in complejidad)]
+    # Matriz requisito x tramite (presencia): filas por frecuencia, columnas
+    # como la complejidad. Se compara por clave() para agrupar variantes.
+    nombres = [c["nombre"] for c in complejidad]
+    matriz_requisitos = [
+        [1 if clave(r["nombre"]) in {clave(x) for x in _por_clave(lineas, c["clave"]).get("requisitos", [])}
+         else 0 for c in complejidad]
+        for r in requisitos]
+    metricas = [l.get("metricas", {}) for l in lineas]
+    claves_metricas = ("tareas", "bifurcaciones", "vistas", "campos", "acciones", "integraciones")
     return {
+        "indicadores": {
+            "requisitos_distintos": len(requisitos),
+            "promedio_campos": round(sum(len(l.get("campos", [])) for l in lineas) / total, 1) if total else 0.0,
+            "promedio_huecos": round(sum(sum(int(n) for n in l.get("huecos", {}).values())
+                                         for l in lineas) / total, 1) if total else 0.0,
+            "con_integracion": sum(1 for l in lineas if l.get("catalogos")),
+        },
+        "matriz_huecos": {"filas": nombres, "columnas": codigos, "celdas": matriz_huecos,
+                          "maximo": max((v for fila in matriz_huecos for v in fila), default=0)},
+        "matriz_requisitos": {"filas": [r["nombre"] for r in requisitos], "columnas": nombres,
+                              "celdas": matriz_requisitos},
+        "niveles": [{"nivel": n, "tramites": sum(1 for l in lineas if l.get("nivel") == n)}
+                    for n in ("Alto", "Medio", "Bajo")],
+        "metricas_max": {k: max((int(m.get(k, 0)) for m in metricas), default=0)
+                         for k in claves_metricas},
         "total_tramites": len(lineas),
         "dependencias": [{"nombre": d, "tramites": n}
                          for d, n in sorted(deps.items(), key=lambda x: (-x[1], x[0]))],
         "ultimo_registro": max((l["registrado"] for l in lineas if l.get("registrado")),
                                default=None),
-        "requisitos": _conteo_por_tramite(lineas, "requisitos"),
+        "requisitos": requisitos,
         "campos_compartidos": _conteo_por_tramite(lineas, "campos", minimo=2),
         "huecos": huecos,
         "complejidad": complejidad,

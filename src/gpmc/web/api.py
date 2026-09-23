@@ -230,6 +230,25 @@ class SemanaOut(BaseModel):
     tramites: int
 
 
+class IndicadoresOut(BaseModel):
+    requisitos_distintos: int
+    promedio_campos: float
+    promedio_huecos: float
+    con_integracion: int
+
+
+class MatrizOut(BaseModel):
+    filas: List[str]
+    columnas: List[str]
+    celdas: List[List[int]]
+    maximo: int = 0
+
+
+class NivelOut(BaseModel):
+    nivel: str
+    tramites: int
+
+
 class TableroOut(BaseModel):
     """Cuentas del tablero de Simplificación. Solo agregados."""
     total_tramites: int
@@ -241,6 +260,11 @@ class TableroOut(BaseModel):
     complejidad: List[ComplejidadOut]
     catalogos: List[CatalogoTableroOut]
     actividad: List[SemanaOut]
+    indicadores: IndicadoresOut
+    matriz_huecos: MatrizOut
+    matriz_requisitos: MatrizOut
+    niveles: List[NivelOut]
+    metricas_max: dict
 
 
 class ClasificarOut(BaseModel):

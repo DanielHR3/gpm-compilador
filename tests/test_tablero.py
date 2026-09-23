@@ -230,3 +230,49 @@ def test_actualizar_rotulos_cambia_dependencia_y_conserva_huecos(tmp_path):
     assert l["dependencia"] == "SEGOB"
     assert l["huecos"] == {"META-02": 1} and l["registrado"] == AHORA.isoformat()
     assert tablero.actualizar_rotulos(tmp_path, tablero.resumir(_manifiesto(nombre="Otro"), [], ahora=AHORA)) is False
+
+
+# --- rediseno visual: indicadores, matrices y distribucion --------------------
+
+def test_agregar_indicadores_promedios_y_conteos():
+    d = tablero.agregar(TRES, hoy=HOY)
+    i = d["indicadores"]
+    assert i["requisitos_distintos"] == 3          # identificacion (x2), tarjeta, acta
+    assert i["promedio_campos"] == 2.0
+    assert i["promedio_huecos"] == round((21 + 2 + 1) / 3, 1)
+    assert i["con_integracion"] == 2
+
+
+def test_agregar_matriz_huecos_tramite_por_codigo():
+    d = tablero.agregar(TRES, hoy=HOY)
+    m = d["matriz_huecos"]
+    # Filas en el orden de complejidad; columnas en el orden de la lista de huecos.
+    assert m["filas"] == ["Testamento", "Reposición", "Prórroga"]
+    assert m["columnas"] == ["DIC-08", "FLU-01", "DIC-06"]
+    assert m["celdas"] == [[0, 1, 0], [20, 0, 1], [1, 1, 0]]
+    assert m["maximo"] == 20
+
+
+def test_agregar_matriz_requisitos_presencia_por_tramite():
+    d = tablero.agregar(TRES, hoy=HOY)
+    m = d["matriz_requisitos"]
+    assert m["filas"] == ["Identificación Oficial", "Acta de nacimiento", "Tarjeta de Circulación"]
+    assert m["columnas"] == ["Testamento", "Reposición", "Prórroga"]
+    assert m["celdas"] == [[0, 1, 1], [1, 0, 0], [0, 1, 0]]
+
+
+def test_agregar_niveles_y_maximos_de_metricas():
+    d = tablero.agregar(TRES, hoy=HOY)
+    assert d["niveles"] == [{"nivel": "Alto", "tramites": 1}, {"nivel": "Medio", "tramites": 1},
+                            {"nivel": "Bajo", "tramites": 1}]
+    assert d["metricas_max"]["campos"] == 2 and d["metricas_max"]["integraciones"] == 2
+
+
+def test_agregar_vacio_trae_indicadores_en_cero_y_matrices_vacias():
+    d = tablero.agregar([], hoy=HOY)
+    assert d["indicadores"] == {"requisitos_distintos": 0, "promedio_campos": 0.0,
+                                "promedio_huecos": 0.0, "con_integracion": 0}
+    assert d["matriz_huecos"] == {"filas": [], "columnas": [], "celdas": [], "maximo": 0}
+    assert d["matriz_requisitos"] == {"filas": [], "columnas": [], "celdas": []}
+    assert d["niveles"] == [{"nivel": "Alto", "tramites": 0}, {"nivel": "Medio", "tramites": 0},
+                            {"nivel": "Bajo", "tramites": 0}]
