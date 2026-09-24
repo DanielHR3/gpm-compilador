@@ -49,3 +49,17 @@ def test_escribir_huecos_usa_el_mismo_json_que_post_expedientes(tmp_path):
     from gpmc.web.sesiones import escribir_huecos
     escribir_huecos(tmp_path, [Hueco("falta_dato", "GEN-01", "requisitos", "m", None)])
     assert [h.codigo for h in huecos_vivos(tmp_path)] == ["GEN-01"]
+
+
+def test_escribir_generados_es_atomico(tmp_path, monkeypatch):
+    """Lo escribe un hilo de BackgroundTasks mientras la SPA lo lee cada 3 s:
+    un write_text a medias se leia vacio y daba 500."""
+    import os
+    from gpmc.web import sesiones
+    llamadas = []
+    real = os.replace
+    monkeypatch.setattr(sesiones.os, "replace", lambda a, b: (llamadas.append((a, b)), real(a, b)))
+    sesiones.escribir_generados(tmp_path, {"estado": "listo"})
+    assert len(llamadas) == 1 and str(llamadas[0][1]).endswith("generados.json")
+    assert sesiones.generados_de(tmp_path) == {"estado": "listo"}
+    assert [p.name for p in tmp_path.iterdir()] == ["generados.json"]

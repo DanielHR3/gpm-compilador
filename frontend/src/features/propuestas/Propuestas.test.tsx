@@ -72,3 +72,33 @@ it("un 422 del extractor se muestra y la pantalla sigue en propuestas", async ()
   // El Diccionario ya estaba aceptado: sin zona de carga no habria salida.
   expect(screen.getByLabelText(/subir mi diccionario/i)).toBeInTheDocument();
 });
+
+it("un fallo pasajero al consultar no detiene la consulta periodica", async () => {
+  const { leerGenerados } = await import("@/lib/api");
+  vi.mocked(leerGenerados)
+    .mockResolvedValueOnce({ estado: "generando", motivo: null, nombre: "Constancia", diccionario: null, tobe: null })
+    .mockRejectedValueOnce(new Error("red"))
+    .mockResolvedValueOnce(listo);
+  render(<Propuestas sid={SID} onListo={() => {}} />);
+  expect(await screen.findByText(/uno o dos minutos/i)).toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
+  expect(await screen.findAllByRole("article")).toHaveLength(2);
+});
+
+it("tras un 422 relee el estado: el TO-BE ya aceptado se cierra y ofrece subir el propio", async () => {
+  // El servidor guarda `aceptada` ANTES de que el extractor conteste 422. Sin
+  // releer, la tarjeta seguia ofreciendo «Aceptar» y cada clic daba 409.
+  const { leerGenerados, decidirDocumento, ErrorApi } = await import("@/lib/api");
+  const aceptadoDicc = { ...listo, diccionario: { ...doc, decision: "aceptada" as const } };
+  vi.mocked(leerGenerados)
+    .mockResolvedValueOnce(aceptadoDicc)
+    .mockResolvedValueOnce({ ...aceptadoDicc, tobe: { ...doc, version_prompt: "tobe-v1", decision: "aceptada" as const } });
+  const e = new (ErrorApi as any)("no se extrajo ninguna pantalla"); e.status = 422;
+  vi.mocked(decidirDocumento).mockRejectedValue(e);
+  render(<Propuestas sid={SID} onListo={() => {}} />);
+  await userEvent.click(await screen.findByRole("button", { name: /aceptar tal cual/i }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(/no se extrajo ninguna pantalla/);
+  await waitFor(() => expect(screen.queryByRole("button", { name: /aceptar tal cual/i })).not.toBeInTheDocument());
+  expect(screen.getByLabelText(/subir mi to-be/i)).toBeInTheDocument();
+});

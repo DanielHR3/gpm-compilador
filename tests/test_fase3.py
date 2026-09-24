@@ -345,3 +345,70 @@ def test_la_plantilla_tobe_que_viaja_al_prompt_es_mermaid_dibujable():
     compuertas = re.findall(r"\{[^{}]*@@[^{}]*\}", bloque)
     assert compuertas, "la plantilla debe traer al menos una compuerta con @@"
     assert all(c.startswith('{"') and c.endswith('"}') for c in compuertas), compuertas
+
+
+# --- Revision final: requisitos (hallazgo 3) y bitacora (hallazgo 5) -----------------
+
+def test_requisitos_con_comas_dentro_de_parentesis_y_y_dentro_de_un_requisito():
+    """«Identificación oficial (INE, pasaporte o cartilla), CURP» son DOS
+    requisitos, y «pago de derechos y aprovechamientos» es UNO: la «y» solo
+    separa en el ultimo tramo de una enumeracion «a, b y c»."""
+    from gpmc.agentes.verificar_fase3 import requisitos_del_as_is
+    assert requisitos_del_as_is(
+        "- **Requisitos:** Identificación oficial (INE, pasaporte o cartilla), CURP\n") == [
+        "Identificación oficial", "CURP"]
+    assert requisitos_del_as_is(
+        "- **Requisitos:** Comprobante de pago de derechos y aprovechamientos\n") == [
+        "Comprobante de pago de derechos y aprovechamientos"]
+    assert requisitos_del_as_is("- **Requisitos:** CURP, acta y comprobante\n") == [
+        "CURP", "acta", "comprobante"]
+
+
+def test_requisitos_anidados_solo_el_primer_nivel():
+    from gpmc.agentes.verificar_fase3 import requisitos_del_as_is
+    texto = ("- **Requisitos:**\n"
+             "  - Identificación oficial\n"
+             "    - vigente\n"
+             "    - con fotografía\n"
+             "  - CURP\n")
+    assert requisitos_del_as_is(texto) == ["Identificación oficial", "CURP"]
+
+
+def test_una_respuesta_invalida_del_propio_proveedor_queda_en_la_bitacora(tmp_path):
+    """El proveedor de OpenAI lanza RespuestaInvalida el mismo (JSON truncado
+    por el tope de tokens): esa llamada se cobra y debe quedar registrada."""
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso, RespuestaInvalida
+    from gpmc.agentes.bitacora import leer
+
+    class Truncado(ProveedorFalso):
+        def completar(self, instrucciones, contexto, esquema):
+            self.llamadas += 1
+            raise RespuestaInvalida("no es JSON")
+
+    g = generar(_ASIS_INLINE, Truncado([]), tmp_path, "2" * 16)
+    assert g.estado == "error"
+    filas = leer(tmp_path)
+    assert len(filas) == 1 and filas[0]["estado"] == "error"
+    assert "respuesta_invalida" in filas[0]["alertas"] and filas[0]["documento"] == "diccionario"
+
+
+def test_cada_intento_reintentado_deja_su_linea(tmp_path, monkeypatch):
+    """Dos timeouts y un exito son tres peticiones cobradas: tres lineas."""
+    from gpmc.agentes import fase3
+    from gpmc.agentes.proveedor import ErrorDeRed, ProveedorFalso
+    from gpmc.agentes.bitacora import leer
+    monkeypatch.setattr(fase3, "ESPERAS_REINTENTO", (0.0, 0.0))
+
+    class Intermitente(ProveedorFalso):
+        def completar(self, instrucciones, contexto, esquema):
+            if self.llamadas < 2:
+                self.llamadas += 1
+                raise ErrorDeRed("timeout")
+            return super().completar(instrucciones, contexto, esquema)
+
+    prov = Intermitente([_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    g = fase3.generar(_ASIS_INLINE, prov, tmp_path, "3" * 16, mejorar=False)
+    assert g.estado == "listo"
+    filas = [f for f in leer(tmp_path) if f["documento"] == "diccionario"]
+    assert [f["estado"] for f in filas] == ["error", "error", "procesada"]

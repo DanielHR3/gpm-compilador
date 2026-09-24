@@ -357,7 +357,7 @@ def test_medir_ia_fase3_recorre_la_carpeta(tmp_path, monkeypatch, capsys):
     _expediente_humano(tmp_path)
     monkeypatch.setenv("GPMC_IA_PROVEEDOR", "openai")
     monkeypatch.setenv("GPMC_IA_LLAVE", "k")
-    monkeypatch.setattr(fase3, "ESPERAS_REINTENTO", ())
+    monkeypatch.setattr(fase3, "ESPERAS_REINTENTO", (0.0, 0.0))
     monkeypatch.setattr(cli, "_proveedor_para_medir",
                         lambda: ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)]))
     rc = cli.main(["medir-ia", "--fase3", str(tmp_path), "--almacen", str(tmp_path / "alm")])

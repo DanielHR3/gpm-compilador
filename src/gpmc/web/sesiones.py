@@ -6,6 +6,7 @@ funciones de módulo que reciben `raiz` (o `carpeta`) como argumento, para que
 """
 
 import json
+import os
 import re
 import shutil
 import time
@@ -182,7 +183,13 @@ def generados_de(carpeta: Path) -> Optional[dict]:
 
 
 def escribir_generados(carpeta: Path, d: dict) -> None:
-    (carpeta / ARCHIVO_GENERADOS).write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    """Atomico: lo escribe un hilo de BackgroundTasks mientras la SPA lo lee
+    cada 3 s, y un `write_text` a medias se leia vacio (500 en la consulta).
+    Misma forma que `tablero.registrar`: archivo temporal y `os.replace`."""
+    destino = carpeta / ARCHIVO_GENERADOS
+    temporal = destino.with_name(destino.name + ".tmp")
+    temporal.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    os.replace(temporal, destino)
 
 
 def escribir_huecos(carpeta: Path, huecos: "list[Hueco]") -> None:

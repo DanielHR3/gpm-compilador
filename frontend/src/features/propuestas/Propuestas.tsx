@@ -36,17 +36,23 @@ export default function Propuestas({ sid, onListo }: Props) {
     let vivo = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const consultar = async () => {
+      let seguir = false;
       try {
         const r = await leerGenerados(sid);
         if (!vivo) return;
         setG(r);
-        if (r.estado === "generando") {
-          if (consultas.current++ < MAX_CONSULTAS) timer = setTimeout(consultar, MS_CONSULTA);
-          else setAgotado(true);
-        }
+        setError(null);
+        seguir = r.estado === "generando";
       } catch {
-        if (vivo) setError("No se pudo consultar el estado de las propuestas.");
+        if (!vivo) return;
+        // Un fallo pasajero (red, reinicio del servicio) no detiene la
+        // consulta: sin esto la persona quedaba atorada hasta recargar.
+        setError("No se pudo consultar el estado de las propuestas; se vuelve a intentar.");
+        seguir = true;
       }
+      if (!seguir) return;
+      if (consultas.current++ < MAX_CONSULTAS) timer = setTimeout(consultar, MS_CONSULTA);
+      else setAgotado(true);
     };
     void consultar();
     return () => {
@@ -69,8 +75,16 @@ export default function Propuestas({ sid, onListo }: Props) {
     try {
       aplicar(await fn());
     } catch (e) {
-      if (e instanceof ErrorApi) setError(e.error || e.message);
-      else throw e;
+      if (!(e instanceof ErrorApi)) throw e;
+      setError(e.error || e.message);
+      // El servidor pudo guardar la decision antes de fallar (un 422 del
+      // extractor llega DESPUES de escribir `aceptada`). Se relee para que
+      // las tarjetas muestren lo que de verdad quedo, no lo de antes.
+      try {
+        setG(await leerGenerados(sid));
+      } catch {
+        // Si tampoco se puede leer, se queda lo que habia y el aviso de arriba.
+      }
     } finally {
       setOcupado(false);
     }

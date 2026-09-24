@@ -1210,8 +1210,10 @@ def _sin_esperas_de_reintento(monkeypatch):
     """Cuando el guion del ProveedorFalso se acaba en la ronda de mejora, la
     Fase 3 reintenta con esperas de 2 y 8 s antes de quedarse con la ronda 1.
     Aqui se prueba la API, no los reintentos: sin esperas."""
-    from gpmc.agentes import fase3
-    monkeypatch.setattr(fase3, "ESPERAS_REINTENTO", ())
+    from gpmc.agentes import dic08, fase3
+    monkeypatch.setattr(fase3, "ESPERAS_REINTENTO", (0.0, 0.0))
+    # Desde que la Fase 3 lanza DIC-08 al extraer, su generador tambien corre aqui.
+    monkeypatch.setattr(dic08, "ESPERAS_REINTENTO", (0.0, 0.0))
 
 
 _ENT_OPENAI = {"GPMC_IA_PROVEEDOR": "openai", "GPMC_IA_LLAVE": "k"}
@@ -1375,3 +1377,60 @@ def test_cada_decision_queda_en_la_bitacora(tmp_path):
     filas = [f for f in leer(tmp_path) if f["estado"] == "decision"]
     assert [(f["documento"], f["solicitud"]["decision"]) for f in filas] == [
         ("diccionario", "aceptada"), ("tobe", "declinada")]
+
+
+# --- Revision final: sesiones atoradas, subir sobre decidido, DIC-08 (1, 6, 7) -------
+
+def test_generando_viejo_se_lee_como_error_y_deja_subir(tmp_path):
+    """Un reinicio del servicio a media generacion dejaba la sesion en
+    `generando` para siempre, sin zonas de carga."""
+    import json as _j
+    from datetime import datetime, timedelta, timezone
+    c = _cli_fase3(tmp_path, [], entorno=_ENT_GEMINI)
+    sid = _proponer(c).json()["sid"]
+    viejo = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
+    (tmp_path / sid / "generados.json").write_text(_j.dumps(
+        {"estado": "generando", "motivo": None, "nombre": "X", "diccionario": None,
+         "tobe": None, "iniciado": viejo}), encoding="utf-8")
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert g["estado"] == "error" and "interrump" in g["motivo"]
+    assert c.get(f"/api/v1/expedientes/{sid}").json() == {"estado": "error"}
+
+
+def test_generando_reciente_sigue_generando_y_lleva_iniciado(tmp_path):
+    from tests.test_fase3 import _DICC_OK, _TOBE_OK, _json
+    c = _cli_fase3(tmp_path, [_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    sid = _proponer(c).json()["sid"]
+    import json as _j
+    d = _j.loads((tmp_path / sid / "generados.json").read_text(encoding="utf-8"))
+    assert d["estado"] == "listo"
+    from gpmc.web.api_fase3 import _vigente
+    assert _vigente({"estado": "generando", "iniciado": None})["estado"] == "generando"
+
+
+def test_subir_sobre_un_documento_aceptado_lo_marca_declinado(tmp_path):
+    """El registro de la Licencia AI no puede decir «aceptada» cuando el texto
+    que se uso es el de una persona."""
+    from gpmc.agentes.bitacora import leer
+    from tests.test_fase3 import _DICC_OK
+    c, sid = _sesion_lista(tmp_path)
+    _decidir(c, sid, "diccionario", "aceptada")
+    r = c.post(f"/api/v1/expedientes/{sid}/generados/diccionario/subir",
+               files={"archivo": ("dd.md", _DICC_OK.encode("utf-8"), "text/markdown")})
+    assert r.status_code == 200 and r.json()["diccionario"]["decision"] == "declinada"
+    dec = [(f["documento"], f["solicitud"]["decision"]) for f in leer(tmp_path) if f["estado"] == "decision"]
+    assert dec == [("diccionario", "aceptada"), ("diccionario", "declinada")]
+
+
+def test_la_extraccion_de_la_fase3_lanza_las_propuestas_dic08_como_post_expedientes(tmp_path):
+    """El spec dice que la sesion «entra al asistente de huecos normal»."""
+    from tests.test_extractor_diccionario import _VIS
+    from tests.test_fase3 import _TOBE_OK, _json
+    c = _cli_fase3(tmp_path, [_json("diccionario", _VIS), _json("tobe", _TOBE_OK)])
+    sid = _proponer(c).json()["sid"]
+    _decidir(c, sid, "diccionario", "aceptada")
+    r = _decidir(c, sid, "tobe", "aceptada")
+    assert r.status_code == 200
+    assert any(h["codigo"] == "DIC-08" for h in r.json()["huecos"])
+    assert r.json()["propuestas_pendientes"] is True
+    assert (tmp_path / sid / "propuestas.json").exists()

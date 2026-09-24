@@ -28,7 +28,25 @@ def _limpio(item: str) -> str:
     return t.strip().rstrip(".").strip()
 
 
+def _enumeracion(texto: str) -> list:
+    """«a, b y c» -> [a, b, c]. Lo que va entre parentesis es nota y se quita
+    antes de partir: «Identificacion oficial (INE, pasaporte o cartilla)» es
+    UN requisito. La «y» solo separa en el ultimo tramo: «pago de derechos y
+    aprovechamientos» sin comas es un solo requisito."""
+    sin_notas = re.sub(r"\([^()]*\)", "", texto)
+    partes = [p for p in sin_notas.split(",")]
+    if len(partes) > 1:
+        # «a, b, y c»: la coma antes de la «y» deja el ultimo tramo como «y c».
+        ultimo = re.sub(r"^\s*y\s+", "", partes[-1])
+        partes = partes[:-1] + re.split(r"\s+y\s+", ultimo.strip(), maxsplit=1)
+    return partes
+
+
 def requisitos_del_as_is(as_is: str) -> list:
+    """Las listas de requisitos del AS-IS, en la misma linea o anidadas debajo
+    (solo el primer nivel: un sub-item es un detalle del requisito). No se
+    leen, a proposito, listas sin sangria, separadas por una linea en blanco o
+    numeradas: fallar hacia «no hay requisitos» no produce GEN-01 falsos."""
     lineas = (as_is or "").splitlines()
     salida = []
     for i, linea in enumerate(lineas):
@@ -37,13 +55,18 @@ def requisitos_del_as_is(as_is: str) -> list:
             continue
         resto = m.group(1).strip()
         if resto:
-            partes = re.split(r",|\s+y\s+", resto)
-            salida += [r for r in (_limpio(p) for p in partes) if r]
+            salida += [r for r in (_limpio(p) for p in _enumeracion(resto)) if r]
             continue
+        sangria = None
         for sig in lineas[i + 1:]:
             mi = _ITEM.match(sig)
             if not mi:
                 break
+            nivel = len(sig) - len(sig.lstrip())
+            if sangria is None:
+                sangria = nivel
+            if nivel > sangria:
+                continue
             r = _limpio(mi.group(1))
             if r:
                 salida.append(r)

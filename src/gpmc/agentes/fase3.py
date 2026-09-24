@@ -94,33 +94,38 @@ def extraer_borradores(as_is: str, diccionario: str, tobe: str):
     return r.manifiesto, list(r.huecos) + verificar_cruzado(as_is, tobe, r.manifiesto)
 
 
-def _llamar(proveedor, instruccion: str, contexto: str, esquema: dict):
-    """Hasta tres intentos, SOLO ante ErrorDeRed (mismo criterio que dic08)."""
-    ultimo: Optional[Exception] = None
-    for espera in (0.0, *ESPERAS_REINTENTO):
-        if espera:
-            time.sleep(espera)
-        try:
-            return proveedor.completar(instruccion, contexto, esquema)
-        except ErrorDeRed as exc:
-            ultimo = exc
-    raise ultimo
+_ALERTA = {ErrorDeRed: "error_de_red", ErrorDeProveedor: "error_de_proveedor",
+           RespuestaInvalida: "respuesta_invalida"}
 
 
 def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
            instruccion: str, version: str, contexto: str) -> str:
-    """Una llamada al modelo con su linea en la bitacora. Devuelve el texto
-    del documento (el unico campo del esquema)."""
-    it = Interaccion(sid=sid, proveedor=proveedor.nombre, modelo="", version_prompt=version,
-                     solicitud={"n_caracteres": len(contexto)}, instruccion_hash=pr.hash_de(instruccion),
-                     estado="procesada", documento=documento, ronda=ronda)
-    try:
-        resp = _llamar(proveedor, instruccion, contexto, pr.esquema_de(documento))
-    except (ErrorDeRed, ErrorDeProveedor) as e:
-        it.estado, it.respuesta = "error", str(e)
-        it.alertas = ["error_de_red" if isinstance(e, ErrorDeRed) else "error_de_proveedor"]
-        registrar(raiz, it)
-        raise
+    """Una llamada al modelo —hasta tres intentos, SOLO ante ErrorDeRed, mismo
+    criterio que dic08— con UNA linea en la bitacora por intento: cada peticion
+    puede cobrarse, y la Licencia AI pide registrar cada interaccion. Devuelve el
+    texto del documento (el unico campo del esquema)."""
+    def linea() -> Interaccion:
+        return Interaccion(sid=sid, proveedor=proveedor.nombre, modelo="", version_prompt=version,
+                           solicitud={"n_caracteres": len(contexto)},
+                           instruccion_hash=pr.hash_de(instruccion), estado="procesada",
+                           documento=documento, ronda=ronda)
+
+    resp = None
+    esperas = (0.0, *ESPERAS_REINTENTO)
+    for intento, espera in enumerate(esperas):
+        if espera:
+            time.sleep(espera)
+        it = linea()
+        try:
+            resp = proveedor.completar(instruccion, contexto, pr.esquema_de(documento))
+            break
+        except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as e:
+            # RespuestaInvalida la lanza tambien el proveedor mismo (OpenAI con
+            # un JSON truncado por el tope de tokens): esa llamada se cobro.
+            it.estado, it.respuesta, it.alertas = "error", str(e), [_ALERTA[type(e)]]
+            registrar(raiz, it)
+            if not isinstance(e, ErrorDeRed) or intento == len(esperas) - 1:
+                raise
     it.modelo, it.respuesta = resp.modelo, resp.texto
     it.tokens_entrada, it.tokens_salida, it.duracion_ms = resp.tokens_entrada, resp.tokens_salida, resp.duracion_ms
     try:

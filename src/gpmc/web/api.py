@@ -381,41 +381,55 @@ def extraer_y_persistir(raiz: Path, sid: str, carpeta: Path):
     return _estado(sid, carpeta, res.manifiesto), None
 
 
+def generar_propuestas(raiz: Path, proveedor, sid: str) -> None:
+    """Corre en BackgroundTasks tras extraer (POST /expedientes o la Fase 3).
+    Nunca deja excepciones sin capturar: un fallo aqui es `estado=error`, no un
+    500 y no un bloqueo de la entrega."""
+    carpeta = carpeta_de(raiz, sid)
+    m = manifiesto_de(raiz, sid)
+    if carpeta is None or m is None:
+        return
+    try:
+        props = proponer_dic08(m, huecos_vivos(carpeta), proveedor, raiz, sid)
+        log.info("propuestas sid=%s generadas=%d aceptables=%d declinadas=%d",
+                 sid, len(props),
+                 sum(1 for p in props if p.veredicto == "aceptable"),
+                 sum(1 for p in props if p.veredicto == "modelo_declino"))
+        escribir_propuestas(carpeta, {
+            "estado": "listo", "motivo": None,
+            "generadas": datetime.now(timezone.utc).isoformat(),
+            "propuestas": [p.model_dump(mode="json") for p in props]})
+    except Exception as exc:  # ErrorDeRed, RespuestaInvalida, o lo que sea
+        # Con `exc_info` va la traza entera: si el fallo es del proveedor su
+        # detalle esta en `bitacora-ia.jsonl`, pero un defecto NUESTRO no
+        # dejaba rastro en ningun sitio.
+        log.error("propuestas sid=%s fallaron: %s", sid, type(exc).__name__, exc_info=exc)
+        escribir_propuestas(carpeta, {
+            "estado": "error", "generadas": None, "propuestas": [],
+            "motivo": "No se pudieron generar propuestas con IA; puedes "
+                      f"resolver a mano. ({type(exc).__name__})"})
+
+
+def lanzar_propuestas_dic08(raiz: Path, proveedor, sid: str, carpeta: Path,
+                            tareas: BackgroundTasks, est: "EstadoExpediente") -> "EstadoExpediente":
+    """Si hay proveedor y el expediente trae DIC-08, deja `propuestas.json` en
+    `proponiendo`, programa la generacion y devuelve el estado con
+    `propuestas_pendientes=True`. Lo usan los dos caminos que extraen —POST
+    /expedientes y la Fase 3—, para que el asistente de huecos sea el mismo."""
+    if isinstance(proveedor, NingunProveedor) or not any(h.codigo == "DIC-08" for h in est.huecos):
+        return est
+    escribir_propuestas(carpeta, {"estado": "proponiendo", "motivo": None,
+                                  "generadas": None, "propuestas": []})
+    tareas.add_task(generar_propuestas, raiz, proveedor, sid)
+    return _estado(sid, carpeta, manifiesto_de(raiz, sid))
+
+
 def crear_router(raiz: Path, proveedor=None) -> APIRouter:
     r = APIRouter(prefix="/api/v1")
     # El proveedor de IA se inyecta (las pruebas pasan ProveedorFalso); sin
     # inyeccion se lee del entorno. Sin configuracion, NingunProveedor: todo lo
     # de abajo se comporta como si el generador no existiera.
     _proveedor = proveedor if proveedor is not None else crear_proveedor()
-    _hay_ia = not isinstance(_proveedor, NingunProveedor)
-
-    def generar_propuestas(sid: str) -> None:
-        """Corre en BackgroundTasks tras responder POST /expedientes. Nunca
-        deja excepciones sin capturar: un fallo aqui es `estado=error`, no un
-        500 y no un bloqueo de la entrega."""
-        carpeta = carpeta_de(raiz, sid)
-        m = manifiesto_de(raiz, sid)
-        if carpeta is None or m is None:
-            return
-        try:
-            props = proponer_dic08(m, huecos_vivos(carpeta), _proveedor, raiz, sid)
-            log.info("propuestas sid=%s generadas=%d aceptables=%d declinadas=%d",
-                     sid, len(props),
-                     sum(1 for p in props if p.veredicto == "aceptable"),
-                     sum(1 for p in props if p.veredicto == "modelo_declino"))
-            escribir_propuestas(carpeta, {
-                "estado": "listo", "motivo": None,
-                "generadas": datetime.now(timezone.utc).isoformat(),
-                "propuestas": [p.model_dump(mode="json") for p in props]})
-        except Exception as exc:  # ErrorDeRed, RespuestaInvalida, o lo que sea
-            # Con `exc_info` va la traza entera: si el fallo es del proveedor su
-            # detalle esta en `bitacora-ia.jsonl`, pero un defecto NUESTRO no
-            # dejaba rastro en ningun sitio.
-            log.error("propuestas sid=%s fallaron: %s", sid, type(exc).__name__, exc_info=exc)
-            escribir_propuestas(carpeta, {
-                "estado": "error", "generadas": None, "propuestas": [],
-                "motivo": "No se pudieron generar propuestas con IA; puedes "
-                          f"resolver a mano. ({type(exc).__name__})"})
 
     @r.get("/historial", response_model=HistorialOut)
     async def listar_historial():
@@ -585,13 +599,7 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
         if est is None:
             shutil.rmtree(carpeta, ignore_errors=True)
             return JSONResponse(status_code=422, content={"error": motivo})
-        if _hay_ia and any(h.codigo == "DIC-08" for h in est.huecos):
-            escribir_propuestas(carpeta, {"estado": "proponiendo", "motivo": None,
-                                          "generadas": None, "propuestas": []})
-            tareas.add_task(generar_propuestas, sid)
-            # Con propuestas en marcha, `propuestas_pendientes` pasa a True.
-            est = _estado(sid, carpeta, manifiesto_de(raiz, sid))
-        return est
+        return lanzar_propuestas_dic08(raiz, _proveedor, sid, carpeta, tareas, est)
 
     @r.get("/expedientes/{sid}", response_model=EstadoExpediente)
     async def leer_expediente(sid: str):
@@ -603,7 +611,8 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
         if m is None:
             # Sesion nacida en la Fase 3 y aun sin manifiesto: la SPA abre
             # «Propuestas» con este estado en vez de decir que expiro.
-            g = generados_de(carpeta)
+            from gpmc.web.api_fase3 import generados_vigentes
+            g = generados_vigentes(carpeta)
             if g is not None:
                 return JSONResponse(status_code=409, content={"estado": g["estado"]})
             return JSONResponse(status_code=404,

@@ -12,6 +12,7 @@ el extractor de siempre.
 import logging
 import secrets
 import shutil
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Literal, Optional
 
@@ -24,7 +25,7 @@ from gpmc.agentes.fase3 import Documento, Generados, generar, puede_generar
 from gpmc.agentes.proveedor import NingunProveedor
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.extractores.expediente import SinPermiso
-from gpmc.web.api import a_texto, extraer_y_persistir
+from gpmc.web.api import a_texto, extraer_y_persistir, lanzar_propuestas_dic08
 from gpmc.web.sesiones import (
     CARPETA_ADJUNTOS, INSUMOS, _MAX_SUBIDA, _purgar_sesiones, carpeta_de,
     escribir_generados, generados_de, nombre_seguro,
@@ -33,6 +34,40 @@ from gpmc.web.sesiones import (
 log = logging.getLogger("gpmc.web.api_fase3")
 
 CLAVE_INSUMO = {"diccionario": "diccionario", "tobe": "to_be"}   # documento -> INSUMOS
+
+
+# Hasta cuatro llamadas con tres intentos de 60 s caben de sobra en 20
+# minutos. Un `generando` mas viejo es una generacion que ya no corre: el
+# servicio se reinicio a media tarea (launchd lo reinicia en cada despliegue)
+# o el hilo murio antes de escribir. Sin esto la sesion quedaba atorada para
+# siempre y sin zonas de carga.
+MAX_GENERANDO = timedelta(minutes=20)
+
+MOTIVO_INTERRUMPIDA = ("La generación se interrumpió (el servidor se reinició o falló a "
+                       "media tarea). Sube el Diccionario y el TO-BE que tengas.")
+
+
+def _ahora() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _vigente(d: dict) -> dict:
+    """`generados.json` tal como debe verse ahora: un `generando` viejo se
+    lee como `error`. Sin `iniciado` (sesiones de antes) se deja como esta."""
+    if d.get("estado") != "generando" or not d.get("iniciado"):
+        return d
+    try:
+        iniciado = datetime.fromisoformat(d["iniciado"])
+    except ValueError:
+        return d
+    if datetime.now(timezone.utc) - iniciado <= MAX_GENERANDO:
+        return d
+    return {**d, "estado": "error", "motivo": MOTIVO_INTERRUMPIDA}
+
+
+def generados_vigentes(carpeta: Optional[Path]) -> Optional[dict]:
+    d = generados_de(carpeta) if carpeta else None
+    return _vigente(d) if d is not None else None
 
 
 class GeneradosOut(BaseModel):
@@ -111,14 +146,15 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
                                                   nombre=nombre).model_dump(mode="json"))
             log.info("fase3 sid=%s sin_licencia", sid)
             return JSONResponse(status_code=200, content={"sid": sid, "estado": "sin_licencia"})
-        escribir_generados(carpeta, Generados(estado="generando", nombre=nombre).model_dump(mode="json"))
+        escribir_generados(carpeta, {**Generados(estado="generando", nombre=nombre).model_dump(mode="json"),
+                                      "iniciado": _ahora()})
         tareas.add_task(generar_en_segundo_plano, sid)
         return JSONResponse(status_code=202, content={"sid": sid, "estado": "generando"})
 
     @r.get("/expedientes/{sid}/generados", response_model=GeneradosOut)
     async def leer_generados(sid: str):
         carpeta = carpeta_de(raiz, sid)
-        d = generados_de(carpeta) if carpeta else None
+        d = generados_vigentes(carpeta)
         if d is None:
             return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
         return GeneradosOut(**d)
@@ -134,7 +170,7 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         escriben `aceptada`, `corregida` o `/subir`; `declinada` sola no."""
         return (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).exists()
 
-    def _si_ambos_resueltos(sid: str, carpeta: Path, d: dict):
+    def _si_ambos_resueltos(sid: str, carpeta: Path, d: dict, tareas: BackgroundTasks):
         if not (_resuelto(carpeta, "diccionario") and _resuelto(carpeta, "tobe")):
             return GeneradosOut(**d)
         try:
@@ -144,7 +180,9 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         if est is None:
             # La sesion queda intacta: se puede subir otro archivo encima.
             return JSONResponse(status_code=422, content={"error": motivo})
-        return est
+        # Mismo asistente que una sesion subida con Diccionario: con DIC-08,
+        # arrancan las propuestas de visibilidad (spec, Parte 1, paso 6).
+        return lanzar_propuestas_dic08(raiz, proveedor, sid, carpeta, tareas, est)
 
     def _documento_valido(documento: str):
         if documento not in CLAVE_INSUMO:
@@ -152,12 +190,13 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         return None
 
     @r.post("/expedientes/{sid}/generados/{documento}/decision")
-    async def decidir_documento(sid: str, documento: str, cuerpo: DecisionDocumentoIn):
+    async def decidir_documento(sid: str, documento: str, cuerpo: DecisionDocumentoIn,
+                                tareas: BackgroundTasks):
         invalido = _documento_valido(documento)
         if invalido is not None:
             return invalido
         carpeta = carpeta_de(raiz, sid)
-        d = generados_de(carpeta) if carpeta else None
+        d = generados_vigentes(carpeta)
         if d is None:
             return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
         if d["estado"] != "listo" or d.get(documento) is None:
@@ -174,10 +213,11 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         escribir_generados(carpeta, d)
         _anotar_decision(sid, documento, cuerpo.decision, doc["version_prompt"])
         log.info("fase3 sid=%s %s=%s", sid, documento, cuerpo.decision)
-        return _si_ambos_resueltos(sid, carpeta, d)
+        return _si_ambos_resueltos(sid, carpeta, d, tareas)
 
     @r.post("/expedientes/{sid}/generados/{documento}/subir")
-    async def subir_documento(sid: str, documento: str, archivo: UploadFile = File(...)):
+    async def subir_documento(sid: str, documento: str, tareas: BackgroundTasks,
+                              archivo: UploadFile = File(...)):
         """Para el declinado (o para una sesion en error / sin_licencia): el
         archivo propio entra como insumo y aplica la misma regla de «ambos
         resueltos». Vale mientras no haya manifiesto: asi un 422 del extractor
@@ -186,7 +226,7 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         if invalido is not None:
             return invalido
         carpeta = carpeta_de(raiz, sid)
-        d = generados_de(carpeta) if carpeta else None
+        d = generados_vigentes(carpeta)
         if d is None:
             return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
         if (carpeta / "manifiesto.yaml").exists():
@@ -202,12 +242,18 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
             return JSONResponse(status_code=422, content={
                 "error": "no se pudo leer el documento", "archivos": [f"{archivo.filename}: {e}"]})
         (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).write_bytes(texto)
-        # Subir el propio sobre una propuesta sin decidir es declinarla.
-        if d.get(documento) is not None and d[documento]["decision"] == "pendiente":
+        # Se relee despues del `await`: una decision sobre el otro documento
+        # pudo llegar mientras se recibia el archivo, y escribir el `d` de
+        # antes la revertia a `pendiente`.
+        d = generados_vigentes(carpeta) or d
+        # Subir el propio sobre una propuesta —sin decidir o ya aceptada— es
+        # declinarla: el registro de la Licencia AI no puede decir que se uso el
+        # texto del modelo cuando el que quedo es el de una persona.
+        if d.get(documento) is not None and d[documento]["decision"] != "declinada":
             d[documento]["decision"] = "declinada"
             escribir_generados(carpeta, d)
             _anotar_decision(sid, documento, "declinada", d[documento]["version_prompt"])
         log.info("fase3 sid=%s %s subido", sid, documento)
-        return _si_ambos_resueltos(sid, carpeta, d)
+        return _si_ambos_resueltos(sid, carpeta, d, tareas)
 
     return r
