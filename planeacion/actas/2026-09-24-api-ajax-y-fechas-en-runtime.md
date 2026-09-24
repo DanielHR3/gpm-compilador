@@ -153,8 +153,8 @@ campos de texto**.
 
 ## Lo que queda
 
-- **Limpieza.** Procesos de prueba **1107, 1108 y 1110**, y los trámites **48410** y **48423** en
-  borrador en la cuenta del usuario: se borran cuando el usuario lo decida
-  (`/backend/procesos/eliminar/<id>`; los trámites quedan huérfanos, el portal no los borra).
+- **Limpieza — hecha el 2026-09-24.** Los procesos de prueba 1107, 1108 y 1110 se borraron del
+  modelador. Los trámites 48410 y 48423 siguen en borrador en la cuenta del usuario, huérfanos: el
+  portal no ofrece borrarlos.
 - Si algún día hiciera falta la fecha autollenada, el camino sería una Acción PHP en el servidor,
   no el `api_ajax`. Nadie lo ha pedido.
