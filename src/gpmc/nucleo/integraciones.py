@@ -59,6 +59,37 @@ CATALOGOS = {
             nodo="datos", etiqueta="nomgeo", valor="cvegeo",
             requiere_padre=True,
         ),
+        # El resto de la cascada del domicilio, verificado contra la API viva el
+        # 2026-09-24: sin credencial y con `Access-Control-Allow-Origin: *`.
+        # `mgem` guarda `cvegeo` («13048») y es justo lo que pide /localidades;
+        # la localidad guarda el suyo («130480001») y es lo que pide
+        # /asentamientos. Las vialidades se dejaron fuera: Pachuca devuelve
+        # 1.1 MB, demasiado para una lista desplegable.
+        Catalogo(
+            clave="localidades", proveedor="INEGI", descripcion="Localidades del municipio elegido",
+            url="https://gaia.inegi.org.mx/wscatgeo/v2/localidades/@@{padre}",
+            nodo="datos", etiqueta="nomgeo", valor="cvegeo",
+            requiere_padre=True,
+        ),
+        Catalogo(
+            clave="asentamientos", proveedor="INEGI",
+            descripcion="Colonias y fraccionamientos de la localidad elegida",
+            url="https://gaia.inegi.org.mx/wscatgeo/v2/asentamientos/@@{padre}",
+            nodo="datos", etiqueta="nom_asen", valor="cvegeo",
+            requiere_padre=True,
+        ),
+        Catalogo(
+            clave="catasentamientos", proveedor="INEGI",
+            descripcion="Tipos de asentamiento (colonia, barrio, fraccionamiento…)",
+            url="https://gaia.inegi.org.mx/wscatgeo/v2/catasentamientos",
+            nodo="datos", etiqueta="descripcion", valor="cve_tipo_asen",
+        ),
+        Catalogo(
+            clave="catvialidad", proveedor="INEGI",
+            descripcion="Tipos de vialidad (calle, avenida, andador…)",
+            url="https://gaia.inegi.org.mx/wscatgeo/v2/catvialidad",
+            nodo="datos", etiqueta="descripcion", valor="cve_tipo_vial",
+        ),
         Catalogo(
             clave="zip_codes", proveedor="SEPOMEX", descripcion="Colonias por código postal",
             url="https://sepomex.kurenn.dev/api/v1/zip_codes?zip_code=@@{padre}",
@@ -92,6 +123,10 @@ SINONIMOS = {
     "sepomex": "zip_codes", "codigo postal": "zip_codes", "cp": "zip_codes",
     "colonia": "zip_codes",
     "sipubeh": "consultacurpn", "curp": "consultacurpn",
+    "localidad": "localidades", "comunidad": "localidades",
+    "asentamiento": "asentamientos",
+    "tipo de asentamiento": "catasentamientos", "tipo de colonia": "catasentamientos",
+    "tipo de vialidad": "catvialidad", "tipo de calle": "catvialidad",
 }
 
 

@@ -994,7 +994,8 @@ def test_get_catalogos_lista_lo_emitible_y_calla_lo_de_pago(tmp_path):
     assert r.status_code == 200
     d = r.json()
     claves = {c["clave"] for c in d["catalogos"]}
-    assert claves == {"mgee", "mgem", "zip_codes", "consultacurpn"}
+    assert claves == {"mgee", "mgem", "zip_codes", "consultacurpn",
+                      "localidades", "asentamientos", "catasentamientos", "catvialidad"}
     assert "repuve" not in claves and "tlaloc" not in claves
     curp = next(c for c in d["catalogos"] if c["clave"] == "consultacurpn")
     assert curp["tipo"] == "consulta"

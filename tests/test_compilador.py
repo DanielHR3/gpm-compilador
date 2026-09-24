@@ -660,3 +660,46 @@ def test_una_tarea_que_no_es_inicial_no_captura_el_inicio():
     from gpmc.nucleo.esquema import tarea
     t = tarea(id="t2", identificador="box_2", nombre="Revisión", proceso_id="1")
     assert t["init_capture"] == "0"
+
+
+# La cascada completa del domicilio con los catalogos de INEGI agregados el
+# 2026-09-24: estado -> municipio -> localidad -> colonia, y un catalogo fijo.
+_DOMICILIO = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: Domicilio
+  actor: u
+  campos:
+  - {nombre: estado_sol, etiqueta: Estado, tipo: select, endpoint: mgee}
+  - {nombre: municipio_sol, etiqueta: Municipio, tipo: select, endpoint: mgem,
+     dependencia_tipo: campo, dependencia_campo: estado_sol}
+  - {nombre: localidad_sol, etiqueta: Localidad, tipo: select, endpoint: localidades,
+     dependencia_tipo: campo, dependencia_campo: municipio_sol}
+  - {nombre: colonia_sol, etiqueta: Colonia, tipo: select, endpoint: asentamientos,
+     dependencia_tipo: campo, dependencia_campo: localidad_sol}
+  - {nombre: tipo_vial_sol, etiqueta: Tipo de vialidad, tipo: select, endpoint: catvialidad}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+
+def test_la_cascada_del_domicilio_llega_completa_al_gpm():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_DOMICILIO)))
+    campos = {c["nombre"]: json.loads(c["extra"]) for c in g["Formularios"][0]["Campos"]}
+    base = "https://gaia.inegi.org.mx/wscatgeo/v2"
+    assert campos["localidad_sol"]["catalog_url"] == f"{base}/localidades/@@municipio_sol"
+    assert campos["localidad_sol"]["populated_by"] == ["municipio_sol"]
+    assert campos["localidad_sol"]["key_object"] == "nomgeo,cvegeo"
+    assert campos["colonia_sol"]["catalog_url"] == f"{base}/asentamientos/@@localidad_sol"
+    assert campos["colonia_sol"]["populated_by"] == ["localidad_sol"]
+    assert campos["colonia_sol"]["key_object"] == "nom_asen,cvegeo"
+    assert campos["tipo_vial_sol"]["catalog_url"] == f"{base}/catvialidad"
+    assert campos["tipo_vial_sol"]["key_object"] == "descripcion,cve_tipo_vial"
+    assert "populated_by" not in campos["tipo_vial_sol"]

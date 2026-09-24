@@ -2,7 +2,9 @@ from gpmc.nucleo.integraciones import CATALOGOS, Catalogo, resolver
 
 
 def test_los_catalogos_verificados_estan_registrados():
-    assert set(CATALOGOS) == {"mgee", "mgem", "zip_codes", "consultacurpn"}
+    assert set(CATALOGOS) == {"mgee", "mgem", "zip_codes", "consultacurpn",
+                              "localidades", "asentamientos",
+                              "catasentamientos", "catvialidad"}
 
 
 def test_mgee_trae_la_url_y_el_mapeo_del_export_autentico():
@@ -99,6 +101,8 @@ def test_cada_entrada_dice_si_es_catalogo_o_consulta():
     assert tipos == {
         "mgee": "catalogo", "mgem": "catalogo", "zip_codes": "catalogo",
         "consultacurpn": "consulta",
+        "localidades": "catalogo", "asentamientos": "catalogo",
+        "catasentamientos": "catalogo", "catvialidad": "catalogo",
     }
 
 
@@ -123,6 +127,13 @@ import pytest
     ("INEGI", "mgee"),
     ("`mgem` (INEGI)", "mgem"),
     ("mgee", "mgee"),
+    ("Localidad", "localidades"),
+    ("comunidad", "localidades"),
+    ("Asentamiento", "asentamientos"),
+    ("Tipo de asentamiento", "catasentamientos"),
+    ("tipo de colonia", "catasentamientos"),
+    ("Tipo de vialidad", "catvialidad"),
+    ("tipo de calle", "catvialidad"),
 ])
 def test_clave_de_resuelve_lo_que_escribe_un_diccionario(texto, clave):
     # Los Diccionarios escriben el proveedor o el concepto —«CURP», «Código
@@ -161,3 +172,44 @@ def test_cada_catalogo_publico_tiene_descripcion_en_palabras():
     for c in CATALOGOS.values():
         assert c.descripcion and c.descripcion[0].isupper(), c.clave
     assert CATALOGOS["consultacurpn"].descripcion == "Datos de la persona a partir de su CURP"
+
+
+
+# ── INEGI: el resto de la cascada del domicilio (verificado el 2026-09-24) ──
+# Los cuatro responden sin credencial y con `Access-Control-Allow-Origin: *`,
+# asi que el navegador los llama igual que a mgee/mgem.
+
+def test_localidades_cuelga_del_municipio_y_usa_su_cvegeo():
+    """`mgem` guarda `cvegeo` («13048»), que es justo lo que pide
+    /localidades/{municipio}: la cascada funciona sin transformar nada."""
+    c = resolver("localidades")
+    assert c.url_para("municipio_sol") == (
+        "https://gaia.inegi.org.mx/wscatgeo/v2/localidades/@@municipio_sol")
+    assert (c.nodo, c.etiqueta, c.valor, c.requiere_padre) == ("datos", "nomgeo", "cvegeo", True)
+    assert resolver("mgem").valor == "cvegeo"
+
+
+def test_asentamientos_cuelga_de_la_localidad():
+    c = resolver("asentamientos")
+    assert c.url_para("localidad_sol") == (
+        "https://gaia.inegi.org.mx/wscatgeo/v2/asentamientos/@@localidad_sol")
+    assert (c.nodo, c.etiqueta, c.valor, c.requiere_padre) == ("datos", "nom_asen", "cvegeo", True)
+
+
+@pytest.mark.parametrize("clave,url,etiqueta,valor", [
+    ("catasentamientos", "https://gaia.inegi.org.mx/wscatgeo/v2/catasentamientos",
+     "descripcion", "cve_tipo_asen"),
+    ("catvialidad", "https://gaia.inegi.org.mx/wscatgeo/v2/catvialidad",
+     "descripcion", "cve_tipo_vial"),
+])
+def test_los_catalogos_fijos_de_inegi_no_llevan_padre(clave, url, etiqueta, valor):
+    c = resolver(clave)
+    assert (c.url, c.nodo, c.etiqueta, c.valor, c.requiere_padre, c.tipo) == (
+        url, "datos", etiqueta, valor, False, "catalogo")
+
+
+def test_colonia_sigue_siendo_sepomex():
+    """«colonia» ya significa SEPOMEX (por codigo postal); los asentamientos de
+    INEGI se piden por su nombre, sin robarle el sinonimo."""
+    from gpmc.nucleo.integraciones import clave_de
+    assert clave_de("colonia") == "zip_codes"
