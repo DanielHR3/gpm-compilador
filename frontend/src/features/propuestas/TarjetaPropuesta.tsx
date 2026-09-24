@@ -12,7 +12,10 @@ import {
 import { redactarHueco, tituloDeCodigo } from "@/features/huecos/lenguaje";
 import type { ClaveDocumento, DocumentoGenerado, Hueco } from "@/lib/types";
 
+import { cn } from "cn";
+
 import DiagramaMermaid from "./DiagramaMermaid";
+import VistaDiccionario from "./VistaDiccionario";
 
 type Props = {
   titulo: string;
@@ -83,6 +86,11 @@ export default function TarjetaPropuesta({
   // borrador vive en el servidor; la edicion, en la pantalla.
   useEffect(() => setTexto(documento?.texto ?? ""), [documento?.texto]);
   const cambiado = documento !== null && texto !== documento.texto;
+  // El Diccionario abre como pantallas y el TO-BE como diagrama grande; el
+  // Markdown esta a un clic. Si el extractor no leyo pantallas, no hay nada
+  // que ver como pantallas y se abre el texto directamente.
+  const sinVista = clave === "diccionario" && (documento?.vista ?? []).length === 0;
+  const [editando, setEditando] = useState(sinVista);
 
   const cerrado =
     documento !== null &&
@@ -120,19 +128,45 @@ export default function TarjetaPropuesta({
           <ZonaDeCarga clave={clave} onSubir={onSubir} ocupado={ocupado} />
         ) : (
           <>
-            <p className="text-sm text-muted-foreground">
-              Esto lo propuso un modelo a partir del AS-IS. Revísalo como revisarías el
-              trabajo de alguien nuevo.
-            </p>
-            <textarea
-              aria-label={`Texto propuesto de ${titulo}`}
-              className="min-h-72 w-full rounded-md border border-border bg-card p-3 font-mono text-sm"
-              value={texto}
-              disabled={ocupado}
-              onChange={(e) => setTexto(e.target.value)}
-              spellCheck={false}
-            />
-            {clave === "tobe" ? <DiagramaMermaid texto={texto} /> : null}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                Esto lo propuso un modelo a partir del AS-IS. Revísalo como revisarías el
+                trabajo de alguien nuevo.
+              </p>
+              {!sinVista ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => setEditando((e) => !e)}>
+                  {!editando
+                    ? "Editar texto"
+                    : clave === "tobe"
+                      ? "Ver el diagrama grande"
+                      : "Ver como pantallas"}
+                </Button>
+              ) : null}
+            </div>
+            {sinVista ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                El compilador no pudo leer pantallas en este borrador; revisa el texto.
+              </p>
+            ) : null}
+            {!editando ? (
+              clave === "tobe" ? (
+                <DiagramaMermaid texto={texto} grande />
+              ) : (
+                <VistaDiccionario pantallas={documento.vista ?? []} />
+              )
+            ) : (
+              <div className={cn("grid gap-4", clave === "tobe" && "lg:grid-cols-2")}>
+                <textarea
+                  aria-label={`Texto propuesto de ${titulo}`}
+                  className="min-h-[60vh] w-full rounded-md border border-border bg-card p-3 font-mono text-sm"
+                  value={texto}
+                  disabled={ocupado}
+                  onChange={(e) => setTexto(e.target.value)}
+                  spellCheck={false}
+                />
+                {clave === "tobe" ? <DiagramaMermaid texto={texto} /> : null}
+              </div>
+            )}
             {documento.huecos.length > 0 ? (
               <ul className="flex flex-col gap-2 text-sm">
                 {documento.huecos.map((h, i) => (

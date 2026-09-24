@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import MigasDePan from "@/components/MigasDePan";
 import { decidirDocumento, ErrorApi, leerGenerados, subirDocumento } from "@/lib/api";
+import { migas } from "@/lib/rutas";
 import type {
   ClaveDocumento,
   EstadoExpediente,
@@ -97,10 +99,31 @@ export default function Propuestas({ sid, onListo }: Props) {
   const subir = (clave: ClaveDocumento) => (archivo: File) =>
     conError(() => subirDocumento(sid, clave, archivo));
 
+  const tarjeta = (clave: ClaveDocumento) => (
+    <TarjetaPropuesta
+      key={clave}
+      titulo={clave === "diccionario" ? "Diccionario de Datos" : "Propuesta TO-BE"}
+      clave={clave}
+      documento={g ? g[clave] : null}
+      onDecidir={decidir(clave)}
+      onSubir={subir(clave)}
+      ocupado={ocupado}
+    />
+  );
+
   const nombre = g?.nombre ?? "Trámite sin nombre";
+  const hay = g?.insumos ?? { diccionario: false, tobe: false };
+  // Un documento por pantalla: primero el Diccionario, despues el TO-BE. Se
+  // decide por lo que ya tiene archivo en la sesion, asi una recarga abre en
+  // el paso correcto aunque el Diccionario se haya declinado y subido.
+  const paso: "diccionario" | "tobe" = hay.diccionario ? "tobe" : "diccionario";
+  // Sin propuesta (error, sin licencia) o con los dos ya resueltos (un 422
+  // del extractor): las dos tarjetas, para poder subir encima de cualquiera.
+  const ambos = !g?.diccionario || !g?.tobe || (hay.diccionario && hay.tobe);
 
   return (
     <section className="flex flex-col gap-6 text-foreground">
+      <MigasDePan tramos={migas(g && ambos ? "carga" : paso, "as_is")} />
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">{nombre}</h1>
         <p className="text-sm text-muted-foreground">
@@ -140,24 +163,14 @@ export default function Propuestas({ sid, onListo }: Props) {
       {g && g.estado !== "generando" ? (
         <>
           {g.motivo ? <p className="text-sm text-foreground">{g.motivo}</p> : null}
-          <div className="grid items-start gap-6 lg:grid-cols-2">
-            <TarjetaPropuesta
-              titulo="Diccionario de Datos"
-              clave="diccionario"
-              documento={g.diccionario}
-              onDecidir={decidir("diccionario")}
-              onSubir={subir("diccionario")}
-              ocupado={ocupado}
-            />
-            <TarjetaPropuesta
-              titulo="Propuesta TO-BE"
-              clave="tobe"
-              documento={g.tobe}
-              onDecidir={decidir("tobe")}
-              onSubir={subir("tobe")}
-              ocupado={ocupado}
-            />
-          </div>
+          {ambos ? (
+            <div className="grid items-start gap-6 lg:grid-cols-2">
+              {tarjeta("diccionario")}
+              {tarjeta("tobe")}
+            </div>
+          ) : (
+            tarjeta(paso)
+          )}
         </>
       ) : null}
     </section>
