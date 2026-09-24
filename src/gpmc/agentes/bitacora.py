@@ -36,8 +36,12 @@ class Interaccion(BaseModel):
     tokens_entrada: Optional[int] = None
     tokens_salida: Optional[int] = None
     duracion_ms: int = 0
-    estado: str                       # procesada | error | sujeta_a_validacion
+    estado: str                       # procesada | error | sujeta_a_validacion | decision
     alertas: list = []
+    # Fase 3: que documento produjo la llamada y en que ronda. Vacios en las
+    # interacciones de DIC-08, que siguen escribiendose igual que antes.
+    documento: Optional[str] = None
+    ronda: Optional[int] = None
 
 
 def registrar(raiz: Path, it: Interaccion) -> None:

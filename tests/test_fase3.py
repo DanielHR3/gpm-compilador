@@ -142,3 +142,85 @@ def test_compuerta_con_campo_inexistente_es_mmd04_y_nodo_sin_pantalla_flu02():
     assert any(h.codigo == "MMD-04" and h.ubicacion == "G" and "@@resultado" in h.mensaje for h in huecos)
     assert any(h.codigo == "FLU-02" and h.ubicacion == "P2" and "Emisión" in h.mensaje for h in huecos)
     assert not any(h.codigo == "FLU-02" and h.ubicacion == "P1" for h in huecos)
+
+
+# --- Task 3: generar ------------------------------------------------------------
+
+_DICC_OK = ("# Diccionario de Datos — Constancia\n\n"
+            "### Pantalla 1 — Ciudadano — Solicitud\n\n"
+            "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+            "| CURP | Texto | Input | Si | La CURP `@@curp` |\n"
+            "| Identificación oficial vigente | Archivo | Visor de archivos | Si | `@@ine` |\n"
+            "| Tarjeta de circulación | Archivo | Visor de archivos | Si | `@@tarjeta` |\n"
+            "| Poder notarial si el solicitante es persona moral | Archivo | Visor de archivos | No | `@@poder` |\n\n"
+            "### Pantalla 2 — Funcionario — Revisión\n\n"
+            "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+            "| Dictamen | Lista (Aprobado, Rechazado) | Select | Si | `@@dictamen` |\n")
+
+_TOBE_OK = ("# Propuesta TO-BE — Constancia\n\n```mermaid\nflowchart TD\n"
+            "    classDef ciudadano fill:#eee\n    classDef funcionario fill:#ddd\n"
+            "    Inicio([Inicio]):::ciudadano --> P1[Ciudadano: Solicitud]:::ciudadano\n"
+            "    P1 --> P2[Funcionario: Revisión]:::funcionario\n"
+            "    P2 --> Fin([Fin]):::funcionario\n```\n")
+
+
+def _json(clave, texto):
+    return json.dumps({clave: texto})
+
+
+def test_generar_una_ronda_devuelve_listo_con_dos_textos_y_huecos(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.agentes.bitacora import leer
+    prov = ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "a" * 16, mejorar=False)
+    assert g.estado == "listo" and g.motivo is None
+    assert g.nombre == "Constancia"
+    assert g.diccionario.texto == _DICC_OK and g.diccionario.ronda == 1
+    assert g.tobe.texto == _TOBE_OK and g.tobe.version_prompt == "tobe-v1"
+    assert g.diccionario.decision == "pendiente"
+    # Los huecos del extractor van repartidos por documento.
+    assert all(h.codigo.startswith(("DIC", "META", "GEN", "API", "DOC", "INS-03"))
+               for h in g.diccionario.huecos)
+    assert prov.llamadas == 2
+    assert "<<DICCIONARIO>>" in prov.ultimo_contexto       # el TO-BE vio el Diccionario
+    filas = leer(tmp_path)
+    assert [(f["documento"], f["ronda"]) for f in filas] == [("diccionario", 1), ("tobe", 1)]
+    assert filas[0]["version_prompt"] == "dicc-v1"
+
+
+def test_texto_vacio_o_sin_mermaid_es_listo_con_huecos_no_error(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", "# Propuesta TO-BE — X\n\nsin diagrama")])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "b" * 16, mejorar=False)
+    assert g.estado == "listo"
+    assert any(h.codigo == "MMD-01" for h in g.tobe.huecos)
+
+
+def test_respuesta_invalida_no_se_reintenta_y_deja_error(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.agentes.bitacora import leer
+    prov = ProveedorFalso(["esto no es json", _json("diccionario", _DICC_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "c" * 16)
+    assert g.estado == "error" and "RespuestaInvalida" in g.motivo
+    assert prov.llamadas == 1
+    assert leer(tmp_path)[0]["estado"] == "error"
+
+
+def test_error_de_red_se_reintenta_tres_veces(tmp_path, monkeypatch):
+    from gpmc.agentes import fase3
+    from gpmc.agentes.proveedor import ProveedorFalso
+    monkeypatch.setattr(fase3.time, "sleep", lambda s: None)
+    prov = ProveedorFalso([])                          # guion agotado = ErrorDeRed
+    g = fase3.generar(_ASIS_INLINE, prov, tmp_path, "d" * 16)
+    assert g.estado == "error" and "ErrorDeRed" in g.motivo
+    assert prov.llamadas == 3
+
+
+def test_nombres_de_insumo_coinciden_con_la_web():
+    from gpmc.agentes.fase3 import NOMBRES_INSUMO
+    from gpmc.web.sesiones import INSUMOS
+    assert NOMBRES_INSUMO == {"as_is": INSUMOS["as_is"], "tobe": INSUMOS["to_be"],
+                              "diccionario": INSUMOS["diccionario"]}
