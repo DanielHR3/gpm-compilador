@@ -103,3 +103,27 @@ it("el Diccionario no dibuja diagrama", () => {
     onDecidir={() => {}} onSubir={() => {}} ocupado={false} />);
   expect(screen.queryByText(/diagrama compilable/i)).not.toBeInTheDocument();
 });
+
+it("con cambios sin aceptar lo dice, aunque se este viendo la vista o el diagrama", async () => {
+  // La vista por pantallas es la del borrador del servidor, y el diagrama
+  // grande dibuja el texto editado: en los dos casos «Aceptar tal cual»
+  // guarda el ORIGINAL. Sin aviso, la persona perdia sus cambios sin saberlo.
+  render(<TarjetaPropuesta titulo="Diccionario de Datos" clave="diccionario" documento={doc}
+    onDecidir={() => {}} onSubir={() => {}} ocupado={false} />);
+  expect(screen.queryByText(/cambios sin aceptar/i)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /editar texto/i }));
+  await userEvent.type(screen.getByRole("textbox"), "más");
+  await userEvent.click(screen.getByRole("button", { name: /ver como pantallas/i }));
+  const aviso = screen.getByText(/cambios sin aceptar/i);
+  expect(aviso).toHaveTextContent(/aceptar tal cual.*borrador original/i);
+  expect(aviso).toHaveTextContent(/esta vista muestra el borrador original/i);
+});
+
+it("en el TO-BE el aviso tambien sale con el diagrama grande", async () => {
+  render(<TarjetaPropuesta titulo="Propuesta TO-BE" clave="tobe" documento={tobe}
+    onDecidir={() => {}} onSubir={() => {}} ocupado={false} />);
+  await userEvent.click(screen.getByRole("button", { name: /editar texto/i }));
+  await userEvent.type(screen.getByRole("textbox"), "x");
+  await userEvent.click(screen.getByRole("button", { name: /ver el diagrama grande/i }));
+  expect(screen.getByText(/cambios sin aceptar/i)).toHaveTextContent(/aceptar tal cual.*borrador original/i);
+});

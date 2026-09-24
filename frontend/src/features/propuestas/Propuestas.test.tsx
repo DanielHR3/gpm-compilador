@@ -58,7 +58,9 @@ it("primero el Diccionario (1 de 2), despues el TO-BE (2 de 2)", async () => {
   vi.mocked(decidirDocumento).mockResolvedValueOnce({ tipo: "generados", generados: {
     ...listo, diccionario: { ...conVista, decision: "aceptada" }, insumos: { diccionario: true, tobe: false } } });
   render(<Propuestas sid={SID} onListo={() => {}} />);
-  expect(await screen.findByRole("navigation", { name: /migas de pan/i })).toHaveTextContent("Diccionario (1 de 2)");
+  // Mientras no llega la respuesta, las migas no prometen un paso.
+  expect(screen.getByRole("navigation", { name: /migas de pan/i })).not.toHaveTextContent(/de 2/);
+  expect(await screen.findByText("Diccionario (1 de 2)")).toBeInTheDocument();
   expect(documentos()).toHaveLength(1);
   expect(screen.getByRole("article", { name: /^diccionario de datos$/i })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /aceptar tal cual/i }));

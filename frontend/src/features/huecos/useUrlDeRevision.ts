@@ -22,6 +22,13 @@ export function useUrlDeRevision(sid: string | null): void {
     if (!sid) return;
     const ruta = `/revisar/${sid}`;
     if (window.location.pathname === ruta) return;
-    window.history.pushState({ gpmcRevision: sid }, "", ruta);
+    // Desde una pantalla de carga se REEMPLAZA: sin escucha de `popstate`,
+    // Atras cambiaba la direccion a `/expediente` pero dejaba la revision en
+    // pantalla, y una recarga despues perdia la sesion de vista. Con el
+    // reemplazo, Atras lleva al Inicio y el `history.back()` del simulador
+    // sigue volviendo a `/revisar/:sid`.
+    const desdeCarga = ["/expediente", "/desde-as-is"].includes(window.location.pathname);
+    if (desdeCarga) window.history.replaceState({ gpmcRevision: sid }, "", ruta);
+    else window.history.pushState({ gpmcRevision: sid }, "", ruta);
   }, [sid]);
 }

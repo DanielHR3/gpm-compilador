@@ -143,6 +143,15 @@ export default function TarjetaPropuesta({
                 </Button>
               ) : null}
             </div>
+            {cambiado ? (
+              <p role="status" className="rounded-md border border-border bg-muted p-3 text-sm">
+                Tienes cambios sin aceptar. «Aceptar tal cual» usa el borrador original;
+                «Aceptar con mis cambios» usa el tuyo.
+                {!editando && clave === "diccionario"
+                  ? " Esta vista muestra el borrador original; tus cambios están en «Editar texto»."
+                  : null}
+              </p>
+            ) : null}
             {sinVista ? (
               <p role="status" className="text-sm text-muted-foreground">
                 El compilador no pudo leer pantallas en este borrador; revisa el texto.

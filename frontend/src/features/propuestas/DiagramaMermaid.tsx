@@ -92,6 +92,9 @@ export default function DiagramaMermaid({ texto, retardoMs = 600, grande = false
                 onClick={() => setEscala((e) => Math.max(0.5, e - 0.25))}>
                 −
               </Button>
+              <span aria-live="polite" className="self-center px-1 text-sm text-muted-foreground">
+                {`${Math.round(escala * 100)} %`}
+              </span>
               <Button type="button" size="sm" variant="outline" aria-label="Ajustar"
                 onClick={() => setEscala(1)}>
                 Ajustar
@@ -110,8 +113,12 @@ export default function DiagramaMermaid({ texto, retardoMs = 600, grande = false
           ) : null}
           <div
             data-testid="lienzo-diagrama"
-            className="origin-top transition-transform [&>svg]:mx-auto"
-            style={{ transform: `scale(${escala})` }}
+            className="[&>svg]:mx-auto"
+            // `zoom` y no `transform: scale`: el transform no cambia la caja de
+            // maquetacion, y al acercar lo que se salia por la izquierda quedaba
+            // fuera del alcance del scroll. `zoom` agranda la caja y el scroll
+            // cubre todo el dibujo, centrado o no.
+            style={{ zoom: escala }}
             // SVG que produce mermaid con securityLevel strict (DOMPurify) a
             // partir del texto del TO-BE: puede venir del modelo o de otra
             // persona; lo protegen strict y la CSP, que no permite scripts en

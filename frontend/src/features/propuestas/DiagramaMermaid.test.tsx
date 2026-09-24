@@ -41,14 +41,19 @@ it("cuando mermaid no puede dibujar, dice en que linea para poder corregirlo", a
 it("en grande trae zoom: acercar y alejar cambian la escala y ajustar la regresa", async () => {
   render(<DiagramaMermaid texto={"```mermaid\nflowchart TD\n A --> B\n```"} retardoMs={0} grande />);
   await screen.findByTestId("svg-mermaid");
+  // `zoom` y no `transform: scale`: el transform no cambia la caja de
+  // maquetacion, y al acercar lo que se salia por la izquierda no se podia
+  // alcanzar con el scroll (revision del 2026-09-24).
   const lienzo = screen.getByTestId("lienzo-diagrama");
   await userEvent.click(screen.getByRole("button", { name: "Acercar" }));
-  expect(lienzo.style.transform).toBe("scale(1.25)");
+  expect(lienzo.style.zoom).toBe("1.25");
+  expect(lienzo.style.transform).toBe("");
+  expect(screen.getByText("125 %")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Alejar" }));
   await userEvent.click(screen.getByRole("button", { name: "Alejar" }));
-  expect(lienzo.style.transform).toBe("scale(0.75)");
+  expect(lienzo.style.zoom).toBe("0.75");
   await userEvent.click(screen.getByRole("button", { name: "Ajustar" }));
-  expect(lienzo.style.transform).toBe("scale(1)");
+  expect(lienzo.style.zoom).toBe("1");
 });
 
 it("pantalla completa solo si el navegador la permite", async () => {

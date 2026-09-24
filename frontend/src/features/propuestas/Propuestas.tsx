@@ -123,7 +123,7 @@ export default function Propuestas({ sid, onListo }: Props) {
 
   return (
     <section className="flex flex-col gap-6 text-foreground">
-      <MigasDePan tramos={migas(g && ambos ? "carga" : paso, "as_is")} />
+      <MigasDePan tramos={migas(!g || ambos ? "carga" : paso, "as_is")} />
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">{nombre}</h1>
         <p className="text-sm text-muted-foreground">

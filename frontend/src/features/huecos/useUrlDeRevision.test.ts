@@ -43,3 +43,16 @@ describe("useUrlDeRevision", () => {
     expect(window.location.pathname).toBe(`/revisar/${SID}`);
   });
 });
+
+describe("useUrlDeRevision desde una pantalla de carga", () => {
+  it("reemplaza /expediente y /desde-as-is en vez de apilar: Atras no deja la direccion y la pantalla desfasadas", () => {
+    for (const carga of ["/expediente", "/desde-as-is"]) {
+      window.history.pushState({}, "", carga);
+      const antes = window.history.length;
+      renderHook(() => useUrlDeRevision("f".repeat(16)));
+      expect(window.location.pathname).toBe(`/revisar/${"f".repeat(16)}`);
+      expect(window.history.length).toBe(antes);
+    }
+    window.history.pushState({}, "", "/");
+  });
+});
