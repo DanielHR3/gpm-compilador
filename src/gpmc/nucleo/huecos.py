@@ -18,7 +18,7 @@ ORDEN_NIVEL = {nivel: i for i, nivel in enumerate(NIVELES)}
 @dataclass
 class Hueco:
     nivel: str            # uno de NIVELES
-    codigo: str           # estable: INS-01, DIC-01, META-01, FLU-01, MMD-01, ...
+    codigo: str           # estable: INS-01, DIC-01, META-01, FLU-01, MMD-01, GEN-01 (cruce AS-IS↔borrador), ...
     ubicacion: str        # "p1", "flujo", "metadatos", "" (vacío = general)
     mensaje: str          # texto para una persona, con acentos
     propuesta: Optional[str] = None   # valor que el extractor sugirió (DIC-01)

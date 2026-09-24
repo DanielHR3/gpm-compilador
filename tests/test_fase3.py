@@ -61,3 +61,84 @@ def test_los_prompts_citan_las_reglas_y_la_estructura_de_simplificacion():
                     "## Riesgos / dependencias", "## Pendientes del expediente"):
         assert seccion in p.ESTRUCTURA_TOBE, seccion
     assert p.ESTRUCTURA_DICC in p.INSTRUCCION_DICC and p.ESTRUCTURA_TOBE in p.INSTRUCCION_TOBE
+
+
+# --- Task 2: verificacion cruzada ---------------------------------------------
+
+_ASIS_INLINE = ("# Análisis AS-IS — Constancia\n\n"
+                "- **Requisitos:** identificación oficial vigente, tarjeta de circulación, "
+                "y poder notarial si el solicitante es persona moral.\n")
+
+_ASIS_ANIDADO = ("# Análisis AS-IS — Reposición\n\n"
+                 "- **Requisitos (ficha RUTS):**\n"
+                 "  - Tarjeta de circulación — \"con la placa que se registró\".\n"
+                 "  - Fotografía del último holograma de verificación — mismo texto.\n"
+                 "- **Flujo AS-IS:**\n  1. Usuario inicia.\n")
+
+
+def test_requisitos_inline_se_parten_por_coma_e_y():
+    from gpmc.agentes.verificar_fase3 import requisitos_del_as_is
+    assert requisitos_del_as_is(_ASIS_INLINE) == [
+        "identificación oficial vigente", "tarjeta de circulación",
+        "poder notarial si el solicitante es persona moral"]
+
+
+def test_requisitos_anidados_se_leen_hasta_la_raya():
+    from gpmc.agentes.verificar_fase3 import requisitos_del_as_is
+    assert requisitos_del_as_is(_ASIS_ANIDADO) == [
+        "Tarjeta de circulación", "Fotografía del último holograma de verificación"]
+
+
+def test_requisitos_documentales_y_varias_lineas_se_suman():
+    """La boveda de Simplificacion escribe «**Requisitos documentales:**»,
+    «**Requisitos documentales**» (dos puntos fuera) y a veces dos listas
+    («Requisitos propios:» y «Requisitos que dependen de otras dependencias»)."""
+    from gpmc.agentes.verificar_fase3 import requisitos_del_as_is
+    texto = ("- **Requisitos documentales**: CURP, acta de nacimiento\n"
+             "- **Requisitos propios:**\n  - Comprobante de domicilio\n"
+             "- **Requisitos que dependen de otras 5 dependencias distintas**\n"
+             "  - Constancia de no adeudo — la emite Finanzas\n")
+    assert requisitos_del_as_is(texto) == [
+        "CURP", "acta de nacimiento", "Comprobante de domicilio", "Constancia de no adeudo"]
+
+
+def test_as_is_sin_requisitos_no_produce_gen01():
+    from gpmc.agentes.verificar_fase3 import requisitos_del_as_is, verificar_cruzado
+    assert requisitos_del_as_is("# Análisis AS-IS — X\n\nSin lista.\n") == []
+    assert verificar_cruzado("# Análisis AS-IS — X\n", "", None) == []
+
+
+def _manifiesto(campos):
+    from gpmc.nucleo.manifiesto import (Actor, Campo, Conexion, Flujo, Manifiesto, Pantalla,
+                                        Tarea, Tramite)
+    return Manifiesto(
+        tramite=Tramite(nombre="X", dependencia="D"),
+        actores=[Actor(id="c", nombre="Ciudadano")],
+        pantallas=[Pantalla(id="p1", nombre="Solicitud", actor="c",
+                            campos=[Campo(**c) for c in campos])],
+        flujo=Flujo(tareas=[Tarea(id="t1", nombre="Solicitud", actor="c", inicial=True, pantallas=["p1"]),
+                            Tarea(id="t_fin", nombre="Fin", terminal=True)],
+                    conexiones=[Conexion(de="t1", a="t_fin")]))
+
+
+def test_requisito_sin_campo_archivo_es_gen01():
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    m = _manifiesto([{"nombre": "ine", "etiqueta": "Identificación oficial vigente", "tipo": "file"},
+                     {"nombre": "tarjeta", "etiqueta": "Tarjeta de circulación", "tipo": "text"}])
+    huecos = verificar_cruzado(_ASIS_INLINE, "", m)
+    gen = [h for h in huecos if h.codigo == "GEN-01"]
+    assert [h.nivel for h in gen] == ["falta_dato", "falta_dato"]
+    assert "«tarjeta de circulación»" in gen[0].mensaje      # existe pero no es archivo
+    assert "poder notarial" in gen[1].mensaje
+
+
+def test_compuerta_con_campo_inexistente_es_mmd04_y_nodo_sin_pantalla_flu02():
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    m = _manifiesto([{"nombre": "dictamen", "etiqueta": "Dictamen", "tipo": "select"}])
+    tobe = ("```mermaid\nflowchart TD\n"
+            "  P1[Ciudadano: Solicitud] --> G{¿@@resultado == 'ok'?}\n"
+            "  G -->|Sí| P2[Funcionario: Emisión]\n```")
+    huecos = verificar_cruzado("# Análisis AS-IS — X\n", tobe, m)
+    assert any(h.codigo == "MMD-04" and h.ubicacion == "G" and "@@resultado" in h.mensaje for h in huecos)
+    assert any(h.codigo == "FLU-02" and h.ubicacion == "P2" and "Emisión" in h.mensaje for h in huecos)
+    assert not any(h.codigo == "FLU-02" and h.ubicacion == "P1" for h in huecos)
