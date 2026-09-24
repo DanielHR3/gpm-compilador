@@ -5,6 +5,7 @@ import { expect, it, vi } from "vitest";
 import CargaAsIs from "./CargaAsIs";
 
 vi.mock("@/lib/api", () => ({
+  leerCapacidades: vi.fn().mockResolvedValue({ proponer: true, motivo: null, pruebas: false }),
   proponerExpediente: vi.fn(),
   // Acepta las dos formas: `new ErrorApi("msg")` (las pruebas) y
   // `new ErrorApi(status, "msg")` (la firma real, que usa comoErrorDeCarga).
@@ -86,4 +87,18 @@ it("si se cae la red lo dice en pantalla en vez de no decir nada", async () => {
   await subirAsIs();
   expect(await screen.findByRole("alert")).toHaveTextContent(/no se pudo conectar con el servidor/i);
   expect(screen.getByRole("button", { name: /proponer/i })).toBeEnabled();
+});
+
+it("en modo de pruebas lo avisa antes de subir", async () => {
+  const { leerCapacidades } = await import("@/lib/api");
+  vi.mocked(leerCapacidades).mockResolvedValueOnce({ proponer: true, motivo: null, pruebas: true });
+  render(<CargaAsIs onPropuesta={() => {}} />);
+  expect(await screen.findByRole("note", { name: /modo de pruebas/i })).toBeInTheDocument();
+});
+
+it("fuera del modo de pruebas no hay aviso", async () => {
+  const { leerCapacidades } = await import("@/lib/api");
+  render(<CargaAsIs onPropuesta={() => {}} />);
+  await vi.waitFor(() => expect(leerCapacidades).toHaveBeenCalled());
+  expect(screen.queryByRole("note", { name: /modo de pruebas/i })).not.toBeInTheDocument();
 });

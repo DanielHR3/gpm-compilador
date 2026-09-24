@@ -67,10 +67,28 @@ class Generados(BaseModel):
     tobe: Optional[Documento] = None
 
 
+def modo_pruebas(entorno: Optional[dict] = None) -> bool:
+    """El candado abierto a proposito para probar sin la licencia.
+
+    Decision del usuario del 2026-09-24: Simplificacion prueba el camino del
+    AS-IS con Gemini mientras Planeacion entrega las credenciales de OpenAI.
+    Se enciende SOLO con `GPMC_FASE3_PRUEBAS=1` en el entorno (en el servidor,
+    `~/.config/gpmc/entorno`) y con llave del proveedor. Con el proveedor
+    de la licencia no es modo de pruebas: es el funcionamiento normal. La SPA
+    lo avisa en pantalla mientras este activo: el AS-IS viaja a Gemini.
+    """
+    e = dict(os.environ) if entorno is None else entorno
+    return (e.get("GPMC_FASE3_PRUEBAS") == "1"
+            and e.get("GPMC_IA_PROVEEDOR") != PROVEEDOR_CON_LICENCIA
+            and bool(e.get("GPMC_IA_PROVEEDOR")) and bool(e.get("GPMC_IA_LLAVE")))
+
+
 def puede_generar(entorno: Optional[dict] = None) -> Optional[str]:
     """None si se puede generar; si no, el motivo en palabras."""
     e = dict(os.environ) if entorno is None else entorno
     if e.get("GPMC_IA_PROVEEDOR") == PROVEEDOR_CON_LICENCIA and e.get("GPMC_IA_LLAVE"):
+        return None
+    if modo_pruebas(e):
         return None
     return MOTIVO_SIN_LICENCIA
 

@@ -1,6 +1,7 @@
 import { FolderOpen, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import AvisoModoPruebas from "@/components/AvisoModoPruebas";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -74,6 +75,11 @@ export default function Inicio() {
               revisas, los corriges si hace falta y decides si se usan.
             </CardDescription>
           </CardHeader>
+          {cap.proponer && cap.pruebas ? (
+            <CardContent>
+              <AvisoModoPruebas />
+            </CardContent>
+          ) : null}
           {!cap.proponer && cap.motivo ? (
             <CardContent>
               {/* Enfocable: un boton desactivado no recibe el foco, y sin esto

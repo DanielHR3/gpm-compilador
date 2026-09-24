@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import Propuestas from "./Propuestas";
 
 vi.mock("@/lib/api", () => ({
+  leerCapacidades: vi.fn().mockResolvedValue({ proponer: true, motivo: null, pruebas: false }),
   leerGenerados: vi.fn(),
   decidirDocumento: vi.fn(),
   subirDocumento: vi.fn(),
@@ -120,4 +121,12 @@ it("un fallo pasajero al consultar no detiene la consulta periodica", async () =
   await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
   await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
   await waitFor(() => expect(documentos()).toHaveLength(1));
+});
+
+it("en modo de pruebas la propuesta lo recuerda", async () => {
+  const { leerGenerados, leerCapacidades } = await import("@/lib/api");
+  vi.mocked(leerCapacidades).mockResolvedValueOnce({ proponer: true, motivo: null, pruebas: true });
+  vi.mocked(leerGenerados).mockResolvedValue(listo);
+  render(<Propuestas sid={SID} onListo={() => {}} />);
+  expect(await screen.findByRole("note", { name: /modo de pruebas/i })).toBeInTheDocument();
 });

@@ -1440,7 +1440,7 @@ def test_la_extraccion_de_la_fase3_lanza_las_propuestas_dic08_como_post_expedien
 
 def test_capacidades_dice_si_se_puede_proponer(tmp_path):
     c = _cli_fase3(tmp_path, [])
-    assert c.get("/api/v1/capacidades").json() == {"proponer": True, "motivo": None}
+    assert c.get("/api/v1/capacidades").json() == {"proponer": True, "motivo": None, "pruebas": False}
     c = _cli_fase3(tmp_path, [], entorno=_ENT_GEMINI)
     r = c.get("/api/v1/capacidades").json()
     assert r["proponer"] is False and "licencia" in r["motivo"]
@@ -1494,3 +1494,23 @@ def test_una_sesion_sin_vista_la_calcula_al_leer(tmp_path):
     assert [p["nombre"] for p in g["diccionario"]["vista"]] == ["Solicitud", "Revisión"]
     # Y queda guardada: la proxima lectura no vuelve a correr el extractor.
     assert "vista" in _j.loads(ruta.read_text(encoding="utf-8"))["diccionario"]
+
+
+# --- Modo de pruebas (2026-09-24) -------------------------------------------------------------
+
+_ENT_PRUEBAS = {"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k", "GPMC_FASE3_PRUEBAS": "1"}
+
+
+def test_capacidades_avisan_el_modo_de_pruebas(tmp_path):
+    r = _cli_fase3(tmp_path, [], entorno=_ENT_PRUEBAS).get("/api/v1/capacidades").json()
+    assert r == {"proponer": True, "motivo": None, "pruebas": True}
+    r = _cli_fase3(tmp_path, []).get("/api/v1/capacidades").json()
+    assert r["pruebas"] is False
+
+
+def test_en_modo_de_pruebas_se_genera_con_gemini(tmp_path):
+    from tests.test_fase3 import _DICC_OK, _TOBE_OK, _json
+    c = _cli_fase3(tmp_path, [_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)], entorno=_ENT_PRUEBAS)
+    r = _proponer(c)
+    assert r.status_code == 202
+    assert c.get(f"/api/v1/expedientes/{r.json()['sid']}/generados").json()["estado"] == "listo"

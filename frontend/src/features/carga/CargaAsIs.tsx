@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 
+import AvisoModoPruebas, { useModoPruebas } from "@/components/AvisoModoPruebas";
 import { Button } from "@/components/ui/button";
 import { ErrorApi, proponerExpediente } from "@/lib/api";
 
@@ -18,6 +19,7 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
   const [apoyo, setApoyo] = useState<File[]>([]);
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const pruebas = useModoPruebas();
 
   const proponer = async () => {
     if (!asIs) return;
@@ -46,6 +48,8 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
           uno o dos minutos.
         </p>
       </header>
+
+      {pruebas ? <AvisoModoPruebas /> : null}
 
       <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-4">
         <label htmlFor="as-is" className="text-sm font-medium">

@@ -488,3 +488,20 @@ def test_la_condicion_en_palabras_prefiere_el_campo_de_la_misma_pantalla_o_anter
                     conexiones=[Conexion(de="t1", a="t_fin")]))
     v = vista_de(m)
     assert v[1]["campos"][0]["condicion"] == "«Estatus de la solicitud» es «x»"
+
+
+# --- Modo de pruebas (2026-09-24): Gemini mientras llegan las credenciales de OpenAI --------
+
+def test_el_modo_de_pruebas_abre_el_candado_con_cualquier_proveedor_con_llave():
+    """Decision del usuario del 2026-09-24: Simplificacion prueba el camino del
+    AS-IS con Gemini hasta que Planeacion entregue la licencia. Solo con la
+    linea explicita en el entorno; sin ella el candado sigue igual."""
+    from gpmc.agentes.fase3 import modo_pruebas, puede_generar
+    gem = {"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k"}
+    assert puede_generar(gem) is not None and modo_pruebas(gem) is False
+    con = {**gem, "GPMC_FASE3_PRUEBAS": "1"}
+    assert puede_generar(con) is None and modo_pruebas(con) is True
+    assert puede_generar({"GPMC_IA_PROVEEDOR": "gemini", "GPMC_FASE3_PRUEBAS": "1"})   # sin llave
+    assert puede_generar({**gem, "GPMC_FASE3_PRUEBAS": "0"}) is not None
+    assert modo_pruebas({"GPMC_IA_PROVEEDOR": "openai", "GPMC_IA_LLAVE": "k",
+                         "GPMC_FASE3_PRUEBAS": "1"}) is False   # con licencia no es «pruebas»

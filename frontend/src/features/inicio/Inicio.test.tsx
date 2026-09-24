@@ -36,3 +36,11 @@ it("si no se puede consultar, el camino del AS-IS queda activo", async () => {
   render(<Inicio />);
   expect(await screen.findByRole("link", { name: /empezar con el as-is/i })).toBeInTheDocument();
 });
+
+it("en modo de pruebas el camino del AS-IS lo avisa", async () => {
+  const { leerCapacidades } = await import("@/lib/api");
+  vi.mocked(leerCapacidades).mockResolvedValue({ proponer: true, motivo: null, pruebas: true });
+  render(<Inicio />);
+  expect(await screen.findByRole("note", { name: /modo de pruebas/i })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /empezar con el as-is/i })).toBeInTheDocument();
+});

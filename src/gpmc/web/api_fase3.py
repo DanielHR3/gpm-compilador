@@ -22,7 +22,7 @@ from pydantic import BaseModel
 
 from gpmc.agentes.bitacora import Interaccion, registrar
 from gpmc.agentes.fase3 import (Documento, Generados, extraer_borradores, generar,
-                                puede_generar, vista_de)
+                                modo_pruebas, puede_generar, vista_de)
 from gpmc.agentes.proveedor import NingunProveedor
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.extractores.expediente import SinPermiso
@@ -185,7 +185,9 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         antes de que nadie suba nada: enterarse del candado despues de subir
         el AS-IS era la peor experiencia posible."""
         motivo = _motivo_para_no_generar()
-        return {"proponer": motivo is None, "motivo": motivo}
+        # `pruebas`: el candado esta abierto sin licencia; la SPA lo avisa.
+        return {"proponer": motivo is None, "motivo": motivo,
+                "pruebas": motivo is None and modo_pruebas(entorno)}
 
     @r.get("/expedientes/{sid}/generados", response_model=GeneradosOut)
     async def leer_generados(sid: str):

@@ -10,7 +10,7 @@ import { generateCssVariables, tokensWeb } from "@/lib/tokens";
 // dispare desde el arbol. En jsdom `pathname` es `/`, asi que el `useEffect`
 // del deep-link sale sin llamar a nada.
 vi.mock("@/lib/api", () => ({
-  leerCapacidades: vi.fn().mockResolvedValue({ proponer: true, motivo: null }),
+  leerCapacidades: vi.fn().mockResolvedValue({ proponer: true, motivo: null, pruebas: false }),
   leerToBe: vi.fn().mockRejectedValue(new Error("sin TO-BE")),
   leerGenerados: vi.fn(),
   decidirDocumento: vi.fn(),

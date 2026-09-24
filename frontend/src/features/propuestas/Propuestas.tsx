@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import AvisoModoPruebas, { useModoPruebas } from "@/components/AvisoModoPruebas";
 import MigasDePan from "@/components/MigasDePan";
 import { decidirDocumento, ErrorApi, leerGenerados, subirDocumento } from "@/lib/api";
 import { migas } from "@/lib/rutas";
@@ -33,6 +34,7 @@ export default function Propuestas({ sid, onListo }: Props) {
   const [ocupado, setOcupado] = useState(false);
   const [agotado, setAgotado] = useState(false);
   const consultas = useRef(0);
+  const pruebas = useModoPruebas();
 
   useEffect(() => {
     let vivo = true;
@@ -138,6 +140,8 @@ export default function Propuestas({ sid, onListo }: Props) {
                   : "Sin licencia para generar"}
         </p>
       </header>
+
+      {pruebas ? <AvisoModoPruebas /> : null}
 
       {error ? (
         <p role="alert" className="text-sm text-destructive">

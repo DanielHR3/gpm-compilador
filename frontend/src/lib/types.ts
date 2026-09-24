@@ -181,7 +181,12 @@ export type ResultadoDecision =
   | { tipo: "generados"; generados: GeneradosOut };
 
 /** `GET /api/v1/capacidades`. */
-export type Capacidades = { proponer: boolean; motivo: string | null };
+export type Capacidades = {
+  proponer: boolean;
+  motivo: string | null;
+  /** El candado esta abierto sin licencia (pruebas internas con Gemini). */
+  pruebas?: boolean;
+};
 /** Un campo del Diccionario propuesto, ya leido por el extractor. */
 export type CampoVista = {
   etiqueta: string;

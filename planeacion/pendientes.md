@@ -58,6 +58,11 @@ buscar.
   **2026-09-24:** la Fase 3 ya lleva candado en código (`agentes/fase3.puede_generar`) y no corre
   con Gemini; las propuestas de `DIC-08` siguen sin candado y siguen pasando por el proveedor
   configurado. El usuario decidió dejar el servidor con Gemini por ahora.
+  **2026-09-24, modo de pruebas:** por decisión del usuario, el camino del AS-IS se abre con
+  Gemini para que la DSA y la DGT lo prueben (uso interno) mientras Planeación entrega las
+  credenciales de OpenAI. Se enciende con `GPMC_FASE3_PRUEBAS=1` en `~/.config/gpmc/entorno`
+  y la SPA lo avisa en pantalla. **Al llegar las credenciales: borrar esa línea**, poner
+  `GPMC_IA_PROVEEDOR=openai` con su llave y reiniciar el servicio.
 
 - **P-26 — tres tramites del tablero con dependencia «[por confirmar]».** Digitalizacion de
   Acciones IHM, Acceso a la Informacion y Pago de Bases Licitaciones: sus AS-IS, TO-BE y
