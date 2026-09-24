@@ -138,7 +138,7 @@ enlaces solo en los anteriores); `App` deduce el camino en `/revisar/{sid}`;
 campos de cada tipo; alternar a texto y volver conserva la edición; `vista`
 vacía abre el texto; en el TO-BE existen zoom y pantalla completa y cambian el
 estado (jsdom no dibuja); la tarjeta plegable de la revisión no aparece sin
-TO-BE y carga el texto al abrirse.
+TO-BE; el texto se pide al montar, porque hace falta para saber si la tarjeta aparece.
 
 ## Orden de entrega
 

@@ -328,7 +328,6 @@ export default function CargaInsumos({
                   {obligatorio ? "Obligatorio" : "Opcional"}
                 </span>
 
-
                 {/* El nombre del archivo empuja los controles a la derecha. */}
                 <span
                   data-testid={`nombre-${campo}`}
@@ -450,7 +449,6 @@ export default function CargaInsumos({
         Extraer
         <ArrowRight aria-hidden className="size-4" />
       </Button>
-
 
       <footer className="text-sm text-muted-foreground">
         <a className="text-primary underline underline-offset-2" href="/historial">

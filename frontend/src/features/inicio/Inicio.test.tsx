@@ -22,7 +22,12 @@ it("sin licencia, el camino del AS-IS sale desactivado con el motivo", async () 
   render(<Inicio />);
   expect(await screen.findByText("Sin licencia de Planeación.")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /empezar con el as-is/i })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /empezar con el as-is/i })).toBeDisabled();
+  const boton = screen.getByRole("button", { name: /empezar con el as-is/i });
+  expect(boton).toBeDisabled();
+  // El motivo esta ligado al boton y no se salta con Tab (un boton
+  // desactivado no recibe el foco): el motivo mismo es enfocable.
+  expect(boton).toHaveAccessibleDescription("Sin licencia de Planeación.");
+  expect(screen.getByText("Sin licencia de Planeación.")).toHaveAttribute("tabindex", "0");
 });
 
 it("si no se puede consultar, el camino del AS-IS queda activo", async () => {

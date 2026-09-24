@@ -17,7 +17,11 @@ it("una tarjeta por pantalla y un campo por tarjeta, en palabras", () => {
   const p1 = screen.getByRole("article", { name: "Pantalla 1 · Ciudadano · Solicitud" });
   expect(within(p1).getByText("CURP")).toBeInTheDocument();
   expect(within(p1).getByText("Texto")).toBeInTheDocument();
-  expect(within(p1).getAllByLabelText("obligatorio")).toHaveLength(1);
+  // «obligatorio» va como texto solo para lectores de pantalla; el asterisco
+  // es decorativo. Un aria-label sobre un <span> no lo anuncian.
+  expect(within(p1).getAllByText("obligatorio")).toHaveLength(1);
+  expect(within(p1).getByText("obligatorio")).toHaveClass("sr-only");
+  expect(within(p1).getByText("*")).toHaveAttribute("aria-hidden", "true");
   expect(within(p1).getByText("Archivo")).toBeInTheDocument();
   expect(within(p1).getByText("Visible solo si «Tipo de persona» es «Moral»")).toBeInTheDocument();
   const p2 = screen.getByRole("article", { name: "Pantalla 2 · Funcionario · Revisión" });

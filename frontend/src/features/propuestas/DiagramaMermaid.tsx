@@ -31,6 +31,26 @@ export default function DiagramaMermaid({ texto, retardoMs = 600, grande = false
   const [aviso, setAviso] = useState<string | null>(null);
   const [escala, setEscala] = useState(1);
   const marco = useRef<HTMLDivElement>(null);
+  const [enPantallaCompleta, setEnPantallaCompleta] = useState(false);
+  const [avisoPantalla, setAvisoPantalla] = useState<string | null>(null);
+
+  useEffect(() => {
+    const alCambiar = () => setEnPantallaCompleta(document.fullscreenElement === marco.current);
+    document.addEventListener("fullscreenchange", alCambiar);
+    return () => document.removeEventListener("fullscreenchange", alCambiar);
+  }, []);
+
+  const alternarPantallaCompleta = async () => {
+    setAvisoPantalla(null);
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await marco.current?.requestFullscreen();
+    } catch {
+      // Safari en iPad, o una politica del navegador: se dice en pantalla en
+      // vez de dejar una promesa rechazada en la consola.
+      setAvisoPantalla("Este navegador no permitió la pantalla completa.");
+    }
+  };
 
   useEffect(() => {
     let vivo = true;
@@ -78,6 +98,11 @@ export default function DiagramaMermaid({ texto, retardoMs = 600, grande = false
           {aviso}
         </p>
       ) : null}
+      {avisoPantalla ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {avisoPantalla}
+        </p>
+      ) : null}
       {svg ? (
         <div
           ref={marco}
@@ -104,9 +129,9 @@ export default function DiagramaMermaid({ texto, retardoMs = 600, grande = false
                 +
               </Button>
               {document.fullscreenEnabled ? (
-                <Button type="button" size="sm" variant="outline" aria-label="Pantalla completa"
-                  onClick={() => void marco.current?.requestFullscreen()}>
-                  Pantalla completa
+                <Button type="button" size="sm" variant="outline"
+                  onClick={() => void alternarPantallaCompleta()}>
+                  {enPantallaCompleta ? "Salir de pantalla completa" : "Pantalla completa"}
                 </Button>
               ) : null}
             </div>

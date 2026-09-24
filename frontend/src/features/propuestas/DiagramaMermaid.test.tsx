@@ -75,3 +75,33 @@ it("sin grande no hay controles", async () => {
   await screen.findByTestId("svg-mermaid");
   expect(screen.queryByRole("button", { name: "Acercar" })).not.toBeInTheDocument();
 });
+
+it("en pantalla completa el boton pasa a «Salir» y al salir vuelve", async () => {
+  Object.defineProperty(document, "fullscreenEnabled", { value: true, configurable: true });
+  let dentro: Element | null = null;
+  Object.defineProperty(document, "fullscreenElement", { get: () => dentro, configurable: true });
+  HTMLElement.prototype.requestFullscreen = vi.fn(async function (this: HTMLElement) {
+    dentro = this;
+    document.dispatchEvent(new Event("fullscreenchange"));
+  });
+  document.exitFullscreen = vi.fn(async () => {
+    dentro = null;
+    document.dispatchEvent(new Event("fullscreenchange"));
+  });
+  render(<DiagramaMermaid texto={"```mermaid\nflowchart TD\n A --> B\n```"} retardoMs={0} grande />);
+  await userEvent.click(await screen.findByRole("button", { name: /^pantalla completa$/i }));
+  const salir = await screen.findByRole("button", { name: /salir de pantalla completa/i });
+  await userEvent.click(salir);
+  expect(document.exitFullscreen).toHaveBeenCalled();
+  expect(await screen.findByRole("button", { name: /^pantalla completa$/i })).toBeInTheDocument();
+  Object.defineProperty(document, "fullscreenEnabled", { value: undefined, configurable: true });
+});
+
+it("si el navegador rechaza la pantalla completa, se dice en pantalla y no queda un error suelto", async () => {
+  Object.defineProperty(document, "fullscreenEnabled", { value: true, configurable: true });
+  HTMLElement.prototype.requestFullscreen = vi.fn().mockRejectedValue(new TypeError("Fullscreen request denied"));
+  render(<DiagramaMermaid texto={"```mermaid\nflowchart TD\n A --> B\n```"} retardoMs={0} grande />);
+  await userEvent.click(await screen.findByRole("button", { name: /^pantalla completa$/i }));
+  expect(await screen.findByRole("status")).toHaveTextContent(/no permitió la pantalla completa/i);
+  Object.defineProperty(document, "fullscreenEnabled", { value: undefined, configurable: true });
+});

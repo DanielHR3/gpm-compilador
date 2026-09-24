@@ -44,9 +44,11 @@ export default function VistaDiccionario({ pantallas }: { pantallas: PantallaVis
                     <span className="font-medium">
                       {c.etiqueta}
                       {c.obligatorio ? (
-                        <span aria-label="obligatorio" className="text-destructive">
-                          {" *"}
-                        </span>
+                        <>
+                          {" "}
+                          <span aria-hidden="true" className="text-destructive">*</span>
+                          <span className="sr-only">obligatorio</span>
+                        </>
                       ) : null}
                     </span>
                     <span className="text-muted-foreground">{TIPO[c.tipo] ?? c.tipo}</span>

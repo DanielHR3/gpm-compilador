@@ -76,7 +76,15 @@ export default function Inicio() {
           </CardHeader>
           {!cap.proponer && cap.motivo ? (
             <CardContent>
-              <p className="rounded-md border border-border bg-muted p-3 text-sm">{cap.motivo}</p>
+              {/* Enfocable: un boton desactivado no recibe el foco, y sin esto
+                  quien navega con teclado nunca llegaba al motivo. */}
+              <p
+                id="motivo-sin-proponer"
+                tabIndex={0}
+                className="rounded-md border border-border bg-muted p-3 text-sm"
+              >
+                {cap.motivo}
+              </p>
             </CardContent>
           ) : null}
           <CardFooter>
@@ -85,7 +93,12 @@ export default function Inicio() {
                 Empezar →
               </a>
             ) : (
-              <Button type="button" disabled aria-label="Empezar con el AS-IS">
+              <Button
+                type="button"
+                disabled
+                aria-label="Empezar con el AS-IS"
+                aria-describedby="motivo-sin-proponer"
+              >
                 Empezar →
               </Button>
             )}
