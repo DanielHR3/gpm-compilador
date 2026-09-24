@@ -1198,3 +1198,81 @@ def test_extraer_y_persistir_sin_diccionario_devuelve_motivo_y_no_borra(tmp_path
     est, motivo = extraer_y_persistir(tmp_path, sid, carpeta)
     assert est is None and "Diccionario" in motivo
     assert carpeta.is_dir() and not (carpeta / "manifiesto.yaml").exists()
+
+
+# --- Fase 3, Task 6: proponer, generados y 409 -------------------------------------
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _sin_esperas_de_reintento(monkeypatch):
+    """Cuando el guion del ProveedorFalso se acaba en la ronda de mejora, la
+    Fase 3 reintenta con esperas de 2 y 8 s antes de quedarse con la ronda 1.
+    Aqui se prueba la API, no los reintentos: sin esperas."""
+    from gpmc.agentes import fase3
+    monkeypatch.setattr(fase3, "ESPERAS_REINTENTO", ())
+
+
+_ENT_OPENAI = {"GPMC_IA_PROVEEDOR": "openai", "GPMC_IA_LLAVE": "k"}
+_ENT_GEMINI = {"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k"}
+_ASIS_F3 = ("# Análisis AS-IS — Constancia de Prueba\n\n"
+            "- **Requisitos:** identificación oficial vigente\n")
+
+
+def _cli_fase3(tmp_path, respuestas, entorno=_ENT_OPENAI):
+    from gpmc.agentes.proveedor import ProveedorFalso
+    return TestClient(crear_app(almacen=tmp_path, proveedor=ProveedorFalso(respuestas), entorno=entorno))
+
+
+def _proponer(c, as_is=_ASIS_F3):
+    return c.post("/api/v1/expedientes/proponer",
+                  files={"as_is": ("as-is.md", as_is.encode("utf-8"), "text/markdown")})
+
+
+def test_proponer_sin_licencia_nace_en_sin_licencia_y_no_llama(tmp_path):
+    from tests.test_fase3 import _DICC_OK, _json
+    c = _cli_fase3(tmp_path, [_json("diccionario", _DICC_OK)], entorno=_ENT_GEMINI)
+    r = _proponer(c)
+    assert r.status_code == 200 and r.json()["estado"] == "sin_licencia"
+    sid = r.json()["sid"]
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert g["estado"] == "sin_licencia" and "licencia" in g["motivo"]
+    assert g["diccionario"] is None
+    assert (tmp_path / sid / "Análisis AS-IS.md").exists()
+
+
+def test_proponer_con_licencia_genera_en_segundo_plano_y_se_lee(tmp_path):
+    from tests.test_fase3 import _DICC_OK, _TOBE_OK, _json
+    c = _cli_fase3(tmp_path, [_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    r = _proponer(c)
+    assert r.status_code == 202 and r.json()["estado"] == "generando"
+    sid = r.json()["sid"]
+    # TestClient corre las BackgroundTasks antes de devolver: ya esta listo.
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert g["estado"] == "listo" and g["nombre"] == "Constancia de Prueba"
+    assert g["diccionario"]["texto"] == _DICC_OK and g["diccionario"]["decision"] == "pendiente"
+    assert g["tobe"]["ronda"] == 1
+    assert isinstance(g["tobe"]["huecos"], list)
+
+
+def test_proponer_sin_as_is_da_422(tmp_path):
+    c = _cli_fase3(tmp_path, [])
+    r = c.post("/api/v1/expedientes/proponer", files={"adjuntos": ("x.png", b"\x89PNG", "image/png")})
+    assert r.status_code == 422
+
+
+def test_get_expediente_en_propuestas_da_409_con_el_estado(tmp_path):
+    from tests.test_fase3 import _DICC_OK, _TOBE_OK, _json
+    c = _cli_fase3(tmp_path, [_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    sid = _proponer(c).json()["sid"]
+    r = c.get(f"/api/v1/expedientes/{sid}")
+    assert r.status_code == 409 and r.json() == {"estado": "listo"}
+    assert c.get("/api/v1/expedientes/0123456789abcdef").status_code == 404   # sin sesion sigue 404
+
+
+def test_fallo_del_generador_deja_error_y_no_tumba_nada(tmp_path):
+    c = _cli_fase3(tmp_path, ["no es json"])
+    sid = _proponer(c).json()["sid"]
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert g["estado"] == "error" and "RespuestaInvalida" in g["motivo"]

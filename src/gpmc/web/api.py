@@ -592,7 +592,15 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
     async def leer_expediente(sid: str):
         carpeta = carpeta_de(raiz, sid)
         m = manifiesto_de(raiz, sid)
-        if carpeta is None or m is None:
+        if carpeta is None:
+            return JSONResponse(status_code=404,
+                                content={"error": "sesión no encontrada"})
+        if m is None:
+            # Sesion nacida en la Fase 3 y aun sin manifiesto: la SPA abre
+            # «Propuestas» con este estado en vez de decir que expiro.
+            g = generados_de(carpeta)
+            if g is not None:
+                return JSONResponse(status_code=409, content={"estado": g["estado"]})
             return JSONResponse(status_code=404,
                                 content={"error": "sesión no encontrada"})
         return _estado(sid, carpeta, m)

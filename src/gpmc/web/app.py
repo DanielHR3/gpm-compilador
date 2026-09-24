@@ -57,7 +57,8 @@ _CSP_SPA = (
 )
 
 
-def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
+def crear_app(almacen: Optional[Path] = None, proveedor=None,
+              entorno: Optional[dict] = None) -> FastAPI:
     raiz = Path(almacen) if almacen else Path(tempfile.mkdtemp(prefix="gpmc-"))
     raiz.mkdir(parents=True, exist_ok=True)
     _purgar_sesiones(raiz)
@@ -65,8 +66,14 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None) -> FastAPI:
 
     # Import local (no top-level): api.py importa de gpmc.web.sesiones, y app.py
     # es quien incluye el router. El import aqui dentro evita el ciclo de modulos.
+    from gpmc.agentes import crear_proveedor
     from gpmc.web.api import crear_router
-    app.include_router(crear_router(raiz, proveedor=proveedor))
+    from gpmc.web.api_fase3 import crear_router_fase3
+    # Un solo proveedor para los dos routers: el inyectado (pruebas) o el del
+    # entorno. `entorno` alimenta ademas el candado de la Fase 3; None = os.environ.
+    _prov = proveedor if proveedor is not None else crear_proveedor()
+    app.include_router(crear_router(raiz, proveedor=_prov))
+    app.include_router(crear_router_fase3(raiz, proveedor=_prov, entorno=entorno))
 
     @app.middleware("http")
     async def _cabeceras_seguras(request, call_next):
