@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import WizardHuecos from "./WizardHuecos";
 
 vi.mock("@/lib/api", () => ({
+  leerToBe: vi.fn().mockRejectedValue(new Error("sin TO-BE")),
   camposDelManifiesto: () => [],
   resolverDic08: vi.fn(),
   leerCompuerta: vi.fn(),

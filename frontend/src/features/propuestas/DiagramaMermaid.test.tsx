@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 
 import DiagramaMermaid, { primerBloqueMermaid } from "./DiagramaMermaid";
@@ -35,4 +36,37 @@ it("cuando mermaid no puede dibujar, dice en que linea para poder corregirlo", a
   render(<DiagramaMermaid texto={"```mermaid\nROTO\n```"} retardoMs={0} />);
   const aviso = await screen.findByRole("status");
   expect(aviso).toHaveTextContent(/Parse error/);
+});
+
+it("en grande trae zoom: acercar y alejar cambian la escala y ajustar la regresa", async () => {
+  render(<DiagramaMermaid texto={"```mermaid\nflowchart TD\n A --> B\n```"} retardoMs={0} grande />);
+  await screen.findByTestId("svg-mermaid");
+  const lienzo = screen.getByTestId("lienzo-diagrama");
+  await userEvent.click(screen.getByRole("button", { name: "Acercar" }));
+  expect(lienzo.style.transform).toBe("scale(1.25)");
+  await userEvent.click(screen.getByRole("button", { name: "Alejar" }));
+  await userEvent.click(screen.getByRole("button", { name: "Alejar" }));
+  expect(lienzo.style.transform).toBe("scale(0.75)");
+  await userEvent.click(screen.getByRole("button", { name: "Ajustar" }));
+  expect(lienzo.style.transform).toBe("scale(1)");
+});
+
+it("pantalla completa solo si el navegador la permite", async () => {
+  const { unmount } = render(<DiagramaMermaid texto={"```mermaid\nflowchart TD\n A --> B\n```"} retardoMs={0} grande />);
+  await screen.findByTestId("svg-mermaid");
+  expect(screen.queryByRole("button", { name: /pantalla completa/i })).not.toBeInTheDocument();
+  unmount();
+  Object.defineProperty(document, "fullscreenEnabled", { value: true, configurable: true });
+  const pedir = vi.fn().mockResolvedValue(undefined);
+  HTMLElement.prototype.requestFullscreen = pedir;
+  render(<DiagramaMermaid texto={"```mermaid\nflowchart TD\n A --> C\n```"} retardoMs={0} grande />);
+  await userEvent.click(await screen.findByRole("button", { name: /pantalla completa/i }));
+  expect(pedir).toHaveBeenCalled();
+  Object.defineProperty(document, "fullscreenEnabled", { value: undefined, configurable: true });
+});
+
+it("sin grande no hay controles", async () => {
+  render(<DiagramaMermaid texto={"```mermaid\nflowchart TD\n A --> B\n```"} retardoMs={0} />);
+  await screen.findByTestId("svg-mermaid");
+  expect(screen.queryByRole("button", { name: "Acercar" })).not.toBeInTheDocument();
 });

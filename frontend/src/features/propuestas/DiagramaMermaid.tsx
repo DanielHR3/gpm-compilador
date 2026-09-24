@@ -1,4 +1,7 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 
 const RE_BLOQUE = /```mermaid\s*\n([\s\S]*?)```/;
 
@@ -8,7 +11,12 @@ export function primerBloqueMermaid(texto: string): string | null {
   return m ? m[1].trim() : null;
 }
 
-type Props = { texto: string; retardoMs?: number };
+type Props = {
+  texto: string;
+  retardoMs?: number;
+  /** Lienzo alto (70 % de la ventana) con zoom y pantalla completa. */
+  grande?: boolean;
+};
 
 /**
  * Dibuja el diagrama del TO-BE mientras se edita. `mermaid` se carga con
@@ -17,10 +25,12 @@ type Props = { texto: string; retardoMs?: number };
  * `<br/>` de las etiquetas (los usan los diagramas del equipo) y bloquea
  * cualquier `<script>` o `onclick` que venga en el texto.
  */
-export default function DiagramaMermaid({ texto, retardoMs = 600 }: Props) {
+export default function DiagramaMermaid({ texto, retardoMs = 600, grande = false }: Props) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "_");
   const [svg, setSvg] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [escala, setEscala] = useState(1);
+  const marco = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -70,11 +80,45 @@ export default function DiagramaMermaid({ texto, retardoMs = 600 }: Props) {
       ) : null}
       {svg ? (
         <div
-          className="overflow-x-auto rounded-md border border-border bg-card p-3"
-          // SVG que produce mermaid con securityLevel strict a partir del texto
-          // que la propia persona esta editando; no viene de otro usuario.
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
+          ref={marco}
+          className={cn(
+            "relative overflow-auto rounded-md border border-border bg-card p-3",
+            grande && "h-[70vh]",
+          )}
+        >
+          {grande ? (
+            <div className="sticky top-0 z-10 flex justify-end gap-1 pb-2">
+              <Button type="button" size="sm" variant="outline" aria-label="Alejar"
+                onClick={() => setEscala((e) => Math.max(0.5, e - 0.25))}>
+                −
+              </Button>
+              <Button type="button" size="sm" variant="outline" aria-label="Ajustar"
+                onClick={() => setEscala(1)}>
+                Ajustar
+              </Button>
+              <Button type="button" size="sm" variant="outline" aria-label="Acercar"
+                onClick={() => setEscala((e) => Math.min(3, e + 0.25))}>
+                +
+              </Button>
+              {document.fullscreenEnabled ? (
+                <Button type="button" size="sm" variant="outline" aria-label="Pantalla completa"
+                  onClick={() => void marco.current?.requestFullscreen()}>
+                  Pantalla completa
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          <div
+            data-testid="lienzo-diagrama"
+            className="origin-top-left transition-transform"
+            style={{ transform: `scale(${escala})` }}
+            // SVG que produce mermaid con securityLevel strict (DOMPurify) a
+            // partir del texto del TO-BE: puede venir del modelo o de otra
+            // persona; lo protegen strict y la CSP, que no permite scripts en
+            // linea.
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
+        </div>
       ) : null}
     </div>
   );

@@ -12,6 +12,7 @@ import PanelDescargas from "@/features/entrega/PanelDescargas";
 
 import { agruparPorNivel } from "./agrupar";
 import Adjuntos from "./Adjuntos";
+import DiagramaToBe from "./DiagramaToBe";
 import ModoFoco from "./ModoFoco";
 import ResumenExpediente from "./ResumenExpediente";
 import { useFoco } from "./useFoco";
@@ -190,6 +191,9 @@ export default function WizardHuecos({
         {/* El diagrama contesta «¿quién hace esta tarea?»: va arriba, donde se
             está resolviendo, no en otra pestaña. */}
         <Adjuntos sid={estado.sid} adjuntos={estado.adjuntos ?? []} />
+
+        {/* El TO-BE dibujado, plegado: ayuda sobre todo con los huecos de flujo. */}
+        <DiagramaToBe sid={estado.sid} manifiesto={manifiesto} />
 
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">
