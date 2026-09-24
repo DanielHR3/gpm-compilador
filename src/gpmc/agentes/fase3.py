@@ -164,10 +164,10 @@ def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool) -> Gene
                   pr.VERSION_PROMPT_DICC, pr.contexto_dicc(as_is))
     tobe = _pedir(proveedor, raiz, sid, "tobe", 1, pr.INSTRUCCION_TOBE,
                   pr.VERSION_PROMPT_TOBE, pr.contexto_tobe(as_is, dicc))
-    _, huecos = extraer_borradores(as_is, dicc, tobe)
+    m_1, huecos = extraer_borradores(as_is, dicc, tobe)
     elegido = {"diccionario": (dicc, 1, pr.VERSION_PROMPT_DICC), "tobe": (tobe, 1, pr.VERSION_PROMPT_TOBE)}
     if mejorar:
-        elegido, huecos = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos)
+        elegido, huecos = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos, m_1)
     reparto = _por_documento(huecos)
     docs = {}
     for clave, (texto, ronda, version) in elegido.items():
@@ -177,6 +177,52 @@ def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool) -> Gene
                      diccionario=docs["diccionario"], tobe=docs["tobe"])
 
 
-def _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos):
-    """Se implementa en la Task 4. Por ahora: sin mejora."""
-    return elegido, huecos
+def _cuenta(manifiesto, huecos: list, clave: str) -> tuple:
+    """Que tan mal esta un documento, comparable con `<=`: primero si la
+    pareja ni siquiera dio manifiesto (un Diccionario sin pantallas produce
+    UN solo DIC-00 y corta la extraccion, asi que contar huecos lo haria
+    parecer mejor que uno con dos datos que faltan), luego los bloqueantes,
+    luego los `falta_dato` — lo que la persona tendria que resolver a mano."""
+    mios = [h for h in bloquean(huecos) if atribuir(h) == clave]
+    return (manifiesto is None,
+            sum(1 for h in mios if h.nivel == "bloqueante"),
+            sum(1 for h in mios if h.nivel == "falta_dato"))
+
+
+def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict, huecos: list,
+                     m_1=None):
+    """Una sola vez por documento, y solo si ese documento tiene huecos que
+    bloquean. Primero el Diccionario; el TO-BE se mejora contra el Diccionario
+    ya elegido. Por documento se conserva la ronda con menos bloqueantes
+    (empate: la 2, que vio los pendientes). Si la mejora falla, se conserva la
+    ronda 1: sus tokens ya estan gastados y su resultado es util."""
+    reparto = {clave: [str(h) for h in bloquean(huecos) if atribuir(h) == clave]
+               for clave in ("diccionario", "tobe")}
+    if not reparto["diccionario"] and not reparto["tobe"]:
+        return elegido, huecos
+    candidatos = {"diccionario": elegido["diccionario"][0], "tobe": elegido["tobe"][0]}
+    try:
+        if reparto["diccionario"]:
+            candidatos["diccionario"] = _pedir(
+                proveedor, raiz, sid, "diccionario", 2, pr.INSTRUCCION_MEJORA, pr.VERSION_PROMPT_MEJORA,
+                pr.contexto_mejora(as_is, candidatos["diccionario"], reparto["diccionario"], "diccionario"))
+        if reparto["tobe"]:
+            candidatos["tobe"] = _pedir(
+                proveedor, raiz, sid, "tobe", 2, pr.INSTRUCCION_MEJORA, pr.VERSION_PROMPT_MEJORA,
+                pr.contexto_mejora(as_is, candidatos["tobe"], reparto["tobe"], "tobe",
+                                   diccionario=candidatos["diccionario"]))
+    except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as exc:
+        log.warning("fase3 sid=%s la mejora fallo (%s); se conserva la ronda 1", sid, type(exc).__name__)
+        return elegido, huecos
+    m_2, huecos_2 = extraer_borradores(as_is, candidatos["diccionario"], candidatos["tobe"])
+    final = dict(elegido)
+    for clave in ("diccionario", "tobe"):
+        if reparto[clave] and _cuenta(m_2, huecos_2, clave) <= _cuenta(m_1, huecos, clave):
+            final[clave] = (candidatos[clave], 2, pr.VERSION_PROMPT_MEJORA)
+    # Si la pareja final es exactamente la de la ronda 2, sus huecos ya estan
+    # medidos. Si se mezclan rondas (Diccionario 2, TO-BE 1), se vuelven a
+    # medir sobre la pareja elegida: es una extraccion local, sin llamadas.
+    if all(final[c][0] == candidatos[c] for c in ("diccionario", "tobe")):
+        return final, huecos_2
+    _, huecos_f = extraer_borradores(as_is, final["diccionario"][0], final["tobe"][0])
+    return final, huecos_f

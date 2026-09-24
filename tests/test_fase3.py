@@ -224,3 +224,68 @@ def test_nombres_de_insumo_coinciden_con_la_web():
     from gpmc.web.sesiones import INSUMOS
     assert NOMBRES_INSUMO == {"as_is": INSUMOS["as_is"], "tobe": INSUMOS["to_be"],
                               "diccionario": INSUMOS["diccionario"]}
+
+
+# --- Task 4: ronda de mejora ----------------------------------------------------
+
+_DICC_ROTO = "# Diccionario de Datos — Constancia\n\nSin tablas ni pantallas.\n"   # -> DIC-00 bloqueante
+
+
+def test_mejora_conserva_la_ronda_2_cuando_tiene_menos_bloqueantes(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.agentes.bitacora import leer
+    prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK),
+                           _json("diccionario", _DICC_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "e" * 16)
+    assert g.estado == "listo"
+    assert g.diccionario.ronda == 2 and g.diccionario.texto == _DICC_OK
+    assert g.diccionario.version_prompt == "mejora-v1"
+    assert not any(h.codigo == "DIC-00" for h in g.diccionario.huecos)
+    # El TO-BE no tenia bloqueantes propios: no se le pidio mejora.
+    assert g.tobe.ronda == 1
+    assert prov.llamadas == 3
+    assert "<<HUECOS>>" in prov.ultimo_contexto and "[DIC-00]" in prov.ultimo_contexto
+    assert [(f["documento"], f["ronda"]) for f in leer(tmp_path)] == [
+        ("diccionario", 1), ("tobe", 1), ("diccionario", 2)]
+
+
+def test_mejora_conserva_la_ronda_1_cuando_la_2_empeora(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    # Ronda 1: un solo GEN-01 (falta «poder notarial»). Ronda 2: el modelo
+    # rompe el Diccionario entero (DIC-00). Se queda la 1.
+    dicc_1 = _DICC_OK.replace("| Poder notarial si el solicitante es persona moral | Archivo | Visor de archivos | No | `@@poder` |\n", "")
+    prov = ProveedorFalso([_json("diccionario", dicc_1), _json("tobe", _TOBE_OK),
+                           _json("diccionario", _DICC_ROTO)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "f" * 16)
+    assert g.diccionario.ronda == 1 and g.diccionario.texto == dicc_1
+    assert any(h.codigo == "GEN-01" for h in g.diccionario.huecos)
+
+
+def test_mejora_se_pide_una_sola_vez_por_documento_y_el_tobe_ve_el_diccionario_elegido(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    # Ronda 1: Diccionario con un GEN-01 (falta «poder notarial») y TO-BE sin
+    # diagrama (MMD-01). Con un Diccionario roto el extractor corta antes de
+    # mirar el TO-BE y no habria nada suyo que mejorar.
+    dicc_1 = _DICC_OK.replace("| Poder notarial si el solicitante es persona moral | Archivo | Visor de archivos | No | `@@poder` |\n", "")
+    tobe_roto = "# Propuesta TO-BE — Constancia\n\nsin diagrama\n"       # MMD-01 falta_dato
+    prov = ProveedorFalso([_json("diccionario", dicc_1), _json("tobe", tobe_roto),
+                           _json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "0" * 16)
+    assert prov.llamadas == 4
+    assert g.diccionario.ronda == 2 and g.tobe.ronda == 2
+    assert _DICC_OK in prov.ultimo_contexto          # la mejora del TO-BE vio el Diccionario de la ronda 2
+
+
+def test_fallo_en_la_mejora_no_tira_la_ronda_1(tmp_path, monkeypatch):
+    """La ronda 1 ya costo dos llamadas; si la mejora falla por red, se entrega
+    la ronda 1 con sus huecos, no `error`."""
+    from gpmc.agentes import fase3
+    from gpmc.agentes.proveedor import ProveedorFalso
+    monkeypatch.setattr(fase3.time, "sleep", lambda s: None)
+    prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK)])
+    g = fase3.generar(_ASIS_INLINE, prov, tmp_path, "1" * 16)
+    assert g.estado == "listo" and g.diccionario.ronda == 1
+    assert any(h.codigo == "DIC-00" for h in g.diccionario.huecos)
