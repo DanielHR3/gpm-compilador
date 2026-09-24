@@ -10,6 +10,8 @@ import { generateCssVariables, tokensWeb } from "@/lib/tokens";
 // dispare desde el arbol. En jsdom `pathname` es `/`, asi que el `useEffect`
 // del deep-link sale sin llamar a nada.
 vi.mock("@/lib/api", () => ({
+  leerCapacidades: vi.fn().mockResolvedValue({ proponer: true, motivo: null }),
+  leerToBe: vi.fn().mockRejectedValue(new Error("sin TO-BE")),
   leerGenerados: vi.fn(),
   decidirDocumento: vi.fn(),
   subirDocumento: vi.fn(),
@@ -45,11 +47,57 @@ vi.mock("mermaid", () => ({
 }));
 
 describe("App (SPA SP1)", () => {
-  it("arranca en la pantalla de carga de insumos ('Extraer' deshabilitado sin Diccionario)", () => {
+  it("la raiz es el Inicio con los dos caminos", () => {
+    window.history.pushState({}, "", "/");
     render(<App />);
-    const btn = screen.getByRole("button", { name: /extraer/i });
-    expect(btn).toBeInTheDocument();
-    expect(btn).toBeDisabled();
+    expect(screen.getByRole("heading", { name: /qué tienes del trámite/i })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: /migas de pan/i })).toHaveTextContent("Inicio");
+  });
+
+  it("/expediente abre la carga de siempre con sus migas", () => {
+    window.history.pushState({}, "", "/expediente");
+    render(<App />);
+    expect(screen.getByRole("button", { name: /extraer/i })).toBeDisabled();
+    expect(screen.getByRole("navigation", { name: /migas de pan/i })).toHaveTextContent(/Inicio.*Expediente completo/);
+    window.history.pushState({}, "", "/");
+  });
+
+  it("/desde-as-is abre la carga del AS-IS con sus migas", () => {
+    window.history.pushState({}, "", "/desde-as-is");
+    render(<App />);
+    expect(screen.getByRole("button", { name: /proponer to-be y diccionario/i })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: /migas de pan/i })).toHaveTextContent(/Inicio.*Solo AS-IS/);
+    window.history.pushState({}, "", "/");
+  });
+
+  it("/revisar/:sid de una sesion de carpeta: migas «Expediente completo › Revisión»", async () => {
+    const { leerExpediente, leerGenerados, ErrorApi } = await import("@/lib/api");
+    vi.mocked(leerExpediente).mockResolvedValue({
+      sid: "d".repeat(16), manifiesto: { tramite: { nombre: "X" }, pantallas: [], flujo: { tareas: [], conexiones: [] } },
+      huecos: [], estimacion: {}, problemas: [], tieneVistas: false, reconocidos: [], adjuntos: [], propuestasPendientes: false,
+    } as any);
+    const e = new (ErrorApi as any)("no"); e.status = 404;
+    vi.mocked(leerGenerados).mockRejectedValue(e);
+    window.history.pushState({}, "", `/revisar/${"d".repeat(16)}`);
+    render(<App />);
+    const nav = await screen.findByRole("navigation", { name: /migas de pan/i });
+    await vi.waitFor(() => expect(nav).toHaveTextContent(/Expediente completo.*Revisión/));
+    window.history.pushState({}, "", "/");
+  });
+
+  it("/revisar/:sid con /generados caido por red: migas «Inicio › Revisión», sin romper", async () => {
+    const { leerExpediente, leerGenerados } = await import("@/lib/api");
+    vi.mocked(leerExpediente).mockResolvedValue({
+      sid: "e".repeat(16), manifiesto: { tramite: { nombre: "X" }, pantallas: [], flujo: { tareas: [], conexiones: [] } },
+      huecos: [], estimacion: {}, problemas: [], tieneVistas: false, reconocidos: [], adjuntos: [], propuestasPendientes: false,
+    } as any);
+    vi.mocked(leerGenerados).mockRejectedValue(new TypeError("Failed to fetch"));
+    window.history.pushState({}, "", `/revisar/${"e".repeat(16)}`);
+    render(<App />);
+    const nav = await screen.findByRole("navigation", { name: /migas de pan/i });
+    await vi.waitFor(() => expect(nav).toHaveTextContent(/Revisión/));
+    expect(nav).not.toHaveTextContent(/Expediente completo|Solo AS-IS/);
+    window.history.pushState({}, "", "/");
   });
 
   it("los tokens salen de hidalgo-design-token-system (guinda #A02142)", () => {
