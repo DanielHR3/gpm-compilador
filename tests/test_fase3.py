@@ -412,3 +412,51 @@ def test_cada_intento_reintentado_deja_su_linea(tmp_path, monkeypatch):
     assert g.estado == "listo"
     filas = [f for f in leer(tmp_path) if f["documento"] == "diccionario"]
     assert [f["estado"] for f in filas] == ["error", "error", "procesada"]
+
+
+# --- Dos caminos, Task 2: vista del Diccionario -----------------------------------------
+
+def test_el_diccionario_generado_lleva_su_vista_por_pantallas(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "4" * 16, mejorar=False)
+    v = g.diccionario.vista
+    assert [(p["nombre"], p["actor"]) for p in v] == [("Solicitud", "Ciudadano"), ("Revisión", "Funcionario")]
+    curp = v[0]["campos"][0]
+    assert curp == {"etiqueta": "CURP", "tipo": "text", "obligatorio": True, "opciones": [], "condicion": None}
+    # _DICC_OK no trae columna de catalogo: las opciones se prueban abajo,
+    # con un manifiesto que si las tiene.
+    assert v[1]["campos"][0]["tipo"] == "select"
+    assert g.tobe.vista == []
+
+
+def test_la_vista_escribe_la_condicion_en_palabras():
+    from gpmc.agentes.fase3 import vista_de
+    from gpmc.nucleo.manifiesto import Condicion
+    m = _manifiesto([
+        {"nombre": "tipo", "etiqueta": "Tipo de persona", "tipo": "select",
+         "catalogo": [{"etiqueta": "Moral", "valor": "moral"}]},
+        {"nombre": "poder", "etiqueta": "Poder notarial", "tipo": "file",
+         "condicion_visible": Condicion(campo="tipo", igual="moral")}])
+    campos = vista_de(m)[0]["campos"]
+    assert campos[1]["condicion"] == "«Tipo de persona» es «Moral»"
+    assert campos[0]["opciones"] == ["Moral"]
+    assert vista_de(None) == []
+
+
+def test_sin_pantallas_la_vista_es_vacia_y_generar_no_falla(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "5" * 16, mejorar=False)
+    assert g.estado == "listo" and g.diccionario.vista == []
+
+
+def test_la_vista_es_la_de_la_ronda_elegida(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK),
+                           _json("diccionario", _DICC_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "6" * 16)
+    assert g.diccionario.ronda == 2 and len(g.diccionario.vista) == 2

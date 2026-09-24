@@ -54,6 +54,9 @@ class Documento(BaseModel):
     ronda: int
     huecos: list = []                 # list[HuecoOut]
     decision: Decision = "pendiente"
+    # Pantallas y campos ya leidos por el extractor (solo el Diccionario). La
+    # SPA los pinta como tarjetas; el Markdown sigue a un clic.
+    vista: list = []
 
 
 class Generados(BaseModel):
@@ -76,6 +79,37 @@ def puede_generar(entorno: Optional[dict] = None) -> Optional[str]:
 # bajo que tarjeta se muestra. Lo que no es claramente del TO-BE va al
 # Diccionario, que es el documento del que sale casi todo.
 _DEL_TOBE = ("MMD-", "FLU-", "INS-01")
+
+
+def _condicion_en_palabras(cond, etiquetas: dict, opciones: dict) -> Optional[str]:
+    if cond is None:
+        return None
+
+    def trozo(c):
+        verbo = "es" if c.operador == "==" else "no es"
+        valor = opciones.get((c.campo, c.igual), c.igual)
+        return f"«{etiquetas.get(c.campo, c.campo)}» {verbo} «{valor}»"
+    return " y ".join([trozo(cond), *(trozo(c) for c in cond.y)])
+
+
+def vista_de(m) -> list:
+    """Las pantallas del manifiesto como las ve una persona: actor con su
+    nombre, campo con su etiqueta, opciones por etiqueta y la condicion en
+    palabras. Sin manifiesto (el extractor no leyo pantallas), lista vacia."""
+    if m is None:
+        return []
+    actores = {a.id: a.nombre for a in m.actores}
+    campos = [c for p in m.pantallas for c in p.campos]
+    etiquetas = {c.nombre: (c.etiqueta or c.nombre) for c in campos}
+    opciones = {(c.nombre, o.valor): o.etiqueta for c in campos for o in c.catalogo}
+    return [{
+        "id": p.id, "nombre": p.nombre, "actor": actores.get(p.actor, p.actor),
+        "campos": [{"etiqueta": c.etiqueta or c.nombre, "tipo": c.tipo,
+                    "obligatorio": c.obligatorio,
+                    "opciones": [o.etiqueta for o in c.catalogo],
+                    "condicion": _condicion_en_palabras(c.condicion_visible, etiquetas, opciones)}
+                   for c in p.campos],
+    } for p in m.pantallas]
 
 
 def atribuir(h: Hueco) -> str:
@@ -171,13 +205,15 @@ def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool) -> Gene
                   pr.VERSION_PROMPT_TOBE, pr.contexto_tobe(as_is, dicc))
     m_1, huecos = extraer_borradores(as_is, dicc, tobe)
     elegido = {"diccionario": (dicc, 1, pr.VERSION_PROMPT_DICC), "tobe": (tobe, 1, pr.VERSION_PROMPT_TOBE)}
+    m_final = m_1
     if mejorar:
-        elegido, huecos = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos, m_1)
+        elegido, huecos, m_final = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos, m_1)
     reparto = _por_documento(huecos)
     docs = {}
     for clave, (texto, ronda, version) in elegido.items():
         docs[clave] = Documento(texto=texto, version_prompt=version, ronda=ronda,
                                 huecos=[HuecoOut.desde(h) for h in reparto[clave]])
+    docs["diccionario"].vista = vista_de(m_final)
     return Generados(estado="listo", nombre=_nombre(as_is),
                      diccionario=docs["diccionario"], tobe=docs["tobe"])
 
@@ -204,7 +240,7 @@ def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict,
     reparto = {clave: [str(h) for h in bloquean(huecos) if atribuir(h) == clave]
                for clave in ("diccionario", "tobe")}
     if not reparto["diccionario"] and not reparto["tobe"]:
-        return elegido, huecos
+        return elegido, huecos, m_1
     candidatos = {"diccionario": elegido["diccionario"][0], "tobe": elegido["tobe"][0]}
     try:
         if reparto["diccionario"]:
@@ -218,7 +254,7 @@ def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict,
                                    diccionario=candidatos["diccionario"]))
     except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as exc:
         log.warning("fase3 sid=%s la mejora fallo (%s); se conserva la ronda 1", sid, type(exc).__name__)
-        return elegido, huecos
+        return elegido, huecos, m_1
     m_2, huecos_2 = extraer_borradores(as_is, candidatos["diccionario"], candidatos["tobe"])
     final = dict(elegido)
     for clave in ("diccionario", "tobe"):
@@ -228,6 +264,6 @@ def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict,
     # medidos. Si se mezclan rondas (Diccionario 2, TO-BE 1), se vuelven a
     # medir sobre la pareja elegida: es una extraccion local, sin llamadas.
     if all(final[c][0] == candidatos[c] for c in ("diccionario", "tobe")):
-        return final, huecos_2
-    _, huecos_f = extraer_borradores(as_is, final["diccionario"][0], final["tobe"][0])
-    return final, huecos_f
+        return final, huecos_2, m_2
+    m_f, huecos_f = extraer_borradores(as_is, final["diccionario"][0], final["tobe"][0])
+    return final, huecos_f, m_f
