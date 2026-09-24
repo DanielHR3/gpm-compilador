@@ -148,3 +148,30 @@ export type PropuestasOut = {
   motivo: string | null;
   propuestas: Propuesta[];
 };
+
+/** Fase 3: un documento propuesto desde el AS-IS (`agentes/fase3.py::Documento`). */
+export type DecisionDocumento = "pendiente" | "aceptada" | "corregida" | "declinada";
+export type DocumentoGenerado = {
+  texto: string;
+  version_prompt: string;
+  ronda: number;
+  huecos: Hueco[];
+  decision: DecisionDocumento;
+};
+export type EstadoGenerados = "generando" | "listo" | "error" | "sin_licencia";
+/** `GET /api/v1/expedientes/{sid}/generados`. */
+export type GeneradosOut = {
+  estado: EstadoGenerados;
+  motivo: string | null;
+  nombre: string | null;
+  diccionario: DocumentoGenerado | null;
+  tobe: DocumentoGenerado | null;
+};
+export type ClaveDocumento = "diccionario" | "tobe";
+/**
+ * Lo que devuelve una decision o una subida: el expediente ya extraido si
+ * con esa el par quedo resuelto, o el estado de propuestas si falta el otro.
+ */
+export type ResultadoDecision =
+  | { tipo: "expediente"; estado: EstadoExpediente }
+  | { tipo: "generados"; generados: GeneradosOut };

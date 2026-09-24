@@ -457,3 +457,13 @@ describe("pistaDeCodigo: instrucciones sin jerga de programador", () => {
     expect(p?.instruccion).not.toMatch(/compilador/);
   });
 });
+
+test("GEN-01 se redacta en palabras y se ancla al mensaje del verificador", () => {
+  const h = { nivel: "falta_dato", codigo: "GEN-01", ubicacion: "requisitos", propuesta: null,
+    mensaje: "El AS-IS pide «tarjeta de circulación» y el Diccionario propuesto no lo captura como un campo de tipo Archivo." };
+  expect(tituloDeCodigo("GEN-01")).toBe("Requisito del AS-IS sin campo");
+  expect(redactarHueco(h)).toMatch(/tarjeta de circulación/);
+  expect(redactarHueco(h)).toMatch(/Archivo/);
+  expect(redactarHueco(h)).not.toBe(h.mensaje);
+  expect(redactarHueco({ ...h, mensaje: "otro mensaje" })).toBe("otro mensaje");
+});

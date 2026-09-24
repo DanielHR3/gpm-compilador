@@ -104,3 +104,12 @@ test("DIC-09 va al apartado del Diccionario, no a «Otros hallazgos»", () => {
   expect(doc).toContain("estatus_tramite");
   expect(doc).not.toContain("Otros hallazgos");
 });
+
+test("GEN-01 va al apartado del Diccionario, no a «Otros hallazgos»", () => {
+  // Un requisito del AS-IS sin campo Archivo se corrige en el Diccionario.
+  const doc = documentoDeObservaciones(estado([
+    hueco("GEN-01", "requisitos", "El AS-IS pide «CURP» y el Diccionario propuesto no lo captura como un campo de tipo Archivo."),
+  ]));
+  expect(doc).toContain("corregir en el Diccionario de Datos  (1)");
+  expect(doc).not.toContain("Otros hallazgos");
+});

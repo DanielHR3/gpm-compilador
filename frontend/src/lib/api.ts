@@ -12,12 +12,16 @@ import type {
   Adjunto,
   Bloqueante,
   CampoManifiesto,
+  ClaveDocumento,
   Condicion,
   EstadoExpediente,
+  EstadoGenerados,
   EstructuraCompuerta,
+  GeneradosOut,
   Hueco,
   PropuestasOut,
   Resolucion,
+  ResultadoDecision,
 } from "./types";
 
 const BASE = "/api/v1";
@@ -433,4 +437,60 @@ export async function decidirPropuesta(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ decision, condicion_final: condicionFinal ?? null }),
   });
+}
+
+/** `POST /api/v1/expedientes/proponer` — crea la sesion con solo el AS-IS y lanza la generacion. */
+export async function proponerExpediente(
+  fd: FormData,
+): Promise<{ sid: string; estado: EstadoGenerados }> {
+  return pedirJson(`${BASE}/expedientes/proponer`, { method: "POST", body: fd });
+}
+
+/** `GET /api/v1/expedientes/{sid}/generados` — estado y borradores de la Fase 3. */
+export async function leerGenerados(sid: string): Promise<GeneradosOut> {
+  return pedirJson<GeneradosOut>(`${BASE}/expedientes/${sid}/generados`);
+}
+
+/**
+ * El servidor contesta con dos formas distintas segun si el par quedo
+ * resuelto. Se distinguen por `manifiesto`, que solo trae el expediente.
+ */
+function aResultado(raw: unknown): ResultadoDecision {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  return "manifiesto" in o
+    ? { tipo: "expediente", estado: mapEstado(raw) }
+    : { tipo: "generados", generados: raw as GeneradosOut };
+}
+
+/** `POST /api/v1/expedientes/{sid}/generados/{documento}/decision`. */
+export async function decidirDocumento(
+  sid: string,
+  documento: ClaveDocumento,
+  decision: "aceptada" | "corregida" | "declinada",
+  textoFinal?: string | null,
+): Promise<ResultadoDecision> {
+  const raw = await pedirJson<unknown>(
+    `${BASE}/expedientes/${sid}/generados/${documento}/decision`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision, texto_final: textoFinal ?? null }),
+    },
+  );
+  return aResultado(raw);
+}
+
+/** `POST /api/v1/expedientes/{sid}/generados/{documento}/subir` (multipart `archivo`). */
+export async function subirDocumento(
+  sid: string,
+  documento: ClaveDocumento,
+  archivo: File,
+): Promise<ResultadoDecision> {
+  const fd = new FormData();
+  fd.append("archivo", archivo);
+  const raw = await pedirJson<unknown>(
+    `${BASE}/expedientes/${sid}/generados/${documento}/subir`,
+    { method: "POST", body: fd },
+  );
+  return aResultado(raw);
 }

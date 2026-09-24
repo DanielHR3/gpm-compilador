@@ -35,6 +35,7 @@ const TITULOS: Record<string, string> = {
   "FLU-01": "Compuertas del diagrama",
   "FLU-02": "Tareas y pantallas",
   "FLU-03": "Ramificación del flujo",
+  "GEN-01": "Requisito del AS-IS sin campo",
 };
 
 /** El titulo humano del codigo; si no lo conozco, el codigo tal cual. */
@@ -334,6 +335,17 @@ const REDACCIONES: Record<string, Redaccion> = {
       "coincide con ninguna opción de ese campo, o las tareas del diagrama no " +
       "corresponden con las pantallas. Tal como está, el trámite saldría en " +
       "línea recta, sin caminos alternativos."
+    );
+  },
+  // --- Fase 3: cruce entre el AS-IS y el Diccionario propuesto. ------------
+  "GEN-01": (mensaje) => {
+    const m = /El AS-IS pide «([^»]+)» y el Diccionario propuesto no lo captura/.exec(mensaje);
+    if (!m) return null;
+    return (
+      `El AS-IS dice que el ciudadano entrega «${m[1]}», pero el Diccionario ` +
+      "propuesto no tiene un campo de tipo Archivo para recibirlo. Agrégalo en " +
+      "la pantalla donde el ciudadano sube sus documentos, o quítalo del AS-IS " +
+      "si ya no se pide."
     );
   },
   "FLU-02": (mensaje) => {

@@ -27,6 +27,8 @@ const RESPONSABLE: Record<string, Responsable> = {
   "DIC-03": "diccionario", "DIC-04": "diccionario", "DIC-05": "diccionario",
   "DIC-06": "diccionario", "DIC-07": "diccionario", "DIC-08": "diccionario",
   "DIC-09": "diccionario",
+  // Requisito del AS-IS sin campo Archivo en el Diccionario propuesto (Fase 3).
+  "GEN-01": "diccionario",
   "DOC-02": "diccionario",
   // La plantilla ilegible la resuelve quien entrega el documento, no la DGT.
   "DOC-03": "diccionario",
