@@ -38,8 +38,9 @@ class ErrorDeProveedor(Exception):
     tercer intento, y en la bitacora no debe leerse como un fallo de red."""
 
 
-# 408 (timeout) y 429 (cuota o saturacion) son 4xx, pero pasajeros.
-_PASAJEROS_4XX = (408, 429)
+# 408 (timeout), 429 (cuota o saturacion) y 499 (cancelada; visto con Gemini
+# el 2026-09-24 tras un timeout) son 4xx, pero pasajeros.
+_PASAJEROS_4XX = (408, 429, 499)
 
 
 def clasificar_error(exc: Exception) -> Exception:

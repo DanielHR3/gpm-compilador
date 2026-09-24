@@ -33,7 +33,7 @@ it("en generando muestra la espera y consulta cada 3 s hasta listo", async () =>
     .mockResolvedValueOnce({ estado: "generando", motivo: null, nombre: "Constancia", diccionario: null, tobe: null })
     .mockResolvedValueOnce(listo);
   render(<Propuestas sid={SID} onListo={() => {}} />);
-  expect(await screen.findByText(/uno o dos minutos/i)).toBeInTheDocument();
+  expect(await screen.findByText(/de dos a cinco minutos/i)).toBeInTheDocument();
   expect(screen.getByText(/puedes cerrar y volver/i)).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: /constancia/i })).toBeInTheDocument();
   await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
@@ -117,7 +117,7 @@ it("un fallo pasajero al consultar no detiene la consulta periodica", async () =
     .mockRejectedValueOnce(new Error("red"))
     .mockResolvedValueOnce(listo);
   render(<Propuestas sid={SID} onListo={() => {}} />);
-  expect(await screen.findByText(/uno o dos minutos/i)).toBeInTheDocument();
+  expect(await screen.findByText(/de dos a cinco minutos/i)).toBeInTheDocument();
   await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
   await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
   await waitFor(() => expect(documentos()).toHaveLength(1));

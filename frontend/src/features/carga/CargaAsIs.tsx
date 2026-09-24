@@ -44,8 +44,7 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
         <h1 className="text-2xl font-bold tracking-tight">Sube el Análisis AS-IS</h1>
         <p className="text-sm text-muted-foreground">
           El compilador redacta un borrador del Diccionario de Datos y de la Propuesta TO-BE a
-          partir del AS-IS. Después los revisas uno por uno y decides si se usan. Suele tardar
-          uno o dos minutos.
+          partir del AS-IS. Después los revisas uno por uno y decides si se usan. Suele tardar de dos a cinco minutos.
         </p>
       </header>
 

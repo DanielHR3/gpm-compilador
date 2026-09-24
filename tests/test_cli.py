@@ -374,6 +374,9 @@ def test_medir_ia_fase3_respeta_el_candado(tmp_path, monkeypatch, capsys):
     _expediente_humano(tmp_path)
     monkeypatch.setenv("GPMC_IA_PROVEEDOR", "gemini")
     monkeypatch.setenv("GPMC_IA_LLAVE", "k")
+    # `gpmc` carga ~/.config/gpmc/entorno sin pisar lo que ya existe: sin esta
+    # linea, el modo de pruebas del servidor real abria el candado en la prueba.
+    monkeypatch.setenv("GPMC_FASE3_PRUEBAS", "0")
     prov = ProveedorFalso([])
     monkeypatch.setattr(cli, "_proveedor_para_medir", lambda: prov)
     rc = cli.main(["medir-ia", "--fase3", str(tmp_path), "--almacen", str(tmp_path / "alm")])

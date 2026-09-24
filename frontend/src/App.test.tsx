@@ -172,7 +172,7 @@ describe("App y la Fase 3", () => {
     vi.mocked(leerGenerados).mockResolvedValue({ estado: "generando", motivo: null, nombre: "Constancia", diccionario: null, tobe: null });
     window.history.pushState({}, "", `/revisar/${"c".repeat(16)}`);
     render(<App />);
-    expect(await screen.findByText(/uno o dos minutos/i)).toBeInTheDocument();
+    expect(await screen.findByText(/de dos a cinco minutos/i)).toBeInTheDocument();
     expect(screen.queryByText(/la sesion expiro/i)).not.toBeInTheDocument();
     window.history.pushState({}, "", "/");
   });

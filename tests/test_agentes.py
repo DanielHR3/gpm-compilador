@@ -699,3 +699,19 @@ def test_un_error_de_configuracion_no_se_reintenta_y_queda_dicho_en_la_bitacora(
     linea = leer(tmp_path)[0]
     assert linea["estado"] == "error" and "error_de_proveedor" in linea["alertas"]
     assert "error_de_red" not in linea["alertas"]
+
+
+def test_499_cancelado_es_pasajero_y_se_reintenta():
+    """Visto el 2026-09-24 con gemini-3.5-flash: tras un timeout, el segundo
+    intento del TO-BE volvio con `499 CANCELLED` y se trato como error del
+    proveedor (sin reintento). Es una cancelacion pasajera, como 408 o 429."""
+    from gpmc.agentes.proveedor import ErrorDeProveedor, ErrorDeRed, clasificar_error
+
+    class Cancelado(Exception):
+        code = 499
+
+    class LlaveMala(Exception):
+        code = 401
+
+    assert isinstance(clasificar_error(Cancelado("499 CANCELLED")), ErrorDeRed)
+    assert isinstance(clasificar_error(LlaveMala("401")), ErrorDeProveedor)

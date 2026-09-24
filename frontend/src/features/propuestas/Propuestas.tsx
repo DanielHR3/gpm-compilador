@@ -18,10 +18,13 @@ type Props = { sid: string; onListo: (est: EstadoExpediente) => void };
 /** Cada cuanto se pregunta por el estado mientras genera. */
 const MS_CONSULTA = 3000;
 /**
- * Tope: 3 minutos. Hasta cuatro llamadas al modelo caben de sobra; pasado eso,
- * algo se colgo y la persona debe recargar (el servidor conserva lo que haya).
+ * Tope: 10 minutos. Un TO-BE largo puede tardar mas de un minuto por llamada
+ * (visto con Gemini el 2026-09-24), con hasta tres intentos por documento y
+ * una ronda de mejora. El servidor da por interrumpida una generacion a los
+ * 20 minutos; pasado este tope la persona ve «recarga» y el estado sigue en
+ * el servidor.
  */
-const MAX_CONSULTAS = 60;
+const MAX_CONSULTAS = 200;
 
 /**
  * Fase 3: el Diccionario y el TO-BE que el compilador propuso desde el AS-IS.
@@ -152,8 +155,7 @@ export default function Propuestas({ sid, onListo }: Props) {
       {g?.estado === "generando" ? (
         <div className="flex flex-col gap-1 rounded-md border border-border bg-card p-4 text-sm">
           <p>
-            El compilador está redactando el Diccionario y el TO-BE a partir del AS-IS. Suele
-            tardar uno o dos minutos.
+            El compilador está redactando el Diccionario y el TO-BE a partir del AS-IS. Suele tardar de dos a cinco minutos.
           </p>
           <p className="text-muted-foreground">Puedes cerrar y volver: la liga guarda el avance.</p>
           {agotado ? (
