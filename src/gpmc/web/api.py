@@ -60,7 +60,9 @@ from gpmc.web.sesiones import (
     carpeta_de,
     compuertas_de,
     escribir_compuertas,
+    escribir_huecos,
     escribir_propuestas,
+    generados_de,
     escribir_reconocidos,
     huecos_vivos,
     manifiesto_de,
@@ -332,6 +334,48 @@ def _estado(sid: str, carpeta: Path, manifiesto) -> EstadoExpediente:
     )
 
 
+def a_texto(nombre: str, datos: bytes) -> bytes:
+    """Un .docx o un PDF se convierte al Markdown que lee el extractor; lo
+    demas pasa tal cual. Lanza ValueError si no se puede leer.
+
+    El equipo que construye GPM entrega el Diccionario en Word; antes habia
+    que pasarlo a Markdown a mano, tramite por tramite, antes de poder compilar.
+    """
+    n = (nombre or "").lower()
+    if n.endswith(".docx"):
+        return a_markdown(datos).encode("utf-8")
+    if n.endswith(".pdf"):
+        return ext_pdf.a_markdown(datos).encode("utf-8")
+    return datos
+
+
+def extraer_y_persistir(raiz: Path, sid: str, carpeta: Path):
+    """Corre el extractor sobre la carpeta de la sesion y persiste lo que
+    `GET /expedientes/{sid}` necesita. Devuelve `(EstadoExpediente, None)` o
+    `(None, motivo)` si no hubo manifiesto; no borra nada: quien llama decide
+    si la sesion sobrevive (en `POST /expedientes` no; en la Fase 3 si, porque
+    un insumo se puede volver a subir encima). Propaga `SinPermiso`."""
+    res = extraer_expediente(carpeta)
+    if res.manifiesto is None:
+        return None, (res.huecos[0].mensaje if res.huecos else "no se pudo extraer el manifiesto")
+    guardar(res.manifiesto, carpeta / "manifiesto.yaml")
+    # Los Hueco tipados se persisten como JSON para que GET /expedientes/{sid}
+    # los reconstruya sin volver a correr el extractor.
+    escribir_huecos(carpeta, res.huecos)
+    log.info("expediente extraido sid=%s pantallas=%d campos=%d huecos=%d bloquean=%d",
+             sid, len(res.manifiesto.pantallas),
+             sum(len(p.campos) for p in res.manifiesto.pantallas),
+             len(res.huecos), len(bloquean(res.huecos)))
+    # Registro del tablero: solo agregados, y se hace aqui (al extraer) y
+    # no al descargar el .gpm, por decision del usuario del 2026-09-23.
+    linea = tablero.resumir(res.manifiesto, res.huecos)
+    if linea is None:
+        log.info("tablero: sid=%s sin nombre de tramite, no se registra", sid)
+    else:
+        tablero.registrar(raiz, linea)
+    return _estado(sid, carpeta, res.manifiesto), None
+
+
 def crear_router(raiz: Path, proveedor=None) -> APIRouter:
     r = APIRouter(prefix="/api/v1")
     # El proveedor de IA se inyecta (las pruebas pasan ProveedorFalso); sin
@@ -455,21 +499,8 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
         ilegibles = []  # type: List[str]
 
         def _a_texto(archivo, datos):
-            """Un .docx se convierte al Markdown que lee el extractor.
-
-            El equipo que construye GPM entrega el Diccionario en Word; antes
-            habia que pasarlo a Markdown a mano, tramite por tramite, antes de
-            poder compilar.
-            """
-            nombre = (archivo.filename or "").lower()
-            if nombre.endswith(".docx"):
-                convertir, motivo = a_markdown, None
-            elif nombre.endswith(".pdf"):
-                convertir, motivo = ext_pdf.a_markdown, None
-            else:
-                return datos
             try:
-                return convertir(datos).encode("utf-8")
+                return a_texto(archivo.filename or "", datos)
             except ValueError as e:
                 ilegibles.append(f"{archivo.filename or 'sin nombre'}: {e}")
                 return None
@@ -542,45 +573,20 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
             })
 
         try:
-            res = extraer_expediente(carpeta)
+            est, motivo = extraer_y_persistir(raiz, sid, carpeta)
         except SinPermiso as exc:
             shutil.rmtree(carpeta, ignore_errors=True)
             return JSONResponse(status_code=422, content={"error": str(exc)})
-
-        if res.manifiesto is None:
-            motivo = (res.huecos[0].mensaje if res.huecos
-                      else "no se pudo extraer el manifiesto")
+        if est is None:
             shutil.rmtree(carpeta, ignore_errors=True)
             return JSONResponse(status_code=422, content={"error": motivo})
-
-        guardar(res.manifiesto, carpeta / "manifiesto.yaml")
-        # Los Hueco tipados se persisten como JSON para que GET /expedientes/{sid}
-        # los reconstruya sin volver a correr el extractor. Mismo formato que
-        # POST /extraer.
-        (carpeta / "huecos.json").write_text(
-            json.dumps(
-                [{"nivel": h.nivel, "codigo": h.codigo, "ubicacion": h.ubicacion,
-                  "mensaje": h.mensaje, "propuesta": h.propuesta}
-                 for h in res.huecos],
-                ensure_ascii=False),
-            encoding="utf-8",
-        )
-        log.info("expediente extraido sid=%s pantallas=%d campos=%d huecos=%d bloquean=%d",
-                 sid, len(res.manifiesto.pantallas),
-                 sum(len(p.campos) for p in res.manifiesto.pantallas),
-                 len(res.huecos), len(bloquean(res.huecos)))
-        # Registro del tablero: solo agregados, y se hace aqui (al extraer) y
-        # no al descargar el .gpm, por decision del usuario del 2026-09-23.
-        linea = tablero.resumir(res.manifiesto, res.huecos)
-        if linea is None:
-            log.info("tablero: sid=%s sin nombre de tramite, no se registra", sid)
-        else:
-            tablero.registrar(raiz, linea)
-        if _hay_ia and any(h.codigo == "DIC-08" for h in res.huecos):
+        if _hay_ia and any(h.codigo == "DIC-08" for h in est.huecos):
             escribir_propuestas(carpeta, {"estado": "proponiendo", "motivo": None,
                                           "generadas": None, "propuestas": []})
             tareas.add_task(generar_propuestas, sid)
-        return _estado(sid, carpeta, res.manifiesto)
+            # Con propuestas en marcha, `propuestas_pendientes` pasa a True.
+            est = _estado(sid, carpeta, manifiesto_de(raiz, sid))
+        return est
 
     @r.get("/expedientes/{sid}", response_model=EstadoExpediente)
     async def leer_expediente(sid: str):

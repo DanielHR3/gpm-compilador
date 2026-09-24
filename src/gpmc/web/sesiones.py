@@ -166,3 +166,30 @@ def propuestas_de(carpeta: Path):
 def escribir_propuestas(carpeta: Path, d: dict) -> None:
     (carpeta / "propuestas.json").write_text(
         json.dumps(d, ensure_ascii=False), encoding="utf-8")
+
+
+# Fase 3: los borradores del Diccionario y el TO-BE propuestos desde el AS-IS,
+# con su estado y la decision de la persona por documento. Lo escribe la API,
+# nunca agentes/.
+ARCHIVO_GENERADOS = "generados.json"
+
+
+def generados_de(carpeta: Path) -> Optional[dict]:
+    ruta = carpeta / ARCHIVO_GENERADOS
+    if not ruta.exists():
+        return None
+    return json.loads(ruta.read_text(encoding="utf-8"))
+
+
+def escribir_generados(carpeta: Path, d: dict) -> None:
+    (carpeta / ARCHIVO_GENERADOS).write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+
+
+def escribir_huecos(carpeta: Path, huecos: "list[Hueco]") -> None:
+    """Mismo JSON que `POST /expedientes` y `POST /extraer`: `huecos_vivos`
+    lo reconstruye sin volver a correr el extractor."""
+    (carpeta / "huecos.json").write_text(
+        json.dumps([{"nivel": h.nivel, "codigo": h.codigo, "ubicacion": h.ubicacion,
+                     "mensaje": h.mensaje, "propuesta": h.propuesta} for h in huecos],
+                   ensure_ascii=False),
+        encoding="utf-8")

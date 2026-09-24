@@ -1163,3 +1163,38 @@ def test_resolver_actualiza_la_dependencia_del_tramite_ya_registrado(tmp_path):
     (l,) = tablero.leer(tmp_path)
     assert l["dependencia"] == "SEGOB"
     assert l["huecos"] == huecos_al_nombrar
+
+
+# --- Fase 3, Task 5: helpers de modulo --------------------------------------------
+
+def test_a_texto_deja_pasar_markdown_y_convierte_docx():
+    import pytest
+    from gpmc.web.api import a_texto
+    assert a_texto("x.md", b"# hola") == b"# hola"
+    with pytest.raises(ValueError):
+        a_texto("x.docx", b"no es un docx")
+
+
+def test_extraer_y_persistir_escribe_manifiesto_huecos_y_tablero(tmp_path):
+    from gpmc.web.api import extraer_y_persistir
+    from gpmc.web import tablero
+    sid = "0123456789abcdef"
+    carpeta = tmp_path / sid
+    carpeta.mkdir()
+    (carpeta / "Análisis AS-IS.md").write_text("# Análisis AS-IS — Registro de Prueba\n", encoding="utf-8")
+    (carpeta / "Diccionario de Datos.md").write_text(_DICC, encoding="utf-8")
+    est, motivo = extraer_y_persistir(tmp_path, sid, carpeta)
+    assert motivo is None and est.sid == sid
+    assert (carpeta / "manifiesto.yaml").exists() and (carpeta / "huecos.json").exists()
+    assert any(l["nombre"] == "Registro de Prueba" for l in tablero.leer(tmp_path))
+
+
+def test_extraer_y_persistir_sin_diccionario_devuelve_motivo_y_no_borra(tmp_path):
+    from gpmc.web.api import extraer_y_persistir
+    sid = "0123456789abcdef"
+    carpeta = tmp_path / sid
+    carpeta.mkdir()
+    (carpeta / "Análisis AS-IS.md").write_text("# Análisis AS-IS — X\n", encoding="utf-8")
+    est, motivo = extraer_y_persistir(tmp_path, sid, carpeta)
+    assert est is None and "Diccionario" in motivo
+    assert carpeta.is_dir() and not (carpeta / "manifiesto.yaml").exists()

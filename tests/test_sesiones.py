@@ -34,3 +34,18 @@ def test_compuertas_json_round_trip(tmp_path):
     assert compuertas_de(tmp_path) == {}
     escribir_compuertas(tmp_path, {"g1": "procede"})
     assert compuertas_de(tmp_path) == {"g1": "procede"}
+
+
+def test_generados_se_escriben_y_se_leen(tmp_path):
+    from gpmc.web.sesiones import escribir_generados, generados_de, ARCHIVO_GENERADOS
+    assert generados_de(tmp_path) is None
+    escribir_generados(tmp_path, {"estado": "generando", "motivo": None})
+    assert (tmp_path / ARCHIVO_GENERADOS).exists()
+    assert generados_de(tmp_path) == {"estado": "generando", "motivo": None}
+
+
+def test_escribir_huecos_usa_el_mismo_json_que_post_expedientes(tmp_path):
+    from gpmc.nucleo.huecos import Hueco
+    from gpmc.web.sesiones import escribir_huecos
+    escribir_huecos(tmp_path, [Hueco("falta_dato", "GEN-01", "requisitos", "m", None)])
+    assert [h.codigo for h in huecos_vivos(tmp_path)] == ["GEN-01"]
