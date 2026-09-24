@@ -275,3 +275,21 @@ def test_nombres_distintos_no_disparan_EST_08():
         {"id": "11", "Campos": [{"nombre": "domicilio", "tipo": "text"}]},
     ]
     assert "EST-08" not in _codigos(revisar(g))
+
+
+def test_un_campo_date_es_bloqueante_porque_el_import_lo_descarta():
+    """La plataforma responde «Tipo de campo no reconocido: date» (Campo.php:301)
+    y el importador descarta el campo en silencio (acta 2026-09-24)."""
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [{"nombre": "fecha_nac", "tipo": "date"}]}]
+    h = [x for x in revisar(g) if x.codigo == "EST-08"]
+    assert h and h[0].gravedad == "bloqueante"
+    assert "fecha_nac" in h[0].mensaje
+
+
+def test_un_campo_date_time_pasa_limpio():
+    g = _base()
+    g["Formularios"] = [{"id": "10", "Campos": [
+        {"nombre": "fecha_nac", "tipo": "date_time",
+         "extra": '{"tamano":"col-xs-12 col-md-6","subtype":"date"}'}]}]
+    assert "EST-08" not in _codigos(revisar(g))

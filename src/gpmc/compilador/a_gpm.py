@@ -78,6 +78,25 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
             # El hueco API-03 dice por que.
             tipo = "text"
 
+    if tipo in ("date", "date_time"):
+        # La plataforma actual no reconoce `date`: ajax_agregar_campo/<f>/date
+        # responde «Tipo de campo no reconocido: date» (Campo.php:301) y el
+        # importador descarta el campo SIN avisar (procesos 1068, 1107 y 1108
+        # perdieron todas sus fechas). Los exports con `date` son de una
+        # version anterior. El tipo vigente es `date_time` y `subtype` elige
+        # fecha u hora; no hay subtipo de fecha-y-hora, asi que `date_time` del
+        # manifiesto toma el valor por omision del formulario (`date`). Claves y
+        # orden: las que publica el formulario «Edicion de fecha / hora» del
+        # modelador. Ver planeacion/actas/2026-09-24-api-ajax-y-fechas-en-runtime.md.
+        tipo = "date_time"
+        extra = {
+            "tamano": extra["tamano"],
+            "attributes": "",
+            "subtype": "date",
+            "data_format": "",
+            "data_format_unique": "",
+        }
+
     if tipo == "api_ajax":
         # Forma exacta del campo `api_curp_trigger` de
         # acceso-informacion-publica.gpm: URL sin query, el parametro aparte

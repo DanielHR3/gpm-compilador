@@ -132,6 +132,19 @@ def _revisar_campos(g: dict) -> list[Hallazgo]:
                         ubic,
                     ))
 
+            # EST-08: la plataforma actual no reconoce el tipo `date` (Campo.php:301)
+            # y el importador descarta el campo sin avisar; el .gpm importa "bien"
+            # y la fecha desaparece (acta 2026-09-24). El compilador ya emite
+            # `date_time`; esta regla atrapa un .gpm viejo o escrito a mano.
+            if c.get("tipo") == "date":
+                hallazgos.append(Hallazgo(
+                    "EST-08", "bloqueante",
+                    f"el campo '{nombre}' es de tipo 'date', que la plataforma ya no "
+                    f"reconoce: el import lo descarta en silencio. Debe ser 'date_time' "
+                    f"con extra.subtype 'date'",
+                    ubic,
+                ))
+
             # EST-07: una opcion cuyo texto trae una corrida de 2+ espacios o
             # tabs casi siempre son dos valores que perdieron el separador en el
             # Diccionario (verificado 2026-09-02, 'Estado Civil' de Testamento:

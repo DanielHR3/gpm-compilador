@@ -765,3 +765,60 @@ def test_un_api_ajax_sin_curp_o_sin_endpoint_conocido_no_se_emite_roto():
     campo = next(c for c in g["Formularios"][0]["Campos"] if c["nombre"] == "api_curp_trigger")
     assert campo["tipo"] == "text"
     assert "url" not in json.loads(campo["extra"])
+
+
+# --- fecha: la plataforma actual solo reconoce `date_time` ---
+
+_CON_FECHAS = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: fecha_nac, etiqueta: Fecha de nacimiento, tipo: date}
+  - {nombre: cita, etiqueta: Cita, tipo: date_time}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+
+def _campos_fecha():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_CON_FECHAS)))
+    return {c["nombre"]: c for c in g["Formularios"][0]["Campos"]}
+
+
+def test_una_fecha_sale_como_date_time_con_subtipo_date():
+    """`ajax_agregar_campo/<form>/date` responde 500 «Tipo de campo no
+    reconocido: date» (Campo.php:301) y el importador descarta el campo sin
+    avisar: los procesos 1068 y 1107/1108 perdieron todas sus fechas
+    (acta 2026-09-24). El tipo que la plataforma sí reconoce es `date_time`."""
+    c = _campos_fecha()["fecha_nac"]
+    assert c["tipo"] == "date_time"
+    assert json.loads(c["extra"])["subtype"] == "date"
+
+
+def test_ningun_campo_sale_con_el_tipo_date():
+    assert all(c["tipo"] != "date" for c in _campos_fecha().values())
+
+
+def test_la_fecha_lleva_las_claves_del_formulario_de_la_plataforma():
+    """Las claves y su orden son las que publica el formulario «Edición de
+    fecha / hora» del modelador (2026-09-24); vacías las que se dejan en blanco."""
+    extra = json.loads(_campos_fecha()["fecha_nac"]["extra"])
+    assert list(extra) == ["tamano", "attributes", "subtype", "data_format",
+                           "data_format_unique"]
+    assert extra["tamano"] == "col-xs-12 col-md-6"
+    assert extra["attributes"] == extra["data_format"] == extra["data_format_unique"] == ""
+
+
+def test_un_date_time_del_manifiesto_tambien_lleva_subtipo():
+    c = _campos_fecha()["cita"]
+    assert c["tipo"] == "date_time"
+    assert json.loads(c["extra"])["subtype"] == "date"
