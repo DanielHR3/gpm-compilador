@@ -1477,3 +1477,20 @@ def test_generados_dice_que_insumos_ya_existen(tmp_path):
         "diccionario": False, "tobe": False}
     r = _decidir(c, sid, "diccionario", "aceptada")
     assert r.json()["insumos"] == {"diccionario": True, "tobe": False}
+
+
+# --- Pendientes menores (2026-09-24): vista en sesiones viejas ------------------------------
+
+def test_una_sesion_sin_vista_la_calcula_al_leer(tmp_path):
+    """Los generados.json de antes de la vista por pantallas no traen `vista`;
+    sin esto la SPA decia «no pudo leer pantallas» aunque si se podia."""
+    import json as _j
+    c, sid = _sesion_lista(tmp_path)
+    ruta = tmp_path / sid / "generados.json"
+    d = _j.loads(ruta.read_text(encoding="utf-8"))
+    del d["diccionario"]["vista"]
+    ruta.write_text(_j.dumps(d, ensure_ascii=False), encoding="utf-8")
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert [p["nombre"] for p in g["diccionario"]["vista"]] == ["Solicitud", "Revisión"]
+    # Y queda guardada: la proxima lectura no vuelve a correr el extractor.
+    assert "vista" in _j.loads(ruta.read_text(encoding="utf-8"))["diccionario"]

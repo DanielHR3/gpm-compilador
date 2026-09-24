@@ -21,7 +21,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from gpmc.agentes.bitacora import Interaccion, registrar
-from gpmc.agentes.fase3 import Documento, Generados, generar, puede_generar
+from gpmc.agentes.fase3 import (Documento, Generados, extraer_borradores, generar,
+                                puede_generar, vista_de)
 from gpmc.agentes.proveedor import NingunProveedor
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.extractores.expediente import SinPermiso
@@ -65,9 +66,25 @@ def _vigente(d: dict) -> dict:
     return {**d, "estado": "error", "motivo": MOTIVO_INTERRUMPIDA}
 
 
+def _con_vista(carpeta: Path, d: dict) -> dict:
+    """Las sesiones de antes de la vista por pantallas (2026-09-24) no traen
+    `vista`, y la SPA decia «no pudo leer pantallas» aunque si se podia. Se
+    calcula una vez, con el mismo extractor, y se guarda."""
+    doc = d.get("diccionario")
+    if not doc or "vista" in doc:
+        return d
+    as_is = (carpeta / INSUMOS["as_is"]).read_text(encoding="utf-8", errors="replace") \
+        if (carpeta / INSUMOS["as_is"]).exists() else ""
+    tobe = (d.get("tobe") or {}).get("texto", "")
+    m, _ = extraer_borradores(as_is, doc.get("texto", ""), tobe)
+    doc["vista"] = vista_de(m)
+    escribir_generados(carpeta, d)
+    return d
+
+
 def generados_vigentes(carpeta: Optional[Path]) -> Optional[dict]:
     d = generados_de(carpeta) if carpeta else None
-    return _vigente(d) if d is not None else None
+    return _vigente(_con_vista(carpeta, d)) if d is not None else None
 
 
 class GeneradosOut(BaseModel):

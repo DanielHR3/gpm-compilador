@@ -99,17 +99,27 @@ def vista_de(m) -> list:
     if m is None:
         return []
     actores = {a.id: a.nombre for a in m.actores}
-    campos = [c for p in m.pantallas for c in p.campos]
-    etiquetas = {c.nombre: (c.etiqueta or c.nombre) for c in campos}
-    opciones = {(c.nombre, o.valor): o.etiqueta for c in campos for o in c.catalogo}
-    return [{
-        "id": p.id, "nombre": p.nombre, "actor": actores.get(p.actor, p.actor),
-        "campos": [{"etiqueta": c.etiqueta or c.nombre, "tipo": c.tipo,
-                    "obligatorio": c.obligatorio,
-                    "opciones": [o.etiqueta for o in c.catalogo],
-                    "condicion": _condicion_en_palabras(c.condicion_visible, etiquetas, opciones)}
-                   for c in p.campos],
-    } for p in m.pantallas]
+    salida = []
+    # Una condicion de visibilidad solo puede mirar un campo de la misma
+    # pantalla o de una anterior (invariante del proyecto). Con un nombre
+    # tecnico repetido (CLAUDE.md §8), el que gana es el mas cercano hacia
+    # atras: se recorren las pantallas en orden y cada una sobreescribe.
+    etiquetas: dict = {}
+    opciones: dict = {}
+    for p in m.pantallas:
+        for c in p.campos:
+            etiquetas[c.nombre] = c.etiqueta or c.nombre
+            for o in c.catalogo:
+                opciones[(c.nombre, o.valor)] = o.etiqueta
+        salida.append({
+            "id": p.id, "nombre": p.nombre, "actor": actores.get(p.actor, p.actor),
+            "campos": [{"etiqueta": c.etiqueta or c.nombre, "tipo": c.tipo,
+                        "obligatorio": c.obligatorio,
+                        "opciones": [o.etiqueta for o in c.catalogo],
+                        "condicion": _condicion_en_palabras(c.condicion_visible, etiquetas, opciones)}
+                       for c in p.campos],
+        })
+    return salida
 
 
 def atribuir(h: Hueco) -> str:

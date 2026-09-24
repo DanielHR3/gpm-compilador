@@ -460,3 +460,31 @@ def test_la_vista_es_la_de_la_ronda_elegida(tmp_path):
                            _json("diccionario", _DICC_OK)])
     g = generar(_ASIS_INLINE, prov, tmp_path, "6" * 16)
     assert g.diccionario.ronda == 2 and len(g.diccionario.vista) == 2
+
+
+# --- Pendientes menores (2026-09-24): vista con nombres repetidos ---------------------------
+
+def test_la_condicion_en_palabras_prefiere_el_campo_de_la_misma_pantalla_o_anterior():
+    """Con un nombre tecnico repetido (CLAUDE.md §8), la etiqueta de la
+    condicion debe ser la del campo que la regla de visibilidad mira de
+    verdad: el de la misma pantalla o, si no, el de la pantalla anterior mas
+    cercana; nunca uno de una pantalla posterior."""
+    from gpmc.agentes.fase3 import vista_de
+    from gpmc.nucleo.manifiesto import (Actor, Campo, Condicion, Conexion, Flujo, Manifiesto,
+                                        Pantalla, Tarea, Tramite)
+    dup = lambda etiqueta, **k: Campo(nombre="estatus", etiqueta=etiqueta, tipo="select", **k)
+    m = Manifiesto(
+        tramite=Tramite(nombre="X", dependencia="D"),
+        actores=[Actor(id="c", nombre="Ciudadano")],
+        pantallas=[
+            Pantalla(id="p1", nombre="Uno", actor="c", campos=[dup("Estatus de la solicitud")]),
+            Pantalla(id="p2", nombre="Dos", actor="c", campos=[
+                Campo(nombre="obs", etiqueta="Observaciones", tipo="text",
+                      condicion_visible=Condicion(campo="estatus", igual="x"))]),
+            Pantalla(id="p3", nombre="Tres", actor="c", campos=[dup("Estatus del pago")]),
+        ],
+        flujo=Flujo(tareas=[Tarea(id="t1", nombre="Uno", actor="c", inicial=True, pantallas=["p1"]),
+                            Tarea(id="t_fin", nombre="Fin", terminal=True)],
+                    conexiones=[Conexion(de="t1", a="t_fin")]))
+    v = vista_de(m)
+    assert v[1]["campos"][0]["condicion"] == "«Estatus de la solicitud» es «x»"
