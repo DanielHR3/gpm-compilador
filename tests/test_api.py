@@ -1434,3 +1434,46 @@ def test_la_extraccion_de_la_fase3_lanza_las_propuestas_dic08_como_post_expedien
     assert any(h["codigo"] == "DIC-08" for h in r.json()["huecos"])
     assert r.json()["propuestas_pendientes"] is True
     assert (tmp_path / sid / "propuestas.json").exists()
+
+
+# --- Dos caminos, Task 1: capacidades, insumos/to_be, insumos en GeneradosOut ----------
+
+def test_capacidades_dice_si_se_puede_proponer(tmp_path):
+    c = _cli_fase3(tmp_path, [])
+    assert c.get("/api/v1/capacidades").json() == {"proponer": True, "motivo": None}
+    c = _cli_fase3(tmp_path, [], entorno=_ENT_GEMINI)
+    r = c.get("/api/v1/capacidades").json()
+    assert r["proponer"] is False and "licencia" in r["motivo"]
+
+
+def test_capacidades_sin_proveedor(tmp_path):
+    r = _cli(tmp_path).get("/api/v1/capacidades").json()
+    assert r["proponer"] is False and r["motivo"]
+
+
+def test_insumo_to_be_se_lee_como_texto(tmp_path):
+    from tests.test_extractor_expediente import _DICC_RAMA, _TOBE_RAMA
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC_RAMA.encode("utf-8"), "text/markdown"),
+        "to_be": ("tb.md", _TOBE_RAMA.encode("utf-8"), "text/markdown")}).json()["sid"]
+    r = c.get(f"/api/v1/expedientes/{sid}/insumos/to_be")
+    assert r.status_code == 200 and r.text == _TOBE_RAMA
+    assert r.headers["content-type"].startswith("text/markdown")
+
+
+def test_insumo_to_be_404_sin_to_be_o_sin_sesion(tmp_path):
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+    assert c.get(f"/api/v1/expedientes/{sid}/insumos/to_be").status_code == 404
+    assert c.get("/api/v1/expedientes/0123456789abcdef/insumos/to_be").status_code == 404
+    assert c.get("/api/v1/expedientes/..%2F..%2Fetc/insumos/to_be").status_code == 404
+
+
+def test_generados_dice_que_insumos_ya_existen(tmp_path):
+    c, sid = _sesion_lista(tmp_path)
+    assert c.get(f"/api/v1/expedientes/{sid}/generados").json()["insumos"] == {
+        "diccionario": False, "tobe": False}
+    r = _decidir(c, sid, "diccionario", "aceptada")
+    assert r.json()["insumos"] == {"diccionario": True, "tobe": False}

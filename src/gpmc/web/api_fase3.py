@@ -76,6 +76,9 @@ class GeneradosOut(BaseModel):
     nombre: Optional[str] = None
     diccionario: Optional[Documento] = None
     tobe: Optional[Documento] = None
+    # Que documento ya tiene archivo en la sesion: con eso la SPA abre en el
+    # paso correcto al recargar (`declinada` sola no dice si ya se subio el propio).
+    insumos: dict = {}
 
 
 class DecisionDocumentoIn(BaseModel):
@@ -151,13 +154,29 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         tareas.add_task(generar_en_segundo_plano, sid)
         return JSONResponse(status_code=202, content={"sid": sid, "estado": "generando"})
 
+    def _resuelto(carpeta: Path, documento: str) -> bool:
+        """Un documento esta resuelto cuando su insumo existe en la sesion: lo
+        escriben `aceptada`, `corregida` o `/subir`; `declinada` sola no."""
+        return (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).exists()
+
+    def _salida(carpeta: Path, d: dict) -> GeneradosOut:
+        return GeneradosOut(**{**d, "insumos": {doc: _resuelto(carpeta, doc) for doc in CLAVE_INSUMO}})
+
+    @r.get("/capacidades")
+    async def leer_capacidades():
+        """Si este servidor puede proponer desde el AS-IS. La SPA lo pregunta
+        antes de que nadie suba nada: enterarse del candado despues de subir
+        el AS-IS era la peor experiencia posible."""
+        motivo = _motivo_para_no_generar()
+        return {"proponer": motivo is None, "motivo": motivo}
+
     @r.get("/expedientes/{sid}/generados", response_model=GeneradosOut)
     async def leer_generados(sid: str):
         carpeta = carpeta_de(raiz, sid)
         d = generados_vigentes(carpeta)
         if d is None:
             return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
-        return GeneradosOut(**d)
+        return _salida(carpeta, d)
 
     def _anotar_decision(sid: str, documento: str, decision: str, version: str) -> None:
         registrar(raiz, Interaccion(
@@ -165,14 +184,9 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
             solicitud={"decision": decision}, instruccion_hash="", estado="decision",
             documento=documento))
 
-    def _resuelto(carpeta: Path, documento: str) -> bool:
-        """Un documento esta resuelto cuando su insumo existe en la sesion: lo
-        escriben `aceptada`, `corregida` o `/subir`; `declinada` sola no."""
-        return (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).exists()
-
     def _si_ambos_resueltos(sid: str, carpeta: Path, d: dict, tareas: BackgroundTasks):
         if not (_resuelto(carpeta, "diccionario") and _resuelto(carpeta, "tobe")):
-            return GeneradosOut(**d)
+            return _salida(carpeta, d)
         try:
             est, motivo = extraer_y_persistir(raiz, sid, carpeta)
         except SinPermiso as exc:

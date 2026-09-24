@@ -424,3 +424,14 @@ def test_los_assets_con_hash_se_cachean_para_siempre(monkeypatch, tmp_path):
     r = c.get("/assets/index-abc123.js")
     assert r.status_code == 200
     assert r.headers["cache-control"] == "public, max-age=31536000, immutable"
+
+
+def test_las_rutas_de_los_dos_caminos_sirven_la_spa(monkeypatch, tmp_path):
+    dist = tmp_path / "dist"; dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><div id=root></div>", encoding="utf-8")
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(dist))
+    from gpmc.web.app import crear_app
+    from fastapi.testclient import TestClient
+    c = TestClient(crear_app(almacen=tmp_path))
+    assert 'id=root' in c.get("/expediente").text
+    assert 'id=root' in c.get("/desde-as-is").text

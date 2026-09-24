@@ -638,6 +638,17 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                                 content={"error": "adjunto no encontrado"})
         return FileResponse(archivo)
 
+    @r.get("/expedientes/{sid}/insumos/to_be")
+    async def leer_insumo_to_be(sid: str):
+        """El texto del TO-BE de la sesion, para dibujarlo en la revision de
+        huecos. Solo `to_be` (YAGNI); el nombre de la ruta deja sitio a los otros."""
+        carpeta = carpeta_de(raiz, sid)
+        ruta = carpeta / INSUMOS["to_be"] if carpeta else None
+        if ruta is None or not ruta.is_file():
+            return JSONResponse(status_code=404, content={"error": "sin TO-BE"})
+        return Response(ruta.read_text(encoding="utf-8", errors="replace"),
+                        media_type="text/markdown; charset=utf-8")
+
     @r.get("/expedientes/{sid}/compuerta/{gate_id}")
     async def leer_compuerta(sid: str, gate_id: str):
         """Estructura de una compuerta (respaldo por rama del hueco MMD-04):
