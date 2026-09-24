@@ -356,8 +356,9 @@ aún a la plataforma**; hasta hacerlo con acta, la ramificación no está probad
 ### 2. Soporte de Alias para variables truncadas (Mitigación de DIC-06)
 Cuando un nombre de variable excede los 30 caracteres (el límite de la base de datos para la columna `campo.nombre` que tumba el import con `Data too long`), el extractor sigue reportando el hueco **`DIC-06`** y emite el nombre truncado seguro en el `.gpm`. Sin embargo, `diccionario.py` ahora mantiene un **alias** interno en memoria durante la extracción. Esto permite que las reglas de visibilidad (y otras fórmulas en el texto) que sigan usando la referencia larga (`@@nombre_muy_largo`) se resuelvan correctamente sin obligar al analista a corregir toda la documentación del expediente.
 
-### 3. Autocompletado `api_ajax` (Pendiente)
-Aún se mantiene el hueco `API-04` que degrada el componente a captura manual. Implementarlo requiere un ejemplo validado del JSON esperado por la plataforma en el arreglo `extra` del campo, y no contamos con esa estructura en este momento.
+### 3. Autocompletado `api_ajax` — hecho y probado en runtime (ver sección 11)
+Ya no está pendiente: el compilador emite el `api_ajax` de CURP y se vio funcionar en el portal
+el 2026-09-24. `API-04` queda solo para lo que no se puede conectar.
 
 ### 4. Pulido de UX del asistente (2026-09-09)
 Seis hotfixes de las pruebas de escritorio, sin tocar arquitectura:
@@ -553,3 +554,25 @@ Veinticinco entregas en `main`. Lo que hay que saber antes de tocar esta zona:
 - **En la SPA no hay tablas:** una `Card` por elemento; los mapas de calor son
   rejillas CSS con `role="grid"`. `Catalogos.tsx` sigue en tabla desde antes de la
   regla; se convierte cuando se toque.
+
+### 11. `api_ajax` y fechas, probados en la plataforma (2026-09-24)
+
+Acta: `planeacion/actas/2026-09-24-api-ajax-y-fechas-en-runtime.md`. **La receta del `api_ajax`
+vive ahí; léela antes de tocar `diccionario._armar_autollenado` o la rama `api_ajax` de
+`a_gpm._campo_gpm`.**
+
+- **El autollenado por CURP funciona en runtime** (proceso 1108): al salir del campo CURP,
+  SIPUBEH llenó nombres, apellidos y sexo, y el `extra` sobrevivió al import byte a byte. Forma:
+  un campo `api_ajax` aparte justo tras la CURP; `url` sin query, parámetro en
+  `campos`/`valores`/`tipo:["si"]`, `prefijo` = nodo de la respuesta (`data`), disparo
+  `get_campos`/`get_tipo:["input"]`/`get_valores:["blur"]`, y destinos en `get_value_*` con la
+  clave **sin** prefijo. Sin `tamano`.
+- **Los destinos son solo campos de texto.** El portal dibuja el selector de fecha sin `name` ni
+  `id` y el `api_ajax` no lo alcanza: una fecha «autorellenable» queda de captura y sale `API-04`.
+- **PLAT-12 — la plataforma ya no reconoce el tipo `date`.** `Campo.php:301` lanza «Tipo de campo
+  no reconocido: date» (hasta el botón «Fecha» del diseñador falla) y el import descartaba el
+  campo **sin avisar**. Los `date` de los exports de referencia son de una versión anterior. El
+  compilador emite `date_time` con `extra` = `tamano`, `attributes`, `subtype: "date"`,
+  `data_format`, `data_format_unique` (las claves del formulario «Edición de fecha / hora»); el
+  manifiesto sigue diciendo `date`. `EST-08` (bloqueante) atrapa un `.gpm` con `date`.
+  Importado como 1110: la fecha llega al portal.

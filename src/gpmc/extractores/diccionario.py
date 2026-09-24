@@ -857,7 +857,18 @@ def _armar_autollenado(pantalla: "PantallaExtraida", r: "Resultado") -> None:
     mapa = {}
     for c in auto:
         clave = respuesta_para(_ENDPOINT_CURP, c.etiqueta)
-        if clave:
+        if c.tipo in ("date", "date_time"):
+            # El portal pinta el selector de fecha como un componente propio,
+            # sin name ni id, y el api_ajax escribe por nombre: la fecha nunca
+            # llega (verificado en runtime el 2026-09-24, proceso 1110; ver
+            # planeacion/actas/2026-09-24-api-ajax-y-fechas-en-runtime.md).
+            r.huecos.append(Hueco(
+                "por_confirmar", "API-04", pantalla.id,
+                f"«{c.etiqueta}» está marcado como autorellenable, pero es un selector de "
+                f"fecha: el portal lo dibuja sin nombre y el autollenado no lo alcanza; "
+                f"queda de captura manual",
+            ))
+        elif clave:
             mapa[c.nombre] = clave
         else:
             r.huecos.append(Hueco(
@@ -885,13 +896,11 @@ def _armar_autollenado(pantalla: "PantallaExtraida", r: "Resultado") -> None:
         h.codigo == "API-04" and h.ubicacion == pantalla.id
         and any(f"'{n}' se autocompleta" in h.mensaje for n in conectados))]
     etiquetas = {c.nombre: c.etiqueta for c in auto}
-    fecha = (" La fecha de nacimiento llega como DD/MM/AAAA: confirma en la plataforma "
-             "que el campo la acepta." if "fechaNac" in mapa.values() else "")
     r.huecos.append(Hueco(
         "por_confirmar", "API-06", pantalla.id,
         f"se armó el autollenado por CURP con SIPUBEH (RENAPO directo exige convenio): al "
         f"salir de «{curp.etiqueta}» se llenan "
-        f"{', '.join('«' + etiquetas[n] + '»' for n in mapa)}.{fecha}",
+        f"{', '.join('«' + etiquetas[n] + '»' for n in mapa)}.",
     ))
 
 

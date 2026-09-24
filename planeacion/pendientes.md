@@ -43,15 +43,9 @@ buscar.
 | **EST-07** | `Estado Civil` de Testamento compiló `('Soltero        casado', 'Divorciado  Viudo', 'Unión Libre')` — 3 opciones basura — **sin un solo hallazgo** | `_despegar` parte una corrida de 2+ espacios/tabs dentro de una opción; el validador marca `EST-07` (aviso). Re-extraer Testamento da 5 opciones y valida limpio; el `.gpm` viejo del lote ahora marca `EST-07` ×2; los otros 5 del lote sin falsos positivos. Commit `038cd90` |
 | **FLU-01 (primer corte)** | El flujo salía siempre lineal | `expediente.py` intenta un flujo ramificado desde el Mermaid solo si los nombres de tarea casan exactamente con las pantallas y el conteo coincide; ante cualquier compuerta, degrada a lineal y mantiene `FLU-01`. Commit `b259ffb`. **Ramificación completa: pendiente de spec propio + prueba en plataforma** (ver `docs/superpowers/specs/2026-09-03-linter-y-ramificacion-design.md` Parte 2) |
 | **api_ajax (runtime)** | El autollenado por CURP se había leído de un export, nunca visto funcionar | **Confirmado en el portal** (proceso 1108, trámite 48410, 2026-09-24): al salir del campo CURP se llenaron nombres, apellidos y sexo desde SIPUBEH; el `extra` sobrevivió al import byte a byte. Receta y reglas en `planeacion/actas/2026-09-24-api-ajax-y-fechas-en-runtime.md` |
+| **PLAT-12** | La plataforma ya no reconoce el tipo `date` (`Campo.php:301`) y el import descartaba el campo en silencio | Se emite `date_time` con `extra.subtype: date`; `EST-08` bloquea un `date`. **Importado** como 1110: el export trae el `extra` idéntico y la fecha aparece en el portal (trámite 48423). El autollenado no alcanza el selector de fecha (sin `name`/`id`): una fecha «autorellenable» queda de captura con `API-04`. Acta `2026-09-24-api-ajax-y-fechas-en-runtime.md` |
 
 ## Abiertos
-
-- **PLAT-12 — la plataforma ya no reconoce el tipo `date` y el import descarta el campo en silencio.**
-  `ajax_agregar_campo/<f>/date` responde 500 «Tipo de campo no reconocido: date» (`Campo.php:301`);
-  el tipo vigente es `date_time` con `extra.subtype` = `date`. El compilador ya lo emite así y el
-  validador marca `EST-08` (bloqueante) ante un `date`. **Falta la prueba de import** del arreglo
-  (`prueba-fechas-date-time.gpm`) y saber si `fechaNac` (`DD/MM/AAAA`) de SIPUBEH entra en un
-  `date_time` sin `data_format`. Acta `2026-09-24-api-ajax-y-fechas-en-runtime.md`.
 
 - **P-25 — el servidor corre con Gemini y las propuestas de `DIC-08` sobre expedientes reales
   pasan por el.** Detectado el 2026-09-23 al agotar la cuota diaria gratuita (20 llamadas por

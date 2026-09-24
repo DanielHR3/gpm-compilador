@@ -1282,9 +1282,11 @@ def test_curp_con_autorellenables_arma_el_api_ajax_despues_de_la_curp():
     assert disparador.tipo == "api_ajax"
     assert disparador.endpoint == "consultacurpn"
     assert disparador.dependencia_campo == "curp_alumno"
+    # La fecha NO se conecta: el portal dibuja el selector de fecha sin
+    # name/id y el api_ajax no tiene donde escribir (acta 2026-09-24).
     assert disparador.autollena == {
         "nombres_alumno": "nombres", "paterno_alumno": "apePat",
-        "materno_alumno": "apeMat", "fecha_nac_alumno": "fechaNac",
+        "materno_alumno": "apeMat",
     }
     assert len(disparador.nombre) <= 30
 
@@ -1293,19 +1295,32 @@ def test_lo_que_no_se_sabe_llenar_queda_de_captura_con_su_hueco():
     from gpmc.extractores.diccionario import extraer
     r = extraer(_CURP_AUTO)
     api04 = [h for h in r.huecos if h.codigo == "API-04"]
-    assert len(api04) == 1 and "Nombre completo del tutor" in api04[0].mensaje
-    assert "SIPUBEH" in api04[0].mensaje
+    tutor = [h for h in api04 if "Nombre completo del tutor" in h.mensaje]
+    assert len(tutor) == 1 and "SIPUBEH" in tutor[0].mensaje
+
+
+def test_una_fecha_autorellenable_queda_de_captura_porque_el_portal_no_la_alcanza():
+    """Verificado en runtime el 2026-09-24 (proceso 1110): nombres, apellidos y
+    sexo se llenaron; la fecha no, porque el portal pinta el selector de fecha
+    como un componente propio sin name ni id. Conectarla prometeria un dato
+    que nunca llega."""
+    from gpmc.extractores.diccionario import extraer
+    r = extraer(_CURP_AUTO)
+    fecha = [h for h in r.huecos if h.codigo == "API-04" and "Fecha de Nacimiento" in h.mensaje]
+    assert len(fecha) == 1 and fecha[0].nivel == "por_confirmar"
+    assert "selector de fecha" in fecha[0].mensaje
 
 
 def test_el_autollenado_armado_se_avisa_para_confirmar_en_la_plataforma():
-    """Informativo (por_confirmar): que datos llena, con que servicio, y que la
-    fecha llega como DD/MM/AAAA. RENAPO directo exige convenio; se usa SIPUBEH."""
+    """Informativo (por_confirmar): que datos llena y con que servicio. RENAPO
+    directo exige convenio; se usa SIPUBEH."""
     from gpmc.extractores.diccionario import extraer
     r = extraer(_CURP_AUTO)
     api06 = [h for h in r.huecos if h.codigo == "API-06"]
     assert len(api06) == 1 and api06[0].nivel == "por_confirmar"
-    for texto in ("SIPUBEH", "Nombre(s)", "Apellido Paterno", "Fecha de Nacimiento", "DD/MM/AAAA"):
+    for texto in ("SIPUBEH", "Nombre(s)", "Apellido Paterno"):
         assert texto in api06[0].mensaje, texto
+    assert "Fecha de Nacimiento" not in api06[0].mensaje
 
 
 def test_autorellenables_sin_curp_en_la_pantalla_no_arman_nada():

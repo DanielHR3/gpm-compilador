@@ -40,7 +40,8 @@ Antes, en el modelador, el export del proceso 1108 devolvió el `extra` del `api
 
 Es la forma del `api_curp_trigger` de `acceso-informacion-publica.gpm`, que ahora está probada
 en runtime y no solo leída de un export. Un campo `api_ajax` **aparte**, colocado justo después
-del campo que lleva el dato:
+del campo que lleva el dato. (El que corrió en 1108 traía además `@@fecha_nac_prueba`←`fechaNac`;
+se quita aquí porque la fecha no se autollena, ver Resultado 5.)
 
 ```json
 {
@@ -54,9 +55,9 @@ del campo que lleva el dato:
   "get_campos": ["@@curp_prueba"],
   "get_tipo": ["input"],
   "get_valores": ["blur"],
-  "get_value_campos": ["@@nombres_prueba", "@@paterno_prueba", "@@materno_prueba", "@@fecha_nac_prueba", "@@sexo_prueba"],
-  "get_value_tipo": ["input", "input", "input", "input", "input"],
-  "get_value_valores": ["nombres", "apePat", "apeMat", "fechaNac", "sexo"]
+  "get_value_campos": ["@@nombres_prueba", "@@paterno_prueba", "@@materno_prueba", "@@sexo_prueba"],
+  "get_value_tipo": ["input", "input", "input", "input"],
+  "get_value_valores": ["nombres", "apePat", "apeMat", "sexo"]
 }
 ```
 
@@ -72,7 +73,8 @@ Reglas que no se negocian, cada una con su porqué:
    `get_value_*` van del mismo largo y `get_value_tipo` siempre `input`.
 5. **Sin `tamano`.** El export auténtico no lo trae en este componente.
 6. **Los campos destino son `text` normales** de la misma vista; no se marcan de solo lectura
-   por el autollenado.
+   por el autollenado. **Nunca una fecha** (ver Resultado 5): el selector del portal no tiene
+   nombre y el dato no llega.
 7. **Solo endpoints públicos.** La llamada sale del navegador del ciudadano (SIPUBEH responde
    con CORS `*`). Uno que exija token es `API-05` y va a una Acción PHP.
 8. **Nombre técnico del campo `api_ajax`:** `api_curp_<pantalla>`, capado a 30.
@@ -125,17 +127,34 @@ plataforma (cómo se escribe). No existe subtipo de fecha **y** hora, así que `
 manifiesto toma el valor por omisión del formulario. Red de seguridad: el validador marca
 **`EST-08` (bloqueante)** en todo `.gpm` que traiga un campo `date`.
 
-## Lo que falta — con qué se cierra PLAT-12
+## Resultado 4 — el arreglo importa y la fecha llega al portal (PLAT-12 cerrado)
 
-- **El import del arreglo NO está probado.** Crear a mano un campo de fecha en 1107 para
-  exportarlo y comparar lo bloqueó el clasificador de permisos del agente (modificar un recurso
-  compartido). La forma sale del formulario de la plataforma, no de un export.
-  Para cerrarlo hay dos caminos: (a) importar
-  `prueba-fechas-date-time.gpm` (compilado con el arreglo, `EST-*` limpio) y ver en el export y en
-  el portal que la fecha llega; o (b) que una persona agregue una «Fecha» con el botón
-  **Fecha / Hora** del diseñador y se exporte ese proceso para comparar claves.
-- **La fecha del autollenado.** SIPUBEH entrega `fechaNac` como `DD/MM/AAAA`. No se probó si un
-  `date_time` subtipo `date` la acepta tal cual o si hay que declarar `data_format`. API-06 ya lo
-  avisa como `por_confirmar`.
-- **Limpieza.** Procesos de prueba 1107 y 1108 y el trámite 48410 en borrador: se borran cuando
-  el usuario lo decida (`/backend/procesos/eliminar/<id>`; el trámite queda huérfano).
+`prueba-fechas-date-time.gpm` (compilado con el arreglo, validador limpio) se importó como
+proceso **1110**. El export devolvió `fecha_nac_prueba:date_time` con el `extra` **idéntico** al
+emitido (`tamano`, `attributes`, `subtype: date`, `data_format`, `data_format_unique`), y los
+flags `public`/`add_in_menu`/`is_active` en `1`.
+
+En el portal (trámite **48423**, sin enviar) el campo **Fecha de Nacimiento** aparece con su
+selector y el marcador `dd-mm-yy`. Es el primer campo de fecha de un `.gpm` del compilador que
+llega vivo al ciudadano.
+
+## Resultado 5 — el autollenado NO alcanza un campo de fecha
+
+En el mismo trámite 48423, CURP + Tab llenó otra vez nombres, apellidos y sexo, pero **la fecha
+quedó vacía**. El portal dibuja el selector de fecha como un componente propio: su `<input>` no
+lleva `name` ni `id`, y no existe en la página ningún elemento `fecha_nac_prueba`. El `api_ajax`
+escribe por nombre, así que no tiene dónde dejar `fechaNac`.
+
+**Consecuencia en el compilador.** `diccionario._armar_autollenado` ya no conecta un campo
+`date`/`date_time` al autollenado aunque el Diccionario lo marque «autorellenable»: lo deja de
+captura manual y lo reporta como `API-04` (`por_confirmar`), diciendo que es un selector de fecha
+que el autollenado no alcanza. La regla 9 de la receta: **los destinos del `api_ajax` son solo
+campos de texto**.
+
+## Lo que queda
+
+- **Limpieza.** Procesos de prueba **1107, 1108 y 1110**, y los trámites **48410** y **48423** en
+  borrador en la cuenta del usuario: se borran cuando el usuario lo decida
+  (`/backend/procesos/eliminar/<id>`; los trámites quedan huérfanos, el portal no los borra).
+- Si algún día hiciera falta la fecha autollenada, el camino sería una Acción PHP en el servidor,
+  no el `api_ajax`. Nadie lo ha pedido.
