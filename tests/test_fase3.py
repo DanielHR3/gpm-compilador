@@ -331,3 +331,17 @@ def test_medir_fase3_compara_generado_con_humano_por_clave(tmp_path):
     assert m.huecos.get("falta_dato", 0) >= 1                        # el GEN-01 de poder notarial
     salida = imprimir(medidas)
     assert "constancia" in salida and "4/5" in salida and "2/3" in salida
+
+
+def test_la_plantilla_tobe_que_viaja_al_prompt_es_mermaid_dibujable():
+    """Mermaid no acepta `G{¿@@campo == 'x'?}` sin comillas (Parse error:
+    got 'LINK_ID'); visto al dibujar el ejemplo en la pantalla de Propuestas el
+    2026-09-24. La plantilla va al prompt como ejemplo de forma: si trae la
+    sintaxis rota, el modelo la copia y ningun TO-BE generado se puede dibujar.
+    Es tambien la regla 10 de Simplificacion: `G{"¿@@campo?"}`."""
+    import re
+    from gpmc.agentes.prompt_fase3 import plantilla
+    bloque = re.search(r"```mermaid(.*?)```", plantilla("tobe"), re.S).group(1)
+    compuertas = re.findall(r"\{[^{}]*@@[^{}]*\}", bloque)
+    assert compuertas, "la plantilla debe traer al menos una compuerta con @@"
+    assert all(c.startswith('{"') and c.endswith('"}') for c in compuertas), compuertas

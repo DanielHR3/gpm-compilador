@@ -30,3 +30,9 @@ it("un diagrama que no se puede dibujar lo dice sin tirar la tarjeta", async () 
   render(<DiagramaMermaid texto={"```mermaid\nROTO\n```"} retardoMs={0} />);
   expect(await screen.findByRole("status")).toHaveTextContent(/no se pudo dibujar/i);
 });
+
+it("cuando mermaid no puede dibujar, dice en que linea para poder corregirlo", async () => {
+  render(<DiagramaMermaid texto={"```mermaid\nROTO\n```"} retardoMs={0} />);
+  const aviso = await screen.findByRole("status");
+  expect(aviso).toHaveTextContent(/Parse error/);
+});

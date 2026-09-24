@@ -160,7 +160,7 @@ configuración manual — no la escribas a medias.
 
 ```mermaid
 flowchart TD
-    A[Ciudadano: Captura la solicitud]:::ciudadano --> B{¿@@procede == 'si'?}:::area
+    A[Ciudadano: Captura la solicitud]:::ciudadano --> B{"¿@@procede == 'si'?"}:::area
     B -->|Sí| C[Área: Cotiza]:::area
     B -->|No| D[Área: Oficio de improcedencia]:::area
 ```
@@ -168,7 +168,7 @@ flowchart TD
 | Regla | Por qué |
 |---|---|
 | **Todo nodo con carril `:::actor`** (`:::ciudadano`, `:::area`, `:::notario`…). | El actor de cada tarea lo toma el compilador del encabezado de la pantalla en el Diccionario (`### Pantalla 2 — ÁREA — Cotiza`), no del diagrama: por eso el carril **no bloquea** (hueco `MMD-03`, solo *por confirmar*). Se pide igual para que diagrama y Diccionario digan lo mismo y el diagrama se lea. En Publicación quedaron 42 nodos sin carril —colorea con `style X fill:#…` en vez de `classDef`—. |
-| **Cada compuerta `{…}` nombra el campo** que decide, con su `@@`: `{¿@@procede == 'si'?}`. | Si dice solo `{¿Procede?}`, la condición hay que capturarla a mano (`MMD-04`), y el flujo sale lineal. |
+| **Cada compuerta `{…}` nombra el campo** que decide, con su `@@`: `{"¿@@procede == 'si'?"}`. | Si dice solo `{¿Procede?}`, la condición hay que capturarla a mano (`MMD-04`), y el flujo sale lineal. |
 | Las etiquetas de las flechas que salen de una compuerta = los **valores** del campo: `-->|Sí|`, `-->|No|`, `-->|Renovación|`. | De ahí sale la regla de transición. |
 | El diagrama debe traer un bloque ```` ```mermaid ```` de verdad. | Sin él no se cuenta el flujo (`MMD-01`). |
 | Que el número de tareas del diagrama sea coherente con el número de pantallas del Diccionario. | Diferencias grandes (23 tareas vs 4 pantallas) suelen ser un Diccionario incompleto (`FLU-02`). |

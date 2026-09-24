@@ -14,7 +14,8 @@ tenga que preguntarte cosas que ya sabes al dibujarlo:
   compilador no sabe quién hace la tarea y te lo va a preguntar uno por uno —
   en un trámite de 40 pasos son 40 preguntas que este párrafo evita.
 - **Cada compuerta (`{...}`) nombra un solo `@@campo`** del Diccionario:
-  `{¿@@dictamen == 'aprobado'?}`. Con eso el compilador ramifica el flujo solo.
+  `{"¿@@dictamen == 'aprobado'?"}`, **entre comillas** (sin ellas el diagrama no
+  se dibuja). Con eso el compilador ramifica el flujo solo.
   Si la compuerta no nombra ningún campo, sale como pregunta pendiente y hay
   que capturar la condición a mano después.
 - **Las flechas que salen de una compuerta llevan de etiqueta un valor del
@@ -37,7 +38,7 @@ flowchart TD
 
     Inicio([Inicio]):::ciudadano --> P1[Ciudadano: Solicitud]:::ciudadano
     P1 --> P2[Funcionario: Revisión]:::funcionario
-    P2 --> G{¿@@dictamen == 'aprobado'?}:::funcionario
+    P2 --> G{"¿@@dictamen == 'aprobado'?"}:::funcionario
     G -->|Aprobado| P4[Funcionario: Emisión]:::funcionario
     G -->|Rechazado| P3[Ciudadano: Corrección]:::ciudadano
     P3 --> P2

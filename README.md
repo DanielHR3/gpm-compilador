@@ -43,6 +43,19 @@ real deja la zona vacía y dice por qué, en vez de adivinar. Los insumos valen 
 o PDF con texto, y entre dos candidatos para la misma zona gana el que el extractor lee mejor.
 De ahí salen el `.gpm`, el manifiesto, el simulador y el reporte de huecos.
 
+**Proponer desde el AS-IS.** Si solo tienes el Análisis AS-IS, el botón «Proponer
+TO-BE y Diccionario» redacta un borrador de los dos documentos en segundo plano,
+lo califica con el extractor y te lo enseña en dos tarjetas para aceptar tal cual,
+aceptar con tus cambios o declinar y subir el tuyo; el TO-BE se dibuja mientras lo
+editas. Nada entra al expediente sin esa decisión. La sesión guarda
+`generados.json` (los textos propuestos, sus pendientes y tu decisión por
+documento) y cada llamada y cada decisión quedan en `bitacora-ia.jsonl`.
+**Candado:** solo corre con `GPMC_IA_PROVEEDOR=openai` (la licencia de
+Planeación), porque el AS-IS completo viaja al proveedor; con cualquier otro, la
+sesión nace en «sin licencia» y se suben los archivos como siempre.
+`gpmc medir-ia --fase3 CARPETA` mide lo generado contra expedientes que ya tienen
+respuesta humana, con el mismo candado.
+
 ## Uso por terminal
 
 ```bash

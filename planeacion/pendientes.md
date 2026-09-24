@@ -55,6 +55,9 @@ buscar.
   `openai` con la llave de la licencia, o quitar la llave de Gemini del servidor para que las
   propuestas no corran. La Fase 3 (spec `docs/superpowers/specs/2026-09-23-fase3-propuestas-desde-as-is-design.md`)
   ya nace con candado: solo corre con `openai`. **Sin decidir.**
+  **2026-09-24:** la Fase 3 ya lleva candado en código (`agentes/fase3.puede_generar`) y no corre
+  con Gemini; las propuestas de `DIC-08` siguen sin candado y siguen pasando por el proveedor
+  configurado. El usuario decidió dejar el servidor con Gemini por ahora.
 
 - **P-26 — tres tramites del tablero con dependencia «[por confirmar]».** Digitalizacion de
   Acciones IHM, Acceso a la Informacion y Pago de Bases Licitaciones: sus AS-IS, TO-BE y

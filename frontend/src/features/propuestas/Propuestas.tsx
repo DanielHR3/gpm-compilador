@@ -126,7 +126,7 @@ export default function Propuestas({ sid, onListo }: Props) {
       {g && g.estado !== "generando" ? (
         <>
           {g.motivo ? <p className="text-sm text-foreground">{g.motivo}</p> : null}
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid items-start gap-6 lg:grid-cols-2">
             <TarjetaPropuesta
               titulo="Diccionario de Datos"
               clave="diccionario"

@@ -41,11 +41,15 @@ export default function DiagramaMermaid({ texto, retardoMs = 600 }: Props) {
           setSvg(r.svg);
           setAviso(null);
         }
-      } catch {
+      } catch (e) {
         if (vivo) {
+          // El mensaje de mermaid dice la linea y el trozo que no entiende
+          // («Parse error on line 7: …»): sin el, la persona no sabe que corregir.
+          const detalle = e instanceof Error ? e.message : String(e);
           setSvg(null);
           setAviso(
-            "No se pudo dibujar el diagrama con el texto actual; revisa la sintaxis del bloque mermaid.",
+            "No se pudo dibujar el diagrama con el texto actual; revisa la sintaxis del bloque " +
+              `mermaid. ${detalle}`,
           );
         }
       }
@@ -60,7 +64,7 @@ export default function DiagramaMermaid({ texto, retardoMs = 600 }: Props) {
     <div className="flex flex-col gap-2">
       <p className="text-sm font-medium">Diagrama compilable (el primero del texto)</p>
       {aviso ? (
-        <p role="status" className="text-sm text-muted-foreground">
+        <p role="status" className="whitespace-pre-wrap text-sm text-muted-foreground">
           {aviso}
         </p>
       ) : null}
