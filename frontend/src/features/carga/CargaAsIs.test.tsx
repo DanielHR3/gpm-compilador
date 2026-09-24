@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 
@@ -101,4 +101,38 @@ it("fuera del modo de pruebas no hay aviso", async () => {
   render(<CargaAsIs onPropuesta={() => {}} />);
   await vi.waitFor(() => expect(leerCapacidades).toHaveBeenCalled());
   expect(screen.queryByRole("note", { name: /modo de pruebas/i })).not.toBeInTheDocument();
+});
+
+it("toda la zona abre el selector, no solo el boton del campo", async () => {
+  // Reportado el 2026-09-24: «el dialogo ni siquiera abre». La caja punteada
+  // invitaba a hacer clic en cualquier parte y solo respondia el boton
+  // nativo; en la carga de carpeta toda la zona es clicable.
+  render(<CargaAsIs onPropuesta={() => {}} />);
+  const input = screen.getByLabelText(/^análisis as-is$/i) as HTMLInputElement;
+  // La etiqueta activa el campo despachando un evento `click` sobre el: es lo
+  // que abre el selector en un navegador.
+  const abrir = vi.fn();
+  input.addEventListener("click", abrir);
+  await userEvent.click(screen.getByText(/arrastra el as-is aquí o haz clic para elegirlo/i));
+  expect(abrir).toHaveBeenCalled();
+});
+
+it("arrastrar el archivo a la zona lo elige y lo nombra", async () => {
+  render(<CargaAsIs onPropuesta={() => {}} />);
+  const zona = screen.getByText(/arrastra el as-is aquí/i).closest("label") as HTMLElement;
+  fireEvent.drop(zona, { dataTransfer: { files: [new File(["# x"], "Mi AS-IS.md")] } });
+  expect(await screen.findByText("Mi AS-IS.md")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /proponer/i })).toBeEnabled();
+});
+
+it("la zona de documentos de apoyo tambien abre el selector y acepta arrastrar", async () => {
+  render(<CargaAsIs onPropuesta={() => {}} />);
+  const input = screen.getByLabelText(/documentos de apoyo/i) as HTMLInputElement;
+  const abrir = vi.fn();
+  input.addEventListener("click", abrir);
+  await userEvent.click(screen.getByText(/arrastra aquí diagramas o pdf/i));
+  expect(abrir).toHaveBeenCalled();
+  const zona = screen.getByText(/arrastra aquí diagramas o pdf/i).closest("label") as HTMLElement;
+  fireEvent.drop(zona, { dataTransfer: { files: [new File(["a"], "a.png"), new File(["b"], "b.pdf")] } });
+  expect(await screen.findByText("2 documentos de apoyo")).toBeInTheDocument();
 });

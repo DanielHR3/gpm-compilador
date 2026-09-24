@@ -1,14 +1,14 @@
-import { Sparkles } from "lucide-react";
+import { FileText, Sparkles, UploadCloud } from "lucide-react";
 import { useState } from "react";
+import type { DragEvent } from "react";
+
+import { cn } from "cn";
 
 import AvisoModoPruebas, { useModoPruebas } from "@/components/AvisoModoPruebas";
 import { Button } from "@/components/ui/button";
 import { ErrorApi, proponerExpediente } from "@/lib/api";
 
 import ErrorDeCarga, { comoErrorDeCarga } from "./ErrorDeCarga";
-
-const CLASE_INPUT =
-  "text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground";
 
 /**
  * Camino «Solo tengo el AS-IS»: se sube el AS-IS (y adjuntos, si hay) y el
@@ -20,6 +20,15 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
   const pruebas = useModoPruebas();
+  const [sobre, setSobre] = useState(false);
+  const [sobreApoyo, setSobreApoyo] = useState(false);
+
+  const alSoltar = (e: DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setSobre(false);
+    const archivo = e.dataTransfer.files[0];
+    if (archivo) setAsIs(archivo);
+  };
 
   const proponer = async () => {
     if (!asIs) return;
@@ -50,33 +59,96 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
 
       {pruebas ? <AvisoModoPruebas /> : null}
 
-      <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-4">
-        <label htmlFor="as-is" className="text-sm font-medium">
-          Análisis AS-IS
-        </label>
+      {/* Toda la zona es el control, como en la carga de carpeta: la caja
+          punteada invita a hacer clic en cualquier parte, y antes solo
+          respondia el boton nativo (reportado el 2026-09-24: «el dialogo ni
+          siquiera abre»). Tambien acepta el archivo arrastrado. */}
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium">Análisis AS-IS</span>
         <input
           id="as-is"
           type="file"
-          accept=".md,.docx,.pdf,text/markdown"
-          className={CLASE_INPUT}
+          aria-label="Análisis AS-IS"
+          accept=".md,.docx,.pdf,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          className="sr-only"
           onChange={(e) => setAsIs(e.target.files?.[0] ?? null)}
         />
+        <label
+          htmlFor="as-is"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setSobre(true);
+          }}
+          onDragLeave={() => setSobre(false)}
+          onDrop={alSoltar}
+          className={cn(
+            "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center text-sm transition-colors",
+            "focus-within:ring-2 focus-within:ring-ring",
+            sobre ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/60",
+          )}
+        >
+          {asIs ? (
+            <>
+              <FileText aria-hidden className="size-8 text-primary" />
+              <span className="font-medium text-foreground">{asIs.name}</span>
+              <span className="text-muted-foreground">Haz clic para cambiarlo</span>
+            </>
+          ) : (
+            <>
+              <UploadCloud aria-hidden className="size-8 text-muted-foreground" />
+              <span className="text-foreground">Arrastra el AS-IS aquí o haz clic para elegirlo</span>
+              <span className="text-muted-foreground">.md, .docx o PDF con texto</span>
+            </>
+          )}
+        </label>
       </div>
 
-      <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-4">
-        <label htmlFor="apoyo-as-is" className="text-sm font-medium">
-          Documentos de apoyo (opcional)
-        </label>
-        <p className="text-sm text-muted-foreground">
-          Diagramas o PDF que quieras tener a la vista al revisar.
-        </p>
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium">Documentos de apoyo (opcional)</span>
         <input
           id="apoyo-as-is"
           type="file"
           multiple
-          className={CLASE_INPUT}
+          aria-label="Documentos de apoyo (opcional)"
+          className="sr-only"
           onChange={(e) => setApoyo(Array.from(e.target.files ?? []))}
         />
+        <label
+          htmlFor="apoyo-as-is"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setSobreApoyo(true);
+          }}
+          onDragLeave={() => setSobreApoyo(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setSobreApoyo(false);
+            setApoyo(Array.from(e.dataTransfer.files));
+          }}
+          className={cn(
+            "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed p-5 text-center text-sm transition-colors",
+            "focus-within:ring-2 focus-within:ring-ring",
+            sobreApoyo ? "border-primary bg-primary/5" : "border-border hover:border-primary/60",
+          )}
+        >
+          {apoyo.length > 0 ? (
+            <>
+              <span className="font-medium text-foreground">
+                {apoyo.length === 1 ? "1 documento de apoyo" : `${apoyo.length} documentos de apoyo`}
+              </span>
+              <span className="text-muted-foreground">Haz clic para cambiarlos</span>
+            </>
+          ) : (
+            <>
+              <span className="text-foreground">
+                Arrastra aquí diagramas o PDF, o haz clic para elegirlos
+              </span>
+              <span className="text-muted-foreground">
+                Los tendrás a la vista al revisar; no se envían al modelo.
+              </span>
+            </>
+          )}
+        </label>
       </div>
 
       {error ? <ErrorDeCarga error={error} /> : null}
