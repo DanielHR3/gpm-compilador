@@ -10,6 +10,10 @@ import { generateCssVariables, tokensWeb } from "@/lib/tokens";
 // dispare desde el arbol. En jsdom `pathname` es `/`, asi que el `useEffect`
 // del deep-link sale sin llamar a nada.
 vi.mock("@/lib/api", () => ({
+  leerGenerados: vi.fn(),
+  decidirDocumento: vi.fn(),
+  subirDocumento: vi.fn(),
+  proponerExpediente: vi.fn(),
   leerPropuestas: vi.fn(),
   decidirPropuesta: vi.fn(),
   crearExpediente: vi.fn(),
@@ -35,6 +39,9 @@ vi.mock("@/lib/api", () => ({
     status = 0;
     archivos?: string[];
   },
+}));
+vi.mock("mermaid", () => ({
+  default: { initialize: vi.fn(), render: vi.fn(async () => ({ svg: "<svg></svg>" })) },
 }));
 
 describe("App (SPA SP1)", () => {
@@ -106,5 +113,19 @@ describe("App (SPA SP1)", () => {
     expect(
       within(nav).getByRole("link", { current: "step" }),
     ).toHaveTextContent(/insumos/i);
+  });
+});
+
+describe("App y la Fase 3", () => {
+  it("un 409 en /revisar/:sid abre la pantalla de Propuestas en vez de decir que expiro", async () => {
+    const { leerExpediente, leerGenerados, ErrorApi } = await import("@/lib/api");
+    const e = new (ErrorApi as any)("en propuestas"); e.status = 409;
+    vi.mocked(leerExpediente).mockRejectedValue(e);
+    vi.mocked(leerGenerados).mockResolvedValue({ estado: "generando", motivo: null, nombre: "Constancia", diccionario: null, tobe: null });
+    window.history.pushState({}, "", `/revisar/${"c".repeat(16)}`);
+    render(<App />);
+    expect(await screen.findByText(/uno o dos minutos/i)).toBeInTheDocument();
+    expect(screen.queryByText(/la sesion expiro/i)).not.toBeInTheDocument();
+    window.history.pushState({}, "", "/");
   });
 });

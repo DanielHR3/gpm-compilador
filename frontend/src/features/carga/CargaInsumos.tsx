@@ -5,7 +5,7 @@ import { ArrowRight, Download, FileText, FolderOpen, UploadCloud, FileWarning, X
 import { Button } from "@/components/ui/button";
 import Instrucciones from "@/components/Instrucciones";
 import { cn } from "cn";
-import { clasificar, crearExpediente, ErrorApi } from "@/lib/api";
+import { clasificar, crearExpediente, ErrorApi, proponerExpediente } from "@/lib/api";
 import type { EstadoExpediente } from "@/lib/types";
 
 /** Las cuatro llaves multipart que acepta `POST /api/v1/expedientes`. */
@@ -61,8 +61,11 @@ const SLOTS_VACIOS: Slots = {
 
 export default function CargaInsumos({
   onListo,
+  onPropuesta,
 }: {
   onListo: (est: EstadoExpediente) => void;
+  /** Fase 3: la sesion nacio solo con el AS-IS; `App` abre «Propuestas». */
+  onPropuesta?: (sid: string) => void;
 }) {
   const [slots, setSlots] = useState<Slots>(SLOTS_VACIOS);
   // Diagramas y PDF que el compilador no puede leer pero el analista necesita
@@ -154,6 +157,25 @@ export default function CargaInsumos({
       } else {
         throw e;
       }
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  // Fase 3: solo con el AS-IS, el compilador redacta un borrador del
+  // Diccionario y del TO-BE. Con Diccionario ya subido no aplica: se extrae.
+  const proponer = async () => {
+    setError(null);
+    setEnviando(true);
+    try {
+      const fd = new FormData();
+      if (slots.as_is) fd.append("as_is", slots.as_is);
+      apoyo.forEach((a) => fd.append("adjuntos", a));
+      const { sid } = await proponerExpediente(fd);
+      onPropuesta?.(sid);
+    } catch (e) {
+      if (e instanceof ErrorApi) setError(e);
+      else throw e;
     } finally {
       setEnviando(false);
     }
@@ -472,6 +494,23 @@ export default function CargaInsumos({
         Extraer
         <ArrowRight aria-hidden className="size-4" />
       </Button>
+
+      <div className="flex flex-col gap-1">
+        <Button
+          type="button"
+          size="lg"
+          variant="secondary"
+          onClick={proponer}
+          disabled={slots.as_is === null || slots.diccionario !== null || enviando}
+          className="h-11 self-stretch text-base sm:self-start"
+        >
+          Proponer TO-BE y Diccionario
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          ¿Solo tienes el AS-IS? El compilador redacta un borrador de los dos documentos a
+          partir del AS-IS. El equipo lo revisa antes de que se use.
+        </p>
+      </div>
 
       <footer className="text-sm text-muted-foreground">
         <a className="text-primary underline underline-offset-2" href="/historial">

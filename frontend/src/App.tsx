@@ -5,12 +5,13 @@ import NavegacionLateral from "@/components/NavegacionLateral";
 import PieInstitucional from "@/components/PieInstitucional";
 import { Toaster } from "@/components/ui/sonner";
 import CargaInsumos from "@/features/carga/CargaInsumos";
+import Propuestas from "@/features/propuestas/Propuestas";
 import Catalogos from "@/features/catalogos/Catalogos";
 import Historial from "@/features/historial/Historial";
 import Tablero from "@/features/tablero/Tablero";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
 import { useUrlDeRevision } from "@/features/huecos/useUrlDeRevision";
-import { leerExpediente } from "@/lib/api";
+import { ErrorApi, leerExpediente } from "@/lib/api";
 import type { EstadoExpediente } from "@/lib/types";
 
 /**
@@ -35,19 +36,25 @@ function nombreDelTramite(est: EstadoExpediente | null): string | null {
 export default function App() {
   const [est, setEst] = useState<EstadoExpediente | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // Fase 3: sesion nacida solo con el AS-IS y aun sin manifiesto.
+  const [sidPropuesta, setSidPropuesta] = useState<string | null>(null);
 
   // El expediente abierto tiene direccion propia: sin ella, salir al
-  // simulador y volver con Atras aterrizaba en la carga de insumos.
-  useUrlDeRevision(est?.sid ?? null);
+  // simulador y volver con Atras aterrizaba en la carga de insumos. La
+  // pantalla de Propuestas tambien: «puedes cerrar y volver» depende de ello.
+  useUrlDeRevision(est?.sid ?? sidPropuesta);
 
   useEffect(() => {
     const m = RE_REVISAR.exec(window.location.pathname);
     if (!m) return;
     leerExpediente(m[1])
       .then(setEst)
-      .catch(() =>
-        setAviso("La sesion expiro o no existe. Vuelve a subir los insumos."),
-      );
+      .catch((e: unknown) => {
+        // 409: la sesion nacio en la Fase 3 y aun no tiene manifiesto. Se
+        // reabre en «Propuestas» en el estado en que este.
+        if (e instanceof ErrorApi && e.status === 409) setSidPropuesta(m[1]);
+        else setAviso("La sesion expiro o no existe. Vuelve a subir los insumos.");
+      });
   }, []);
 
   // Referencia, no un paso: se sirve sin expediente. El servidor entrega
@@ -68,6 +75,7 @@ export default function App() {
               : enHistorial ? "Historial"
               : enTablero ? "Tablero"
               : est ? "Revisión del expediente"
+              : sidPropuesta ? "Propuesta del compilador"
               : "Carga de insumos"
             }
           />
@@ -85,8 +93,16 @@ export default function App() {
             <Tablero />
           ) : est ? (
             <WizardHuecos estado={est} onEstado={setEst} />
+          ) : sidPropuesta ? (
+            <Propuestas
+              sid={sidPropuesta}
+              onListo={(e) => {
+                setSidPropuesta(null);
+                setEst(e);
+              }}
+            />
           ) : (
-            <CargaInsumos onListo={setEst} />
+            <CargaInsumos onListo={setEst} onPropuesta={setSidPropuesta} />
           )}
         </main>
         <PieInstitucional />

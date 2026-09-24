@@ -5,6 +5,7 @@ import CargaInsumos from "./CargaInsumos";
 
 vi.mock("@/lib/api", () => ({
   crearExpediente: vi.fn(),
+  proponerExpediente: vi.fn(),
   clasificar: vi.fn(),
   ErrorApi: class extends Error { status = 0; archivos?: string[]; },
 }));
@@ -244,4 +245,27 @@ it("el renglon dice que archivo lleva y deja quitarlo", async () => {
     screen.getByRole("button", { name: /quitar el diccionario/i }),
   );
   expect(screen.getByTestId("nombre-diccionario")).toHaveTextContent(/sin archivo/i);
+});
+
+it("«Proponer TO-BE y Diccionario» solo se habilita con AS-IS y sin Diccionario", async () => {
+  render(<CargaInsumos onListo={() => {}} onPropuesta={() => {}} />);
+  const btn = screen.getByRole("button", { name: /proponer to-be y diccionario/i });
+  expect(btn).toBeDisabled();
+  expect(screen.getByText(/redacta un borrador de los dos documentos/i)).toBeInTheDocument();
+  await userEvent.upload(screen.getByLabelText(/^as is$/i), new File(["# x"], "as.md", { type: "text/markdown" }));
+  expect(btn).toBeEnabled();
+  await userEvent.upload(screen.getByLabelText(/^diccionario$/i), new File(["# d"], "dd.md", { type: "text/markdown" }));
+  expect(btn).toBeDisabled();
+});
+
+it("proponer manda el AS-IS y avisa con el sid", async () => {
+  const { proponerExpediente } = await import("@/lib/api");
+  vi.mocked(proponerExpediente).mockResolvedValue({ sid: "b".repeat(16), estado: "generando" });
+  const onPropuesta = vi.fn();
+  render(<CargaInsumos onListo={() => {}} onPropuesta={onPropuesta} />);
+  await userEvent.upload(screen.getByLabelText(/^as is$/i), new File(["# x"], "as.md", { type: "text/markdown" }));
+  await userEvent.click(screen.getByRole("button", { name: /proponer to-be y diccionario/i }));
+  const fd = vi.mocked(proponerExpediente).mock.calls[0][0];
+  expect(fd.get("as_is")).toBeInstanceOf(File);
+  expect(onPropuesta).toHaveBeenCalledWith("b".repeat(16));
 });
