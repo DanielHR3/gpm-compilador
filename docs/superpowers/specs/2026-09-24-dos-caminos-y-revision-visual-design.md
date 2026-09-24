@@ -1,7 +1,7 @@
 # Dos caminos de entrada y revisión visual de la propuesta — diseño
 
 **Fecha:** 2026-09-24
-**Estado:** aprobado en conversación, pendiente de plan
+**Estado:** implementado el 2026-09-24 (plan: `docs/superpowers/plans/2026-09-24-dos-caminos-y-revision-visual.md`)
 **Depende de:** Fase 3 (`docs/superpowers/specs/2026-09-23-fase3-propuestas-desde-as-is-design.md`, implementada el 2026-09-24)
 
 ## Propósito

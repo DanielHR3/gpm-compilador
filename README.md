@@ -37,17 +37,20 @@ desarrollar, `npm run dev` (:5173, con proxy de `/api` al :8000) junto a `gpmc s
 gpmc servir
 ```
 
-Abre `http://127.0.0.1:8000`. Se elige la carpeta del trámite —o los archivos uno a uno— y el
-asistente los reparte entre AS-IS, TO-BE, Diccionario y documentos de salida; ante un empate
-real deja la zona vacía y dice por qué, en vez de adivinar. Los insumos valen en `.md`, `.docx`
-o PDF con texto, y entre dos candidatos para la misma zona gana el que el extractor lee mejor.
-De ahí salen el `.gpm`, el manifiesto, el simulador y el reporte de huecos.
+Abre `http://127.0.0.1:8000`. El inicio pregunta qué tienes del trámite: **el
+expediente completo** (se elige la carpeta —o los archivos uno a uno— y el
+asistente los reparte entre AS-IS, TO-BE, Diccionario y documentos de salida; ante
+un empate real deja la zona vacía y dice por qué) o **solo el AS-IS** (ver
+«Proponer desde el AS-IS» abajo). Unas migas de pan dicen en qué camino y paso vas.
+Los insumos valen en `.md`, `.docx` o PDF con texto. De ahí salen el `.gpm`, el
+manifiesto, el simulador y el reporte de huecos; en la revisión, el TO-BE se puede
+ver dibujado, con zoom y a pantalla completa.
 
-**Proponer desde el AS-IS.** Si solo tienes el Análisis AS-IS, el botón «Proponer
-TO-BE y Diccionario» redacta un borrador de los dos documentos en segundo plano,
-lo califica con el extractor y te lo enseña en dos tarjetas para aceptar tal cual,
-aceptar con tus cambios o declinar y subir el tuyo; el TO-BE se dibuja mientras lo
-editas. Nada entra al expediente sin esa decisión. La sesión guarda
+**Proponer desde el AS-IS.** Si solo tienes el Análisis AS-IS, el camino «Solo tengo
+el AS-IS» redacta un borrador de los dos documentos en segundo plano, lo califica
+con el extractor y te los enseña uno por uno: el Diccionario como pantallas y el
+TO-BE como diagrama grande, cada uno con «Editar texto», para aceptar tal cual,
+aceptar con tus cambios o declinar y subir el tuyo. Nada entra al expediente sin esa decisión. La sesión guarda
 `generados.json` (los textos propuestos, sus pendientes y tu decisión por
 documento) y cada llamada y cada decisión quedan en `bitacora-ia.jsonl`.
 **Candado:** solo corre con `GPMC_IA_PROVEEDOR=openai` (la licencia de

@@ -110,7 +110,7 @@ export default function DiagramaMermaid({ texto, retardoMs = 600, grande = false
           ) : null}
           <div
             data-testid="lienzo-diagrama"
-            className="origin-top-left transition-transform"
+            className="origin-top transition-transform [&>svg]:mx-auto"
             style={{ transform: `scale(${escala})` }}
             // SVG que produce mermaid con securityLevel strict (DOMPurify) a
             // partir del texto del TO-BE: puede venir del modelo o de otra
