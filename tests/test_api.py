@@ -1276,3 +1276,102 @@ def test_fallo_del_generador_deja_error_y_no_tumba_nada(tmp_path):
     sid = _proponer(c).json()["sid"]
     g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
     assert g["estado"] == "error" and "RespuestaInvalida" in g["motivo"]
+
+
+# --- Fase 3, Task 7: decision por documento y subida --------------------------------
+
+def _sesion_lista(tmp_path):
+    from tests.test_fase3 import _DICC_OK, _TOBE_OK, _json
+    c = _cli_fase3(tmp_path, [_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    return c, _proponer(c).json()["sid"]
+
+
+def _decidir(c, sid, doc, decision, texto=None):
+    return c.post(f"/api/v1/expedientes/{sid}/generados/{doc}/decision",
+                  json={"decision": decision, "texto_final": texto})
+
+
+def test_aceptar_escribe_el_insumo_y_deja_la_sesion_en_propuestas(tmp_path):
+    from tests.test_fase3 import _DICC_OK
+    c, sid = _sesion_lista(tmp_path)
+    r = _decidir(c, sid, "diccionario", "aceptada")
+    assert r.status_code == 200 and r.json()["estado"] == "listo"        # GeneradosOut: falta el TO-BE
+    assert r.json()["diccionario"]["decision"] == "aceptada"
+    assert (tmp_path / sid / "Diccionario de Datos.md").read_text(encoding="utf-8") == _DICC_OK
+    assert not (tmp_path / sid / "manifiesto.yaml").exists()
+
+
+def test_corregida_escribe_texto_final_y_declinada_no_escribe(tmp_path):
+    c, sid = _sesion_lista(tmp_path)
+    assert _decidir(c, sid, "diccionario", "corregida").status_code == 422        # sin texto
+    r = _decidir(c, sid, "diccionario", "corregida", "# Diccionario de Datos — Mío\n")
+    assert r.status_code == 200
+    assert (tmp_path / sid / "Diccionario de Datos.md").read_text(encoding="utf-8") == "# Diccionario de Datos — Mío\n"
+    r = _decidir(c, sid, "tobe", "declinada")
+    assert r.status_code == 200 and r.json()["tobe"]["decision"] == "declinada"
+    assert not (tmp_path / sid / "Propuesta TO-BE.md").exists()
+
+
+def test_el_segundo_resuelto_dispara_la_extraccion_y_devuelve_el_expediente(tmp_path):
+    from gpmc.web import tablero
+    c, sid = _sesion_lista(tmp_path)
+    _decidir(c, sid, "diccionario", "aceptada")
+    r = _decidir(c, sid, "tobe", "aceptada")
+    assert r.status_code == 200 and r.json()["sid"] == sid and "manifiesto" in r.json()
+    assert c.get(f"/api/v1/expedientes/{sid}").status_code == 200
+    assert any(l["nombre"] == "Constancia de Prueba" for l in tablero.leer(tmp_path))
+
+
+def test_subir_el_propio_tras_declinar_cuenta_como_resuelto(tmp_path):
+    from tests.test_fase3 import _TOBE_OK
+    c, sid = _sesion_lista(tmp_path)
+    _decidir(c, sid, "diccionario", "aceptada")
+    _decidir(c, sid, "tobe", "declinada")
+    r = c.post(f"/api/v1/expedientes/{sid}/generados/tobe/subir",
+               files={"archivo": ("mi-tobe.md", _TOBE_OK.encode("utf-8"), "text/markdown")})
+    assert r.status_code == 200 and "manifiesto" in r.json()
+
+
+def test_decidir_dos_veces_o_documento_invalido(tmp_path):
+    c, sid = _sesion_lista(tmp_path)
+    assert _decidir(c, sid, "diccionario", "aceptada").status_code == 200
+    assert _decidir(c, sid, "diccionario", "declinada").status_code == 409
+    assert _decidir(c, sid, "vistas", "aceptada").status_code == 422
+    assert _decidir(c, "0123456789abcdef", "tobe", "aceptada").status_code == 404
+
+
+def test_decidir_en_sin_licencia_da_409_pero_subir_si_funciona(tmp_path):
+    from tests.test_fase3 import _DICC_OK, _TOBE_OK
+    c = _cli_fase3(tmp_path, [], entorno=_ENT_GEMINI)
+    sid = _proponer(c).json()["sid"]
+    assert _decidir(c, sid, "diccionario", "aceptada").status_code == 409
+    c.post(f"/api/v1/expedientes/{sid}/generados/diccionario/subir",
+           files={"archivo": ("dd.md", _DICC_OK.encode("utf-8"), "text/markdown")})
+    r = c.post(f"/api/v1/expedientes/{sid}/generados/tobe/subir",
+               files={"archivo": ("tb.md", _TOBE_OK.encode("utf-8"), "text/markdown")})
+    assert r.status_code == 200 and "manifiesto" in r.json()
+
+
+def test_extractor_sin_manifiesto_da_422_y_la_sesion_sigue(tmp_path):
+    from tests.test_fase3 import _json, _TOBE_OK, _DICC_OK
+    c = _cli_fase3(tmp_path, [_json("diccionario", "# Diccionario de Datos — X\n\nsin pantallas\n"),
+                              _json("tobe", _TOBE_OK)])
+    sid = _proponer(c).json()["sid"]
+    _decidir(c, sid, "diccionario", "aceptada")
+    r = _decidir(c, sid, "tobe", "aceptada")
+    assert r.status_code == 422 and "pantalla" in r.json()["error"].lower()
+    assert c.get(f"/api/v1/expedientes/{sid}").status_code == 409         # sigue viva, en propuestas
+    # Se sube un Diccionario bueno por encima y ahora si sale.
+    r = c.post(f"/api/v1/expedientes/{sid}/generados/diccionario/subir",
+               files={"archivo": ("dd.md", _DICC_OK.encode("utf-8"), "text/markdown")})
+    assert r.status_code == 200 and "manifiesto" in r.json()
+
+
+def test_cada_decision_queda_en_la_bitacora(tmp_path):
+    from gpmc.agentes.bitacora import leer
+    c, sid = _sesion_lista(tmp_path)
+    _decidir(c, sid, "diccionario", "aceptada")
+    _decidir(c, sid, "tobe", "declinada")
+    filas = [f for f in leer(tmp_path) if f["estado"] == "decision"]
+    assert [(f["documento"], f["solicitud"]["decision"]) for f in filas] == [
+        ("diccionario", "aceptada"), ("tobe", "declinada")]

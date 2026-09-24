@@ -357,7 +357,12 @@ def extraer_y_persistir(raiz: Path, sid: str, carpeta: Path):
     un insumo se puede volver a subir encima). Propaga `SinPermiso`."""
     res = extraer_expediente(carpeta)
     if res.manifiesto is None:
-        return None, (res.huecos[0].mensaje if res.huecos else "no se pudo extraer el manifiesto")
+        # El motivo es el hueco que CORTO la extraccion (INS-03, DIC-00), no el
+        # primero de la lista: ese suele ser un metadato sin importancia y
+        # decia «no se encontro la dependencia» cuando faltaban las pantallas.
+        causa = next((h for h in res.huecos if h.nivel == "bloqueante"),
+                     res.huecos[0] if res.huecos else None)
+        return None, (causa.mensaje if causa else "no se pudo extraer el manifiesto")
     guardar(res.manifiesto, carpeta / "manifiesto.yaml")
     # Los Hueco tipados se persisten como JSON para que GET /expedientes/{sid}
     # los reconstruya sin volver a correr el extractor.

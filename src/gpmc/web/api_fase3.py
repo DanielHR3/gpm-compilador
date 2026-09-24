@@ -13,16 +13,18 @@ import logging
 import secrets
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, File, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from gpmc.agentes.bitacora import Interaccion, registrar
 from gpmc.agentes.fase3 import Documento, Generados, generar, puede_generar
 from gpmc.agentes.proveedor import NingunProveedor
 from gpmc.extractores import metadatos as ext_meta
-from gpmc.web.api import a_texto
+from gpmc.extractores.expediente import SinPermiso
+from gpmc.web.api import a_texto, extraer_y_persistir
 from gpmc.web.sesiones import (
     CARPETA_ADJUNTOS, INSUMOS, _MAX_SUBIDA, _purgar_sesiones, carpeta_de,
     escribir_generados, generados_de, nombre_seguro,
@@ -39,6 +41,11 @@ class GeneradosOut(BaseModel):
     nombre: Optional[str] = None
     diccionario: Optional[Documento] = None
     tobe: Optional[Documento] = None
+
+
+class DecisionDocumentoIn(BaseModel):
+    decision: Literal["aceptada", "corregida", "declinada"]
+    texto_final: Optional[str] = None
 
 
 def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) -> APIRouter:
@@ -115,5 +122,92 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         if d is None:
             return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
         return GeneradosOut(**d)
+
+    def _anotar_decision(sid: str, documento: str, decision: str, version: str) -> None:
+        registrar(raiz, Interaccion(
+            sid=sid, proveedor=proveedor.nombre, modelo="", version_prompt=version,
+            solicitud={"decision": decision}, instruccion_hash="", estado="decision",
+            documento=documento))
+
+    def _resuelto(carpeta: Path, documento: str) -> bool:
+        """Un documento esta resuelto cuando su insumo existe en la sesion: lo
+        escriben `aceptada`, `corregida` o `/subir`; `declinada` sola no."""
+        return (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).exists()
+
+    def _si_ambos_resueltos(sid: str, carpeta: Path, d: dict):
+        if not (_resuelto(carpeta, "diccionario") and _resuelto(carpeta, "tobe")):
+            return GeneradosOut(**d)
+        try:
+            est, motivo = extraer_y_persistir(raiz, sid, carpeta)
+        except SinPermiso as exc:
+            return JSONResponse(status_code=422, content={"error": str(exc)})
+        if est is None:
+            # La sesion queda intacta: se puede subir otro archivo encima.
+            return JSONResponse(status_code=422, content={"error": motivo})
+        return est
+
+    def _documento_valido(documento: str):
+        if documento not in CLAVE_INSUMO:
+            return JSONResponse(status_code=422, content={"error": "documento debe ser diccionario o tobe"})
+        return None
+
+    @r.post("/expedientes/{sid}/generados/{documento}/decision")
+    async def decidir_documento(sid: str, documento: str, cuerpo: DecisionDocumentoIn):
+        invalido = _documento_valido(documento)
+        if invalido is not None:
+            return invalido
+        carpeta = carpeta_de(raiz, sid)
+        d = generados_de(carpeta) if carpeta else None
+        if d is None:
+            return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
+        if d["estado"] != "listo" or d.get(documento) is None:
+            return JSONResponse(status_code=409, content={"error": "no hay propuesta que decidir"})
+        doc = d[documento]
+        if doc["decision"] != "pendiente":
+            return JSONResponse(status_code=409, content={"error": "el documento ya tenía decisión"})
+        if cuerpo.decision == "corregida" and not (cuerpo.texto_final or "").strip():
+            return JSONResponse(status_code=422, content={"error": "corregida exige texto_final"})
+        if cuerpo.decision != "declinada":
+            texto = cuerpo.texto_final if cuerpo.decision == "corregida" else doc["texto"]
+            (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).write_text(texto, encoding="utf-8")
+        doc["decision"] = cuerpo.decision
+        escribir_generados(carpeta, d)
+        _anotar_decision(sid, documento, cuerpo.decision, doc["version_prompt"])
+        log.info("fase3 sid=%s %s=%s", sid, documento, cuerpo.decision)
+        return _si_ambos_resueltos(sid, carpeta, d)
+
+    @r.post("/expedientes/{sid}/generados/{documento}/subir")
+    async def subir_documento(sid: str, documento: str, archivo: UploadFile = File(...)):
+        """Para el declinado (o para una sesion en error / sin_licencia): el
+        archivo propio entra como insumo y aplica la misma regla de «ambos
+        resueltos». Vale mientras no haya manifiesto: asi un 422 del extractor
+        se corrige subiendo otro archivo encima."""
+        invalido = _documento_valido(documento)
+        if invalido is not None:
+            return invalido
+        carpeta = carpeta_de(raiz, sid)
+        d = generados_de(carpeta) if carpeta else None
+        if d is None:
+            return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
+        if (carpeta / "manifiesto.yaml").exists():
+            return JSONResponse(status_code=409, content={"error": "el expediente ya se extrajo"})
+        datos = await archivo.read(_MAX_SUBIDA + 1)
+        if len(datos) > _MAX_SUBIDA:
+            return JSONResponse(status_code=413, content={
+                "error": "archivo demasiado grande", "archivos": [archivo.filename],
+                "limite_mb": _MAX_SUBIDA // (1024 * 1024)})
+        try:
+            texto = a_texto(archivo.filename or "", datos)
+        except ValueError as e:
+            return JSONResponse(status_code=422, content={
+                "error": "no se pudo leer el documento", "archivos": [f"{archivo.filename}: {e}"]})
+        (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).write_bytes(texto)
+        # Subir el propio sobre una propuesta sin decidir es declinarla.
+        if d.get(documento) is not None and d[documento]["decision"] == "pendiente":
+            d[documento]["decision"] = "declinada"
+            escribir_generados(carpeta, d)
+            _anotar_decision(sid, documento, "declinada", d[documento]["version_prompt"])
+        log.info("fase3 sid=%s %s subido", sid, documento)
+        return _si_ambos_resueltos(sid, carpeta, d)
 
     return r
