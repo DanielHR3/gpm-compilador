@@ -43,7 +43,7 @@ const RESPONSABLE: Record<string, Responsable> = {
   // GPM asigna la homoclave y el tipo de persona; el resto es configuracion.
   "META-05": "plataforma", "META-06": "plataforma",
   "API-01": "plataforma", "API-02": "plataforma", "API-04": "plataforma",
-  "API-05": "plataforma", "DOC-04": "plataforma", "FLU-03": "plataforma",
+  "API-05": "plataforma", "API-06": "plataforma", "DOC-04": "plataforma", "FLU-03": "plataforma",
 };
 
 const TITULO_SECCION: Record<Responsable, string> = {

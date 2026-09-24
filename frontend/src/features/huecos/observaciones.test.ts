@@ -113,3 +113,11 @@ test("GEN-01 va al apartado del Diccionario, no a «Otros hallazgos»", () => {
   expect(doc).toContain("corregir en el Diccionario de Datos  (1)");
   expect(doc).not.toContain("Otros hallazgos");
 });
+
+test("API-06 se confirma en la plataforma: no se le manda a Simplificacion", () => {
+  const doc = documentoDeObservaciones(estado([
+    hueco("API-06", "p1", "se armó el autollenado por CURP con SIPUBEH", "por_confirmar"),
+  ]));
+  expect(doc).not.toContain("Otros hallazgos");
+  expect(doc).not.toContain("corregir en el Diccionario");
+});

@@ -89,6 +89,10 @@ class Campo(BaseModel):
     dependencia_tipo: Optional[Literal["api_ajax", "campo", "archivo"]] = None
     dependencia_campo: Optional[str] = None
     endpoint: Optional[str] = None
+    # Solo para `tipo: api_ajax`: que campo de la vista llena cada dato de la
+    # respuesta ({campo: clave}). El orden se conserva: es el de los arreglos
+    # `get_value_*` del export.
+    autollena: dict[str, str] = {}
     origen: Optional[str] = None
     ancho: Literal["completo", "medio", "tercio"] = "medio"
 

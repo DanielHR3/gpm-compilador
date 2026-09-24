@@ -276,6 +276,13 @@ function pintar(){
       api_badge = ` <span style="font-size:0.75rem;color:var(--tinta);background:var(--suave);padding:0.1rem 0.4rem;border-radius:1rem;">Depende de: ${esc(c.dependencia_campo)}</span>`;
     }
 
+    if (c.tipo === "api_ajax") {
+      // En la plataforma es un componente de script, no un campo que se llena:
+      // se explica lo que hara, con los nombres que ve el ciudadano.
+      const llena = (c.autollena_etiquetas || []).map(x => `«${esc(x)}»`).join(", ");
+      return `<p class="nota-api">⚡ Al salir de «${esc(c.dispara || "")}», la plataforma consulta SIPUBEH y llena ${llena}. Aquí no se consulta.</p>`;
+    }
+
     if (c.tipo === "select" || (c.catalogo && c.catalogo.length)) {
       // Un desplegable se dibuja como desplegable aunque no se pueda poblar:
       // deshabilitado dice la verdad, una caja de texto no.
@@ -574,6 +581,18 @@ def _catalogo_de_campo(c) -> dict:
     }
 
 
+def _autollenado_de_campo(c, p) -> dict:
+    """Para un `api_ajax`: que campo lo dispara y cuales llena, por su
+    etiqueta. El JavaScript solo escribe la nota; aqui se resuelven los nombres."""
+    if c.tipo != "api_ajax":
+        return {}
+    etiqueta = {x.nombre: (x.etiqueta or x.nombre) for x in p.campos}
+    return {
+        "dispara": etiqueta.get(c.dependencia_campo or "", c.dependencia_campo or ""),
+        "autollena_etiquetas": [etiqueta.get(n, n) for n in c.autollena],
+    }
+
+
 def generar(m: Manifiesto) -> str:
     a = analizar(m)
     e = _html.escape
@@ -594,7 +613,7 @@ def generar(m: Manifiesto) -> str:
                  "dependencia_tipo": c.dependencia_tipo,
                  "dependencia_campo": c.dependencia_campo,
                  "catalogo": [{"etiqueta": o.etiqueta, "valor": o.valor} for o in c.catalogo],
-                 **_catalogo_de_campo(c)}
+                 **_catalogo_de_campo(c), **_autollenado_de_campo(c, p)}
                 for c in p.campos
             ],
         }

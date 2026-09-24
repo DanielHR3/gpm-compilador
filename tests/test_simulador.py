@@ -415,3 +415,36 @@ def test_el_simulador_explica_que_no_escribe_en_ningun_sistema():
     assert "No escribe en ningún sistema" in html
     # y que las ramas dependen de lo que capture, no de un orden fijo
     assert "bifurcaciones" in html.lower()
+
+
+# El `api_ajax` de SIPUBEH: en la plataforma es un componente de script, no
+# un campo que la persona llene. El simulador lo explica en vez de dibujar
+# una caja de texto donde el ciudadano no escribe nada.
+_CON_AUTOLLENADO = {
+    "pantallas": [
+        {"id": "p1", "nombre": "Datos", "actor": "ciudadano", "campos": [
+            {"nombre": "curp_sol", "etiqueta": "CURP", "tipo": "text"},
+            {"nombre": "api_curp_p1", "etiqueta": "Consulta de CURP (SIPUBEH)",
+             "tipo": "api_ajax", "endpoint": "consultacurpn",
+             "dependencia_campo": "curp_sol",
+             "autollena": {"nombres_sol": "nombres", "paterno_sol": "apePat"}},
+            {"nombre": "nombres_sol", "etiqueta": "Nombre(s)", "tipo": "text"},
+            {"nombre": "paterno_sol", "etiqueta": "Apellido paterno", "tipo": "text"},
+        ]},
+    ],
+    "flujo": {
+        "tareas": [{"id": "t1", "nombre": "Capturar", "actor": "ciudadano",
+                    "inicial": True, "pantallas": ["p1"]},
+                   {"id": "tf", "nombre": "Fin", "terminal": True}],
+        "conexiones": [{"de": "t1", "a": "tf"}],
+    },
+}
+
+
+def test_el_simulador_explica_el_autollenado_en_vez_de_dibujar_una_caja():
+    html = generar(_m(**_CON_AUTOLLENADO))
+    # Los datos que el JavaScript necesita para escribir la nota, ya resueltos.
+    assert '"autollena_etiquetas": ["Nombre(s)", "Apellido paterno"]' in html
+    assert '"dispara": "CURP"' in html
+    # Y la rama que la dibuja: un api_ajax no pasa por el render de input.
+    assert 'c.tipo === "api_ajax"' in html

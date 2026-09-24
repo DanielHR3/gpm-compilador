@@ -78,6 +78,37 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
             # El hueco API-03 dice por que.
             tipo = "text"
 
+    if tipo == "api_ajax":
+        # Forma exacta del campo `api_curp_trigger` de
+        # acceso-informacion-publica.gpm: URL sin query, el parametro aparte
+        # (`campos`/`valores`, `tipo: si` = variable de la misma vista), el
+        # nodo de la respuesta como `prefijo`, se dispara al salir (`blur`) del
+        # campo que lleva el dato, y `get_value_*` dice que campo llena cada
+        # clave. Sin `tamano`: el export no lo trae en este componente.
+        cat = _resolver_catalogo(c.endpoint) if c.endpoint else None
+        if (cat is None or cat.tipo != "consulta" or not cat.parametro
+                or not c.dependencia_campo or not c.autollena):
+            # Sin campo que lo dispare o sin endpoint de consulta conocido, no
+            # se emite un componente que llama a una URL a medias.
+            tipo = "text"
+        else:
+            disparo = f"@@{c.dependencia_campo}"
+            extra = {
+                "attributes": "",
+                "url": cat.url_base,
+                "request": "get",
+                "campos": [cat.parametro],
+                "valores": [disparo],
+                "tipo": ["si"],
+                "prefijo": cat.nodo,
+                "get_campos": [disparo],
+                "get_tipo": ["input"],
+                "get_valores": ["blur"],
+                "get_value_campos": [f"@@{n}" for n in c.autollena],
+                "get_value_tipo": ["input"] * len(c.autollena),
+                "get_value_valores": list(c.autollena.values()),
+            }
+
     if tipo == "select":
         # Un select siempre lleva catalogo_id "1", sea manual o remoto: asi lo
         # traen los dos exports autenticos, sin excepcion.

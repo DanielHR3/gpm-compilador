@@ -18,7 +18,7 @@ from collections import Counter
 import unicodedata
 from dataclasses import dataclass, field
 
-from gpmc.nucleo.integraciones import clave_de as _clave_de, resolver as _resolver
+from gpmc.nucleo.integraciones import clave_de as _clave_de, resolver as _resolver, respuesta_para
 from gpmc.nucleo.manifiesto import Campo, OpcionCatalogo
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.limites import LIMITE_CAMPO_NOMBRE as LIMITE_NOMBRE_CAMPO
@@ -102,6 +102,9 @@ class PantallaExtraida:
     actor: str
     paso_ciudadano: Optional[int] = None
     campos: list[Campo] = field(default_factory=list)
+    # Nombres de los campos que el Diccionario marca como «autorellenable» (o
+    # «autocompletado»): los llena una consulta, no la persona.
+    autorellenables: list = field(default_factory=list)
 
 
 @dataclass
@@ -816,6 +819,80 @@ def _extraer_campos(
             campo.obligatorio = True
 
         pantalla.campos.append(campo)
+        if ("autorellen" in componente or "autocomplet" in componente
+                or "autocompletado" in _babel(desc) or dep_tipo == "api_ajax"):
+            pantalla.autorellenables.append(nombre)
+
+
+# El campo que dispara la consulta: el del export se llama `api_curp_trigger`;
+# aqui lleva la pantalla para que dos pantallas con CURP no choquen.
+_ENDPOINT_CURP = "consultacurpn"
+
+
+def _armar_autollenado(pantalla: "PantallaExtraida", r: "Resultado") -> None:
+    """CURP + campos «autorellenable» en la misma pantalla -> un `api_ajax` que
+    consulta SIPUBEH al salir del campo CURP y llena esos campos. Es la forma de
+    `acceso-informacion-publica.gpm` (campo `api_curp_trigger`), y lo que el
+    equipo ya escribe en sus Diccionarios.
+
+    SIPUBEH y no RENAPO aunque el Diccionario diga RENAPO: RENAPO directo exige
+    convenio (API-05); SIPUBEH es la via publica que ya decidio la DGT. Lo que
+    no tiene un dato de SIPUBEH sin ambiguedad no se conecta: queda de captura
+    y se reporta (el validador propone, no adivina).
+    """
+    auto = [c for c in pantalla.campos if c.nombre in pantalla.autorellenables]
+    if not auto:
+        return
+    curp = next((c for c in pantalla.campos
+                 if c.nombre not in pantalla.autorellenables and c.tipo == "text"
+                 and ("curp" in _babel(c.etiqueta) or "curp" in c.nombre.lower())), None)
+    if curp is None:
+        r.huecos.append(Hueco(
+            "por_confirmar", "API-04", pantalla.id,
+            f"la pantalla «{pantalla.nombre}» marca como autorellenables "
+            f"{', '.join('«' + c.etiqueta + '»' for c in auto)}, pero no tiene un campo "
+            f"CURP que dispare la consulta; quedan de captura manual",
+        ))
+        return
+    mapa = {}
+    for c in auto:
+        clave = respuesta_para(_ENDPOINT_CURP, c.etiqueta)
+        if clave:
+            mapa[c.nombre] = clave
+        else:
+            r.huecos.append(Hueco(
+                "por_confirmar", "API-04", pantalla.id,
+                f"«{c.etiqueta}» está marcado como autorellenable, pero SIPUBEH no devuelve "
+                f"un dato que lo llene sin ambigüedad (devuelve nombre, apellidos, fecha de "
+                f"nacimiento, sexo, nacionalidad y entidad de nacimiento); queda de captura manual",
+            ))
+    if not mapa:
+        return
+    disparador = Campo(
+        nombre=f"api_curp_{pantalla.id}"[:LIMITE_NOMBRE_CAMPO],
+        etiqueta="Consulta de CURP (SIPUBEH)",
+        tipo="api_ajax",
+        endpoint=_ENDPOINT_CURP,
+        dependencia_campo=curp.nombre,
+        autollena=mapa,
+    )
+    # Justo despues de la CURP, como en el export.
+    pantalla.campos.insert(pantalla.campos.index(curp) + 1, disparador)
+    # El camino viejo (columna Dependencia = api_ajax) dejaba un API-04 por
+    # campo diciendo «queda de captura manual»: para los conectados ya no es cierto.
+    conectados = set(mapa)
+    r.huecos[:] = [h for h in r.huecos if not (
+        h.codigo == "API-04" and h.ubicacion == pantalla.id
+        and any(f"'{n}' se autocompleta" in h.mensaje for n in conectados))]
+    etiquetas = {c.nombre: c.etiqueta for c in auto}
+    fecha = (" La fecha de nacimiento llega como DD/MM/AAAA: confirma en la plataforma "
+             "que el campo la acepta." if "fechaNac" in mapa.values() else "")
+    r.huecos.append(Hueco(
+        "por_confirmar", "API-06", pantalla.id,
+        f"se armó el autollenado por CURP con SIPUBEH (RENAPO directo exige convenio): al "
+        f"salir de «{curp.etiqueta}» se llenan "
+        f"{', '.join('«' + etiquetas[n] + '»' for n in mapa)}.{fecha}",
+    ))
 
 
 def extraer(texto: str) -> Resultado:
@@ -860,6 +937,7 @@ def extraer(texto: str) -> Resultado:
             continue
 
         _extraer_campos(filas, pantalla, r, indice)
+        _armar_autollenado(pantalla, r)
         r.pantallas.append(pantalla)
 
     if not r.pantallas:

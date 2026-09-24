@@ -703,3 +703,65 @@ def test_la_cascada_del_domicilio_llega_completa_al_gpm():
     assert campos["tipo_vial_sol"]["catalog_url"] == f"{base}/catvialidad"
     assert campos["tipo_vial_sol"]["key_object"] == "descripcion,cve_tipo_vial"
     assert "populated_by" not in campos["tipo_vial_sol"]
+
+
+# El `api_ajax` de SIPUBEH, contra el export autentico acceso-informacion-publica.gpm
+# (campo api_curp_trigger). Mismos nombres de campo que el export, para poder
+# comparar el `extra` clave por clave y en el mismo orden.
+_API_AJAX = """
+tramite: {nombre: T, dependencia: D}
+actores: [{id: u, nombre: U}]
+pantallas:
+- id: p1
+  nombre: P
+  actor: u
+  campos:
+  - {nombre: curp_solicitante, etiqueta: CURP, tipo: text}
+  - {nombre: api_curp_trigger, etiqueta: Trigger CURP, tipo: api_ajax, endpoint: consultacurpn,
+     dependencia_campo: curp_solicitante,
+     autollena: {nombres_sol: nombres, paterno_sol: apePat, materno_sol: apeMat}}
+  - {nombre: nombres_sol, etiqueta: Nombre, tipo: text}
+  - {nombre: paterno_sol, etiqueta: Paterno, tipo: text}
+  - {nombre: materno_sol, etiqueta: Materno, tipo: text}
+flujo:
+  tareas:
+  - {id: t1, nombre: T1, actor: u, inicial: true, pantallas: [{id: p1}]}
+  - {id: tf, nombre: Fin, terminal: true}
+  conexiones: [{de: t1, a: tf}]
+"""
+
+_EXTRA_DEL_EXPORT = (
+    '{"attributes": "", "url": "https://sipubeh.hidalgo.gob.mx/efirma/api/consultacurpn", '
+    '"request": "get", "campos": ["curp"], "valores": ["@@curp_solicitante"], "tipo": ["si"], '
+    '"prefijo": "data", "get_campos": ["@@curp_solicitante"], "get_tipo": ["input"], '
+    '"get_valores": ["blur"], "get_value_campos": ["@@nombres_sol", "@@paterno_sol", '
+    '"@@materno_sol"], "get_value_tipo": ["input", "input", "input"], '
+    '"get_value_valores": ["nombres", "apePat", "apeMat"]}'
+)
+
+
+def test_el_api_ajax_sale_igual_que_en_el_export_autentico():
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    g = compilar(Manifiesto(**yaml.safe_load(_API_AJAX)))
+    campo = next(c for c in g["Formularios"][0]["Campos"] if c["nombre"] == "api_curp_trigger")
+    assert campo["tipo"] == "api_ajax"
+    assert campo["catalogo_id"] is None
+    assert campo["posicion"] == "2"
+    esperado = json.loads(_EXTRA_DEL_EXPORT)
+    obtenido = json.loads(campo["extra"])
+    assert obtenido == esperado
+    assert list(obtenido) == list(esperado)           # mismo orden de claves
+
+
+def test_un_api_ajax_sin_curp_o_sin_endpoint_conocido_no_se_emite_roto():
+    """Sin campo que lo dispare no hay consulta que hacer: se degrada a texto
+    en vez de emitir un componente que llama a una URL a medias."""
+    import yaml
+    from gpmc.nucleo.manifiesto import Manifiesto
+    d = yaml.safe_load(_API_AJAX)
+    d["pantallas"][0]["campos"][1]["dependencia_campo"] = None
+    g = compilar(Manifiesto(**d))
+    campo = next(c for c in g["Formularios"][0]["Campos"] if c["nombre"] == "api_curp_trigger")
+    assert campo["tipo"] == "text"
+    assert "url" not in json.loads(campo["extra"])

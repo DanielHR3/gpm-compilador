@@ -87,7 +87,9 @@ def test_sipubeh_declara_los_tres_campos_del_nombre():
     # autollenado que solo escriba `nombres` deja el tramite a medias.
     from gpmc.nucleo.integraciones import CATALOGOS
     c = CATALOGOS["consultacurpn"]
-    assert c.campos_respuesta == ("nombres", "apePat", "apeMat")
+    assert c.campos_respuesta[:3] == ("nombres", "apePat", "apeMat")
+    # Y el resto de la respuesta, verificada contra la API viva el 2026-09-24.
+    assert c.campos_respuesta == ("nombres", "apePat", "apeMat", "fechaNac", "sexo", "nacionalidad", "entidadNac")
 
 
 def test_cada_entrada_dice_si_es_catalogo_o_consulta():
@@ -108,7 +110,7 @@ def test_cada_entrada_dice_si_es_catalogo_o_consulta():
 
 def test_una_consulta_declara_que_devuelve_y_un_catalogo_no():
     from gpmc.nucleo.integraciones import CATALOGOS
-    assert CATALOGOS["consultacurpn"].campos_respuesta == ("nombres", "apePat", "apeMat")
+    assert CATALOGOS["consultacurpn"].campos_respuesta == ("nombres", "apePat", "apeMat", "fechaNac", "sexo", "nacionalidad", "entidadNac")
     assert CATALOGOS["mgee"].campos_respuesta == ()
 
 
@@ -213,3 +215,40 @@ def test_colonia_sigue_siendo_sepomex():
     INEGI se piden por su nombre, sin robarle el sinonimo."""
     from gpmc.nucleo.integraciones import clave_de
     assert clave_de("colonia") == "zip_codes"
+
+
+# ── SIPUBEH como api_ajax (2026-09-24): la forma del export real ──
+# Respuesta verificada contra la API viva el 2026-09-24: `data` con nombres,
+# curp, apePat, apeMat, fechaNac (DD/MM/AAAA), nacionalidad, entidadNac, sexo.
+
+def test_sipubeh_declara_parametro_y_url_base_para_el_api_ajax():
+    c = resolver("consultacurpn")
+    assert c.parametro == "curp"
+    assert c.url_base == "https://sipubeh.hidalgo.gob.mx/efirma/api/consultacurpn"
+    assert c.nodo == "data"
+    assert c.campos_respuesta == ("nombres", "apePat", "apeMat", "fechaNac", "sexo",
+                                  "nacionalidad", "entidadNac")
+
+
+@pytest.mark.parametrize("etiqueta,clave", [
+    ("Nombre(s)", "nombres"), ("Nombres", "nombres"), ("Nombre", "nombres"),
+    ("Apellido Paterno", "apePat"), ("Primer apellido", "apePat"),
+    ("Apellido Materno", "apeMat"), ("Segundo apellido", "apeMat"),
+    ("Fecha de Nacimiento", "fechaNac"),
+    ("Sexo", "sexo"), ("Género", "sexo"),
+    ("Nacionalidad", "nacionalidad"),
+    ("Entidad de nacimiento", "entidadNac"), ("Estado de nacimiento", "entidadNac"),
+])
+def test_respuesta_para_reconoce_la_etiqueta_del_diccionario(etiqueta, clave):
+    from gpmc.nucleo.integraciones import respuesta_para
+    assert respuesta_para("consultacurpn", etiqueta) == clave
+
+
+@pytest.mark.parametrize("etiqueta", [
+    "Nombre Completo del Testador",   # son nombre Y apellidos: no hay una sola clave
+    "Lugar de Nacimiento",            # un lugar no es la entidad
+    "Municipio", "", None,
+])
+def test_respuesta_para_no_adivina(etiqueta):
+    from gpmc.nucleo.integraciones import respuesta_para
+    assert respuesta_para("consultacurpn", etiqueta) is None

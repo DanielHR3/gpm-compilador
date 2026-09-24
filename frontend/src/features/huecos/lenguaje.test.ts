@@ -467,3 +467,7 @@ test("GEN-01 se redacta en palabras y se ancla al mensaje del verificador", () =
   expect(redactarHueco(h)).not.toBe(h.mensaje);
   expect(redactarHueco({ ...h, mensaje: "otro mensaje" })).toBe("otro mensaje");
 });
+
+test("API-06 (autollenado armado) tiene titulo en palabras", () => {
+  expect(tituloDeCodigo("API-06")).toBe("Autollenado por CURP");
+});

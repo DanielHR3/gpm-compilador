@@ -1253,3 +1253,84 @@ def test_un_endpoint_desconocido_sigue_llegando_como_texto():
     from gpmc.extractores.diccionario import _clave_endpoint
     assert _clave_endpoint("`consultarfc` (SAT)") == "consultarfc"
     assert _clave_endpoint("REPUVE") == "REPUVE"
+
+
+# ── Autollenado por CURP como api_ajax (2026-09-24) ──
+# Asi lo escribe el equipo en ocho Diccionarios de su boveda: un campo CURP y,
+# en la columna Componente, «autorellenable» en los que llena el sistema.
+_CURP_AUTO = (
+    "### Pantalla 1 — CIUDADANO — Datos del alumno\n\n"
+    "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+    "| --- | --- | --- | --- | --- |\n"
+    "| CURP | String | Campo de texto (input) | Sí | `@@curp_alumno` |\n"
+    "| Nombre(s) | String | Campo de texto (input) autorellenable | Sí | `@@nombres_alumno` [Solo lectura, autocompletado por RENAPO] |\n"
+    "| Apellido Paterno | String | Campo de texto (input) autorellenable | Sí | `@@paterno_alumno` |\n"
+    "| Apellido Materno | String | Campo de texto (input) autorellenable | Sí | `@@materno_alumno` |\n"
+    "| Fecha de Nacimiento | Date | Selector de fecha autorellenable | Sí | `@@fecha_nac_alumno` |\n"
+    "| Nombre completo del tutor | String | Campo de texto (input) autorellenable | No | `@@tutor_alumno` |\n"
+    "| Teléfono | String | Campo de texto (input) | Sí | `@@telefono_alumno` |\n"
+)
+
+
+def test_curp_con_autorellenables_arma_el_api_ajax_despues_de_la_curp():
+    from gpmc.extractores.diccionario import extraer
+    r = extraer(_CURP_AUTO)
+    campos = r.pantallas[0].campos
+    nombres = [c.nombre for c in campos]
+    i = nombres.index("curp_alumno")
+    disparador = campos[i + 1]                      # justo despues, como en el export
+    assert disparador.tipo == "api_ajax"
+    assert disparador.endpoint == "consultacurpn"
+    assert disparador.dependencia_campo == "curp_alumno"
+    assert disparador.autollena == {
+        "nombres_alumno": "nombres", "paterno_alumno": "apePat",
+        "materno_alumno": "apeMat", "fecha_nac_alumno": "fechaNac",
+    }
+    assert len(disparador.nombre) <= 30
+
+
+def test_lo_que_no_se_sabe_llenar_queda_de_captura_con_su_hueco():
+    from gpmc.extractores.diccionario import extraer
+    r = extraer(_CURP_AUTO)
+    api04 = [h for h in r.huecos if h.codigo == "API-04"]
+    assert len(api04) == 1 and "Nombre completo del tutor" in api04[0].mensaje
+    assert "SIPUBEH" in api04[0].mensaje
+
+
+def test_el_autollenado_armado_se_avisa_para_confirmar_en_la_plataforma():
+    """Informativo (por_confirmar): que datos llena, con que servicio, y que la
+    fecha llega como DD/MM/AAAA. RENAPO directo exige convenio; se usa SIPUBEH."""
+    from gpmc.extractores.diccionario import extraer
+    r = extraer(_CURP_AUTO)
+    api06 = [h for h in r.huecos if h.codigo == "API-06"]
+    assert len(api06) == 1 and api06[0].nivel == "por_confirmar"
+    for texto in ("SIPUBEH", "Nombre(s)", "Apellido Paterno", "Fecha de Nacimiento", "DD/MM/AAAA"):
+        assert texto in api06[0].mensaje, texto
+
+
+def test_autorellenables_sin_curp_en_la_pantalla_no_arman_nada():
+    from gpmc.extractores.diccionario import extraer
+    sin_curp = _CURP_AUTO.replace("| CURP | String | Campo de texto (input) | Sí | `@@curp_alumno` |\n", "")
+    r = extraer(sin_curp)
+    assert not any(c.tipo == "api_ajax" for c in r.pantallas[0].campos)
+    assert any(h.codigo == "API-04" and "CURP" in h.mensaje for h in r.huecos)
+    assert not any(h.codigo == "API-06" for h in r.huecos)
+
+
+def test_la_nota_autocompletado_en_la_descripcion_tambien_marca_el_campo():
+    from gpmc.extractores.diccionario import extraer
+    solo_nota = _CURP_AUTO.replace(" autorellenable", "").replace("autorellenable", "")
+    r = extraer(solo_nota)
+    disparador = next(c for c in r.pantallas[0].campos if c.tipo == "api_ajax")
+    assert disparador.autollena == {"nombres_alumno": "nombres"}
+
+
+def test_una_pantalla_sin_autorellenables_no_cambia():
+    from gpmc.extractores.diccionario import extraer
+    # Sin la palabra en Componente NI la nota «autocompletado» en la descripcion:
+    # cualquiera de las dos basta para marcar el campo (asi lo escribe el equipo).
+    llano = (_CURP_AUTO.replace(" autorellenable", "").replace("autorellenable", "")
+             .replace(" [Solo lectura, autocompletado por RENAPO]", ""))
+    r = extraer(llano)
+    assert not any(c.tipo == "api_ajax" for c in r.pantallas[0].campos)
+    assert not any(h.codigo in ("API-04", "API-06") for h in r.huecos)

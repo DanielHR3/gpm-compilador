@@ -34,6 +34,15 @@ class Catalogo:
     # un dato y devuelve otros para autollenar (un `api_ajax`). Solo la
     # segunda usa `campos_respuesta`.
     tipo: str = "catalogo"
+    # Solo para una "consulta" emitida como `api_ajax`: el nombre del
+    # parametro que lleva el dato («curp»). El `api_ajax` del export pone la
+    # URL SIN la query y declara el parametro aparte (`campos`/`valores`).
+    parametro: str = ""
+
+    @property
+    def url_base(self) -> str:
+        """La URL sin query ni `@@`: la que va en el `url` de un `api_ajax`."""
+        return self.url.split("?")[0]
 
     def url_para(self, padre: Optional[str]) -> str:
         """La URL lista para el .gpm. La plataforma interpola @@campo en tiempo
@@ -108,8 +117,13 @@ CATALOGOS = {
             url="https://sipubeh.hidalgo.gob.mx/efirma/api/consultacurpn?curp=@@{padre}",
             nodo="data", etiqueta="nombres", valor="nombres",
             requiere_padre=True,
-            campos_respuesta=("nombres", "apePat", "apeMat"),
+            # La respuesta completa, verificada contra la API viva el
+            # 2026-09-24 (y la que documenta el Catalogo Maestro): fechaNac
+            # llega como DD/MM/AAAA y sexo como H/M.
+            campos_respuesta=("nombres", "apePat", "apeMat", "fechaNac", "sexo",
+                              "nacionalidad", "entidadNac"),
             tipo="consulta",
+            parametro="curp",
         ),
     )
 }
@@ -194,3 +208,32 @@ def requiere_token(clave: Optional[str]) -> bool:
     """El endpoint es uno conocido que necesita credencial. El compilador no lo
     emite en cliente (SEG-04); se reporta como hueco API-05 → Acción PHP a mano."""
     return nombre_propuesta(clave) is not None
+
+
+# Que dato de la respuesta llena un campo, por la etiqueta que le puso el
+# Diccionario. Solo coincidencias exactas (sin acentos ni puntuacion): «Nombre
+# completo del testador» es nombre Y apellidos, y «Lugar de nacimiento» no es la
+# entidad; para esos no hay una sola clave y el extractor lo reporta en vez de
+# adivinar.
+_ETIQUETAS_RESPUESTA = {
+    "consultacurpn": {
+        "nombre": "nombres", "nombres": "nombres", "nombre s": "nombres",
+        "apellido paterno": "apePat", "primer apellido": "apePat",
+        "apellido materno": "apeMat", "segundo apellido": "apeMat",
+        "fecha de nacimiento": "fechaNac",
+        "sexo": "sexo", "genero": "sexo",
+        "nacionalidad": "nacionalidad",
+        "entidad de nacimiento": "entidadNac", "estado de nacimiento": "entidadNac",
+    },
+}
+
+
+def respuesta_para(clave: str, etiqueta: Optional[str]) -> Optional[str]:
+    """La clave de la respuesta de `clave` que llena un campo con `etiqueta`, o
+    None si no hay una sin ambiguedad."""
+    import re
+    import unicodedata
+    t = unicodedata.normalize("NFKD", etiqueta or "")
+    t = "".join(ch for ch in t if unicodedata.category(ch) != "Mn").lower()
+    t = re.sub(r"[^a-z0-9]+", " ", t).strip()
+    return _ETIQUETAS_RESPUESTA.get(clave, {}).get(t)

@@ -999,7 +999,7 @@ def test_get_catalogos_lista_lo_emitible_y_calla_lo_de_pago(tmp_path):
     assert "repuve" not in claves and "tlaloc" not in claves
     curp = next(c for c in d["catalogos"] if c["clave"] == "consultacurpn")
     assert curp["tipo"] == "consulta"
-    assert curp["campos_respuesta"] == ["nombres", "apePat", "apeMat"]
+    assert curp["campos_respuesta"] == ["nombres", "apePat", "apeMat", "fechaNac", "sexo", "nacionalidad", "entidadNac"]
     assert "curp" in curp["sinonimos"]
     assert "credencial" in d["nota"].lower()
 
