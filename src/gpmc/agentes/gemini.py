@@ -7,7 +7,7 @@ proveedor usan los expedientes de ejemplo del repositorio, no los reales.
 import json
 import time
 
-from gpmc.agentes.proveedor import RespuestaInvalida, Respuesta, clasificar_error
+from gpmc.agentes.proveedor import ErrorDeRed, RespuestaInvalida, Respuesta, clasificar_error
 
 
 def _esquema_gemini(esquema):
@@ -48,23 +48,46 @@ class ProveedorGemini:
         from google.genai import types
         self._types = types
         self._cliente = genai.Client(api_key=llave, http_options={"timeout": int(timeout_s * 1000)})
-        self._modelo = modelo
+        # `modelo` puede ser una lista separada por comas: el primero es el
+        # principal y los demas, el respaldo en ese orden (ver `completar`).
+        self._modelos = [m.strip() for m in modelo.split(",") if m.strip()] or [modelo]
+        self._modelo = self._modelos[0]
+
+    def _generar(self, modelo: str, instrucciones: str, contexto: str, esquema: dict):
+        return self._cliente.models.generate_content(
+            model=modelo,
+            contents=contexto,
+            config=self._types.GenerateContentConfig(
+                system_instruction=instrucciones,
+                response_mime_type="application/json",
+                response_schema=_esquema_gemini(esquema),
+                temperature=0.1,
+            ),
+        )
 
     def completar(self, instrucciones: str, contexto: str, esquema: dict) -> Respuesta:
         t0 = time.monotonic()
-        try:
-            r = self._cliente.models.generate_content(
-                model=self._modelo,
-                contents=contexto,
-                config=self._types.GenerateContentConfig(
-                    system_instruction=instrucciones,
-                    response_mime_type="application/json",
-                    response_schema=_esquema_gemini(esquema),
-                    temperature=0.1,
-                ),
-            )
-        except Exception as e:  # el SDK no expone una jerarquia estable, pero si el codigo
-            raise clasificar_error(e)
+        # Respaldo entre modelos. La tarde del 2026-09-24, con la cuenta
+        # gratuita, 3.8 y 3.7 daban 503 por saturacion, 3.5 se quedo sin cuota
+        # del dia y 3.6 contestaba; a los cinco minutos era al reves. Ante un
+        # error PASAJERO (503, 429...) se prueba el siguiente de la lista en la
+        # misma llamada: un 503 no consume cuota, y esperar 2 y 8 s contra un
+        # modelo saturado era pedirle otro 503. Un error de configuracion
+        # (llave invalida, modelo inexistente) no va a mejorar con otro modelo:
+        # se corta ahi. Solo si TODOS fallan se propaga el ErrorDeRed, y ahi
+        # aplican los reintentos de siempre.
+        ultimo = None
+        r = None
+        for modelo in self._modelos:
+            try:
+                r = self._generar(modelo, instrucciones, contexto, esquema)
+                break
+            except Exception as e:  # el SDK no expone una jerarquia estable, pero si el codigo
+                ultimo = clasificar_error(e)
+                if not isinstance(ultimo, ErrorDeRed):
+                    raise ultimo
+        if r is None:
+            raise ultimo
         texto = r.text or ""
         try:
             json.loads(texto)

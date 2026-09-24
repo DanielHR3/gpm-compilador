@@ -627,6 +627,7 @@ def _gemini_con_cliente(generar):
     from gpmc.agentes.gemini import ProveedorGemini
     p = object.__new__(ProveedorGemini)
     p._modelo = "gemini-flash-latest"
+    p._modelos = [p._modelo]
     p._types = SimpleNamespace(GenerateContentConfig=lambda **k: k)
     p._cliente = SimpleNamespace(models=SimpleNamespace(generate_content=generar))
     return p
@@ -715,3 +716,85 @@ def test_499_cancelado_es_pasajero_y_se_reintenta():
 
     assert isinstance(clasificar_error(Cancelado("499 CANCELLED")), ErrorDeRed)
     assert isinstance(clasificar_error(LlaveMala("401")), ErrorDeProveedor)
+
+
+# ── Gemini: respaldo entre modelos cuando el principal esta saturado o sin cuota ──
+# La tarde del 2026-09-24, con la cuenta gratuita, 3.8 y 3.7 daban 503 por
+# saturacion, 3.5 se quedo sin cuota del dia y 3.6 contestaba. Rotar a mano no
+# sirve: el que esta libre ahora puede estar saturado en cinco minutos.
+
+def _gemini_por_modelo(respuestas):
+    """`respuestas`: {modelo: excepcion | texto}. Registra el orden de intentos."""
+    from types import SimpleNamespace
+    intentos = []
+
+    def generar(**k):
+        intentos.append(k["model"])
+        r = respuestas[k["model"]]
+        if isinstance(r, Exception):
+            raise r
+        return SimpleNamespace(text=r, usage_metadata=None, model_version=k["model"] + "-001")
+    p = _gemini_con_cliente(generar)
+    p._modelos = list(respuestas)
+    p._modelo = p._modelos[0]
+    return p, intentos
+
+
+def test_gemini_pasa_al_siguiente_modelo_ante_503_o_429():
+    p, intentos = _gemini_por_modelo({
+        "gemini-3.5-flash": _ErrorHttp("code", 429),
+        "gemini-3.6-flash": _ErrorHttp("code", 503),
+        "gemini-3.5-flash-lite": '{"r": "ok"}',
+    })
+    r = p.completar("i", "c", {})
+    assert r.texto == '{"r": "ok"}'
+    assert r.modelo == "gemini-3.5-flash-lite-001"          # la bitacora sabe quien contesto
+    assert intentos == ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+
+
+def test_gemini_si_todos_fallan_es_error_de_red_y_se_reintenta_como_siempre():
+    from gpmc.agentes.proveedor import ErrorDeRed
+    p, intentos = _gemini_por_modelo({
+        "gemini-3.5-flash": _ErrorHttp("code", 503),
+        "gemini-3.6-flash": _ErrorHttp("code", 503),
+    })
+    with pytest.raises(ErrorDeRed):
+        p.completar("i", "c", {})
+    assert intentos == ["gemini-3.5-flash", "gemini-3.6-flash"]
+
+
+def test_gemini_un_error_de_configuracion_no_pasa_al_siguiente():
+    """Una llave invalida no va a mejorar con otro modelo: se corta ahi, para
+    que la bitacora no diga «red» y para no gastar intentos."""
+    from gpmc.agentes.proveedor import ErrorDeProveedor
+    p, intentos = _gemini_por_modelo({
+        "gemini-3.5-flash": _ErrorHttp("code", 401),
+        "gemini-3.6-flash": '{"r": "ok"}',
+    })
+    with pytest.raises(ErrorDeProveedor):
+        p.completar("i", "c", {})
+    assert intentos == ["gemini-3.5-flash"]
+
+
+def test_gemini_con_un_solo_modelo_se_comporta_como_antes():
+    from gpmc.agentes.proveedor import ErrorDeRed
+    p, intentos = _gemini_por_modelo({"gemini-3.5-flash": _ErrorHttp("code", 503)})
+    with pytest.raises(ErrorDeRed):
+        p.completar("i", "c", {})
+    assert intentos == ["gemini-3.5-flash"]
+
+
+def test_crear_proveedor_gemini_lee_una_lista_de_modelos(monkeypatch):
+    """`GPMC_IA_MODELO=a, b ,c` -> tres modelos en orden, sin espacios."""
+    import sys, types
+    genai = types.ModuleType("google.genai")
+    genai.Client = lambda **k: object()
+    genai.types = types.SimpleNamespace(GenerateContentConfig=lambda **k: k)
+    google = types.ModuleType("google"); google.genai = genai
+    monkeypatch.setitem(sys.modules, "google", google)
+    monkeypatch.setitem(sys.modules, "google.genai", genai)
+    from gpmc.agentes.proveedor import crear_proveedor
+    p = crear_proveedor(entorno={"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k",
+                                 "GPMC_IA_MODELO": "gemini-3.5-flash, gemini-3.6-flash ,gemini-3.5-flash-lite"})
+    assert p._modelos == ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    assert p._modelo == "gemini-3.5-flash"
