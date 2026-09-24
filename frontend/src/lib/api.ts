@@ -12,6 +12,7 @@ import type {
   Adjunto,
   Bloqueante,
   CampoManifiesto,
+  Capacidades,
   ClaveDocumento,
   Condicion,
   EstadoExpediente,
@@ -493,4 +494,24 @@ export async function subirDocumento(
     { method: "POST", body: fd },
   );
   return aResultado(raw);
+}
+
+/** `GET /api/v1/capacidades` — si este servidor puede proponer desde el AS-IS. */
+export async function leerCapacidades(): Promise<Capacidades> {
+  return pedirJson<Capacidades>(`${BASE}/capacidades`);
+}
+
+/** `GET /api/v1/expedientes/{sid}/insumos/to_be` — el TO-BE de la sesion, en texto. */
+export async function leerToBe(sid: string): Promise<string> {
+  const res = await fetch(`${BASE}/expedientes/${sid}/insumos/to_be`);
+  if (!res.ok) {
+    let cuerpo: unknown;
+    try {
+      cuerpo = await res.json();
+    } catch {
+      cuerpo = undefined;
+    }
+    throw ErrorApi.desde(res.status, cuerpo);
+  }
+  return res.text();
 }

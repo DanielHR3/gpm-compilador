@@ -157,6 +157,8 @@ export type DocumentoGenerado = {
   ronda: number;
   huecos: Hueco[];
   decision: DecisionDocumento;
+  /** Solo el Diccionario: pantallas y campos leidos por el extractor. */
+  vista?: PantallaVista[];
 };
 export type EstadoGenerados = "generando" | "listo" | "error" | "sin_licencia";
 /** `GET /api/v1/expedientes/{sid}/generados`. */
@@ -166,6 +168,8 @@ export type GeneradosOut = {
   nombre: string | null;
   diccionario: DocumentoGenerado | null;
   tobe: DocumentoGenerado | null;
+  /** Que documento ya tiene archivo en la sesion (para abrir en el paso correcto). */
+  insumos?: { diccionario: boolean; tobe: boolean };
 };
 export type ClaveDocumento = "diccionario" | "tobe";
 /**
@@ -175,3 +179,15 @@ export type ClaveDocumento = "diccionario" | "tobe";
 export type ResultadoDecision =
   | { tipo: "expediente"; estado: EstadoExpediente }
   | { tipo: "generados"; generados: GeneradosOut };
+
+/** `GET /api/v1/capacidades`. */
+export type Capacidades = { proponer: boolean; motivo: string | null };
+/** Un campo del Diccionario propuesto, ya leido por el extractor. */
+export type CampoVista = {
+  etiqueta: string;
+  tipo: string;
+  obligatorio: boolean;
+  opciones: string[];
+  condicion: string | null;
+};
+export type PantallaVista = { id: string; nombre: string; actor: string; campos: CampoVista[] };

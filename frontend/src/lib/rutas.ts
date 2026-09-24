@@ -1,0 +1,59 @@
+/**
+ * Que pantalla toca y que migas de pan lleva, en funciones puras. `App` sigue
+ * decidiendo por `pathname` (sin enrutador de terceros: cinco pantallas no lo
+ * justifican y las ligas `/revisar/{sid}` que ya circulan siguen vivas).
+ */
+export type Camino = "carpeta" | "as_is";
+export type Ruta =
+  | { tipo: "inicio" }
+  | { tipo: "expediente" }
+  | { tipo: "desde_as_is" }
+  | { tipo: "revisar"; sid: string }
+  | { tipo: "catalogos" }
+  | { tipo: "historial" }
+  | { tipo: "tablero" };
+
+const RE_REVISAR = /^\/revisar\/([0-9a-f]{16})$/;
+
+export function leerRuta(pathname: string): Ruta {
+  const m = RE_REVISAR.exec(pathname);
+  if (m) return { tipo: "revisar", sid: m[1] };
+  switch (pathname) {
+    case "/expediente":
+      return { tipo: "expediente" };
+    case "/desde-as-is":
+      return { tipo: "desde_as_is" };
+    case "/catalogos":
+      return { tipo: "catalogos" };
+    case "/historial":
+      return { tipo: "historial" };
+    case "/tablero":
+      return { tipo: "tablero" };
+    default:
+      return { tipo: "inicio" };
+  }
+}
+
+export type Pantalla = "inicio" | "carga" | "diccionario" | "tobe" | "revision";
+export type Tramo = { etiqueta: string; href?: string };
+
+const NOMBRE_CAMINO: Record<Camino, string> = {
+  carpeta: "Expediente completo",
+  as_is: "Solo AS-IS",
+};
+
+/**
+ * Maximo tres tramos y solo «Inicio» enlaza: volver a «Expediente completo»
+ * desde la revision abriria una carga nueva y la sesion se perderia de vista.
+ */
+export function migas(pantalla: Pantalla, camino: Camino | null): Tramo[] {
+  if (pantalla === "inicio") return [{ etiqueta: "Inicio" }];
+  const inicio: Tramo = { etiqueta: "Inicio", href: "/" };
+  const tramoCamino: Tramo[] = camino ? [{ etiqueta: NOMBRE_CAMINO[camino] }] : [];
+  if (pantalla === "carga") return [inicio, ...tramoCamino];
+  if (pantalla === "diccionario")
+    return [inicio, { etiqueta: NOMBRE_CAMINO.as_is }, { etiqueta: "Diccionario (1 de 2)" }];
+  if (pantalla === "tobe")
+    return [inicio, { etiqueta: NOMBRE_CAMINO.as_is }, { etiqueta: "TO-BE (2 de 2)" }];
+  return [inicio, ...tramoCamino, { etiqueta: "Revisión" }];
+}

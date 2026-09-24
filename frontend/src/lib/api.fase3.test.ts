@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { decidirDocumento, leerGenerados, proponerExpediente, subirDocumento } from "./api";
+import { decidirDocumento, leerCapacidades, leerGenerados, leerToBe, proponerExpediente, subirDocumento } from "./api";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -45,5 +45,15 @@ describe("cliente de la Fase 3", () => {
     await subirDocumento("a".repeat(16), "tobe", new File(["x"], "t.md"));
     expect(f.mock.calls[0][0]).toBe(`/api/v1/expedientes/${"a".repeat(16)}/generados/tobe/subir`);
     expect((f.mock.calls[0][1]?.body as FormData).get("archivo")).toBeInstanceOf(File);
+  });
+  it("leerCapacidades y leerToBe", async () => {
+    const f = vi.spyOn(globalThis, "fetch");
+    f.mockResolvedValueOnce(json(200, { proponer: false, motivo: "x" }));
+    expect(await leerCapacidades()).toEqual({ proponer: false, motivo: "x" });
+    f.mockResolvedValueOnce(new Response("# TO-BE", { status: 200 }));
+    expect(await leerToBe("a".repeat(16))).toBe("# TO-BE");
+    expect(f.mock.calls[1][0]).toBe(`/api/v1/expedientes/${"a".repeat(16)}/insumos/to_be`);
+    f.mockResolvedValueOnce(json(404, { error: "sin TO-BE" }));
+    await expect(leerToBe("a".repeat(16))).rejects.toMatchObject({ status: 404 });
   });
 });
