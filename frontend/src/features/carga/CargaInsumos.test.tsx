@@ -4,6 +4,7 @@ import { expect, it, vi } from "vitest";
 import CargaInsumos from "./CargaInsumos";
 
 vi.mock("@/lib/api", () => ({
+  leerCapacidades: vi.fn().mockRejectedValue(new Error("sin capacidades")),
   crearExpediente: vi.fn(),
   proponerExpediente: vi.fn(),
   clasificar: vi.fn(),
@@ -250,4 +251,19 @@ it("el renglon dice que archivo lleva y deja quitarlo", async () => {
 it("la carga del expediente completo ya no ofrece proponer: eso es el otro camino", () => {
   render(<CargaInsumos onListo={() => {}} />);
   expect(screen.queryByRole("button", { name: /proponer/i })).not.toBeInTheDocument();
+});
+
+it("ofrece el camino del AS-IS solo cuando el servidor puede proponer", async () => {
+  const { leerCapacidades } = await import("@/lib/api");
+  vi.mocked(leerCapacidades).mockClear();
+  vi.mocked(leerCapacidades).mockResolvedValueOnce({ proponer: true, motivo: null });
+  const { unmount } = render(<CargaInsumos onListo={() => {}} />);
+  const enlace = await screen.findByRole("link", { name: /proponga el to-be y el diccionario/i });
+  expect(enlace).toHaveAttribute("href", "/desde-as-is");
+  expect(enlace.parentElement).toHaveTextContent(/solo tienes el as-is/i);
+  unmount();
+  vi.mocked(leerCapacidades).mockResolvedValueOnce({ proponer: false, motivo: "Sin licencia." });
+  render(<CargaInsumos onListo={() => {}} />);
+  await vi.waitFor(() => expect(leerCapacidades).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole("link", { name: /proponga el to-be y el diccionario/i })).not.toBeInTheDocument();
 });

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ErrorApi, proponerExpediente } from "@/lib/api";
 
+import ErrorDeCarga, { comoErrorDeCarga } from "./ErrorDeCarga";
+
 const CLASE_INPUT =
   "text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground";
 
@@ -14,7 +16,7 @@ const CLASE_INPUT =
 export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) => void }) {
   const [asIs, setAsIs] = useState<File | null>(null);
   const [apoyo, setApoyo] = useState<File[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   const proponer = async () => {
@@ -28,8 +30,7 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
       const { sid } = await proponerExpediente(fd);
       onPropuesta(sid);
     } catch (e) {
-      if (!(e instanceof ErrorApi)) throw e;
-      setError(e.error || e.message);
+      setError(comoErrorDeCarga(e));
     } finally {
       setEnviando(false);
     }
@@ -75,11 +76,7 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
         />
       </div>
 
-      {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorDeCarga error={error} /> : null}
 
       <Button
         type="button"

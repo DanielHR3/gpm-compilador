@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DragEvent } from "react";
 import { ArrowRight, Download, FileText, FolderOpen, UploadCloud, FileWarning, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import Instrucciones from "@/components/Instrucciones";
 import { cn } from "cn";
-import { clasificar, crearExpediente, ErrorApi } from "@/lib/api";
+import { clasificar, crearExpediente, ErrorApi, leerCapacidades } from "@/lib/api";
+
+import ErrorDeCarga from "./ErrorDeCarga";
 import type { EstadoExpediente } from "@/lib/types";
 
 /** Las cuatro llaves multipart que acepta `POST /api/v1/expedientes`. */
@@ -47,9 +49,6 @@ const CAMPOS: readonly DefCampo[] = [
   },
 ];
 
-/** Tope de subida por archivo. Copia estatica: el 413 puede no traer `limite_mb`. */
-const LIMITE_POR_ARCHIVO = "10 MB";
-
 type Slots = Record<CampoInsumo, File | null>;
 
 const SLOTS_VACIOS: Slots = {
@@ -72,6 +71,21 @@ export default function CargaInsumos({
   // estas SI las lee el compilador, a diferencia de los adjuntos.
   const [plantillas, setPlantillas] = useState<File[]>([]);
   const [error, setError] = useState<ErrorApi | null>(null);
+  // Quien llega aqui con solo el AS-IS se toparia con el error del extractor.
+  // Se le ofrece el otro camino, pero solo si este servidor puede proponer:
+  // ofrecer un camino cerrado es peor que no ofrecerlo.
+  const [puedeProponer, setPuedeProponer] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    leerCapacidades()
+      .then((c) => {
+        if (vivo) setPuedeProponer(c.proponer);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
   const [enviando, setEnviando] = useState(false);
   const [sobrevolando, setSobrevolando] = useState<CampoInsumo | null>(null);
   // Lo que el servidor no pudo decidir de la carpeta, y lo que dejó fuera.
@@ -192,6 +206,15 @@ export default function CargaInsumos({
             corriges lo que quede mal.
           </p>
         </Instrucciones>
+        {puedeProponer ? (
+          <p className="text-sm text-muted-foreground">
+            ¿Solo tienes el AS-IS?{" "}
+            <a href="/desde-as-is" className="text-primary underline underline-offset-2">
+              Deja que el compilador proponga el TO-BE y el Diccionario
+            </a>
+            .
+          </p>
+        ) : null}
       </header>
 
       <div className="flex flex-col gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2.5">
@@ -353,52 +376,7 @@ export default function CargaInsumos({
         })}
       </ul>
 
-      {error ? (
-        <div
-          role="alert"
-          className="flex flex-col gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
-        >
-          {error.status === 413 ? (
-            <>
-              <p className="font-semibold">Archivo demasiado grande</p>
-              <p>
-                El limite por archivo es {LIMITE_POR_ARCHIVO}. Reduce o divide
-                estos archivos:
-              </p>
-            </>
-          ) : (
-            <p className="font-semibold">{error.message}</p>
-          )}
-          {/* `archivos` lo manda tanto el 413 (nombres a secas) como el 422 de
-              lectura ("NOMBRE: motivo"). Antes solo se pintaba en la rama del
-              413, asi que un PDF escaneado daba "no se pudo leer el documento"
-              sobre cuatro zonas de carga sin decir cual era -- y el backend ya
-              sabia el nombre Y el motivo. */}
-          {error.archivos?.length ? (
-            <div className="flex flex-col gap-1.5">
-              {error.archivos.map((entrada) => {
-                const corte = entrada.indexOf(": ");
-                const nombre = corte === -1 ? entrada : entrada.slice(0, corte);
-                const motivo = corte === -1 ? null : entrada.slice(corte + 2);
-                return (
-                  <p
-                    key={entrada}
-                    className="flex items-start gap-2 rounded-md border border-destructive/30 bg-card/60 px-3 py-1.5 break-all"
-                  >
-                    <FileWarning aria-hidden className="mt-0.5 size-4 shrink-0" />
-                    <span>
-                      <span className="font-medium">{nombre}</span>
-                      {motivo ? (
-                        <span className="block text-xs opacity-90">{motivo}</span>
-                      ) : null}
-                    </span>
-                  </p>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      {error ? <ErrorDeCarga error={error} /> : null}
 
       <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-4">
         <label
