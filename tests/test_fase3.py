@@ -289,3 +289,45 @@ def test_fallo_en_la_mejora_no_tira_la_ronda_1(tmp_path, monkeypatch):
     g = fase3.generar(_ASIS_INLINE, prov, tmp_path, "1" * 16)
     assert g.estado == "listo" and g.diccionario.ronda == 1
     assert any(h.codigo == "DIC-00" for h in g.diccionario.huecos)
+
+
+# --- Task 11: medir-ia --fase3 -------------------------------------------------------
+
+def _expediente_humano(tmp_path):
+    """Imita la boveda de Simplificacion: profundidad analista/dependencia/tramite,
+    un tramite sin TO-BE y otro con dos Diccionarios (INS-02): los dos se omiten."""
+    d = tmp_path / "ANITA" / "Notarías" / "constancia"
+    d.mkdir(parents=True)
+    (d / "Análisis AS-IS.md").write_text(_ASIS_INLINE, encoding="utf-8")
+    (d / "Propuesta TO-BE.md").write_text(_TOBE_OK, encoding="utf-8")
+    (d / "Diccionario de Datos.md").write_text(_DICC_OK, encoding="utf-8")
+    s = tmp_path / "ELESVAN" / "SEMARNATH" / "sin-tobe"
+    s.mkdir(parents=True)
+    (s / "Análisis AS-IS.md").write_text(_ASIS_INLINE, encoding="utf-8")
+    c = tmp_path / "ANITA" / "Notarías" / "con-copia"
+    c.mkdir(parents=True)
+    for n in ("Análisis AS-IS.md", "Propuesta TO-BE.md", "Diccionario de Datos.md",
+              "Diccionario de Datos - copia.md"):
+        (c / n).write_text(_DICC_OK if "Dicc" in n else _ASIS_INLINE, encoding="utf-8")
+    return d
+
+
+def test_medir_fase3_compara_generado_con_humano_por_clave(tmp_path):
+    from gpmc.agentes.medir_fase3 import medir_carpeta, imprimir
+    from gpmc.agentes.proveedor import ProveedorFalso
+    _expediente_humano(tmp_path)
+    # El generado pierde «poder notarial» y el TO-BE es identico.
+    dicc_gen = _DICC_OK.replace("| Poder notarial si el solicitante es persona moral | Archivo | Visor de archivos | No | `@@poder` |\n", "")
+    prov = ProveedorFalso([_json("diccionario", dicc_gen), _json("tobe", _TOBE_OK),
+                           _json("diccionario", dicc_gen)])           # la mejora devuelve lo mismo
+    medidas = medir_carpeta(tmp_path, prov, tmp_path / "almacen")
+    assert [m.expediente for m in medidas] == ["constancia"]         # «sin-tobe» y «con-copia» se omiten
+    m = medidas[0]
+    assert m.estado == "listo"
+    assert (m.campos_humano, m.campos_casan) == (5, 4)
+    assert (m.requisitos_humano, m.requisitos_casan) == (3, 2)
+    assert (m.tareas_humano, m.tareas_casan) == (2, 2)
+    assert m.compuertas_con_regla == 0
+    assert m.huecos.get("falta_dato", 0) >= 1                        # el GEN-01 de poder notarial
+    salida = imprimir(medidas)
+    assert "constancia" in salida and "4/5" in salida and "2/3" in salida

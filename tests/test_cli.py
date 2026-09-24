@@ -347,3 +347,35 @@ def test_servir_el_flag_gana_sobre_el_entorno(tmp_path, monkeypatch):
     visto = _servir_capturando(monkeypatch, ["--log", str(tmp_path / "flag.log")],
                                {"GPMC_LOG_ARCHIVO": str(tmp_path / "entorno.log")})
     assert visto["log_config"]["handlers"]["salida"]["filename"].endswith("flag.log")
+
+
+def test_medir_ia_fase3_recorre_la_carpeta(tmp_path, monkeypatch, capsys):
+    from gpmc import cli
+    from gpmc.agentes import fase3
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from tests.test_fase3 import _expediente_humano, _DICC_OK, _TOBE_OK, _json
+    _expediente_humano(tmp_path)
+    monkeypatch.setenv("GPMC_IA_PROVEEDOR", "openai")
+    monkeypatch.setenv("GPMC_IA_LLAVE", "k")
+    monkeypatch.setattr(fase3, "ESPERAS_REINTENTO", ())
+    monkeypatch.setattr(cli, "_proveedor_para_medir",
+                        lambda: ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)]))
+    rc = cli.main(["medir-ia", "--fase3", str(tmp_path), "--almacen", str(tmp_path / "alm")])
+    assert rc == 0
+    assert "constancia" in capsys.readouterr().out
+
+
+def test_medir_ia_fase3_respeta_el_candado(tmp_path, monkeypatch, capsys):
+    """La boveda de Simplificacion es material real: sin la licencia no se
+    manda ni un AS-IS, tampoco desde la terminal."""
+    from gpmc import cli
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from tests.test_fase3 import _expediente_humano
+    _expediente_humano(tmp_path)
+    monkeypatch.setenv("GPMC_IA_PROVEEDOR", "gemini")
+    monkeypatch.setenv("GPMC_IA_LLAVE", "k")
+    prov = ProveedorFalso([])
+    monkeypatch.setattr(cli, "_proveedor_para_medir", lambda: prov)
+    rc = cli.main(["medir-ia", "--fase3", str(tmp_path), "--almacen", str(tmp_path / "alm")])
+    assert rc == 2 and prov.llamadas == 0
+    assert "licencia" in capsys.readouterr().out

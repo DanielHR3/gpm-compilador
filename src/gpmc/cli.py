@@ -179,6 +179,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     med.add_argument("carpeta", type=Path, help="carpeta con un subdirectorio por expediente")
     med.add_argument("--almacen", type=Path, default=None, help="donde escribir la bitacora (default: temporal)")
     med.add_argument("--exportar", type=Path, default=None, help="copiar la bitacora-ia.jsonl a esta ruta")
+    med.add_argument("--fase3", action="store_true",
+                     help="mide el generador de TO-BE y Diccionario desde el AS-IS (Fase 3) en vez de DIC-08")
 
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     if not args.orden:
@@ -427,6 +429,20 @@ def main(argv: Optional[list[str]] = None) -> int:
         raiz = args.almacen or Path(tempfile.mkdtemp(prefix="gpmc-medir-"))
         raiz.mkdir(parents=True, exist_ok=True)
         prov = _proveedor_para_medir()
+        if args.fase3:
+            from gpmc.agentes.fase3 import puede_generar
+            from gpmc.agentes.medir_fase3 import imprimir, medir_carpeta
+            # Mismo candado que el asistente: lo que se mide es material real.
+            motivo = puede_generar()
+            if motivo:
+                print(motivo)
+                return 2
+            medidas = medir_carpeta(args.carpeta, prov, raiz)
+            print(imprimir(medidas))
+            if args.exportar and (raiz / RUTA_BITACORA).exists():
+                shutil.copy(raiz / RUTA_BITACORA, args.exportar)
+                print(f"Bitácora exportada a {args.exportar}")
+            return 0 if all(m.estado == "listo" for m in medidas) else 1
         tot = [0, 0, 0, 0]
         errores = 0
         print(f"{'expediente':40} {'DIC-08':>7} {'acept.':>7} {'rechaz.':>8} {'declino':>8}")
