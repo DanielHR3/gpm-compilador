@@ -1349,3 +1349,32 @@ def test_una_pantalla_sin_autorellenables_no_cambia():
     r = extraer(llano)
     assert not any(c.tipo == "api_ajax" for c in r.pantallas[0].campos)
     assert not any(h.codigo in ("API-04", "API-06") for h in r.huecos)
+
+
+_VIS_O = """
+### Pantalla 1 — CIUDADANO — Pago
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Modalidad de Pago | Select | Lista desplegable | Sí | Siempre visible | N/A | En línea · Banco o transferencia | N/A | [Captura] Campo `@@modalidad_pago`. |
+| Comprobante de Pago | Archivo | Carga de archivo | Condicional | Visible solo si "Modalidad de Pago" = Banco o transferencia | N/A | N/A | N/A | [Captura] Campo `@@comprobante_pago`. |
+| Pago en Línea | Boolean | Botón | Condicional | Visible solo si "Modalidad de Pago" = En línea o Banco | N/A | N/A | N/A | [Captura] Campo `@@pago_en_linea`. |
+"""
+
+
+def test_un_valor_con_o_que_es_opcion_del_catalogo_no_es_disyuncion():
+    """«Banco o transferencia» es UNA opcion del catalogo de Modalidad de Pago
+    (asi la escribe el equipo en Avisos Judiciales y Reposicion). El parser la
+    tomaba por «Banco O transferencia» y la mandaba a DIC-08."""
+    r = extraer(_VIS_O)
+    c = _campo(r, "comprobante_pago")
+    assert c.condicion_visible is not None
+    assert c.condicion_visible.campo == "modalidad_pago"
+    assert c.condicion_visible.igual == "banco_o_transferencia"
+    assert not any(h.codigo == "DIC-08" and "comprobante_pago" in h.ubicacion for h in r.huecos)
+
+
+def test_un_valor_con_o_que_no_es_opcion_sigue_siendo_dic08():
+    r = extraer(_VIS_O)
+    assert _campo(r, "pago_en_linea").condicion_visible is None
+    assert any(h.codigo == "DIC-08" and "pago_en_linea" in h.ubicacion for h in r.huecos)

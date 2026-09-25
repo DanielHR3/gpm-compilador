@@ -284,10 +284,13 @@ def _parece_condicion(texto: str) -> bool:
             or ("cuando" in t and ("=" in t or "≠" in t or "∈" in t)))
 
 
-def _parsear_condicion_visible(texto: str):
+def _parsear_condicion_visible(texto: str, indice: "Optional[dict]" = None):
     """(ref_crudo, operador, valor_crudo) o None. None = no es una condicion
     simple 'campo = valor'; el llamador decide si es 'siempre visible' o un
-    hueco DIC-08."""
+    hueco DIC-08. Con `indice`, un valor con « y »/« o » se acepta si es,
+    letra por letra, una opcion del catalogo del campo referido: «Banco o
+    transferencia» es UNA modalidad de pago, no dos (asi la escribe el
+    equipo; 2026-09-25)."""
     t = (texto or "").strip()
     tb = _babel(t)
     if "∈" in t or "{" in t or "salvo cuando" in tb or "no aplica cuando" in tb:
@@ -298,10 +301,20 @@ def _parsear_condicion_visible(texto: str):
     val = re.split(r"\s*[,(]", m["val"].strip(), maxsplit=1)[0].strip().strip('"').strip()
     if not val or '"' in val or "∈" in val:
         return None
-    if re.search(r"\s(?:y|o|and|or)\s", val, re.I):
+    ref = m["ref"].strip().strip('"').strip("`")
+    if re.search(r"\s(?:y|o|and|or)\s", val, re.I) and not _es_opcion_de(ref, val, indice):
         return None
     op = "!=" if m["op"] in ("≠", "!=") else "=="
-    return m["ref"].strip().strip('"').strip("`"), op, val
+    return ref, op, val
+
+
+def _es_opcion_de(ref: str, valor: str, indice: "Optional[dict]") -> bool:
+    if not indice:
+        return False
+    nombre = ref[2:] if ref.startswith("@@") else indice["por_etiqueta"].get(_clave_etiqueta(ref))
+    campo = indice["campos"].get(nombre) if nombre else None
+    v = _babel(valor)
+    return campo is not None and any(_babel(o.etiqueta) == v or o.valor == v for o in campo.catalogo)
 
 
 _RE_CONJUNTO = re.compile(
@@ -749,7 +762,7 @@ def _extraer_campos(
         # una condicion pero no se puede interpretar con seguridad, se reporta
         # DIC-08 y el campo queda siempre visible — no se adivina.
         vis_cruda = celdas[i_vis] if i_vis is not None and i_vis < len(celdas) else ""
-        parsed = _parsear_condicion_visible(vis_cruda)
+        parsed = _parsear_condicion_visible(vis_cruda, indice)
         if parsed is not None:
             cond = _resolver_condicion_visible(*parsed, indice)
             if cond is not None:
