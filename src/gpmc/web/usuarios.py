@@ -58,10 +58,13 @@ def _ahora(ahora: Optional[datetime]) -> datetime:
 
 
 def emitir_token(secreto: str, correo: str, nombre: str, dependencia: str,
-                 horas: int = HORAS_TOKEN, ahora: Optional[datetime] = None) -> str:
+                 horas: int = HORAS_TOKEN, ahora: Optional[datetime] = None,
+                 rol: Optional[str] = None) -> str:
     t0 = _ahora(ahora)
     cuerpo = {"sub": correo, "nombre": nombre, "dependencia": dependencia,
               "iat": int(t0.timestamp()), "exp": int((t0 + timedelta(hours=horas)).timestamp())}
+    if rol is not None:
+        cuerpo["rol"] = rol
     cabecera = _b64(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
     datos = _b64(json.dumps(cuerpo, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
     firma = hmac.new(secreto.encode("utf-8"), f"{cabecera}.{datos}".encode("ascii"), hashlib.sha256).digest()
@@ -88,16 +91,42 @@ def leer_token(secreto: str, token: str, ahora: Optional[datetime] = None) -> Op
 
 # --- almacén -----------------------------------------------------------------------------
 
+ROLES = ("admin", "analista")
+ESTADOS = ("pendiente", "activo", "inactivo")
+HORAS_RECUPERACION = 1
+
+
 @dataclass
 class Usuario:
     correo: str
     nombre: str
     dependencia: str
-    activo: bool = True
+    rol: str = "analista"          # admin = superusuario: aprueba cuentas y cambia roles
+    estado: str = "activo"         # pendiente (registro sin aprobar) | activo | inactivo
+
+    @property
+    def activo(self) -> bool:
+        return self.estado == "activo"
 
 
 def _norm(correo: str) -> str:
     return (correo or "").strip().lower()
+
+
+def correo_institucional(correo: str, dominio: str) -> Optional[str]:
+    """El correo normalizado si es del dominio institucional; None si no.
+    Solo se admiten cuentas @hidalgo.gob.mx (decisión del 2026-09-25)."""
+    c = _norm(correo)
+    if "@" not in c or c.count("@") != 1:
+        return None
+    usuario, dom = c.split("@")
+    if not usuario or dom != dominio.lower():
+        return None
+    return c
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("ascii")).hexdigest()
 
 
 class AlmacenEnMemoria:
@@ -106,17 +135,56 @@ class AlmacenEnMemoria:
     def __init__(self):
         self._usuarios = {}      # correo -> (Usuario, hash)
         self._auditoria = []
+        self._recuperaciones = {}   # hash del token -> (correo, expira, usado)
 
     def crear_tablas(self) -> None:   # mismo contrato que Postgres; aqui no hay nada que crear
         pass
 
-    def alta(self, correo: str, nombre: str, dependencia: str, contrasena: str) -> Usuario:
+    def vaciar(self) -> None:
+        self._usuarios.clear(); self._auditoria.clear(); self._recuperaciones.clear()
+
+    def alta(self, correo: str, nombre: str, dependencia: str, contrasena: str,
+             rol: str = "analista", estado: str = "activo") -> Usuario:
         c = _norm(correo)
         if c in self._usuarios:
             raise ValueError(f"ya existe un usuario con el correo {c}")
-        u = Usuario(correo=c, nombre=nombre.strip(), dependencia=dependencia.strip())
+        u = Usuario(correo=c, nombre=nombre.strip(), dependencia=dependencia.strip(), rol=rol, estado=estado)
         self._usuarios[c] = (u, hash_contrasena(contrasena))
         return u
+
+    def por_correo(self, correo: str) -> Optional[Usuario]:
+        fila = self._usuarios.get(_norm(correo))
+        return fila[0] if fila else None
+
+    def aprobar(self, correo: str) -> None:
+        fila = self._usuarios.get(_norm(correo))
+        if fila:
+            fila[0].estado = "activo"
+
+    def cambiar_rol(self, correo: str, rol: str) -> None:
+        fila = self._usuarios.get(_norm(correo))
+        if fila:
+            fila[0].rol = rol
+
+    def cambiar_contrasena(self, correo: str, contrasena: str) -> None:
+        c = _norm(correo)
+        if c in self._usuarios:
+            self._usuarios[c] = (self._usuarios[c][0], hash_contrasena(contrasena))
+
+    def crear_recuperacion(self, correo: str, ahora: Optional[datetime] = None) -> Optional[str]:
+        c = _norm(correo)
+        if c not in self._usuarios:
+            return None
+        token = secrets.token_urlsafe(32)
+        self._recuperaciones[_hash_token(token)] = [c, _ahora(ahora) + timedelta(hours=HORAS_RECUPERACION), False]
+        return token
+
+    def consumir_recuperacion(self, token: str, ahora: Optional[datetime] = None) -> Optional[str]:
+        fila = self._recuperaciones.get(_hash_token(token or ""))
+        if not fila or fila[2] or _ahora(ahora) > fila[1]:
+            return None
+        fila[2] = True
+        return fila[0]
 
     def autenticar(self, correo: str, contrasena: str) -> Optional[Usuario]:
         fila = self._usuarios.get(_norm(correo))
@@ -130,10 +198,10 @@ class AlmacenEnMemoria:
     def desactivar(self, correo: str) -> None:
         fila = self._usuarios.get(_norm(correo))
         if fila:
-            fila[0].activo = False
+            fila[0].estado = "inactivo"
 
-    def usuarios(self) -> list:
-        return [u for u, _ in self._usuarios.values()]
+    def usuarios(self, estado: Optional[str] = None) -> list:
+        return [u for u, _ in self._usuarios.values() if estado is None or u.estado == estado]
 
     def auditar(self, usuario: str, dependencia: str, accion: str, sid: Optional[str],
                 detalle: str = "", ip: Optional[str] = None) -> None:
@@ -159,8 +227,17 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nombre          TEXT NOT NULL,
     dependencia     TEXT NOT NULL,
     hash_contrasena TEXT NOT NULL,
-    activo          BOOLEAN NOT NULL DEFAULT TRUE,
+    rol             TEXT NOT NULL DEFAULT 'analista',
+    estado          TEXT NOT NULL DEFAULT 'activo',
     creado          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol TEXT NOT NULL DEFAULT 'analista';
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS estado TEXT NOT NULL DEFAULT 'activo';
+CREATE TABLE IF NOT EXISTS recuperaciones (
+    token_hash  TEXT PRIMARY KEY,
+    correo      TEXT NOT NULL,
+    expira      TIMESTAMPTZ NOT NULL,
+    usado       BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE TABLE IF NOT EXISTS auditoria (
     id          BIGSERIAL PRIMARY KEY,
@@ -198,37 +275,77 @@ class AlmacenPostgres:
     def vaciar(self) -> None:
         """Solo para pruebas: nadie borra auditoría en producción."""
         with self._con() as con:
-            con.execute("DELETE FROM auditoria; DELETE FROM usuarios;")
+            con.execute("DELETE FROM auditoria; DELETE FROM recuperaciones; DELETE FROM usuarios;")
 
-    def alta(self, correo: str, nombre: str, dependencia: str, contrasena: str) -> Usuario:
+    _COLS = "correo, nombre, dependencia, rol, estado"
+
+    def alta(self, correo: str, nombre: str, dependencia: str, contrasena: str,
+             rol: str = "analista", estado: str = "activo") -> Usuario:
         c = _norm(correo)
         with self._con() as con:
             if con.execute("SELECT 1 FROM usuarios WHERE correo = %s", (c,)).fetchone():
                 raise ValueError(f"ya existe un usuario con el correo {c}")
-            con.execute("INSERT INTO usuarios (correo, nombre, dependencia, hash_contrasena) VALUES (%s, %s, %s, %s)",
-                        (c, nombre.strip(), dependencia.strip(), hash_contrasena(contrasena)))
-        return Usuario(correo=c, nombre=nombre.strip(), dependencia=dependencia.strip())
+            con.execute("INSERT INTO usuarios (correo, nombre, dependencia, hash_contrasena, rol, estado) "
+                        "VALUES (%s, %s, %s, %s, %s, %s)",
+                        (c, nombre.strip(), dependencia.strip(), hash_contrasena(contrasena), rol, estado))
+        return Usuario(correo=c, nombre=nombre.strip(), dependencia=dependencia.strip(), rol=rol, estado=estado)
+
+    def por_correo(self, correo: str) -> Optional[Usuario]:
+        with self._con() as con:
+            f = con.execute(f"SELECT {self._COLS} FROM usuarios WHERE correo = %s", (_norm(correo),)).fetchone()
+        return Usuario(*f) if f else None
 
     def autenticar(self, correo: str, contrasena: str) -> Optional[Usuario]:
         with self._con() as con:
-            fila = con.execute("SELECT correo, nombre, dependencia, activo, hash_contrasena FROM usuarios WHERE correo = %s",
+            fila = con.execute(f"SELECT {self._COLS}, hash_contrasena FROM usuarios WHERE correo = %s",
                                (_norm(correo),)).fetchone()
         if fila is None:
             verificar_contrasena(contrasena, hash_contrasena("x"))
             return None
-        correo_, nombre, dependencia, activo, h = fila
-        if not activo or not verificar_contrasena(contrasena, h):
+        u = Usuario(*fila[:5])
+        if not u.activo or not verificar_contrasena(contrasena, fila[5]):
             return None
-        return Usuario(correo=correo_, nombre=nombre, dependencia=dependencia, activo=activo)
+        return u
+
+    def _set(self, correo: str, columna: str, valor) -> None:
+        with self._con() as con:
+            con.execute(f"UPDATE usuarios SET {columna} = %s WHERE correo = %s", (valor, _norm(correo)))
+
+    def aprobar(self, correo: str) -> None:
+        self._set(correo, "estado", "activo")
 
     def desactivar(self, correo: str) -> None:
-        with self._con() as con:
-            con.execute("UPDATE usuarios SET activo = FALSE WHERE correo = %s", (_norm(correo),))
+        self._set(correo, "estado", "inactivo")
 
-    def usuarios(self) -> list:
+    def cambiar_rol(self, correo: str, rol: str) -> None:
+        self._set(correo, "rol", rol)
+
+    def cambiar_contrasena(self, correo: str, contrasena: str) -> None:
+        self._set(correo, "hash_contrasena", hash_contrasena(contrasena))
+
+    def usuarios(self, estado: Optional[str] = None) -> list:
+        sql = f"SELECT {self._COLS} FROM usuarios" + (" WHERE estado = %s" if estado else "") + " ORDER BY creado"
         with self._con() as con:
-            filas = con.execute("SELECT correo, nombre, dependencia, activo FROM usuarios ORDER BY creado").fetchall()
+            filas = con.execute(sql, (estado,) if estado else ()).fetchall()
         return [Usuario(*f) for f in filas]
+
+    def crear_recuperacion(self, correo: str, ahora: Optional[datetime] = None) -> Optional[str]:
+        if self.por_correo(correo) is None:
+            return None
+        token = secrets.token_urlsafe(32)
+        with self._con() as con:
+            con.execute("INSERT INTO recuperaciones (token_hash, correo, expira) VALUES (%s, %s, %s)",
+                        (_hash_token(token), _norm(correo), _ahora(ahora) + timedelta(hours=HORAS_RECUPERACION)))
+        return token
+
+    def consumir_recuperacion(self, token: str, ahora: Optional[datetime] = None) -> Optional[str]:
+        with self._con() as con:
+            f = con.execute("SELECT correo, expira, usado FROM recuperaciones WHERE token_hash = %s",
+                            (_hash_token(token or ""),)).fetchone()
+            if not f or f[2] or _ahora(ahora) > f[1]:
+                return None
+            con.execute("UPDATE recuperaciones SET usado = TRUE WHERE token_hash = %s", (_hash_token(token),))
+        return f[0]
 
     def auditar(self, usuario: str, dependencia: str, accion: str, sid: Optional[str],
                 detalle: str = "", ip: Optional[str] = None) -> None:

@@ -415,3 +415,20 @@ def test_usuario_sin_base_configurada_lo_dice(monkeypatch, capsys):
     monkeypatch.setattr("gpmc.cli.cargar_entorno", lambda *a, **k: 0)
     assert main(["usuario", "lista"]) == 2
     assert "GPMC_BD" in capsys.readouterr().err
+
+
+def test_usuario_alta_con_rol_admin_y_aprobar(monkeypatch, capsys):
+    from gpmc.cli import main
+    from gpmc.web import usuarios as mod
+    almacen = mod.AlmacenEnMemoria()
+    monkeypatch.setattr(mod, "AlmacenPostgres", lambda dsn: almacen)
+    monkeypatch.setattr("gpmc.cli.cargar_entorno", lambda *a, **k: 0)
+    monkeypatch.setenv("GPMC_BD", "postgresql://x")
+    monkeypatch.setattr("getpass.getpass", lambda *a, **k: "Secreta-123")
+    assert main(["usuario", "alta", "daniel.hernandezr@hidalgo.gob.mx", "--nombre", "Daniel", "--dependencia", "DGT", "--rol", "admin"]) == 0
+    assert almacen.por_correo("daniel.hernandezr@hidalgo.gob.mx").rol == "admin"
+    almacen.alta("luis.vera@hidalgo.gob.mx", "Luis", "DSA", "x", estado="pendiente")
+    assert main(["usuario", "aprobar", "luis.vera@hidalgo.gob.mx"]) == 0
+    assert almacen.por_correo("luis.vera@hidalgo.gob.mx").estado == "activo"
+    assert main(["usuario", "lista"]) == 0
+    assert "admin" in capsys.readouterr().out

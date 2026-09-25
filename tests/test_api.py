@@ -1,3 +1,4 @@
+import re
 from fastapi.testclient import TestClient
 from gpmc.web.app import crear_app
 from tests.test_extractor_diccionario import _VIS
@@ -1584,7 +1585,7 @@ def test_entrar_da_token_y_cookie_y_abre_la_api_por_cabecera_o_por_cookie(tmp_pa
     r = _entrar(c)
     assert r.status_code == 200
     cuerpo = r.json()
-    assert cuerpo["usuario"] == {"correo": _DANIEL[0], "nombre": "Daniel", "dependencia": "DGT"}
+    assert cuerpo["usuario"] == {"correo": _DANIEL[0], "nombre": "Daniel", "dependencia": "DGT", "rol": "analista"}
     assert cuerpo["token"].count(".") == 2
     assert "gpmc_sesion=" in r.headers["set-cookie"] and "HttpOnly" in r.headers["set-cookie"]
     # Por cookie (el TestClient la conserva): la API y las paginas del servidor.
@@ -1665,3 +1666,103 @@ def test_crear_app_lee_el_secreto_y_la_base_del_entorno(tmp_path, monkeypatch):
     c = TestClient(web_app.crear_app(almacen=tmp_path))
     assert creados == {"dsn": "postgresql://u:p@rds/gpmc", "tablas": True}
     assert c.get("/api/v1/historial").status_code == 401
+
+
+# --- registro, aprobacion, recuperacion y superusuario (2026-09-25, tarde) ------------
+
+_LUIS = ("luis.vera@hidalgo.gob.mx", "Luis Vera", "DSA", "Otra-456")
+
+
+def _cli_admin(tmp_path):
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.web.correo import CorreoEnMemoria
+    from gpmc.web.usuarios import AlmacenEnMemoria
+    usuarios = AlmacenEnMemoria()
+    usuarios.alta(*_DANIEL, rol="admin")
+    correo = CorreoEnMemoria()
+    app = crear_app(almacen=tmp_path, proveedor=ProveedorFalso([]), entorno=_ENT_OPENAI,
+                    usuarios=usuarios, jwt_secreto="s3cr3to", correo=correo)
+    return TestClient(app), usuarios, correo
+
+
+def test_solo_se_registra_un_correo_institucional_y_queda_pendiente(tmp_path):
+    c, usuarios, _ = _cli_admin(tmp_path)
+    r = c.post("/api/v1/registro", json={"correo": "luis@gmail.com", "nombre": "Luis", "dependencia": "DSA", "contrasena": "Otra-456"})
+    assert r.status_code == 422 and "hidalgo.gob.mx" in r.json()["error"]
+    r = c.post("/api/v1/registro", json={"correo": "Luis.Vera@hidalgo.gob.mx", "nombre": "Luis Vera", "dependencia": "DSA", "contrasena": "corta"})
+    assert r.status_code == 422 and "8" in r.json()["error"]
+    r = c.post("/api/v1/registro", json={"correo": "Luis.Vera@hidalgo.gob.mx", "nombre": "Luis Vera", "dependencia": "DSA", "contrasena": "Otra-456"})
+    assert r.status_code == 201 and r.json() == {"estado": "pendiente", "correo": "luis.vera@hidalgo.gob.mx"}
+    assert usuarios.por_correo("luis.vera@hidalgo.gob.mx").estado == "pendiente"
+    # Registrarse dos veces no revela nada y no rompe: mismo 201.
+    assert c.post("/api/v1/registro", json={"correo": "luis.vera@hidalgo.gob.mx", "nombre": "L", "dependencia": "DSA", "contrasena": "Otra-456"}).status_code == 201
+    # Pendiente no entra, y el 401 lo dice.
+    r = _entrar(c, "luis.vera@hidalgo.gob.mx", "Otra-456")
+    assert r.status_code == 401 and "pendiente" in r.json()["error"]
+    assert [f["accion"] for f in usuarios.auditoria(usuario="luis.vera@hidalgo.gob.mx")][-1] == "usuario.registro"
+
+
+def test_el_superusuario_ve_y_aprueba_cuentas_y_un_analista_no_puede(tmp_path):
+    c, usuarios, _ = _cli_admin(tmp_path)
+    usuarios.alta(*_LUIS, estado="pendiente")
+    assert c.get("/api/v1/usuarios").status_code == 401
+    _entrar(c)                                                       # Daniel, admin
+    r = c.get("/api/v1/usuarios")
+    assert r.status_code == 200
+    assert [(u["correo"], u["estado"], u["rol"]) for u in r.json()["usuarios"]] == [
+        (_DANIEL[0], "activo", "admin"), ("luis.vera@hidalgo.gob.mx", "pendiente", "analista")]
+    assert c.post("/api/v1/usuarios/luis.vera@hidalgo.gob.mx/aprobar").status_code == 200
+    assert c.post("/api/v1/usuarios/nadie@hidalgo.gob.mx/aprobar").status_code == 404
+    assert usuarios.por_correo("luis.vera@hidalgo.gob.mx").estado == "activo"
+    assert c.post("/api/v1/usuarios/luis.vera@hidalgo.gob.mx/rol", json={"rol": "jefe"}).status_code == 422
+    assert c.post("/api/v1/usuarios/luis.vera@hidalgo.gob.mx/rol", json={"rol": "admin"}).status_code == 200
+    assert c.post("/api/v1/usuarios/luis.vera@hidalgo.gob.mx/rol", json={"rol": "analista"}).status_code == 200
+    # Nadie se desactiva a si mismo (el ultimo admin no puede quedarse fuera).
+    assert c.post(f"/api/v1/usuarios/{_DANIEL[0]}/desactivar").status_code == 409
+    assert c.post("/api/v1/usuarios/luis.vera@hidalgo.gob.mx/desactivar").status_code == 200
+    acciones = [f["accion"] for f in usuarios.auditoria(usuario=_DANIEL[0])]
+    assert acciones[:4] == ["usuario.desactivar", "usuario.rol", "usuario.rol", "usuario.aprobar"]
+    # Luis, ya activo otra vez pero analista: 403 en la administracion.
+    usuarios.aprobar("luis.vera@hidalgo.gob.mx")
+    c2 = TestClient(c.app)
+    assert _entrar(c2, *_LUIS[0:1], _LUIS[3]).status_code == 200
+    assert c2.get("/api/v1/usuarios").status_code == 403
+    assert c2.get("/api/v1/sesion").json()["usuario"]["rol"] == "analista"
+
+
+def test_recuperar_contrasena_manda_una_liga_de_un_solo_uso_por_correo(tmp_path):
+    c, usuarios, correo = _cli_admin(tmp_path)
+    # Mismo 200 exista o no el correo: no se revela quien tiene cuenta.
+    assert c.post("/api/v1/recuperar", json={"correo": "nadie@hidalgo.gob.mx"}).status_code == 200
+    assert correo.enviados == []
+    assert c.post("/api/v1/recuperar", json={"correo": _DANIEL[0]}).status_code == 200
+    assert len(correo.enviados) == 1 and correo.enviados[0]["para"] == _DANIEL[0]
+    m = re.search(r"https?://\S+/restablecer\?token=([A-Za-z0-9_\-]+)", correo.enviados[0]["texto"])
+    assert m, correo.enviados[0]["texto"]
+    token = m.group(1)
+    r = c.post("/api/v1/restablecer", json={"token": token, "contrasena": "corta"})
+    assert r.status_code == 422
+    r = c.post("/api/v1/restablecer", json={"token": token, "contrasena": "Nueva-789!"})
+    assert r.status_code == 200
+    assert c.post("/api/v1/restablecer", json={"token": token, "contrasena": "Nueva-789!"}).status_code == 400   # un solo uso
+    assert _entrar(c, contrasena=_DANIEL[3]).status_code == 401
+    assert _entrar(c, contrasena="Nueva-789!").status_code == 200
+    acciones = [f["accion"] for f in usuarios.auditoria(usuario=_DANIEL[0])]
+    assert "recuperacion.pedir" in acciones and "recuperacion.restablecer" in acciones
+
+
+def test_sin_correo_configurado_recuperar_lo_dice_sin_revelar_cuentas(tmp_path, caplog):
+    import logging
+    c, _ = _cli_usuarios(tmp_path)                                   # sin `correo`
+    with caplog.at_level(logging.WARNING, logger="gpmc.web.acceso"):
+        r = c.post("/api/v1/recuperar", json={"correo": _DANIEL[0]})
+    assert r.status_code == 200 and "no está configurado" in r.json()["mensaje"]
+    # En la Mac de pruebas la liga queda en el log, para poder probar el flujo.
+    assert any("/restablecer?token=" in rec.message for rec in caplog.records)
+
+
+def test_el_token_de_sesion_lleva_el_rol(tmp_path):
+    from gpmc.web.usuarios import leer_token
+    c, _, _ = _cli_admin(tmp_path)
+    t = _entrar(c).json()["token"]
+    assert leer_token("s3cr3to", t)["rol"] == "admin"

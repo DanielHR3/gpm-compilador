@@ -190,6 +190,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     alta.add_argument("correo")
     alta.add_argument("--nombre", required=True)
     alta.add_argument("--dependencia", required=True, help="DGT, DSA, ...")
+    alta.add_argument("--rol", default="analista", choices=("admin", "analista"),
+                      help="admin = superusuario (aprueba cuentas y cambia roles)")
+    aprobar = usr_sub.add_parser("aprobar", help="activa una cuenta registrada que sigue pendiente")
+    aprobar.add_argument("correo")
     usr_sub.add_parser("lista", help="lista los usuarios")
     baja = usr_sub.add_parser("baja", help="desactiva un usuario (no se borra: la auditoria lo cita)")
     baja.add_argument("correo")
@@ -461,18 +465,25 @@ def main(argv: Optional[list[str]] = None) -> int:
             import getpass
             c1 = getpass.getpass("Contrasena: ")
             try:
-                almacen.alta(args.correo, args.nombre, args.dependencia, c1)
+                almacen.alta(args.correo, args.nombre, args.dependencia, c1, rol=args.rol)
             except ValueError as exc:
                 print(str(exc), file=sys.stderr)
                 return 2
-            print(f"Alta: {args.correo.strip().lower()} ({args.dependencia})")
+            print(f"Alta: {args.correo.strip().lower()} ({args.dependencia}, {args.rol})")
+            return 0
+        if args.que == "aprobar":
+            if almacen.por_correo(args.correo) is None:
+                print("no existe esa cuenta", file=sys.stderr)
+                return 2
+            almacen.aprobar(args.correo)
+            print(f"Aprobado: {args.correo.strip().lower()}")
             return 0
         if args.que == "baja":
             almacen.desactivar(args.correo)
             print(f"Desactivado: {args.correo.strip().lower()}")
             return 0
         for u in almacen.usuarios():
-            print(f"{u.correo:45} {u.nombre:25} {u.dependencia:6} {'activo' if u.activo else 'inactivo'}")
+            print(f"{u.correo:45} {u.nombre:25} {u.dependencia:6} {u.rol:8} {u.estado}")
         return 0
 
     if args.orden == "medir-ia":
