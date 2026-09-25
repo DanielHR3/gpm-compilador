@@ -1,0 +1,31 @@
+# Servicio del asistente en la EC2 (spec 2026-09-25). Lo instala
+# scripts/desplegar.sh en /etc/systemd/system/gpmc.service.
+#
+# Escucha en 0.0.0.0:8000 porque CloudFront llega por la red; el grupo de
+# seguridad solo deja pasar a CloudFront y al SSH de quien despliega.
+# Las llaves (IA, JWT, base, SMTP) van en /etc/gpmc/entorno, con permisos
+# 640 root:gpmc: decision del usuario, variables de entorno y no Secrets Manager.
+[Unit]
+Description=Compilador GPM (asistente web)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=gpmc
+Group=gpmc
+WorkingDirectory=/opt/gpmc
+EnvironmentFile=/etc/gpmc/entorno
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/gpmc/.venv/bin/gpmc servir --host 0.0.0.0 --puerto 8000 \
+  --almacen /var/lib/gpmc/sesiones --log /var/log/gpmc/asistente.log
+Restart=always
+RestartSec=3
+# Endurecimiento basico: el proceso no ve /home ni escribe fuera de sus carpetas.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/gpmc /var/log/gpmc
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
