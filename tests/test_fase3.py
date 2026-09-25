@@ -643,3 +643,18 @@ def test_gen02_se_atribuye_al_tobe_y_entra_a_la_ronda_de_mejora(tmp_path):
                            _json("diccionario", dicc), _json("tobe", tobe_1)])
     generar(_ASIS_CON_CICLO, prov, tmp_path, "g" * 16)
     assert prov.llamadas == 4 and "[GEN-02]" in prov.ultimo_contexto
+
+
+def test_dos_ramas_que_se_juntan_no_son_un_ciclo():
+    """Reposicion v2: «En línea» y «Validación manual» llegan a la misma
+    Emision. El orden de visita hacia parecer ciclo esa union y el GEN-02 no
+    salia. Un ciclo es una arista desde cuyo destino se vuelve al origen."""
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    tobe = ("```mermaid\nflowchart TD\n"
+            "  P1[Ciudadano: Solicitud] --> P2[Funcionario: Revisión]\n"
+            "  P2 --> G{\"¿@@dictamen?\"}\n"
+            "  G -- En línea --> P4[Funcionario: Emisión]\n"
+            "  G -- Banco --> P3[Funcionario: Validación]\n"
+            "  P3 --> P4\n  P4 --> Fin([Fin])\n```")
+    huecos = verificar_cruzado(_ASIS_CON_CICLO, tobe, _m_dictamen())
+    assert any(h.codigo == "GEN-02" for h in huecos)

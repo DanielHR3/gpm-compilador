@@ -85,21 +85,28 @@ def _casa(requisito: str, etiqueta: str) -> bool:
 
 
 def _vuelve_atras(rm) -> bool:
-    """True si alguna arista regresa a un nodo ya alcanzado desde el inicio:
-    la vuelta «correccion -> revision»."""
+    """True si el diagrama tiene un ciclo: alguna arista `de -> a` desde cuyo
+    destino se vuelve a alcanzar el origen (la vuelta «correccion -> revision»).
+    Se mide por alcance, no por orden de recorrido: en un diagrama con dos
+    ramas que se juntan (pago en linea y validacion manual llegan a la misma
+    emision) el orden de visita hacia parecer ciclo lo que solo es una union."""
     salientes = {}
     for a in rm.aristas:
-        salientes.setdefault(a.de, []).append(a.a)
-    entrantes = {a.a for a in rm.aristas}
-    orden = {}
-    pendientes = [n.id for n in rm.nodos if n.id not in entrantes]
-    while pendientes:
-        n = pendientes.pop(0)
-        if n in orden:
-            continue
-        orden[n] = len(orden)
-        pendientes += salientes.get(n, [])
-    return any(a.a in orden and a.de in orden and orden[a.a] <= orden[a.de] for a in rm.aristas)
+        salientes.setdefault(a.de, set()).add(a.a)
+
+    def alcanza(desde: str, hasta: str) -> bool:
+        vistos, pila = set(), [desde]
+        while pila:
+            n = pila.pop()
+            if n == hasta:
+                return True
+            if n in vistos:
+                continue
+            vistos.add(n)
+            pila += salientes.get(n, ())
+        return False
+
+    return any(alcanza(a.a, a.de) for a in rm.aristas)
 
 
 def _gen02(as_is: str, rm) -> list:
