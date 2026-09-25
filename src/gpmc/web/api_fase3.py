@@ -52,6 +52,18 @@ def _ahora() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def anotador_de_pasos(carpeta: Path):
+    """La funcion `avisar` que recibe `generar`: cada paso se agrega a
+    `generados.json` en cuanto ocurre, sin pisar lo demas, para que la SPA lo
+    vea en su siguiente consulta. Lee-modifica-escribe atomico: el hilo de
+    fondo es el unico que escribe mientras el estado es `generando`."""
+    def avisar(mensaje: str) -> None:
+        d = generados_de(carpeta) or {}
+        d["pasos"] = list(d.get("pasos") or []) + [{"t": _ahora(), "mensaje": mensaje}]
+        escribir_generados(carpeta, d)
+    return avisar
+
+
 def _vigente(d: dict) -> dict:
     """`generados.json` tal como debe verse ahora: un `generando` viejo se
     lee como `error`. Sin `iniciado` (sesiones de antes) se deja como esta."""
@@ -96,6 +108,8 @@ class GeneradosOut(BaseModel):
     # Que documento ya tiene archivo en la sesion: con eso la SPA abre en el
     # paso correcto al recargar (`declinada` sola no dice si ya se subio el propio).
     insumos: dict = {}
+    # Lo que el agente fue haciendo: [{t, mensaje}], en orden.
+    pasos: list = []
 
 
 class DecisionDocumentoIn(BaseModel):
@@ -119,9 +133,15 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         if carpeta is None:
             return
         as_is = (carpeta / INSUMOS["as_is"]).read_text(encoding="utf-8", errors="replace")
-        g = generar(as_is, proveedor, raiz, sid)
+        g = generar(as_is, proveedor, raiz, sid, avisar=anotador_de_pasos(carpeta))
         log.info("fase3 sid=%s estado=%s", sid, g.estado)
-        escribir_generados(carpeta, g.model_dump(mode="json"))
+        d = g.model_dump(mode="json")
+        # Los pasos ya estan en disco con su hora real; solo si faltaran (una
+        # sesion vieja sin `pasos`) se reconstruyen con la hora de ahora.
+        previos = (generados_de(carpeta) or {}).get("pasos") or []
+        d["pasos"] = previos if [x["mensaje"] for x in previos] == g.pasos else \
+            [{"t": _ahora(), "mensaje": m} for m in g.pasos]
+        escribir_generados(carpeta, d)
 
     @r.post("/expedientes/proponer")
     async def proponer_expediente(

@@ -9,6 +9,7 @@ import type {
   EstadoExpediente,
   GeneradosOut,
   ResultadoDecision,
+  PasoGenerado,
 } from "@/lib/types";
 
 import TarjetaPropuesta from "./TarjetaPropuesta";
@@ -31,6 +32,38 @@ const MAX_CONSULTAS = 200;
  * Se decide por documento; cuando los dos quedan resueltos el servidor
  * devuelve el expediente ya extraido y se entra al wizard de siempre.
  */
+/** La hora de un paso, corta y en la zona del navegador. */
+function horaDe(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Lo que el agente va haciendo, tal como lo cuenta el servidor. El ultimo
+ * paso es el que esta en curso: el que sigue no se anuncia hasta que arranca.
+ */
+function PasosDelAgente({ pasos }: { pasos: PasoGenerado[] }) {
+  if (pasos.length === 0) {
+    return <p className="text-muted-foreground">Arrancando… en unos segundos aparece aquí lo que va haciendo.</p>;
+  }
+  return (
+    <ol aria-label="Lo que va haciendo el agente" className="flex flex-col gap-1 border-l-2 border-primary/40 pl-3">
+      {pasos.map((p, i) => {
+        const actual = i === pasos.length - 1;
+        return (
+          <li key={`${p.t}-${i}`} className={actual ? "text-foreground" : "text-muted-foreground"}>
+            <span className="mr-2 tabular-nums text-xs">{horaDe(p.t)}</span>
+            <span>{p.mensaje}</span>
+            {actual ? (
+              <span className="ml-2 text-xs font-medium text-primary" aria-live="polite">en curso…</span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export default function Propuestas({ sid, onListo }: Props) {
   const [g, setG] = useState<GeneradosOut | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -153,10 +186,11 @@ export default function Propuestas({ sid, onListo }: Props) {
       ) : null}
 
       {g?.estado === "generando" ? (
-        <div className="flex flex-col gap-1 rounded-md border border-border bg-card p-4 text-sm">
+        <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-4 text-sm">
           <p>
             El compilador está redactando el Diccionario y el TO-BE a partir del AS-IS. Suele tardar de dos a cinco minutos.
           </p>
+          <PasosDelAgente pasos={g.pasos ?? []} />
           <p className="text-muted-foreground">Puedes cerrar y volver: la liga guarda el avance.</p>
           {agotado ? (
             <p role="alert" className="text-destructive">

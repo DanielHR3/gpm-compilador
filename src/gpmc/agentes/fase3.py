@@ -66,6 +66,13 @@ class Generados(BaseModel):
     nombre: Optional[str] = None      # del AS-IS, si metadatos lo da
     diccionario: Optional[Documento] = None
     tobe: Optional[Documento] = None
+    # Lo que el agente fue haciendo, en palabras y en orden (2026-09-25): la
+    # SPA lo pinta mientras espera. Viaja con el resultado para no perderse.
+    pasos: list = []
+
+
+def _sin_aviso(_: str) -> None:
+    pass
 
 
 def modo_pruebas(entorno: Optional[dict] = None) -> bool:
@@ -161,8 +168,12 @@ _ALERTA = {ErrorDeRed: "error_de_red", ErrorDeProveedor: "error_de_proveedor",
            RespuestaInvalida: "respuesta_invalida"}
 
 
+_NOMBRE_DOC = {"diccionario": "el Diccionario de Datos", "tobe": "la Propuesta TO-BE"}
+_DOC_CORTO = {"diccionario": "Diccionario", "tobe": "TO-BE"}
+
+
 def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
-           instruccion: str, version: str, contexto: str) -> str:
+           instruccion: str, version: str, contexto: str, avisar=_sin_aviso) -> str:
     """Una llamada al modelo —hasta tres intentos, SOLO ante ErrorDeRed, mismo
     criterio que dic08— con UNA linea en la bitacora por intento: cada peticion
     puede cobrarse, y la Licencia AI pide registrar cada interaccion. Devuelve el
@@ -175,8 +186,11 @@ def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
 
     resp = None
     esperas = (0.0, *ESPERAS_REINTENTO)
+    avisar(f"Redactando {_NOMBRE_DOC[documento]}…" if ronda == 1
+           else f"Pidiendo la mejora de {_NOMBRE_DOC[documento]}…")
     for intento, espera in enumerate(esperas):
         if espera:
+            avisar(f"Sin respuesta de la red; se reintenta en {espera:.0f} s")
             time.sleep(espera)
         it = linea()
         try:
@@ -191,6 +205,9 @@ def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
                 raise
     it.modelo, it.respuesta = resp.modelo, resp.texto
     it.tokens_entrada, it.tokens_salida, it.duracion_ms = resp.tokens_entrada, resp.tokens_salida, resp.duracion_ms
+    segundos = f" en {resp.duracion_ms / 1000:.0f} s" if resp.duracion_ms else ""
+    avisar((f"Mejora del {_DOC_CORTO[documento]} recibida" if ronda > 1
+            else f"{_DOC_CORTO[documento]} recibido") + f" de {resp.modelo}{segundos}")
     try:
         cuerpo = json.loads(resp.texto)
         texto = cuerpo[documento]
@@ -216,33 +233,63 @@ def _nombre(as_is: str) -> Optional[str]:
     return t.nombre if t is not None and t.nombre != "[por confirmar]" else None
 
 
-def generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool = True) -> Generados:
+def generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool = True,
+            avisar=None) -> Generados:
     """AS-IS -> Generados. Nunca propaga: cualquier fallo es `estado: error`
-    con el tipo de la excepcion en el motivo (y en el log con traza)."""
+    con el tipo de la excepcion en el motivo (y en el log con traza).
+    `avisar(mensaje)` recibe cada paso en cuanto ocurre; los pasos tambien
+    vuelven en `Generados.pasos`."""
+    pasos = []
+
+    def _avisar(mensaje: str) -> None:
+        pasos.append(mensaje)
+        if avisar is not None:
+            avisar(mensaje)
+
     try:
-        return _generar(as_is, proveedor, raiz, sid, mejorar)
+        g = _generar(as_is, proveedor, raiz, sid, mejorar, _avisar)
     except Exception as exc:  # ErrorDeRed, RespuestaInvalida, o un defecto nuestro
         log.error("fase3 sid=%s fallo: %s", sid, type(exc).__name__, exc_info=exc)
-        return Generados(estado="error", nombre=_nombre(as_is),
+        _avisar(f"Falló la generación ({type(exc).__name__})")
+        return Generados(estado="error", nombre=_nombre(as_is), pasos=pasos,
                          motivo=f"No se pudieron generar las propuestas. ({type(exc).__name__})")
+    g.pasos = pasos
+    return g
 
 
-def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool) -> Generados:
+def _resumen_flujo(m) -> str:
+    if m is None:
+        return "sin pantallas legibles"
+    compuertas = len({c.de for c in m.flujo.conexiones if c.cuando is not None})
+    return f"{len(m.pantallas)} pantallas, {compuertas} compuerta{'s' if compuertas != 1 else ''}"
+
+
+def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool, avisar=_sin_aviso) -> Generados:
+    from gpmc.agentes.verificar_fase3 import requisitos_del_as_is
+    n_req = len(requisitos_del_as_is(as_is))
+    avisar(f"Leyendo el AS-IS: {n_req} requisitos encontrados" if n_req
+           else "Leyendo el AS-IS: no trae lista de requisitos")
     dicc = _pedir(proveedor, raiz, sid, "diccionario", 1, pr.INSTRUCCION_DICC,
-                  pr.VERSION_PROMPT_DICC, pr.contexto_dicc(as_is))
+                  pr.VERSION_PROMPT_DICC, pr.contexto_dicc(as_is), avisar)
     tobe = _pedir(proveedor, raiz, sid, "tobe", 1, pr.INSTRUCCION_TOBE,
-                  pr.VERSION_PROMPT_TOBE, pr.contexto_tobe(as_is, dicc))
+                  pr.VERSION_PROMPT_TOBE, pr.contexto_tobe(as_is, dicc), avisar)
     m_1, huecos = extraer_borradores(as_is, dicc, tobe)
+    n_pend = len(bloquean(huecos))
+    avisar(f"Verificando contra el AS-IS: {_resumen_flujo(m_1)}, "
+           f"{n_pend} pendiente{'s' if n_pend != 1 else ''}")
     elegido = {"diccionario": (dicc, 1, pr.VERSION_PROMPT_DICC), "tobe": (tobe, 1, pr.VERSION_PROMPT_TOBE)}
     m_final = m_1
     if mejorar:
-        elegido, huecos, m_final = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos, m_1)
+        elegido, huecos, m_final = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos, m_1, avisar)
     reparto = _por_documento(huecos)
     docs = {}
     for clave, (texto, ronda, version) in elegido.items():
         docs[clave] = Documento(texto=texto, version_prompt=version, ronda=ronda,
                                 huecos=[HuecoOut.desde(h) for h in reparto[clave]])
     docs["diccionario"].vista = vista_de(m_final)
+    n_pend = len(bloquean(huecos))
+    avisar(f"Propuesta lista: {_resumen_flujo(m_final)}, "
+           f"{n_pend} pendiente{'s' if n_pend != 1 else ''} por resolver")
     return Generados(estado="listo", nombre=_nombre(as_is),
                      diccionario=docs["diccionario"], tobe=docs["tobe"])
 
@@ -273,7 +320,7 @@ def _tamano(manifiesto, texto: str, clave: str) -> int:
 
 
 def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict, huecos: list,
-                     m_1=None):
+                     m_1=None, avisar=_sin_aviso):
     """Una sola vez por documento, y solo si ese documento tiene huecos que
     bloquean. Primero el Diccionario; el TO-BE se mejora contra el Diccionario
     ya elegido. Por documento se conserva la ronda con menos bloqueantes
@@ -288,18 +335,25 @@ def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict,
     if not reparto["diccionario"] and not reparto["tobe"]:
         return elegido, huecos, m_1
     candidatos = {"diccionario": elegido["diccionario"][0], "tobe": elegido["tobe"][0]}
+
+    def _codigos(lineas: list) -> str:
+        return ", ".join(sorted({re.match(r"\[([^\]]+)\]", l).group(1) for l in lineas if re.match(r"\[([^\]]+)\]", l)}))
+
     try:
         if reparto["diccionario"]:
+            avisar(f"El verificador pide una mejora del Diccionario por: {_codigos(reparto['diccionario'])}")
             candidatos["diccionario"] = _pedir(
                 proveedor, raiz, sid, "diccionario", 2, pr.INSTRUCCION_MEJORA, pr.VERSION_PROMPT_MEJORA,
-                pr.contexto_mejora(as_is, candidatos["diccionario"], reparto["diccionario"], "diccionario"))
+                pr.contexto_mejora(as_is, candidatos["diccionario"], reparto["diccionario"], "diccionario"), avisar)
         if reparto["tobe"]:
+            avisar(f"El verificador pide una mejora del TO-BE por: {_codigos(reparto['tobe'])}")
             candidatos["tobe"] = _pedir(
                 proveedor, raiz, sid, "tobe", 2, pr.INSTRUCCION_MEJORA, pr.VERSION_PROMPT_MEJORA,
                 pr.contexto_mejora(as_is, candidatos["tobe"], reparto["tobe"], "tobe",
-                                   diccionario=candidatos["diccionario"]))
+                                   diccionario=candidatos["diccionario"]), avisar)
     except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as exc:
         log.warning("fase3 sid=%s la mejora fallo (%s); se conserva la ronda 1", sid, type(exc).__name__)
+        avisar("La mejora falló; se conserva la primera versión")
         return elegido, huecos, m_1
     m_2, huecos_2 = extraer_borradores(as_is, candidatos["diccionario"], candidatos["tobe"])
     final = dict(elegido)
@@ -313,9 +367,13 @@ def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict,
         if _tamano(m_2, candidatos[clave], clave) < _tamano(m_1, elegido[clave][0], clave):
             log.warning("fase3 sid=%s la mejora del %s recorta el documento; se conserva la ronda 1",
                         sid, clave)
+            avisar(f"La mejora recortaba el {_DOC_CORTO[clave]}; se conserva la ronda 1")
             continue
         if _cuenta(m_2, huecos_2, clave) <= _cuenta(m_1, huecos, clave):
             final[clave] = (candidatos[clave], 2, pr.VERSION_PROMPT_MEJORA)
+            avisar(f"Se conserva la ronda 2 del {_DOC_CORTO[clave]}")
+        else:
+            avisar(f"La mejora no ayudó; se conserva la ronda 1 del {_DOC_CORTO[clave]}")
     # Si la pareja final es exactamente la de la ronda 2, sus huecos ya estan
     # medidos. Si se mezclan rondas (Diccionario 2, TO-BE 1), se vuelven a
     # medir sobre la pareja elegida: es una extraccion local, sin llamadas.

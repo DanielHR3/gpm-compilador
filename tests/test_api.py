@@ -1515,3 +1515,31 @@ def test_en_modo_de_pruebas_se_genera_con_gemini(tmp_path):
     r = _proponer(c)
     assert r.status_code == 202
     assert c.get(f"/api/v1/expedientes/{r.json()['sid']}/generados").json()["estado"] == "listo"
+
+
+def test_los_pasos_del_agente_se_persisten_mientras_genera_y_al_terminar(tmp_path):
+    """La SPA los lee del mismo GET de siempre. TestClient corre el hilo antes
+    de devolver, asi que aqui se ve el final; que se escriban DURANTE la
+    generacion lo fija la prueba del callback en api_fase3."""
+    from tests.test_fase3 import _DICC_OK, _TOBE_OK, _json
+    c = _cli_fase3(tmp_path, [_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    sid = _proponer(c).json()["sid"]
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert g["estado"] == "listo"
+    assert [p["mensaje"] for p in g["pasos"]][0].startswith("Leyendo el AS-IS")
+    assert g["pasos"][-1]["mensaje"].startswith("Propuesta lista")
+    assert all(p["t"] for p in g["pasos"])
+
+
+def test_cada_paso_se_escribe_en_generados_json_en_cuanto_llega(tmp_path):
+    from gpmc.web.sesiones import escribir_generados, generados_de
+    from gpmc.web.api_fase3 import anotador_de_pasos
+    carpeta = tmp_path / "s"; carpeta.mkdir()
+    escribir_generados(carpeta, {"estado": "generando", "nombre": "X", "iniciado": "2026-09-25T00:00:00+00:00"})
+    avisar = anotador_de_pasos(carpeta)
+    avisar("Leyendo el AS-IS")
+    d = generados_de(carpeta)
+    assert d["estado"] == "generando" and d["iniciado"]           # no pisa lo demas
+    assert [p["mensaje"] for p in d["pasos"]] == ["Leyendo el AS-IS"]
+    avisar("Redactando el Diccionario…")
+    assert [p["mensaje"] for p in generados_de(carpeta)["pasos"]] == ["Leyendo el AS-IS", "Redactando el Diccionario…"]

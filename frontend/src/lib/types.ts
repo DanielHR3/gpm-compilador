@@ -170,7 +170,10 @@ export type GeneradosOut = {
   tobe: DocumentoGenerado | null;
   /** Que documento ya tiene archivo en la sesion (para abrir en el paso correcto). */
   insumos?: { diccionario: boolean; tobe: boolean };
+  /** Lo que el agente fue haciendo, en orden, con la hora (ISO) de cada paso. */
+  pasos?: PasoGenerado[];
 };
+export type PasoGenerado = { t: string; mensaje: string };
 export type ClaveDocumento = "diccionario" | "tobe";
 /**
  * Lo que devuelve una decision o una subida: el expediente ya extraido si

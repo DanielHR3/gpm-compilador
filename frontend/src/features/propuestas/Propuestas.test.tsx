@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -129,4 +129,36 @@ it("en modo de pruebas la propuesta lo recuerda", async () => {
   vi.mocked(leerGenerados).mockResolvedValue(listo);
   render(<Propuestas sid={SID} onListo={() => {}} />);
   expect(await screen.findByRole("note", { name: /modo de pruebas/i })).toBeInTheDocument();
+});
+
+it("mientras genera enseña los pasos del agente en orden, con hora", async () => {
+  const { leerGenerados } = await import("@/lib/api");
+  vi.mocked(leerGenerados)
+    .mockResolvedValueOnce({
+      estado: "generando", motivo: null, nombre: "Constancia", diccionario: null, tobe: null,
+      pasos: [
+        { t: "2026-09-25T17:29:01+00:00", mensaje: "Leyendo el AS-IS: 4 requisitos encontrados" },
+        { t: "2026-09-25T17:29:02+00:00", mensaje: "Redactando el Diccionario de Datos…" },
+      ],
+    })
+    .mockResolvedValueOnce(listo);
+  render(<Propuestas sid={SID} onListo={() => {}} />);
+  const lista = await screen.findByRole("list", { name: /lo que va haciendo el agente/i });
+  const items = within(lista).getAllByRole("listitem");
+  expect(items).toHaveLength(2);
+  expect(items[0]).toHaveTextContent(/Leyendo el AS-IS: 4 requisitos/);
+  expect(items[1]).toHaveTextContent(/Redactando el Diccionario/);
+  expect(items[1]).toHaveTextContent(/\d{1,2}:\d{2}/);        // la hora, corta
+  expect(within(items[1]).getByText(/en curso/i)).toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
+  await waitFor(() => expect(documentos()).toHaveLength(1));
+});
+
+it("sin pasos todavía, la espera dice que está arrancando", async () => {
+  const { leerGenerados } = await import("@/lib/api");
+  vi.mocked(leerGenerados)
+    .mockResolvedValueOnce({ estado: "generando", motivo: null, nombre: "Constancia", diccionario: null, tobe: null, pasos: [] })
+    .mockResolvedValueOnce(listo);
+  render(<Propuestas sid={SID} onListo={() => {}} />);
+  expect(await screen.findByText(/arrancando/i)).toBeInTheDocument();
 });

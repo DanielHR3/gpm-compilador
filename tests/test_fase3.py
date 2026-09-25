@@ -800,3 +800,45 @@ def test_el_contexto_del_diccionario_lleva_los_requisitos_del_as_is_como_lista()
     assert "<<REQUISITOS>>" in p.contexto_mejora(_ASIS_INLINE, "b", ["[GEN-01] x"], "diccionario")
     assert "<<REQUISITOS>>" not in p.contexto_dicc("# Análisis AS-IS — X\n\nSin requisitos.\n")
     assert "<<REQUISITOS>>" in p.INSTRUCCION_DICC and "campo de tipo Archivo" in p.INSTRUCCION_DICC
+
+
+# --- Avance en vivo (2026-09-25): lo que el agente va haciendo -------------------
+# La pantalla de espera solo preguntaba cada 3 s si ya termino: de dos a cinco
+# minutos en blanco. `generar` avisa cada paso por una funcion; la API los
+# persiste en generados.json y la SPA los pinta.
+
+def test_generar_avisa_cada_paso_en_orden(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    pasos = []
+    dicc_1 = _DICC_OK.replace("| Poder notarial si el solicitante es persona moral | Archivo | Visor de archivos | No | `@@poder` |\n", "")
+    prov = ProveedorFalso([_json("diccionario", dicc_1), _json("tobe", _TOBE_OK),
+                           _json("diccionario", _DICC_OK)], modelo="modelo-x")
+    g = generar(_ASIS_INLINE, prov, tmp_path, "j" * 16, avisar=pasos.append)
+    assert g.estado == "listo"
+    texto = "\n".join(pasos)
+    assert pasos[0].startswith("Leyendo el AS-IS") and "3 requisitos" in pasos[0]
+    assert any(p.startswith("Redactando el Diccionario") for p in pasos)
+    assert any("Diccionario recibido de modelo-x" in p for p in pasos)
+    assert any(p.startswith("Redactando la Propuesta TO-BE") for p in pasos)
+    assert any("Verificando" in p and "pendiente" in p for p in pasos)
+    assert any("mejora del Diccionario" in p and "GEN-01" in p for p in pasos)
+    assert any("Se conserva la ronda 2 del Diccionario" in p for p in pasos)
+    assert pasos[-1].startswith("Propuesta lista")
+    assert g.pasos == pasos                       # viajan con el resultado
+    assert "Redactando" in texto and pasos == [p for p in pasos if p]
+
+
+def test_generar_sin_avisar_sigue_igual(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "k" * 16, mejorar=False)
+    assert g.estado == "listo" and g.pasos[-1].startswith("Propuesta lista")
+
+
+def test_un_error_del_generador_conserva_los_pasos_hasta_el_fallo(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    g = generar(_ASIS_INLINE, ProveedorFalso([]), tmp_path, "l" * 16)
+    assert g.estado == "error" and g.pasos and g.pasos[-1].startswith("Falló")
