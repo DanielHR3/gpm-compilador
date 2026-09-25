@@ -1,0 +1,51 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, expect, it, vi } from "vitest";
+
+import Entrada from "./Entrada";
+
+vi.mock("@/lib/api", () => ({
+  entrar: vi.fn(),
+  ErrorApi: class ErrorApi extends Error {
+    status: number;
+    constructor(status: number) { super(String(status)); this.status = status; }
+  },
+}));
+
+afterEach(() => vi.clearAllMocks());
+
+it("pide correo institucional y contraseña, y entra con ellos", async () => {
+  const { entrar } = await import("@/lib/api");
+  vi.mocked(entrar).mockResolvedValueOnce({
+    token: "a.b.c", usuario: { correo: "daniel.hernandezr@hidalgo.gob.mx", nombre: "Daniel", dependencia: "DGT" },
+  });
+  const onEntrar = vi.fn();
+  render(<Entrada onEntrar={onEntrar} />);
+  expect(screen.getByRole("region", { name: /entrar al compilador gpm/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /compilador gpm/i })).toBeInTheDocument();
+  const boton = screen.getByRole("button", { name: /entrar/i });
+  expect(boton).toBeDisabled();                                   // sin datos no se envía
+  await userEvent.type(screen.getByLabelText(/correo institucional/i), " daniel.hernandezr@hidalgo.gob.mx ");
+  await userEvent.type(screen.getByLabelText(/contraseña/i), "Secreta-123");
+  await userEvent.click(boton);
+  expect(entrar).toHaveBeenCalledWith("daniel.hernandezr@hidalgo.gob.mx", "Secreta-123");
+  await waitFor(() => expect(onEntrar).toHaveBeenCalledWith(
+    { correo: "daniel.hernandezr@hidalgo.gob.mx", nombre: "Daniel", dependencia: "DGT" }));
+});
+
+it("con credenciales malas lo dice en la misma pantalla y deja reintentar", async () => {
+  const { entrar, ErrorApi } = await import("@/lib/api");
+  vi.mocked(entrar).mockRejectedValueOnce(new (ErrorApi as unknown as new (s: number) => Error)(401));
+  render(<Entrada onEntrar={vi.fn()} />);
+  await userEvent.type(screen.getByLabelText(/correo institucional/i), "x@hidalgo.gob.mx");
+  await userEvent.type(screen.getByLabelText(/contraseña/i), "mal");
+  await userEvent.click(screen.getByRole("button", { name: /entrar/i }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(/correo o contraseña incorrectos/i);
+  expect(screen.getByRole("button", { name: /entrar/i })).toBeEnabled();
+});
+
+it("dice quién da de alta las cuentas: no hay registro", () => {
+  render(<Entrada onEntrar={vi.fn()} />);
+  expect(screen.getByText(/las altas las hace la dirección general de tecnologías/i)).toBeInTheDocument();
+  expect(screen.queryByText(/regístrate|crear cuenta/i)).not.toBeInTheDocument();
+});

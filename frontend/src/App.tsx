@@ -12,6 +12,8 @@ import Propuestas from "@/features/propuestas/Propuestas";
 import Catalogos from "@/features/catalogos/Catalogos";
 import Historial from "@/features/historial/Historial";
 import Inicio from "@/features/inicio/Inicio";
+import Entrada from "@/features/sesion/Entrada";
+import { useSesion } from "@/features/sesion/useSesion";
 import Tablero from "@/features/tablero/Tablero";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
 import { useUrlDeRevision } from "@/features/huecos/useUrlDeRevision";
@@ -49,6 +51,9 @@ export default function App() {
     ruta.tipo === "expediente" ? "carpeta" : ruta.tipo === "desde_as_is" ? "as_is" : null,
   );
   const [cargando, setCargando] = useState(ruta.tipo === "revisar");
+  // Sesion (spec 2026-09-25): con usuarios, nada se pinta hasta entrar; sin
+  // usuarios (la Mac de pruebas) se entra directo, como siempre.
+  const sesion = useSesion();
 
   // El expediente abierto tiene direccion propia: sin ella, salir al
   // simulador y volver con Atras aterrizaba en la carga de insumos. La
@@ -57,6 +62,7 @@ export default function App() {
 
   useEffect(() => {
     if (ruta.tipo !== "revisar") return;
+    if (sesion.estado === "cargando" || sesion.estado === "cerrada") return;
     const sid = ruta.sid;
     leerExpediente(sid)
       .then((e) => {
@@ -76,9 +82,10 @@ export default function App() {
         } else setAviso("La sesion expiro o no existe. Vuelve a subir los insumos.");
       })
       .finally(() => setCargando(false));
-    // La ruta se lee una sola vez al montar: los cambios de pantalla dentro de
-    // la SPA no recargan.
-  }, []);
+    // La ruta se lee una sola vez al montar (y otra vez al abrirse la sesion):
+    // los cambios de pantalla dentro de la SPA no recargan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sesion.estado]);
 
   const titulo =
     ruta.tipo === "catalogos" ? "Catálogos"
@@ -135,12 +142,15 @@ export default function App() {
       </>
     );
 
+  if (sesion.estado === "cargando") return <div className="min-h-svh bg-background" />;
+  if (sesion.estado === "cerrada") return <Entrada onEntrar={sesion.entrar} />;
+
   return (
     <div className="flex min-h-svh bg-background">
       <Toaster />
       <NavegacionLateral sid={est?.sid ?? null} tramite={nombreDelTramite(est)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader titulo={titulo} />
+        <AppHeader titulo={titulo} usuario={sesion.usuario} onSalir={() => void sesion.salir()} />
         <main className="flex-1 px-6 py-8">
           {aviso ? (
             <p role="alert" className="pb-4 text-sm text-destructive">

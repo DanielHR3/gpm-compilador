@@ -174,6 +174,13 @@ export type GeneradosOut = {
   pasos?: PasoGenerado[];
 };
 export type PasoGenerado = { t: string; mensaje: string };
+
+/** Quien esta dentro (spec 2026-09-25). El token no viaja aqui: va en cookie HttpOnly. */
+export type Usuario = { correo: string; nombre: string; dependencia: string };
+/** `GET /api/v1/sesion`. 404 = el servidor corre sin usuarios. */
+export type SesionOut = { usuario: Usuario | null };
+/** `POST /api/v1/sesion`. */
+export type EntradaOut = { token: string; usuario: Usuario };
 export type ClaveDocumento = "diccionario" | "tobe";
 /**
  * Lo que devuelve una decision o una subida: el expediente ya extraido si

@@ -23,6 +23,8 @@ import type {
   PropuestasOut,
   Resolucion,
   ResultadoDecision,
+  EntradaOut,
+  SesionOut,
 } from "./types";
 
 const BASE = "/api/v1";
@@ -96,9 +98,22 @@ function mensajeDeDetail(detail: unknown): string | null {
   return null;
 }
 
+// Quien quiera enterarse de un 401 (la sesion se venció o se cerró en otra
+// pestaña). `useSesion` se apunta aqui; `Entrada` no, para que un intento
+// fallido de entrar no se confunda con perder la sesion.
+const _oyentes401 = new Set<() => void>();
+export function alPerderSesion(cb: () => void, alDesmontar?: () => void): () => void {
+  _oyentes401.add(cb);
+  return () => {
+    _oyentes401.delete(cb);
+    alDesmontar?.();
+  };
+}
+
 /** `fetch` + `res.json()`; lanza `ErrorApi` en cualquier `!res.ok`. */
 async function pedirJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
+  if (res.status === 401 && !url.endsWith("/api/v1/sesion")) _oyentes401.forEach((cb) => cb());
   if (!res.ok) {
     let cuerpo: unknown;
     try {
@@ -514,4 +529,24 @@ export async function leerToBe(sid: string): Promise<string> {
     throw ErrorApi.desde(res.status, cuerpo);
   }
   return res.text();
+}
+
+
+// --- Sesion (spec 2026-09-25) -------------------------------------------------------
+
+/** Quien esta dentro; 404 si el servidor corre sin usuarios. */
+export async function leerSesion(): Promise<SesionOut> {
+  return pedirJson<SesionOut>("/api/v1/sesion");
+}
+
+export async function entrar(correo: string, contrasena: string): Promise<EntradaOut> {
+  return pedirJson<EntradaOut>("/api/v1/sesion", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ correo, contrasena }),
+  });
+}
+
+export async function salir(): Promise<void> {
+  await pedirJson<{ ok: boolean }>("/api/v1/salir", { method: "POST" });
 }

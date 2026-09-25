@@ -10,6 +10,11 @@ import { generateCssVariables, tokensWeb } from "@/lib/tokens";
 // dispare desde el arbol. En jsdom `pathname` es `/`, asi que el `useEffect`
 // del deep-link sale sin llamar a nada.
 vi.mock("@/lib/api", () => ({
+  // Sin usuarios en el servidor: 404 en /sesion y la SPA entra directo.
+  leerSesion: vi.fn().mockRejectedValue(Object.assign(new Error("404"), { status: 404 })),
+  entrar: vi.fn(),
+  salir: vi.fn(),
+  alPerderSesion: vi.fn().mockReturnValue(() => {}),
   leerCapacidades: vi.fn().mockResolvedValue({ proponer: true, motivo: null, pruebas: false }),
   leerToBe: vi.fn().mockRejectedValue(new Error("sin TO-BE")),
   leerGenerados: vi.fn(),
@@ -47,25 +52,25 @@ vi.mock("mermaid", () => ({
 }));
 
 describe("App (SPA SP1)", () => {
-  it("la raiz es el Inicio con los dos caminos", () => {
+  it("la raiz es el Inicio con los dos caminos", async () => {
     window.history.pushState({}, "", "/");
     render(<App />);
-    expect(screen.getByRole("heading", { name: /qué tienes del trámite/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /qué tienes del trámite/i })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: /migas de pan/i })).toHaveTextContent("Inicio");
   });
 
-  it("/expediente abre la carga de siempre con sus migas", () => {
+  it("/expediente abre la carga de siempre con sus migas", async () => {
     window.history.pushState({}, "", "/expediente");
     render(<App />);
-    expect(screen.getByRole("button", { name: /extraer/i })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: /extraer/i })).toBeDisabled();
     expect(screen.getByRole("navigation", { name: /migas de pan/i })).toHaveTextContent(/Inicio.*Expediente completo/);
     window.history.pushState({}, "", "/");
   });
 
-  it("/desde-as-is abre la carga del AS-IS con sus migas", () => {
+  it("/desde-as-is abre la carga del AS-IS con sus migas", async () => {
     window.history.pushState({}, "", "/desde-as-is");
     render(<App />);
-    expect(screen.getByRole("button", { name: /proponer to-be y diccionario/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /proponer to-be y diccionario/i })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: /migas de pan/i })).toHaveTextContent(/Inicio.*Solo AS-IS/);
     window.history.pushState({}, "", "/");
   });
@@ -153,10 +158,10 @@ describe("App (SPA SP1)", () => {
     }
   });
 
-  it("la navegación del proceso acompaña a la pantalla de carga", () => {
+  it("la navegación del proceso acompaña a la pantalla de carga", async () => {
     render(<App />);
 
-    const nav = screen.getByRole("navigation", { name: /proceso/i });
+    const nav = await screen.findByRole("navigation", { name: /proceso/i });
     expect(nav).toBeInTheDocument();
     expect(
       within(nav).getByRole("link", { current: "step" }),
@@ -175,5 +180,34 @@ describe("App y la Fase 3", () => {
     expect(await screen.findByText(/de dos a cinco minutos/i)).toBeInTheDocument();
     expect(screen.queryByText(/la sesion expiro/i)).not.toBeInTheDocument();
     window.history.pushState({}, "", "/");
+  });
+});
+
+describe("sesión (spec 2026-09-25)", () => {
+  it("con usuarios y sin sesión abierta enseña la entrada y nada más", async () => {
+    const api = await import("@/lib/api");
+    vi.mocked(api.leerSesion).mockResolvedValueOnce({ usuario: null });
+    render(<App />);
+    expect(await screen.findByRole("region", { name: /entrar al compilador gpm/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /qué tienes del trámite/i })).not.toBeInTheDocument();
+  });
+
+  it("con sesión abierta muestra a la persona y su dependencia en la barra, con «Salir»", async () => {
+    const api = await import("@/lib/api");
+    vi.mocked(api.leerSesion).mockResolvedValueOnce({
+      usuario: { correo: "luis.vera@hidalgo.gob.mx", nombre: "Luis Vera", dependencia: "DSA" },
+    });
+    render(<App />);
+    const sesion = await screen.findByLabelText(/^sesión$/i);
+    expect(within(sesion).getByText("Luis Vera")).toBeInTheDocument();
+    expect(within(sesion).getByText("DSA")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /salir/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /qué tienes del trámite/i })).toBeInTheDocument();
+  });
+
+  it("sin usuarios en el servidor (404 en /sesion) entra directo, sin barra de sesión", async () => {
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: /qué tienes del trámite/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /salir/i })).not.toBeInTheDocument();
   });
 });
