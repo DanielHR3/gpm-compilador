@@ -93,6 +93,25 @@ auditoría.
   `GPMC_IA_TIMEOUT_S`, `GPMC_JWT_SECRETO`, `GPMC_BD` (cadena de conexión), y **sin**
   `GPMC_FASE3_PRUEBAS` cuando lleguen las credenciales de OpenAI.
 
+## Cambio del 2026-09-25 (tarde): superusuario, registro y recuperación
+
+Decisiones nuevas del usuario, que sustituyen «altas solo por terminal»:
+
+| Decisión | Alternativa descartada | Motivo |
+| --- | --- | --- |
+| **Rol `admin` (superusuario) y `analista`**; Daniel es el superusuario | Un solo tipo de cuenta | Alguien tiene que aprobar cuentas y cambiar roles sin entrar a la terminal |
+| **Hoja de registro** que solo admite `@hidalgo.gob.mx` (`GPMC_DOMINIO_CORREO`) y deja la cuenta **pendiente** hasta que el superusuario la aprueba | Activación por verificación de correo | No exige enviar correos y nadie entra sin visto bueno |
+| **Recuperación por liga de correo**, un solo uso, caduca en 1 h | Restablecimiento por el superusuario | Elegida por el usuario; el envío va por SMTP (`GPMC_SMTP_*`), que sirve para SES y para el SMTP de Hidalgo, aún por decidir. Sin SMTP el asistente lo dice y la liga queda en el log |
+| Pantalla «Cuentas» en la SPA para el superusuario | Solo `gpmc usuario` | Es la tarea diaria de aprobar |
+
+Tablas nuevas: `recuperaciones` (hash del token, correo, expira, usado). Columnas nuevas en
+`usuarios`: `rol`, `estado` (`pendiente` · `activo` · `inactivo`). Acciones nuevas en la auditoría:
+`usuario.registro`, `usuario.aprobar`, `usuario.desactivar`, `usuario.rol`, `recuperacion.pedir`,
+`recuperacion.restablecer`. Rutas públicas: `POST /api/v1/registro`, `/recuperar`, `/restablecer`;
+solo admin: `GET/POST /api/v1/usuarios…` (403 para un analista; nadie se desactiva a sí mismo).
+Pendiente: decidir SES o SMTP institucional y sus credenciales (`GPMC_SMTP_HOST`, `_PUERTO`,
+`_USUARIO`, `_CLAVE`, `_REMITENTE`).
+
 ## Pendientes que esta decisión destapa
 
 - **SP3**: el simulador y la aprobación siguen siendo HTML del servidor. Con CloudFront basta
