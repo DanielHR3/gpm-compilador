@@ -37,7 +37,7 @@ export default function MarcoSesion({
           </p>
         </div>
         <p className="text-xs text-white/60">
-          Dirección General de Tecnologías · Dirección de Simplificación Administrativa
+          Dirección de Gestión Tecnológica · Dirección de Simplificación Administrativa
         </p>
       </aside>
 

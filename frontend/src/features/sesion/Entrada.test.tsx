@@ -49,7 +49,7 @@ it("ofrece crear cuenta y recuperar la contraseña, y dice quién aprueba (decis
   render(<Entrada onEntrar={vi.fn()} />);
   expect(screen.getByRole("link", { name: /crear cuenta/i })).toHaveAttribute("href", "/registro");
   expect(screen.getByRole("link", { name: /olvidé mi contraseña/i })).toHaveAttribute("href", "/recuperar");
-  expect(screen.getByText(/la aprueba la dirección general de tecnologías/i)).toBeInTheDocument();
+  expect(screen.getByText(/la aprueba la dirección de gestión tecnológica/i)).toBeInTheDocument();
 });
 
 it("el ojo enseña y vuelve a ocultar la contraseña", async () => {

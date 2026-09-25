@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { aprobarUsuario, cambiarRol, desactivarUsuario, listarUsuarios } from "@/lib/api";
 import type { UsuarioAdmin } from "@/lib/types";
 import { cn } from "cn";
@@ -11,7 +12,8 @@ import { cn } from "cn";
  * La tarea de este cuadro es aprobar: las pendientes van primero y con la
  * acción en guinda; el resto de acciones son secundarias. Cada cuenta es una
  * fila-tarjeta con iniciales, nombre, correo y sus dos etiquetas (dependencia
- * y rol); el estado lo dice la sección, no una etiqueta más.
+ * y rol); el estado lo dice la sección, no una etiqueta más. Tarjetas en
+ * rejilla, como todo en la SPA: nunca una lista ni una tabla.
  */
 const ESTADOS: { clave: UsuarioAdmin["estado"]; titulo: string; nota: string; vacio: string }[] = [
   { clave: "pendiente", titulo: "Pendientes de aprobación", nota: "Se registraron y esperan tu visto bueno para poder entrar.",
@@ -90,56 +92,63 @@ export default function Usuarios({ yo }: { yo: string }) {
             {grupo.length === 0 ? (
               <p className="rounded-md border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">{vacio}</p>
             ) : (
-              <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card">
+              <ul className="grid gap-4 md:grid-cols-2">
                 {grupo.map((u) => {
                   const soyYo = u.correo === yo;
                   return (
-                    <li key={u.correo} role="article" aria-label={u.correo}
-                      className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
-                      <span aria-hidden className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-full font-heading text-sm font-bold",
-                        u.estado === "inactivo" ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary",
-                      )}>
-                        {iniciales(u.nombre)}
-                      </span>
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold">{u.nombre}</span>
-                          {soyYo ? <Etiqueta tono="arena">tú</Etiqueta> : null}
-                        </div>
-                        <span className="truncate text-sm text-muted-foreground">{u.correo}</span>
-                        <div className="flex flex-wrap gap-1.5">
+                    <li key={u.correo}>
+                      <Card role="article" aria-label={u.correo} className="h-full py-4">
+                        <CardHeader className="gap-1">
+                          <div className="flex items-start gap-3">
+                            <span aria-hidden className={cn(
+                              "flex size-11 shrink-0 items-center justify-center rounded-full font-heading text-sm font-bold",
+                              u.estado === "inactivo" ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary",
+                            )}>
+                              {iniciales(u.nombre)}
+                            </span>
+                            <div className="flex min-w-0 flex-col gap-0.5">
+                              <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                                <span>{u.nombre}</span>
+                                {soyYo ? <Etiqueta tono="arena">tú</Etiqueta> : null}
+                              </CardTitle>
+                              <CardDescription className="truncate">{u.correo}</CardDescription>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="flex flex-wrap gap-1.5">
                           <Etiqueta>{u.dependencia}</Etiqueta>
                           <Etiqueta tono={u.rol === "admin" ? "guinda" : "neutra"}>{u.rol === "admin" ? "superusuario" : "analista"}</Etiqueta>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2 sm:justify-end">
-                        {u.estado === "pendiente" ? (
-                          <Button size="sm" disabled={ocupado === u.correo}
-                            onClick={() => void accion(u.correo, () => aprobarUsuario(u.correo))}>
-                            Aprobar
-                          </Button>
+                        </CardContent>
+                        {u.estado === "pendiente" || u.estado === "inactivo" || !soyYo ? (
+                          <CardFooter className="flex flex-wrap gap-2">
+                            {u.estado === "pendiente" ? (
+                              <Button size="sm" disabled={ocupado === u.correo}
+                                onClick={() => void accion(u.correo, () => aprobarUsuario(u.correo))}>
+                                Aprobar
+                              </Button>
+                            ) : null}
+                            {u.estado === "inactivo" ? (
+                              <Button size="sm" variant="outline" disabled={ocupado === u.correo}
+                                onClick={() => void accion(u.correo, () => aprobarUsuario(u.correo))}>
+                                Reactivar
+                              </Button>
+                            ) : null}
+                            {u.estado === "activo" && !soyYo ? (
+                              <>
+                                <Button size="sm" variant="outline" disabled={ocupado === u.correo}
+                                  onClick={() => void accion(u.correo, () => cambiarRol(u.correo, u.rol === "admin" ? "analista" : "admin"))}>
+                                  {u.rol === "admin" ? "Quitar superusuario" : "Hacer superusuario"}
+                                </Button>
+                                <Button size="sm" variant="ghost" disabled={ocupado === u.correo}
+                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => void accion(u.correo, () => desactivarUsuario(u.correo))}>
+                                  Desactivar
+                                </Button>
+                              </>
+                            ) : null}
+                          </CardFooter>
                         ) : null}
-                        {u.estado === "inactivo" ? (
-                          <Button size="sm" variant="outline" disabled={ocupado === u.correo}
-                            onClick={() => void accion(u.correo, () => aprobarUsuario(u.correo))}>
-                            Reactivar
-                          </Button>
-                        ) : null}
-                        {u.estado === "activo" && !soyYo ? (
-                          <>
-                            <Button size="sm" variant="outline" disabled={ocupado === u.correo}
-                              onClick={() => void accion(u.correo, () => cambiarRol(u.correo, u.rol === "admin" ? "analista" : "admin"))}>
-                              {u.rol === "admin" ? "Quitar superusuario" : "Hacer superusuario"}
-                            </Button>
-                            <Button size="sm" variant="ghost" disabled={ocupado === u.correo}
-                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => void accion(u.correo, () => desactivarUsuario(u.correo))}>
-                              Desactivar
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
+                      </Card>
                     </li>
                   );
                 })}

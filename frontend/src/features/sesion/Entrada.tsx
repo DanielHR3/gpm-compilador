@@ -61,7 +61,7 @@ export default function Entrada({ onEntrar }: { onEntrar: (u: Usuario) => void }
           <a href="/recuperar" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Olvidé mi contraseña</a>
         </div>
         <p className="border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
-          Solo correos institucionales. Una cuenta nueva la aprueba la Dirección General de Tecnologías antes de poder entrar.
+          Solo correos institucionales. Una cuenta nueva la aprueba la Dirección de Gestión Tecnológica antes de poder entrar.
         </p>
       </form>
     </MarcoSesion>
