@@ -205,7 +205,7 @@ def test_servir_pasa_el_almacen_a_crear_app(tmp_path, monkeypatch):
     )
 
     destino = tmp_path / "sesiones"
-    assert main(["servir", "--almacen", str(destino)]) == 0
+    assert main(["servir", "--sin-usuarios", "--almacen", str(destino)]) == 0
     assert vistos["almacen"] == destino
 
 
@@ -220,7 +220,7 @@ def test_servir_sin_almacen_no_fija_ninguno(tmp_path, monkeypatch):
         type("U", (), {"run": staticmethod(lambda *a, **k: None)})(),
     )
 
-    assert main(["servir"]) == 0
+    assert main(["servir", "--sin-usuarios"]) == 0
     assert vistos["almacen"] is None
 
 
@@ -310,7 +310,7 @@ def _servir_capturando(monkeypatch, argumentos, entorno=None):
         __import__("sys").modules, "uvicorn",
         type("U", (), {"run": staticmethod(lambda *a, **k: visto.update(k))})(),
     )
-    assert main(["servir"] + argumentos) == 0
+    assert main(["servir", "--sin-usuarios"] + argumentos) == 0
     return visto
 
 
@@ -382,3 +382,36 @@ def test_medir_ia_fase3_respeta_el_candado(tmp_path, monkeypatch, capsys):
     rc = cli.main(["medir-ia", "--fase3", str(tmp_path), "--almacen", str(tmp_path / "alm")])
     assert rc == 2 and prov.llamadas == 0
     assert "licencia" in capsys.readouterr().out
+
+
+# --- usuarios y JWT (spec 2026-09-25) --------------------------------------------------
+
+def test_servir_no_arranca_sin_secreto_jwt_salvo_con_sin_usuarios(monkeypatch, capsys):
+    from gpmc.cli import main
+    monkeypatch.delenv("GPMC_JWT_SECRETO", raising=False)
+    monkeypatch.setattr("gpmc.cli.cargar_entorno", lambda *a, **k: 0)
+    assert main(["servir"]) == 2
+    assert "GPMC_JWT_SECRETO" in capsys.readouterr().err
+
+
+def test_usuario_alta_y_lista_contra_el_almacen_del_entorno(monkeypatch, capsys):
+    from gpmc.cli import main
+    from gpmc.web import usuarios as mod
+    almacen = mod.AlmacenEnMemoria()
+    monkeypatch.setattr(mod, "AlmacenPostgres", lambda dsn: almacen)
+    monkeypatch.setattr("gpmc.cli.cargar_entorno", lambda *a, **k: 0)
+    monkeypatch.setenv("GPMC_BD", "postgresql://x")
+    monkeypatch.setattr("getpass.getpass", lambda *a, **k: "Secreta-123")
+    assert main(["usuario", "alta", "daniel.hernandezr@hidalgo.gob.mx", "--nombre", "Daniel", "--dependencia", "DGT"]) == 0
+    assert almacen.autenticar("daniel.hernandezr@hidalgo.gob.mx", "Secreta-123") is not None
+    assert main(["usuario", "alta", "daniel.hernandezr@hidalgo.gob.mx", "--nombre", "D", "--dependencia", "DGT"]) == 2
+    assert main(["usuario", "lista"]) == 0
+    assert "daniel.hernandezr@hidalgo.gob.mx" in capsys.readouterr().out
+
+
+def test_usuario_sin_base_configurada_lo_dice(monkeypatch, capsys):
+    from gpmc.cli import main
+    monkeypatch.delenv("GPMC_BD", raising=False)
+    monkeypatch.setattr("gpmc.cli.cargar_entorno", lambda *a, **k: 0)
+    assert main(["usuario", "lista"]) == 2
+    assert "GPMC_BD" in capsys.readouterr().err

@@ -21,7 +21,7 @@ from typing import Annotated, List, Literal, Optional, Tuple, Union
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
@@ -501,6 +501,7 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
 
     @r.post("/expedientes", status_code=201, response_model=EstadoExpediente)
     async def crear_expediente(
+        request: Request,
         tareas: BackgroundTasks,
         as_is: UploadFile = File(None),
         to_be: UploadFile = File(None),
@@ -511,6 +512,7 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
     ):
         _purgar_sesiones(raiz)
         sid = secrets.token_hex(8)
+        request.state.sid = sid          # la auditoria lo lee al salir
         carpeta = raiz / sid
         carpeta.mkdir(parents=True, exist_ok=True)
 

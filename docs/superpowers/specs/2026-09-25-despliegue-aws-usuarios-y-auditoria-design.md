@@ -19,9 +19,9 @@ quién hizo qué**, porque los expedientes traen datos de ciudadanos.
 | **Una sola distribución de CloudFront con dos orígenes**: S3 para `/`, la EC2 para `/api/*`, `/simulador/*`, `/aprobacion/*`, `/historial`, `/vistas/*`, `/descargar*`, `/extraer`, `/resolver`, `/reconocer` | Backend en otro dominio con CORS | Sin CORS no se toca la SPA ni la CSP `default-src 'self'`; la EC2 no queda expuesta directo a internet (grupo de seguridad solo para CloudFront) |
 | **Autenticación JWT** en FastAPI | Sin autenticación (hoy) | Con el asistente en internet, el `sid` en la URL ya no basta |
 | **Variables de entorno** para las llaves (IA, firma del JWT) | Secrets Manager / SSM | Decisión del usuario; `cargar_entorno` ya lee primero el entorno del proceso. En la EC2 van en el `EnvironmentFile` de systemd con permisos 600 |
-| **Base de datos nano** (RDS más pequeña o SQLite en EBS, a decidir con la DSA) con **dos tablas**: `usuarios` y `auditoria` | Mover las sesiones a base de datos | Las sesiones, `bitacora-ia.jsonl` y `tablero.jsonl` siguen en archivos sobre EBS: una sola instancia, escritura atómica ya hecha, cero migración |
+| **PostgreSQL en RDS**, instancia mínima («nano»), con **dos tablas**: `usuarios` y `auditoria`. Nada de SQLite (decisión del usuario, 2026-09-25) | SQLite en EBS; MySQL; DynamoDB; mover las sesiones a base de datos | Las sesiones, `bitacora-ia.jsonl` y `tablero.jsonl` siguen en archivos sobre EBS: una sola instancia, escritura atómica ya hecha, cero migración |
 | **Bitácora de acciones** («quién hizo qué») en la tabla `auditoria` | Solo la bitácora de IA | La de IA registra llamadas al modelo; lo que pide la Dirección son las acciones de personas |
-| Usuarios de arranque: **Daniel (DGT)** y **Luis (DSA)**, identificados por correo institucional | Cognito | Dos usuarios no justifican Cognito; se puede migrar después sin tocar la API |
+| Usuarios de arranque: **Daniel (DGT)** `daniel.hernandezr@hidalgo.gob.mx` y **Luis (DSA)** `luis.vera@hidalgo.gob.mx` (confirmado el 2026-09-25), identificados por correo institucional | Cognito | Dos usuarios no justifican Cognito; se puede migrar después sin tocar la API |
 
 ## Lo que no cambia
 
@@ -34,6 +34,9 @@ auditoría.
 
 ### 1. Usuarios y JWT (se puede hacer hoy, sin AWS)
 
+- Acceso por `psycopg` (extra `[web]`), SQL plano, sin ORM: dos tablas no lo justifican. Un
+  almacén en memoria con el mismo contrato sirve a las pruebas (como `ProveedorFalso`); las
+  pruebas contra Postgres real corren solo con `GPMC_BD_PRUEBAS` puesto, como las de material real.
 - Tabla `usuarios`: `correo` (único), `nombre`, `dependencia` (`DGT` | `DSA` | …),
   `hash_contrasena` (argon2 o bcrypt), `activo`, `creado`.
 - `POST /api/v1/sesion` con correo y contraseña → JWT firmado con `GPMC_JWT_SECRETO`

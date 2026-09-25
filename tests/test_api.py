@@ -1543,3 +1543,125 @@ def test_cada_paso_se_escribe_en_generados_json_en_cuanto_llega(tmp_path):
     assert [p["mensaje"] for p in d["pasos"]] == ["Leyendo el AS-IS"]
     avisar("Redactando el Diccionario…")
     assert [p["mensaje"] for p in generados_de(carpeta)["pasos"]] == ["Leyendo el AS-IS", "Redactando el Diccionario…"]
+
+
+# --- Usuarios, JWT y auditoria (spec 2026-09-25) ----------------------------------------
+# Con `usuarios` y `jwt_secreto` la app exige sesion en todo salvo entrar,
+# capacidades y la SPA; sin ellos (las pruebas de arriba) todo sigue igual.
+
+from tests.test_fase3 import _DICC_OK as _DICC_U, _TOBE_OK as _TOBE_U, _json as _json_u
+
+_DANIEL = ("daniel.hernandezr@hidalgo.gob.mx", "Daniel", "DGT", "Secreta-123")
+
+
+def _cli_usuarios(tmp_path, respuestas=(), entorno=None):
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.web.usuarios import AlmacenEnMemoria
+    usuarios = AlmacenEnMemoria()
+    usuarios.alta(*_DANIEL)
+    app = crear_app(almacen=tmp_path, proveedor=ProveedorFalso(list(respuestas)),
+                    entorno=entorno or _ENT_OPENAI, usuarios=usuarios, jwt_secreto="s3cr3to")
+    return TestClient(app), usuarios
+
+
+def _entrar(c, correo=_DANIEL[0], contrasena=_DANIEL[3]):
+    return c.post("/api/v1/sesion", json={"correo": correo, "contrasena": contrasena})
+
+
+def test_sin_sesion_la_api_y_las_paginas_dan_401_pero_capacidades_y_entrar_no(tmp_path):
+    c, _ = _cli_usuarios(tmp_path)
+    assert c.get("/api/v1/historial").status_code == 401
+    assert c.get("/api/v1/expedientes/" + "a" * 16).status_code == 401
+    assert c.post("/api/v1/expedientes", files={"diccionario": ("dd.md", _DICC.encode(), "text/markdown")}).status_code == 401
+    assert c.get("/simulador/" + "a" * 16).status_code == 401
+    assert c.get("/descargar/" + "a" * 16 + "/gpm").status_code == 401
+    assert c.get("/api/v1/capacidades").status_code == 200
+    assert c.get("/api/v1/historial").json() == {"error": "hace falta entrar"}
+
+
+def test_entrar_da_token_y_cookie_y_abre_la_api_por_cabecera_o_por_cookie(tmp_path):
+    c, usuarios = _cli_usuarios(tmp_path)
+    r = _entrar(c)
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["usuario"] == {"correo": _DANIEL[0], "nombre": "Daniel", "dependencia": "DGT"}
+    assert cuerpo["token"].count(".") == 2
+    assert "gpmc_sesion=" in r.headers["set-cookie"] and "HttpOnly" in r.headers["set-cookie"]
+    # Por cookie (el TestClient la conserva): la API y las paginas del servidor.
+    assert c.get("/api/v1/historial").status_code == 200
+    assert c.get("/api/v1/sesion").json()["usuario"]["correo"] == _DANIEL[0]
+    # Por cabecera, en un cliente sin cookie.
+    c2 = TestClient(c.app)
+    assert c2.get("/api/v1/historial", headers={"Authorization": f"Bearer {cuerpo['token']}"}).status_code == 200
+    assert c2.get("/api/v1/historial", headers={"Authorization": "Bearer basura"}).status_code == 401
+    # Salir borra la cookie.
+    assert c.post("/api/v1/salir").status_code == 200
+    assert c.get("/api/v1/historial").status_code == 401
+    assert [f["accion"] for f in usuarios.auditoria()] == ["sesion.salir", "sesion.entrar"]
+
+
+def test_entrar_mal_da_401_y_queda_en_la_auditoria(tmp_path):
+    c, usuarios = _cli_usuarios(tmp_path)
+    assert _entrar(c, contrasena="mal").status_code == 401
+    assert _entrar(c, correo="nadie@hidalgo.gob.mx").status_code == 401
+    filas = usuarios.auditoria()
+    assert [f["accion"] for f in filas] == ["sesion.fallo", "sesion.fallo"]
+    assert filas[0]["usuario"] == "nadie@hidalgo.gob.mx" and filas[0]["dependencia"] == ""
+
+
+def test_las_acciones_quedan_en_la_auditoria_con_usuario_sid_y_accion(tmp_path):
+    c, usuarios = _cli_usuarios(tmp_path, [_json_u("diccionario", _DICC_U), _json_u("tobe", _TOBE_U)])
+    _entrar(c)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC.encode("utf-8"), "text/markdown")}).json()["sid"]
+    c.get(f"/api/v1/expedientes/{sid}")                                   # leer no se audita
+    c.post(f"/api/v1/expedientes/{sid}/reconocer", json={"codigo": "META-01", "ubicacion": "metadatos"})
+    r = c.get(f"/api/v1/expedientes/{sid}/gpm")
+    assert r.status_code in (200, 409)
+    sid2 = c.post("/api/v1/expedientes/proponer",
+                  files={"as_is": ("as-is.md", _ASIS_F3.encode("utf-8"), "text/markdown")}).json()["sid"]
+    c.post(f"/api/v1/expedientes/{sid2}/generados/diccionario/decision", json={"decision": "aceptada"})
+    filas = usuarios.auditoria()
+    acciones = [(f["accion"], f["sid"]) for f in reversed(filas)]
+    assert acciones == [("sesion.entrar", None), ("expediente.subir", sid), ("hueco.reconocer", sid),
+                        ("gpm.descargar", sid), ("as_is.proponer", sid2), ("propuesta.decidir", sid2)]
+    assert all(f["usuario"] == _DANIEL[0] and f["dependencia"] == "DGT" for f in filas)
+    assert [f for f in filas if f["accion"] == "propuesta.decidir"][0]["detalle"] == "diccionario: aceptada"
+    assert [f for f in filas if f["accion"] == "gpm.descargar"][0]["detalle"] in ("produccion", "produccion (409)")
+    # La consulta, filtrada por sesion y con el mismo token.
+    r = c.get(f"/api/v1/auditoria?sid={sid}")
+    assert r.status_code == 200 and [f["accion"] for f in r.json()["filas"]] == ["gpm.descargar", "hueco.reconocer", "expediente.subir"]
+
+
+def test_la_bitacora_de_ia_lleva_el_correo_de_quien_propuso(tmp_path):
+    from gpmc.agentes.bitacora import leer
+    c, _ = _cli_usuarios(tmp_path, [_json_u("diccionario", _DICC_U), _json_u("tobe", _TOBE_U)])
+    _entrar(c)
+    c.post("/api/v1/expedientes/proponer", files={"as_is": ("as-is.md", _ASIS_F3.encode("utf-8"), "text/markdown")})
+    assert {f["usuario"] for f in leer(tmp_path)} == {_DANIEL[0]}
+
+
+def test_sin_usuarios_ni_secreto_la_app_no_exige_sesion_ni_audita(tmp_path):
+    c = _cli(tmp_path)
+    assert c.get("/api/v1/historial").status_code == 200
+    assert c.post("/api/v1/sesion", json={"correo": "x", "contrasena": "y"}).status_code in (404, 405)   # el catch-all es GET
+    assert c.get("/api/v1/auditoria").status_code == 404
+
+
+def test_crear_app_lee_el_secreto_y_la_base_del_entorno(tmp_path, monkeypatch):
+    """`gpmc servir` solo pasa el almacen; el secreto y la base salen del entorno."""
+    import gpmc.web.app as web_app
+    from gpmc.web import usuarios as mod
+    creados = {}
+
+    class FalsoPg(mod.AlmacenEnMemoria):
+        def __init__(self, dsn):
+            super().__init__(); creados["dsn"] = dsn
+        def crear_tablas(self):
+            creados["tablas"] = True
+    monkeypatch.setattr(mod, "AlmacenPostgres", FalsoPg)
+    monkeypatch.setenv("GPMC_JWT_SECRETO", "s")
+    monkeypatch.setenv("GPMC_BD", "postgresql://u:p@rds/gpmc")
+    c = TestClient(web_app.crear_app(almacen=tmp_path))
+    assert creados == {"dsn": "postgresql://u:p@rds/gpmc", "tablas": True}
+    assert c.get("/api/v1/historial").status_code == 401

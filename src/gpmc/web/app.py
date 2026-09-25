@@ -58,7 +58,8 @@ _CSP_SPA = (
 
 
 def crear_app(almacen: Optional[Path] = None, proveedor=None,
-              entorno: Optional[dict] = None) -> FastAPI:
+              entorno: Optional[dict] = None, usuarios=None,
+              jwt_secreto: Optional[str] = None) -> FastAPI:
     raiz = Path(almacen) if almacen else Path(tempfile.mkdtemp(prefix="gpmc-"))
     raiz.mkdir(parents=True, exist_ok=True)
     _purgar_sesiones(raiz)
@@ -74,6 +75,22 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None,
     _prov = proveedor if proveedor is not None else crear_proveedor()
     app.include_router(crear_router(raiz, proveedor=_prov))
     app.include_router(crear_router_fase3(raiz, proveedor=_prov, entorno=entorno))
+
+    # Sesion con JWT y bitacora de acciones (spec 2026-09-25). Inyectados en
+    # pruebas; en el servidor salen del entorno: GPMC_JWT_SECRETO y GPMC_BD
+    # (DSN de Postgres). Sin secreto no se instala nada: `gpmc servir` es
+    # quien se niega a arrancar asi, salvo con --sin-usuarios.
+    from gpmc.web import acceso, usuarios as mod_usuarios
+    e = entorno if entorno is not None else os.environ
+    secreto = jwt_secreto or e.get("GPMC_JWT_SECRETO")
+    if secreto:
+        if usuarios is None:
+            dsn = e.get("GPMC_BD")
+            if not dsn:
+                raise RuntimeError("GPMC_JWT_SECRETO exige GPMC_BD (la base de usuarios y auditoria)")
+            usuarios = mod_usuarios.AlmacenPostgres(dsn)
+            usuarios.crear_tablas()
+        acceso.instalar(app, usuarios, secreto)
 
     @app.middleware("http")
     async def _cabeceras_seguras(request, call_next):

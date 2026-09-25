@@ -6,7 +6,7 @@ requires-python = ">=3.9"
 dependencies = ["pydantic>=2.13", "pyyaml>=6.0"]
 
 [project.optional-dependencies]
-web = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9", "pypdf>=4.0"]
+web = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9", "pypdf>=4.0", "psycopg[binary]>=3.2"]
 guia = ["reportlab>=4.0"]
 agentes = ["google-genai>=1.0", "openai>=1.40"]
 

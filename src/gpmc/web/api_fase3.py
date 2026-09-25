@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, BackgroundTasks, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -126,14 +126,14 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
             return "No hay un proveedor de IA configurado en el servidor."
         return puede_generar(entorno)
 
-    def generar_en_segundo_plano(sid: str) -> None:
+    def generar_en_segundo_plano(sid: str, usuario: str = "anonimo") -> None:
         """Corre tras responder 202. `generar` nunca propaga; aqui solo se
         persiste lo que devuelva."""
         carpeta = carpeta_de(raiz, sid)
         if carpeta is None:
             return
         as_is = (carpeta / INSUMOS["as_is"]).read_text(encoding="utf-8", errors="replace")
-        g = generar(as_is, proveedor, raiz, sid, avisar=anotador_de_pasos(carpeta))
+        g = generar(as_is, proveedor, raiz, sid, avisar=anotador_de_pasos(carpeta), usuario=usuario)
         log.info("fase3 sid=%s estado=%s", sid, g.estado)
         d = g.model_dump(mode="json")
         # Los pasos ya estan en disco con su hora real; solo si faltaran (una
@@ -145,6 +145,7 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
 
     @r.post("/expedientes/proponer")
     async def proponer_expediente(
+        request: Request,
         tareas: BackgroundTasks,
         as_is: UploadFile = File(None),
         adjuntos: List[UploadFile] = File(None),
@@ -153,6 +154,7 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
             return JSONResponse(status_code=422, content={"error": "hace falta el Análisis AS-IS"})
         _purgar_sesiones(raiz)
         sid = secrets.token_hex(8)
+        request.state.sid = sid          # la auditoria lo lee al salir
         carpeta = raiz / sid
         carpeta.mkdir(parents=True, exist_ok=True)
         datos = await as_is.read(_MAX_SUBIDA + 1)
@@ -188,7 +190,8 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
             return JSONResponse(status_code=200, content={"sid": sid, "estado": "sin_licencia"})
         escribir_generados(carpeta, {**Generados(estado="generando", nombre=nombre).model_dump(mode="json"),
                                       "iniciado": _ahora()})
-        tareas.add_task(generar_en_segundo_plano, sid)
+        quien = getattr(request.state, "usuario", None)
+        tareas.add_task(generar_en_segundo_plano, sid, quien.correo if quien else "anonimo")
         return JSONResponse(status_code=202, content={"sid": sid, "estado": "generando"})
 
     def _resuelto(carpeta: Path, documento: str) -> bool:

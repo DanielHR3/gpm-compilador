@@ -151,6 +151,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     srv = sub.add_parser("servir", help="levanta el asistente web")
     srv.add_argument("--host", default="127.0.0.1")
+    srv.add_argument("--sin-usuarios", action="store_true",
+                     help="arranca sin sesion ni auditoria (solo para pruebas en una red cerrada)")
     srv.add_argument("--puerto", type=int, default=8000)
     srv.add_argument(
         "--almacen",
@@ -181,6 +183,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     med.add_argument("--exportar", type=Path, default=None, help="copiar la bitacora-ia.jsonl a esta ruta")
     med.add_argument("--fase3", action="store_true",
                      help="mide el generador de TO-BE y Diccionario desde el AS-IS (Fase 3) en vez de DIC-08")
+
+    usr = sub.add_parser("usuario", help="usuarios del asistente (base de GPMC_BD)")
+    usr_sub = usr.add_subparsers(dest="que")
+    alta = usr_sub.add_parser("alta", help="da de alta un usuario; pide la contrasena en la terminal")
+    alta.add_argument("correo")
+    alta.add_argument("--nombre", required=True)
+    alta.add_argument("--dependencia", required=True, help="DGT, DSA, ...")
+    usr_sub.add_parser("lista", help="lista los usuarios")
+    baja = usr_sub.add_parser("baja", help="desactiva un usuario (no se borra: la auditoria lo cita)")
+    baja.add_argument("correo")
 
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     if not args.orden:
@@ -344,6 +356,18 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.orden == "servir":
         cargar_entorno()
+        # Sin secreto no hay sesion, y un asistente abierto por olvido en
+        # internet seria el peor escenario: se niega a arrancar. La bandera
+        # existe para la Mac de pruebas en la red de la DGT.
+        if not args.sin_usuarios and not os.environ.get("GPMC_JWT_SECRETO"):
+            print("Falta GPMC_JWT_SECRETO (y GPMC_BD) en el entorno. Sin usuarios el asistente no "
+                  "arranca; para pruebas en una red cerrada usa --sin-usuarios.", file=sys.stderr)
+            return 2
+        if not args.sin_usuarios and not os.environ.get("GPMC_BD"):
+            print("Falta GPMC_BD (DSN de PostgreSQL) en el entorno.", file=sys.stderr)
+            return 2
+        if args.sin_usuarios:
+            os.environ.pop("GPMC_JWT_SECRETO", None)
         try:
             import uvicorn
         except ImportError:
@@ -422,6 +446,33 @@ def main(argv: Optional[list[str]] = None) -> int:
         for m_ in est.motivos:
             print(f"  - {m_}")
         print(f"\n{est.advertencia}")
+        return 0
+
+    if args.orden == "usuario":
+        cargar_entorno()
+        dsn = os.environ.get("GPMC_BD")
+        if not dsn:
+            print("Falta GPMC_BD (DSN de PostgreSQL) en el entorno.", file=sys.stderr)
+            return 2
+        from gpmc.web import usuarios as mod_usuarios
+        almacen = mod_usuarios.AlmacenPostgres(dsn)
+        almacen.crear_tablas()
+        if args.que == "alta":
+            import getpass
+            c1 = getpass.getpass("Contrasena: ")
+            try:
+                almacen.alta(args.correo, args.nombre, args.dependencia, c1)
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
+            print(f"Alta: {args.correo.strip().lower()} ({args.dependencia})")
+            return 0
+        if args.que == "baja":
+            almacen.desactivar(args.correo)
+            print(f"Desactivado: {args.correo.strip().lower()}")
+            return 0
+        for u in almacen.usuarios():
+            print(f"{u.correo:45} {u.nombre:25} {u.dependencia:6} {'activo' if u.activo else 'inactivo'}")
         return 0
 
     if args.orden == "medir-ia":

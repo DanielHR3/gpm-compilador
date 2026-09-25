@@ -173,13 +173,14 @@ _DOC_CORTO = {"diccionario": "Diccionario", "tobe": "TO-BE"}
 
 
 def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
-           instruccion: str, version: str, contexto: str, avisar=_sin_aviso) -> str:
+           instruccion: str, version: str, contexto: str, avisar=_sin_aviso,
+           usuario: str = "anonimo") -> str:
     """Una llamada al modelo —hasta tres intentos, SOLO ante ErrorDeRed, mismo
     criterio que dic08— con UNA linea en la bitacora por intento: cada peticion
     puede cobrarse, y la Licencia AI pide registrar cada interaccion. Devuelve el
     texto del documento (el unico campo del esquema)."""
     def linea() -> Interaccion:
-        return Interaccion(sid=sid, proveedor=proveedor.nombre, modelo="", version_prompt=version,
+        return Interaccion(sid=sid, proveedor=proveedor.nombre, modelo="", version_prompt=version, usuario=usuario,
                            solicitud={"n_caracteres": len(contexto)},
                            instruccion_hash=pr.hash_de(instruccion), estado="procesada",
                            documento=documento, ronda=ronda)
@@ -234,7 +235,7 @@ def _nombre(as_is: str) -> Optional[str]:
 
 
 def generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool = True,
-            avisar=None) -> Generados:
+            avisar=None, usuario: str = "anonimo") -> Generados:
     """AS-IS -> Generados. Nunca propaga: cualquier fallo es `estado: error`
     con el tipo de la excepcion en el motivo (y en el log con traza).
     `avisar(mensaje)` recibe cada paso en cuanto ocurre; los pasos tambien
@@ -247,7 +248,7 @@ def generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool = True,
             avisar(mensaje)
 
     try:
-        g = _generar(as_is, proveedor, raiz, sid, mejorar, _avisar)
+        g = _generar(as_is, proveedor, raiz, sid, mejorar, _avisar, usuario)
     except Exception as exc:  # ErrorDeRed, RespuestaInvalida, o un defecto nuestro
         log.error("fase3 sid=%s fallo: %s", sid, type(exc).__name__, exc_info=exc)
         _avisar(f"Falló la generación ({type(exc).__name__})")
@@ -264,15 +265,16 @@ def _resumen_flujo(m) -> str:
     return f"{len(m.pantallas)} pantallas, {compuertas} compuerta{'s' if compuertas != 1 else ''}"
 
 
-def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool, avisar=_sin_aviso) -> Generados:
+def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool, avisar=_sin_aviso,
+             usuario: str = "anonimo") -> Generados:
     from gpmc.agentes.verificar_fase3 import requisitos_del_as_is
     n_req = len(requisitos_del_as_is(as_is))
     avisar(f"Leyendo el AS-IS: {n_req} requisitos encontrados" if n_req
            else "Leyendo el AS-IS: no trae lista de requisitos")
     dicc = _pedir(proveedor, raiz, sid, "diccionario", 1, pr.INSTRUCCION_DICC,
-                  pr.VERSION_PROMPT_DICC, pr.contexto_dicc(as_is), avisar)
+                  pr.VERSION_PROMPT_DICC, pr.contexto_dicc(as_is), avisar, usuario)
     tobe = _pedir(proveedor, raiz, sid, "tobe", 1, pr.INSTRUCCION_TOBE,
-                  pr.VERSION_PROMPT_TOBE, pr.contexto_tobe(as_is, dicc), avisar)
+                  pr.VERSION_PROMPT_TOBE, pr.contexto_tobe(as_is, dicc), avisar, usuario)
     m_1, huecos = extraer_borradores(as_is, dicc, tobe)
     n_pend = len(bloquean(huecos))
     avisar(f"Verificando contra el AS-IS: {_resumen_flujo(m_1)}, "
@@ -280,7 +282,7 @@ def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool, avisar=
     elegido = {"diccionario": (dicc, 1, pr.VERSION_PROMPT_DICC), "tobe": (tobe, 1, pr.VERSION_PROMPT_TOBE)}
     m_final = m_1
     if mejorar:
-        elegido, huecos, m_final = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos, m_1, avisar)
+        elegido, huecos, m_final = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos, m_1, avisar, usuario)
     reparto = _por_documento(huecos)
     docs = {}
     for clave, (texto, ronda, version) in elegido.items():
@@ -320,7 +322,7 @@ def _tamano(manifiesto, texto: str, clave: str) -> int:
 
 
 def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict, huecos: list,
-                     m_1=None, avisar=_sin_aviso):
+                     m_1=None, avisar=_sin_aviso, usuario: str = "anonimo"):
     """Una sola vez por documento, y solo si ese documento tiene huecos que
     bloquean. Primero el Diccionario; el TO-BE se mejora contra el Diccionario
     ya elegido. Por documento se conserva la ronda con menos bloqueantes
@@ -344,13 +346,13 @@ def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict,
             avisar(f"El verificador pide una mejora del Diccionario por: {_codigos(reparto['diccionario'])}")
             candidatos["diccionario"] = _pedir(
                 proveedor, raiz, sid, "diccionario", 2, pr.INSTRUCCION_MEJORA, pr.VERSION_PROMPT_MEJORA,
-                pr.contexto_mejora(as_is, candidatos["diccionario"], reparto["diccionario"], "diccionario"), avisar)
+                pr.contexto_mejora(as_is, candidatos["diccionario"], reparto["diccionario"], "diccionario"), avisar, usuario)
         if reparto["tobe"]:
             avisar(f"El verificador pide una mejora del TO-BE por: {_codigos(reparto['tobe'])}")
             candidatos["tobe"] = _pedir(
                 proveedor, raiz, sid, "tobe", 2, pr.INSTRUCCION_MEJORA, pr.VERSION_PROMPT_MEJORA,
                 pr.contexto_mejora(as_is, candidatos["tobe"], reparto["tobe"], "tobe",
-                                   diccionario=candidatos["diccionario"]), avisar)
+                                   diccionario=candidatos["diccionario"]), avisar, usuario)
     except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as exc:
         log.warning("fase3 sid=%s la mejora fallo (%s); se conserva la ronda 1", sid, type(exc).__name__)
         avisar("La mejora falló; se conserva la primera versión")
