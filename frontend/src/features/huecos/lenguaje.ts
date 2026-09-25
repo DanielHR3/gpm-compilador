@@ -37,6 +37,7 @@ const TITULOS: Record<string, string> = {
   "FLU-02": "Tareas y pantallas",
   "FLU-03": "Ramificación del flujo",
   "GEN-01": "Requisito del AS-IS sin campo",
+  "GEN-02": "Ciclo de corrección",
 };
 
 /** El titulo humano del codigo; si no lo conozco, el codigo tal cual. */
@@ -347,6 +348,23 @@ const REDACCIONES: Record<string, Redaccion> = {
       "propuesto no tiene un campo de tipo Archivo para recibirlo. Agrégalo en " +
       "la pantalla donde el ciudadano sube sus documentos, o quítalo del AS-IS " +
       "si ya no se pide."
+    );
+  },
+  "GEN-02": (mensaje) => {
+    const rama = /la rama «([^»]+)» de la compuerta «[^»]+» termina en Fin/.exec(mensaje);
+    if (rama) {
+      return (
+        `En el diagrama, la rama «${rama[1]}» termina el trámite. Una corrección no ` +
+        "lo termina: lleva al ciudadano a una pantalla donde corrige y de ahí vuelve " +
+        "a la revisión. Agrega esa pantalla al Diccionario y cierra la vuelta en el TO-BE."
+      );
+    }
+    if (!/falta el ciclo de corrección/.test(mensaje)) return null;
+    return (
+      "El AS-IS cuenta que, cuando algo falta, el ciudadano solventa y vuelve a " +
+      "entregar; el diagrama propuesto no tiene esa vuelta. Agrega la pantalla de " +
+      "corrección del ciudadano y la flecha que vuelve a la revisión, como en los " +
+      "demás trámites del equipo."
     );
   },
   "FLU-02": (mensaje) => {

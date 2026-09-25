@@ -18,6 +18,12 @@ _BLOQUE_MERMAID = re.compile(r"```mermaid(.*?)```", re.S)
 # `**Requisitos documentales:**`, `**Requisitos documentales**:`, `**Requisitos (ficha
 # RUTS):**`, `**Requisitos propios:**`... con la lista en la misma linea o en items
 # anidados debajo. Un AS-IS puede traer mas de una lista; se suman todas.
+# Las palabras con que un AS-IS cuenta que el ciudadano vuelve a entregar tras
+# una revision (Reposicion: «¿Solventa la informacion? Si, regresa a entregar
+# de nuevo»). Si aparecen y el diagrama compilable no regresa a ninguna tarea,
+# falta el ciclo de correccion que el equipo siempre modela (GEN-02).
+_CICLO_EN_AS_IS = re.compile(r"solvent|subsan|correg|correcci[oó]n|observacion", re.I)
+_RAMA_CORRECCION = re.compile(r"correcci[oó]n|corregir|solventar|subsanar|observacion", re.I)
 _LINEA_REQ = re.compile(r"^\s*[-*]?\s*\*\*Requisitos[^*]*\*\*:?\s*(.*)$", re.I)
 _ITEM = re.compile(r"^\s+[-*]\s+(.*)$")
 
@@ -78,6 +84,46 @@ def _casa(requisito: str, etiqueta: str) -> bool:
     return bool(a) and bool(b) and (a in b or b in a)
 
 
+def _vuelve_atras(rm) -> bool:
+    """True si alguna arista regresa a un nodo ya alcanzado desde el inicio:
+    la vuelta «correccion -> revision»."""
+    salientes = {}
+    for a in rm.aristas:
+        salientes.setdefault(a.de, []).append(a.a)
+    entrantes = {a.a for a in rm.aristas}
+    orden = {}
+    pendientes = [n.id for n in rm.nodos if n.id not in entrantes]
+    while pendientes:
+        n = pendientes.pop(0)
+        if n in orden:
+            continue
+        orden[n] = len(orden)
+        pendientes += salientes.get(n, [])
+    return any(a.a in orden and a.de in orden and orden[a.a] <= orden[a.de] for a in rm.aristas)
+
+
+def _gen02(as_is: str, rm) -> list:
+    huecos = []
+    tipo = {n.id: n.clase_nodo for n in rm.nodos}
+    for a in rm.aristas:
+        if (tipo.get(a.de) == "compuerta" and a.etiqueta and _RAMA_CORRECCION.search(a.etiqueta)
+                and tipo.get(a.a) == "inicio_fin"):
+            huecos.append(Hueco(
+                "falta_dato", "GEN-02", "flujo",
+                f"la rama «{a.etiqueta}» de la compuerta «{a.de}» termina en Fin: una corrección "
+                f"vuelve a una pantalla del ciudadano y de ahí a la revisión, no cierra el trámite",
+            ))
+    m = _CICLO_EN_AS_IS.search(as_is or "")
+    if m and not huecos and not _vuelve_atras(rm):
+        huecos.append(Hueco(
+            "falta_dato", "GEN-02", "flujo",
+            f"el AS-IS habla de solventar («{m.group(0)}») y el diagrama compilable no regresa a "
+            f"ninguna tarea: falta el ciclo de corrección (revisión → dictamen → corrección del "
+            f"ciudadano → vuelta a la revisión)",
+        ))
+    return huecos
+
+
 def verificar_cruzado(as_is: str, tobe: str, m: Optional[Manifiesto]) -> list:
     huecos = []
     if m is None:
@@ -115,4 +161,5 @@ def verificar_cruzado(as_is: str, tobe: str, m: Optional[Manifiesto]) -> list:
                     f"la tarea «{n.texto}» del TO-BE no casa con ninguna pantalla del "
                     f"Diccionario propuesto",
                 ))
+    huecos += _gen02(as_is, rm)
     return huecos

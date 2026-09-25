@@ -471,3 +471,16 @@ test("GEN-01 se redacta en palabras y se ancla al mensaje del verificador", () =
 test("API-06 (autollenado armado) tiene titulo en palabras", () => {
   expect(tituloDeCodigo("API-06")).toBe("Autollenado por CURP");
 });
+
+test("GEN-02 (ciclo de corrección) se redacta en palabras y se ancla al mensaje", () => {
+  const h = { nivel: "falta_dato", codigo: "GEN-02", ubicacion: "flujo", propuesta: null,
+    mensaje: "el AS-IS habla de solventar («solventa») y el diagrama compilable no regresa a ninguna tarea: falta el ciclo de corrección (revisión → dictamen → corrección del ciudadano → vuelta a la revisión)" };
+  expect(tituloDeCodigo("GEN-02")).toBe("Ciclo de corrección");
+  expect(redactarHueco(h)).toMatch(/corrección/);
+  expect(redactarHueco(h)).toMatch(/vuelve a la revisión/);
+  expect(redactarHueco(h)).not.toBe(h.mensaje);
+  const rama = { ...h, mensaje: "la rama «Requiere corrección» de la compuerta «G1» termina en Fin: una corrección vuelve a una pantalla del ciudadano y de ahí a la revisión, no cierra el trámite" };
+  expect(redactarHueco(rama)).toMatch(/Requiere corrección/);
+  expect(redactarHueco(rama)).toMatch(/termina el trámite/);
+  expect(redactarHueco({ ...h, mensaje: "otro mensaje" })).toBe("otro mensaje");
+});

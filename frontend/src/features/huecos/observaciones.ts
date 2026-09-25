@@ -39,6 +39,8 @@ const RESPONSABLE: Record<string, Responsable> = {
 
   "INS-01": "to_be", "MMD-01": "to_be", "MMD-02": "to_be", "MMD-03": "to_be",
   "MMD-04": "to_be", "FLU-01": "to_be", "FLU-02": "to_be",
+  // El ciclo de corrección que falta se dibuja en el TO-BE (Fase 3).
+  "GEN-02": "to_be",
 
   // GPM asigna la homoclave y el tipo de persona; el resto es configuracion.
   "META-05": "plataforma", "META-06": "plataforma",

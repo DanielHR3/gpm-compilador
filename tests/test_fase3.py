@@ -572,3 +572,74 @@ def test_el_prompt_tobe_prohibe_compuertas_encadenadas_y_ramas_sueltas():
     assert "un valor más del mismo campo" in p.INSTRUCCION_TOBE
     assert "cada rama de una compuerta llega a una tarea o a `Fin`" in p.INSTRUCCION_TOBE
     assert "un valor más del mismo campo" in p.INSTRUCCION_DICC
+
+
+# --- GEN-02: el ciclo de correccion (2026-09-25) --------------------------------
+# Reposicion con dicc-v2/tobe-v2 salio sin la vuelta «revision -> correccion ->
+# revision» que el AS-IS describe («¿Solventa la informacion? Si, regresa a
+# entregar de nuevo») y que el equipo siempre modela. Cruce determinista: el
+# AS-IS habla de solventar/corregir y el diagrama compilable no regresa a
+# ninguna tarea anterior, o una rama de correccion muere en Fin.
+
+_ASIS_CON_CICLO = ("# Análisis AS-IS — X\n\n- Revisión: si falta algo, el ciudadano "
+                   "regresa a solventar las observaciones.\n")
+_TOBE_LINEAL = ("```mermaid\nflowchart TD\n"
+                "  P1[Ciudadano: Solicitud] --> P2[Funcionario: Revisión]\n"
+                "  P2 --> G{\"¿@@dictamen?\"}\n"
+                "  G -- Aprobado --> P3[Funcionario: Emisión]\n"
+                "  G -- Rechazado --> Fin([Fin])\n  P3 --> Fin\n```")
+_TOBE_CON_VUELTA = ("```mermaid\nflowchart TD\n"
+                    "  P1[Ciudadano: Solicitud] --> P2[Funcionario: Revisión]\n"
+                    "  P2 --> G{\"¿@@dictamen?\"}\n"
+                    "  G -- Aprobado --> P3[Funcionario: Emisión]\n"
+                    "  G -- Requiere corrección --> P4[Ciudadano: Corrección]\n"
+                    "  P4 --> P2\n  P3 --> Fin([Fin])\n```")
+
+
+def _m_dictamen():
+    return _manifiesto([{"nombre": "dictamen", "etiqueta": "Dictamen", "tipo": "select"}])
+
+
+def test_as_is_con_ciclo_y_diagrama_sin_vuelta_es_gen02():
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    huecos = verificar_cruzado(_ASIS_CON_CICLO, _TOBE_LINEAL, _m_dictamen())
+    g = [h for h in huecos if h.codigo == "GEN-02"]
+    assert len(g) == 1 and g[0].nivel == "falta_dato" and g[0].ubicacion == "flujo"
+    assert "solventar" in g[0].mensaje and "corrección" in g[0].mensaje
+
+
+def test_diagrama_con_vuelta_no_produce_gen02():
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    huecos = verificar_cruzado(_ASIS_CON_CICLO, _TOBE_CON_VUELTA, _m_dictamen())
+    assert not any(h.codigo == "GEN-02" for h in huecos)
+
+
+def test_as_is_sin_ciclo_no_produce_gen02_aunque_el_diagrama_sea_lineal():
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    huecos = verificar_cruzado("# Análisis AS-IS — X\n\n- Se entrega y se emite.\n",
+                               _TOBE_LINEAL, _m_dictamen())
+    assert not any(h.codigo == "GEN-02" for h in huecos)
+
+
+def test_rama_de_correccion_que_muere_en_fin_es_gen02_aunque_el_as_is_calle():
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    tobe = _TOBE_LINEAL.replace("G -- Rechazado --> Fin", "G -- Requiere corrección --> Fin")
+    huecos = verificar_cruzado("# Análisis AS-IS — X\n", tobe, _m_dictamen())
+    g = [h for h in huecos if h.codigo == "GEN-02"]
+    assert len(g) == 1 and "Requiere corrección" in g[0].mensaje and "Fin" in g[0].mensaje
+
+
+def test_gen02_se_atribuye_al_tobe_y_entra_a_la_ronda_de_mejora(tmp_path):
+    from gpmc.agentes.fase3 import atribuir, generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    from gpmc.nucleo.huecos import Hueco
+    assert atribuir(Hueco("falta_dato", "GEN-02", "flujo", "x")) == "tobe"
+    dicc = _DICC_OK.replace("Lista (Aprobado, Rechazado)", "Lista (Aprobado, Requiere corrección)")
+    tobe_1 = "# Propuesta TO-BE — Constancia\n\n" + _TOBE_LINEAL.replace(
+        "P3[Funcionario: Emisión]", "P3[Funcionario: Emisión]").replace("Rechazado", "Requiere corrección")
+    # El Diccionario de prueba tambien tiene huecos: primero se mejora ese
+    # (llamada 3) y despues el TO-BE (llamada 4), que es la que ve el GEN-02.
+    prov = ProveedorFalso([_json("diccionario", dicc), _json("tobe", tobe_1),
+                           _json("diccionario", dicc), _json("tobe", tobe_1)])
+    generar(_ASIS_CON_CICLO, prov, tmp_path, "g" * 16)
+    assert prov.llamadas == 4 and "[GEN-02]" in prov.ultimo_contexto

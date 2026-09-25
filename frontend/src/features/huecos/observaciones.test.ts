@@ -121,3 +121,11 @@ test("API-06 se confirma en la plataforma: no se le manda a Simplificacion", () 
   expect(doc).not.toContain("Otros hallazgos");
   expect(doc).not.toContain("corregir en el Diccionario");
 });
+
+test("GEN-02 va al apartado del TO-BE, no a «Otros hallazgos»", () => {
+  const doc = documentoDeObservaciones(estado([
+    hueco("GEN-02", "flujo", "el AS-IS habla de solventar («solventa») y el diagrama compilable no regresa a ninguna tarea: falta el ciclo de corrección (revisión → dictamen → corrección del ciudadano → vuelta a la revisión)"),
+  ]));
+  expect(doc).toContain("corregir en la Propuesta TO-BE");
+  expect(doc).not.toContain("Otros hallazgos");
+});

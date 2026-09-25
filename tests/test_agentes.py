@@ -798,3 +798,17 @@ def test_crear_proveedor_gemini_lee_una_lista_de_modelos(monkeypatch):
                                  "GPMC_IA_MODELO": "gemini-3.5-flash, gemini-3.6-flash ,gemini-3.5-flash-lite"})
     assert p._modelos == ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
     assert p._modelo == "gemini-3.5-flash"
+
+
+def test_gemini_deja_en_el_log_cada_modelo_que_cae_al_respaldo(caplog):
+    """El 2026-09-25 la bitacora solo decia que contesto flash-lite; nadie
+    podia saber desde el log si 3.6 estaba caido o si la lista estaba mal."""
+    import logging
+    p, _ = _gemini_por_modelo({
+        "gemini-3.6-flash": _ErrorHttp("code", 503),
+        "gemini-3.5-flash-lite": '{"r": "ok"}',
+    })
+    with caplog.at_level(logging.WARNING, logger="gpmc.agentes.gemini"):
+        p.completar("i", "c", {})
+    assert any("gemini-3.6-flash" in r.message and "503" in r.message
+               and "gemini-3.5-flash-lite" in r.message for r in caplog.records)

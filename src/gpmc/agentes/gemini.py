@@ -5,6 +5,7 @@ decision de la Direccion (spec, punto abierto 1), las pruebas con este
 proveedor usan los expedientes de ejemplo del repositorio, no los reales.
 """
 import json
+import logging
 import time
 
 from gpmc.agentes.proveedor import ErrorDeRed, RespuestaInvalida, Respuesta, clasificar_error
@@ -38,6 +39,9 @@ def _esquema_gemini(esquema):
         else:
             e["anyOf"] = ramas
     return e
+
+
+log = logging.getLogger(__name__)
 
 
 class ProveedorGemini:
@@ -78,7 +82,7 @@ class ProveedorGemini:
         # aplican los reintentos de siempre.
         ultimo = None
         r = None
-        for modelo in self._modelos:
+        for i, modelo in enumerate(self._modelos):
             try:
                 r = self._generar(modelo, instrucciones, contexto, esquema)
                 break
@@ -86,6 +90,10 @@ class ProveedorGemini:
                 ultimo = clasificar_error(e)
                 if not isinstance(ultimo, ErrorDeRed):
                     raise ultimo
+                # Sin esto solo la bitacora sabe quien contesto, y no por que.
+                siguiente = self._modelos[i + 1] if i + 1 < len(self._modelos) else None
+                log.warning("gemini %s fallo (%s); %s", modelo, str(ultimo)[:120],
+                            f"se pasa a {siguiente}" if siguiente else "no queda respaldo")
         if r is None:
             raise ultimo
         texto = r.text or ""
