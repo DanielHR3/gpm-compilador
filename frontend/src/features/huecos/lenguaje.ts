@@ -38,6 +38,7 @@ const TITULOS: Record<string, string> = {
   "FLU-03": "Ramificación del flujo",
   "GEN-01": "Requisito del AS-IS sin campo",
   "GEN-02": "Ciclo de corrección",
+  "GEN-03": "Rama que no es una opción del campo",
 };
 
 /** El titulo humano del codigo; si no lo conozco, el codigo tal cual. */
@@ -365,6 +366,16 @@ const REDACCIONES: Record<string, Redaccion> = {
       "entregar; el diagrama propuesto no tiene esa vuelta. Agrega la pantalla de " +
       "corrección del ciudadano y la flecha que vuelve a la revisión, como en los " +
       "demás trámites del equipo."
+    );
+  },
+  "GEN-03": (mensaje) => {
+    const m = /la rama «([^»]+)» de la compuerta «[^»]+» no es un valor de @@(\w+); su catálogo es: (.+?)\. Con una sola/.exec(mensaje);
+    if (!m) return null;
+    return (
+      `En el diagrama, la flecha «${m[1]}» sale de la decisión sobre «${m[2]}», pero ` +
+      `ese campo solo tiene estas opciones en el Diccionario: ${m[3]}. Escribe en la ` +
+      "flecha una de esas opciones tal cual, o agrégala al catálogo del campo. Con una " +
+      "sola flecha que no coincida, el trámite sale en línea recta."
     );
   },
   "FLU-02": (mensaje) => {

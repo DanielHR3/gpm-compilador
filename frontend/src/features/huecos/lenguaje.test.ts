@@ -484,3 +484,13 @@ test("GEN-02 (ciclo de corrección) se redacta en palabras y se ancla al mensaje
   expect(redactarHueco(rama)).toMatch(/termina el trámite/);
   expect(redactarHueco({ ...h, mensaje: "otro mensaje" })).toBe("otro mensaje");
 });
+
+test("GEN-03 (etiqueta fuera del catálogo) se redacta en palabras y se ancla al mensaje", () => {
+  const h = { nivel: "falta_dato", codigo: "GEN-03", ubicacion: "G2", propuesta: null,
+    mensaje: "la rama «Transferencia o referencia bancaria» de la compuerta «¿@@modalidad_pago?» no es un valor de @@modalidad_pago; su catálogo es: En línea · Banco o transferencia. Con una sola etiqueta así el flujo entero sale lineal" };
+  expect(tituloDeCodigo("GEN-03")).toBe("Rama que no es una opción del campo");
+  expect(redactarHueco(h)).toMatch(/Transferencia o referencia bancaria/);
+  expect(redactarHueco(h)).toMatch(/Banco o transferencia/);
+  expect(redactarHueco(h)).not.toBe(h.mensaje);
+  expect(redactarHueco({ ...h, mensaje: "otro mensaje" })).toBe("otro mensaje");
+});

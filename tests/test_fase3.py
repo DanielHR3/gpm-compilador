@@ -676,3 +676,41 @@ def test_una_mejora_que_recorta_el_documento_no_gana_aunque_tenga_menos_huecos(t
     assert g.tobe.ronda == 1 and g.tobe.texto == tobe_1
     assert any(h.codigo == "GEN-02" for h in g.tobe.huecos)
     assert not any(h.codigo == "MMD-01" for h in g.tobe.huecos)
+
+
+# --- GEN-03: etiqueta de arista fuera del catalogo (2026-09-25) -----------------
+# Reposicion v2: «Transferencia o referencia bancaria» en la compuerta de
+# @@modalidad_pago, cuyo catalogo dice «Banco o transferencia». Una sola
+# etiqueta asi tira TODO el flujo a lineal (FLU-01), y el FLU-01 es generico:
+# el modelo no sabe que corregir. Este cruce nombra la etiqueta y el catalogo.
+
+def test_etiqueta_de_arista_fuera_del_catalogo_es_gen03_con_los_valores():
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    m = _manifiesto([{"nombre": "modalidad_pago", "etiqueta": "Modalidad de pago", "tipo": "select",
+                      "catalogo": [{"etiqueta": "En línea", "valor": "en_linea"},
+                                   {"etiqueta": "Banco o transferencia", "valor": "banco_o_transferencia"}]}])
+    tobe = ("```mermaid\nflowchart TD\n"
+            "  P1[Ciudadano: Solicitud] --> G{\"¿@@modalidad_pago?\"}\n"
+            "  G -- En línea --> P2[Funcionario: Emisión]\n"
+            "  G -- Transferencia o referencia bancaria --> P3[Funcionario: Validación]\n```")
+    huecos = verificar_cruzado("# Análisis AS-IS — X\n", tobe, m)
+    g = [h for h in huecos if h.codigo == "GEN-03"]
+    assert len(g) == 1 and g[0].nivel == "falta_dato" and g[0].ubicacion == "G"
+    assert "Transferencia o referencia bancaria" in g[0].mensaje
+    assert "@@modalidad_pago" in g[0].mensaje and "Banco o transferencia" in g[0].mensaje
+    assert "En línea" not in g[0].mensaje.split("catálogo")[0]     # la buena no se reporta
+
+
+def test_etiquetas_si_no_y_del_catalogo_no_producen_gen03():
+    from gpmc.agentes.verificar_fase3 import verificar_cruzado
+    m = _manifiesto([{"nombre": "procede", "etiqueta": "Procede", "tipo": "select",
+                      "catalogo": [{"etiqueta": "Sí", "valor": "si"}, {"etiqueta": "No", "valor": "no"}]}])
+    tobe = ("```mermaid\nflowchart TD\n  P1[Ciudadano: Solicitud] --> G{\"¿@@procede?\"}\n"
+            "  G -- Sí --> P2[Funcionario: Emisión]\n  G -- No --> Fin([Fin])\n```")
+    assert not any(h.codigo == "GEN-03" for h in verificar_cruzado("# X\n", tobe, m))
+
+
+def test_gen03_se_atribuye_al_tobe():
+    from gpmc.agentes.fase3 import atribuir
+    from gpmc.nucleo.huecos import Hueco
+    assert atribuir(Hueco("falta_dato", "GEN-03", "G", "x")) == "tobe"

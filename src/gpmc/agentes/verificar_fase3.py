@@ -8,6 +8,7 @@ import re
 from typing import Optional
 
 from gpmc.extractores import diccionario as ext_dicc
+from gpmc.extractores import expediente as ext_exp
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.manifiesto import Manifiesto
@@ -109,6 +110,30 @@ def _vuelve_atras(rm) -> bool:
     return any(alcanza(a.a, a.de) for a in rm.aristas)
 
 
+def _gen03(rm, campos: dict) -> list:
+    """Una etiqueta de arista que no es valor del catalogo del campo de su
+    compuerta (ni Si/No). El extractor lo reporta como FLU-01 generico y tira
+    todo el flujo a lineal; aqui se nombra la etiqueta y el catalogo para que
+    la ronda de mejora sepa que cambiar."""
+    huecos = []
+    nodos = {n.id: n for n in rm.nodos}
+    for a in rm.aristas:
+        n = nodos.get(a.de)
+        if not n or n.clase_nodo != "compuerta" or len(n.campos) != 1 or not a.etiqueta:
+            continue
+        campo = campos.get(n.campos[0])
+        if campo is None or ext_exp._valor_de_arista(a.etiqueta, campo) is not None:
+            continue
+        catalogo = " · ".join(o.etiqueta for o in campo.catalogo) or "sin opciones"
+        huecos.append(Hueco(
+            "falta_dato", "GEN-03", n.id,
+            f"la rama «{a.etiqueta}» de la compuerta «{n.texto}» no es un valor de "
+            f"@@{campo.nombre}; su catálogo es: {catalogo}. Con una sola etiqueta así el "
+            f"flujo entero sale lineal",
+        ))
+    return huecos
+
+
 def _gen02(as_is: str, rm) -> list:
     huecos = []
     tipo = {n.id: n.clase_nodo for n in rm.nodos}
@@ -168,5 +193,6 @@ def verificar_cruzado(as_is: str, tobe: str, m: Optional[Manifiesto]) -> list:
                     f"la tarea «{n.texto}» del TO-BE no casa con ninguna pantalla del "
                     f"Diccionario propuesto",
                 ))
+    huecos += _gen03(rm, {c.nombre: c for c in campos})
     huecos += _gen02(as_is, rm)
     return huecos

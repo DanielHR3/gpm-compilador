@@ -97,7 +97,7 @@ def puede_generar(entorno: Optional[dict] = None) -> Optional[str]:
 # A que documento se le atribuye cada hueco: decide que borrador se mejora y
 # bajo que tarjeta se muestra. Lo que no es claramente del TO-BE va al
 # Diccionario, que es el documento del que sale casi todo.
-_DEL_TOBE = ("MMD-", "FLU-", "INS-01", "GEN-02")
+_DEL_TOBE = ("MMD-", "FLU-", "INS-01", "GEN-02", "GEN-03")
 
 
 def _condicion_en_palabras(cond, etiquetas: dict, opciones: dict) -> Optional[str]:

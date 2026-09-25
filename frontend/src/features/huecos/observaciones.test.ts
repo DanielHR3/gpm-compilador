@@ -129,3 +129,11 @@ test("GEN-02 va al apartado del TO-BE, no a «Otros hallazgos»", () => {
   expect(doc).toContain("corregir en la Propuesta TO-BE");
   expect(doc).not.toContain("Otros hallazgos");
 });
+
+test("GEN-03 va al apartado del TO-BE", () => {
+  const doc = documentoDeObservaciones(estado([
+    hueco("GEN-03", "G2", "la rama «Transferencia» de la compuerta «¿@@modalidad_pago?» no es un valor de @@modalidad_pago; su catálogo es: En línea · Banco o transferencia. Con una sola etiqueta así el flujo entero sale lineal"),
+  ]));
+  expect(doc).toContain("corregir en la Propuesta TO-BE");
+  expect(doc).not.toContain("Otros hallazgos");
+});
