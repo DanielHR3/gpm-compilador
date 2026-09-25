@@ -15,6 +15,13 @@ vi.mock("@/lib/api", () => ({
   entrar: vi.fn(),
   salir: vi.fn(),
   alPerderSesion: vi.fn().mockReturnValue(() => {}),
+  registrar: vi.fn(),
+  recuperar: vi.fn(),
+  restablecer: vi.fn(),
+  listarUsuarios: vi.fn().mockResolvedValue({ usuarios: [] }),
+  aprobarUsuario: vi.fn(),
+  desactivarUsuario: vi.fn(),
+  cambiarRol: vi.fn(),
   leerCapacidades: vi.fn().mockResolvedValue({ proponer: true, motivo: null, pruebas: false }),
   leerToBe: vi.fn().mockRejectedValue(new Error("sin TO-BE")),
   leerGenerados: vi.fn(),
@@ -209,5 +216,32 @@ describe("sesión (spec 2026-09-25)", () => {
     render(<App />);
     expect(await screen.findByRole("heading", { name: /qué tienes del trámite/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /salir/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("pantallas públicas y superusuario (2026-09-25)", () => {
+  it("sin sesión, /registro abre la hoja de registro", async () => {
+    const api = await import("@/lib/api");
+    vi.mocked(api.leerSesion).mockResolvedValueOnce({ usuario: null });
+    window.history.pushState({}, "", "/registro");
+    render(<App />);
+    expect(await screen.findByRole("region", { name: /crear cuenta/i })).toBeInTheDocument();
+    window.history.pushState({}, "", "/");
+  });
+
+  it("el superusuario ve «Cuentas» en la barra lateral y un analista no", async () => {
+    const api = await import("@/lib/api");
+    vi.mocked(api.leerSesion).mockResolvedValueOnce({
+      usuario: { correo: "daniel.hernandezr@hidalgo.gob.mx", nombre: "Daniel", dependencia: "DGT", rol: "admin" },
+    });
+    const { unmount } = render(<App />);
+    expect(await screen.findByRole("link", { name: /cuentas/i })).toHaveAttribute("href", "/usuarios");
+    unmount();
+    vi.mocked(api.leerSesion).mockResolvedValueOnce({
+      usuario: { correo: "luis.vera@hidalgo.gob.mx", nombre: "Luis", dependencia: "DSA", rol: "analista" },
+    });
+    render(<App />);
+    await screen.findByLabelText(/^sesión$/i);
+    expect(screen.queryByRole("link", { name: /cuentas/i })).not.toBeInTheDocument();
   });
 });

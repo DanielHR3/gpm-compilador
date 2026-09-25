@@ -11,13 +11,21 @@ export type Ruta =
   | { tipo: "revisar"; sid: string }
   | { tipo: "catalogos" }
   | { tipo: "historial" }
-  | { tipo: "tablero" };
+  | { tipo: "tablero" }
+  | { tipo: "registro" }
+  | { tipo: "recuperar" }
+  | { tipo: "restablecer"; token: string }
+  | { tipo: "usuarios" };
 
 const RE_REVISAR = /^\/revisar\/([0-9a-f]{16})$/;
 
-export function leerRuta(pathname: string): Ruta {
+export function leerRuta(pathname: string, search = ""): Ruta {
   const m = RE_REVISAR.exec(pathname);
   if (m) return { tipo: "revisar", sid: m[1] };
+  if (pathname === "/restablecer") {
+    // La liga del correo: el token viaja en la consulta.
+    return { tipo: "restablecer", token: new URLSearchParams(search).get("token") ?? "" };
+  }
   switch (pathname) {
     case "/expediente":
       return { tipo: "expediente" };
@@ -29,6 +37,12 @@ export function leerRuta(pathname: string): Ruta {
       return { tipo: "historial" };
     case "/tablero":
       return { tipo: "tablero" };
+    case "/registro":
+      return { tipo: "registro" };
+    case "/recuperar":
+      return { tipo: "recuperar" };
+    case "/usuarios":
+      return { tipo: "usuarios" };
     default:
       return { tipo: "inicio" };
   }

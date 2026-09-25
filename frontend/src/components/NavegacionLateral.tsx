@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, Download, FileUp, History, ListChecks, MonitorPlay } from "lucide-react";
+import { BarChart3, BookOpen, Download, FileUp, History, ListChecks, MonitorPlay, Users } from "lucide-react";
 
 import { cn } from "cn";
 
@@ -27,10 +27,13 @@ const PASOS = [
 export default function NavegacionLateral({
   sid,
   tramite,
+  admin = false,
 }: {
   sid: string | null;
   /** Nombre del trámite en curso, para el bloque de contexto de abajo. */
   tramite?: string | null;
+  /** Solo el superusuario ve «Cuentas». */
+  admin?: boolean;
 }) {
   // Sin expediente solo existe el paso 1; con expediente, el actual es la
   // revisión (los pasos 3 y 4 son destinos, no estados de la SPA).
@@ -117,6 +120,12 @@ export default function NavegacionLateral({
           <BarChart3 aria-hidden className="size-5 shrink-0" />
           <span className="max-lg:sr-only">Tablero</span>
         </a>
+        {admin ? (
+          <a href="/usuarios" className={cn(base, "text-white/70 hover:bg-white/10 hover:text-white")}>
+            <Users aria-hidden className="size-5 shrink-0" />
+            <span className="max-lg:sr-only">Cuentas</span>
+          </a>
+        ) : null}
       </div>
     </div>
   );

@@ -176,7 +176,12 @@ export type GeneradosOut = {
 export type PasoGenerado = { t: string; mensaje: string };
 
 /** Quien esta dentro (spec 2026-09-25). El token no viaja aqui: va en cookie HttpOnly. */
-export type Usuario = { correo: string; nombre: string; dependencia: string };
+export type Usuario = { correo: string; nombre: string; dependencia: string; rol?: "admin" | "analista" };
+/** Una cuenta vista por el superusuario (`GET /api/v1/usuarios`). */
+export type UsuarioAdmin = {
+  correo: string; nombre: string; dependencia: string;
+  rol: "admin" | "analista"; estado: "pendiente" | "activo" | "inactivo";
+};
 /** `GET /api/v1/sesion`. 404 = el servidor corre sin usuarios. */
 export type SesionOut = { usuario: Usuario | null };
 /** `POST /api/v1/sesion`. */

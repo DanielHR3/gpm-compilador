@@ -44,8 +44,9 @@ it("con credenciales malas lo dice en la misma pantalla y deja reintentar", asyn
   expect(screen.getByRole("button", { name: /entrar/i })).toBeEnabled();
 });
 
-it("dice quién da de alta las cuentas: no hay registro", () => {
+it("ofrece crear cuenta y recuperar la contraseña, y dice quién aprueba (decisión del 2026-09-25)", () => {
   render(<Entrada onEntrar={vi.fn()} />);
-  expect(screen.getByText(/las altas las hace la dirección general de tecnologías/i)).toBeInTheDocument();
-  expect(screen.queryByText(/regístrate|crear cuenta/i)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /crear cuenta/i })).toHaveAttribute("href", "/registro");
+  expect(screen.getByRole("link", { name: /olvidé mi contraseña/i })).toHaveAttribute("href", "/recuperar");
+  expect(screen.getByText(/la aprueba la dirección general de tecnologías/i)).toBeInTheDocument();
 });

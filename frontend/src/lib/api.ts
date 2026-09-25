@@ -25,6 +25,7 @@ import type {
   ResultadoDecision,
   EntradaOut,
   SesionOut,
+  UsuarioAdmin,
 } from "./types";
 
 const BASE = "/api/v1";
@@ -549,4 +550,45 @@ export async function entrar(correo: string, contrasena: string): Promise<Entrad
 
 export async function salir(): Promise<void> {
   await pedirJson<{ ok: boolean }>("/api/v1/salir", { method: "POST" });
+}
+
+/** Registro con correo institucional; la cuenta queda pendiente. */
+export async function registrar(datos: {
+  correo: string; nombre: string; dependencia: string; contrasena: string;
+}): Promise<{ estado: "pendiente"; correo: string }> {
+  return pedirJson("/api/v1/registro", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(datos),
+  });
+}
+
+export async function recuperar(correo: string): Promise<{ mensaje: string }> {
+  return pedirJson("/api/v1/recuperar", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ correo }),
+  });
+}
+
+export async function restablecer(token: string, contrasena: string): Promise<{ ok: boolean }> {
+  return pedirJson("/api/v1/restablecer", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, contrasena }),
+  });
+}
+
+// --- Administracion de cuentas (solo superusuario) ---------------------------------
+
+export async function listarUsuarios(): Promise<{ usuarios: UsuarioAdmin[] }> {
+  return pedirJson("/api/v1/usuarios");
+}
+
+export async function aprobarUsuario(correo: string): Promise<{ usuario: UsuarioAdmin }> {
+  return pedirJson(`/api/v1/usuarios/${encodeURIComponent(correo)}/aprobar`, { method: "POST" });
+}
+
+export async function desactivarUsuario(correo: string): Promise<{ usuario: UsuarioAdmin }> {
+  return pedirJson(`/api/v1/usuarios/${encodeURIComponent(correo)}/desactivar`, { method: "POST" });
+}
+
+export async function cambiarRol(correo: string, rol: "admin" | "analista"): Promise<{ usuario: UsuarioAdmin }> {
+  return pedirJson(`/api/v1/usuarios/${encodeURIComponent(correo)}/rol`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rol }),
+  });
 }

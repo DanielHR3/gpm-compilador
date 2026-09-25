@@ -98,9 +98,12 @@ export default function Entrada({ onEntrar }: { onEntrar: (u: Usuario) => void }
                 <LogIn aria-hidden data-icon="inline-start" />
                 {ocupado ? "Entrando…" : "Entrar"}
               </Button>
+              <p className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                <a href="/registro" className="text-primary underline underline-offset-2">Crear cuenta</a>
+                <a href="/recuperar" className="text-primary underline underline-offset-2">Olvidé mi contraseña</a>
+              </p>
               <p className="text-xs text-muted-foreground">
-                ¿Sin cuenta? Las altas las hace la Dirección General de Tecnologías. Escríbele a tu
-                enlace de la DGT.
+                Solo correos institucionales. Una cuenta nueva la aprueba la Dirección General de Tecnologías.
               </p>
             </form>
           </CardContent>

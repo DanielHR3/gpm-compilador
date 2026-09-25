@@ -38,3 +38,15 @@ describe("migas", () => {
     expect(etiquetas(migas("revision", null))).toEqual(["Inicio", "Revisión"]);
   });
 });
+
+describe("rutas de sesion (2026-09-25)", () => {
+  it("registro, recuperar y usuarios son pantallas propias", () => {
+    expect(leerRuta("/registro")).toEqual({ tipo: "registro" });
+    expect(leerRuta("/recuperar")).toEqual({ tipo: "recuperar" });
+    expect(leerRuta("/usuarios")).toEqual({ tipo: "usuarios" });
+  });
+  it("la liga del correo trae el token en la consulta", () => {
+    expect(leerRuta("/restablecer", "?token=abc-123")).toEqual({ tipo: "restablecer", token: "abc-123" });
+    expect(leerRuta("/restablecer")).toEqual({ tipo: "restablecer", token: "" });
+  });
+});

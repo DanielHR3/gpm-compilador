@@ -13,6 +13,9 @@ import Catalogos from "@/features/catalogos/Catalogos";
 import Historial from "@/features/historial/Historial";
 import Inicio from "@/features/inicio/Inicio";
 import Entrada from "@/features/sesion/Entrada";
+import Recuperar, { Restablecer } from "@/features/sesion/Recuperar";
+import Registro from "@/features/sesion/Registro";
+import Usuarios from "@/features/usuarios/Usuarios";
 import { useSesion } from "@/features/sesion/useSesion";
 import Tablero from "@/features/tablero/Tablero";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
@@ -39,7 +42,7 @@ function nombreDelTramite(est: EstadoExpediente | null): string | null {
 }
 
 export default function App() {
-  const ruta = leerRuta(window.location.pathname);
+  const ruta = leerRuta(window.location.pathname, window.location.search);
   const [est, setEst] = useState<EstadoExpediente | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   // Fase 3: sesion nacida solo con el AS-IS y aun sin manifiesto.
@@ -91,6 +94,7 @@ export default function App() {
     ruta.tipo === "catalogos" ? "Catálogos"
     : ruta.tipo === "historial" ? "Historial"
     : ruta.tipo === "tablero" ? "Tablero"
+    : ruta.tipo === "usuarios" ? "Cuentas"
     : est ? "Revisión del expediente"
     : sidPropuesta ? "Propuesta del compilador"
     : ruta.tipo === "expediente" ? "Expediente completo"
@@ -101,6 +105,10 @@ export default function App() {
   if (ruta.tipo === "catalogos") contenido = <Catalogos />;
   else if (ruta.tipo === "historial") contenido = <Historial />;
   else if (ruta.tipo === "tablero") contenido = <Tablero />;
+  else if (ruta.tipo === "usuarios")
+    contenido = sesion.usuario?.rol === "admin"
+      ? <Usuarios yo={sesion.usuario.correo} />
+      : <p role="alert" className="text-sm text-destructive">Solo el superusuario puede administrar cuentas.</p>;
   else if (est)
     contenido = (
       <>
@@ -143,12 +151,19 @@ export default function App() {
     );
 
   if (sesion.estado === "cargando") return <div className="min-h-svh bg-background" />;
-  if (sesion.estado === "cerrada") return <Entrada onEntrar={sesion.entrar} />;
+  // Sin sesion solo existen las pantallas publicas; cualquier otra liga cae
+  // en la entrada y, al entrar, se queda en la ruta que traia.
+  if (sesion.estado === "cerrada") {
+    if (ruta.tipo === "registro") return <Registro />;
+    if (ruta.tipo === "recuperar") return <Recuperar />;
+    if (ruta.tipo === "restablecer") return <Restablecer token={ruta.token} />;
+    return <Entrada onEntrar={sesion.entrar} />;
+  }
 
   return (
     <div className="flex min-h-svh bg-background">
       <Toaster />
-      <NavegacionLateral sid={est?.sid ?? null} tramite={nombreDelTramite(est)} />
+      <NavegacionLateral sid={est?.sid ?? null} tramite={nombreDelTramite(est)} admin={sesion.usuario?.rol === "admin"} />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader titulo={titulo} usuario={sesion.usuario} onSalir={() => void sesion.salir()} />
         <main className="flex-1 px-6 py-8">
