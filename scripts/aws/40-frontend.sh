@@ -39,12 +39,14 @@ FN_CODIGO='function handler(event) {
   if (uri === "/" || uri.indexOf(".") === -1) { event.request.uri = "/index.html"; }
   return event.request;
 }'
+# El CLI quiere el codigo como archivo binario (fileb://), no como texto.
+FN_ARCHIVO=$(mktemp); printf '%s' "$FN_CODIGO" > "$FN_ARCHIVO"; trap 'rm -f "$FN_ARCHIVO"' EXIT
 FN_ETAG=$(aws cloudfront describe-function --name "$FN_NOMBRE" --query ETag --output text 2>/dev/null || true)
 if [ -z "$FN_ETAG" ]; then
-  aws cloudfront create-function --name "$FN_NOMBRE" --function-code "$FN_CODIGO" \
+  aws cloudfront create-function --name "$FN_NOMBRE" --function-code "fileb://$FN_ARCHIVO" \
     --function-config "Comment=Compilador GPM: rutas de la SPA,Runtime=cloudfront-js-2.0" >/dev/null
 else
-  aws cloudfront update-function --name "$FN_NOMBRE" --function-code "$FN_CODIGO" --if-match "$FN_ETAG" \
+  aws cloudfront update-function --name "$FN_NOMBRE" --function-code "fileb://$FN_ARCHIVO" --if-match "$FN_ETAG" \
     --function-config "Comment=Compilador GPM: rutas de la SPA,Runtime=cloudfront-js-2.0" >/dev/null
 fi
 FN_ETAG=$(aws cloudfront describe-function --name "$FN_NOMBRE" --query ETag --output text)

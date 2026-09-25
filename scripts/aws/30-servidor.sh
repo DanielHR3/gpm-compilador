@@ -36,7 +36,7 @@ EOF
     --user-data "$USER_DATA" \
     --tag-specifications "$(etiquetas instance "$NOMBRE")" "$(etiquetas volume "$NOMBRE")" \
     --query 'Instances[0].InstanceId' --output text)
-  echo "Creando $INSTANCIA…"
+  echo "Creando ${INSTANCIA}…"
 fi
 guardar INSTANCIA "$INSTANCIA"
 aws ec2 wait instance-running --instance-ids "$INSTANCIA"
