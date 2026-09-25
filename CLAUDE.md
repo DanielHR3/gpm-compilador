@@ -576,3 +576,45 @@ vive ahí; léela antes de tocar `diccionario._armar_autollenado` o la rama `api
   `data_format`, `data_format_unique` (las claves del formulario «Edición de fecha / hora»); el
   manifiesto sigue diciendo `date`. `EST-08` (bloqueante) atrapa un `.gpm` con `date`.
   Importado como 1110: la fecha llega al portal.
+
+### 12. Fase 3: prompt v2 y los cruces `GEN-02`/`GEN-03` (2026-09-25)
+
+Bitácora: `2026-09-25 - Pruebas de Simplificacion y la propuesta que salia a escala de juguete`.
+
+- **El TO-BE no puede ser más grande que el Diccionario.** El prompt exige una tarea por
+  pantalla y solo las pantallas del Diccionario. Si la propuesta sale chica, la causa está en
+  el Diccionario, no en el diagrama. La primera propuesta real (Reposición de Certificado) dio
+  3 pantallas contra 9 del equipo porque el prompt v1 enseñaba la forma con plantillas de 2
+  pantallas y el modelo copiaba esa escala.
+- **`<<EJEMPLO>>` viaja en las tres llamadas** (`prompt_fase3.ejemplo()`): *Publicación de
+  Avisos Judiciales* del equipo, recortado a su tabla de eliminación, sus 8 pantallas y su
+  diagrama compilable, en `agentes/ejemplos/avisos-judiciales.md`. **Sin la columna «Ejemplo
+  Real del Campo»**, que trae datos de casos reales, y de otra dependencia a propósito, para
+  que Reposición siga sirviendo de comparación limpia. Las plantillas de `web/` siguen dando la
+  forma; el ejemplo da la escala. Versiones `dicc-v2`, `tobe-v2`, `mejora-v2`.
+- **Reglas de escala en el prompt:** cada paso del AS-IS que no se elimina es una pantalla, y
+  diseñarla no es inventar; una revisión tiene un solo campo de dictamen (`Procede · Requiere
+  corrección · No procede`), nunca dos compuertas seguidas; toda rama llega a una tarea o a
+  `Fin`; la ronda de mejora no quita pantallas ni tareas.
+- **`GEN-02` (ciclo de corrección, `falta_dato`, al TO-BE):** el AS-IS habla de
+  solventar/corregir y el diagrama compilable no regresa a ninguna tarea, o una rama de
+  corrección muere en `Fin`. El ciclo se mide **por alcance** (`_vuelve_atras`), no por
+  orden de visita: dos ramas que se juntan (pago en línea y validación manual llegan a la
+  misma emisión) no son un ciclo.
+- **`GEN-03` (rama fuera del catálogo, `falta_dato`, al TO-BE):** una etiqueta de arista que
+  no es valor del catálogo del campo de su compuerta. Una sola tira **todo** el flujo a lineal
+  (`FLU-01`), y el `FLU-01` es genérico; este cruce nombra la etiqueta, el campo y su
+  catálogo para que la ronda de mejora sepa qué cambiar.
+- **Una mejora que recorta no gana** (`fase3._tamano`): la ronda 2 solo se conserva si no
+  pierde pantallas (Diccionario) ni tareas (TO-BE). Salió de una ronda 2 truncada (JSON
+  cerrado a media línea del diagrama) que tenía menos huecos solo porque ya no había nada
+  que revisar.
+- **`gemini.py` deja en el log cada modelo que cae al respaldo** y a cuál pasa. La
+  bitácora solo registra quién contestó.
+- **«Banco o transferencia» es una opción, no una disyunción** (`diccionario.
+  _es_opcion_de`): un valor con « y »/« o » en una condición de visibilidad se acepta si es,
+  letra por letra, una opción del catálogo del campo referido. Así lo escribe el equipo.
+- **Medir la Fase 3 con la bóveda solo fuera del horario del equipo:** `medir-ia --fase3`
+  hace ~4 llamadas por trámite y compite por la cuota gratuita del día. El 2026-09-25 se
+  detuvo a los 3 trámites por eso. Todo lo del día lo escribió `gemini-3.5-flash-lite`:
+  el techo de calidad hoy es el modelo, no el prompt.
