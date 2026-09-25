@@ -658,3 +658,21 @@ def test_dos_ramas_que_se_juntan_no_son_un_ciclo():
             "  P3 --> P4\n  P4 --> Fin([Fin])\n```")
     huecos = verificar_cruzado(_ASIS_CON_CICLO, tobe, _m_dictamen())
     assert any(h.codigo == "GEN-02" for h in huecos)
+
+
+def test_una_mejora_que_recorta_el_documento_no_gana_aunque_tenga_menos_huecos(tmp_path):
+    """Reposicion, 2026-09-25: la ronda 2 del TO-BE volvio truncada (el JSON se
+    cerro a media linea del diagrama), tenia UN hueco (MMD-01, sin mermaid)
+    contra tres de la ronda 1, y gano. Corregir no es recortar: la ronda 2
+    solo se conserva si no pierde pantallas (Diccionario) ni tareas (TO-BE)."""
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    tobe_1 = "# Propuesta TO-BE — Constancia\n\n" + _TOBE_LINEAL.replace("Rechazado", "Requiere corrección")
+    tobe_2_truncado = "# Propuesta TO-BE — Constancia\n\n### Diagrama compilable\n\n```mermaid\nflowchart TD\n    P1["
+    prov = ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", tobe_1),
+                           _json("diccionario", _DICC_OK), _json("tobe", tobe_2_truncado)])
+    g = generar(_ASIS_CON_CICLO, prov, tmp_path, "h" * 16)
+    assert prov.llamadas == 4
+    assert g.tobe.ronda == 1 and g.tobe.texto == tobe_1
+    assert any(h.codigo == "GEN-02" for h in g.tobe.huecos)
+    assert not any(h.codigo == "MMD-01" for h in g.tobe.huecos)

@@ -8,6 +8,7 @@ mas tres cruces deterministas (`verificar_fase3`): nadie opina, se mide.
 import json
 import logging
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -258,6 +259,19 @@ def _cuenta(manifiesto, huecos: list, clave: str) -> tuple:
             sum(1 for h in mios if h.nivel == "falta_dato"))
 
 
+def _tamano(manifiesto, texto: str, clave: str) -> int:
+    """Cuanto documento hay: pantallas del Diccionario o tareas del diagrama
+    compilable del TO-BE. Se mide sobre el texto (no sobre el manifiesto) para
+    que un TO-BE sin bloque mermaid cuente 0 aunque el Diccionario de la pareja
+    este entero."""
+    if clave == "diccionario":
+        return 0 if manifiesto is None else len(manifiesto.pantallas)
+    bloques = re.findall(r"```mermaid(.*?)```", texto or "", re.S)
+    if not bloques:
+        return 0
+    return len(re.findall(r"^\s*[A-Za-z_][\w]*\s*[\[(]", bloques[0], re.M))
+
+
 def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict, huecos: list,
                      m_1=None):
     """Una sola vez por documento, y solo si ese documento tiene huecos que
@@ -286,7 +300,17 @@ def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict,
     m_2, huecos_2 = extraer_borradores(as_is, candidatos["diccionario"], candidatos["tobe"])
     final = dict(elegido)
     for clave in ("diccionario", "tobe"):
-        if reparto[clave] and _cuenta(m_2, huecos_2, clave) <= _cuenta(m_1, huecos, clave):
+        if not reparto[clave]:
+            continue
+        # Corregir no es recortar: una ronda 2 truncada (Reposicion, 2026-09-25:
+        # el JSON se cerro a media linea del diagrama) tenia menos huecos que la
+        # 1 solo porque ya no habia nada que revisar. Si pierde pantallas o
+        # tareas, se queda la 1.
+        if _tamano(m_2, candidatos[clave], clave) < _tamano(m_1, elegido[clave][0], clave):
+            log.warning("fase3 sid=%s la mejora del %s recorta el documento; se conserva la ronda 1",
+                        sid, clave)
+            continue
+        if _cuenta(m_2, huecos_2, clave) <= _cuenta(m_1, huecos, clave):
             final[clave] = (candidatos[clave], 2, pr.VERSION_PROMPT_MEJORA)
     # Si la pareja final es exactamente la de la ronda 2, sus huecos ya estan
     # medidos. Si se mezclan rondas (Diccionario 2, TO-BE 1), se vuelven a
