@@ -96,7 +96,7 @@ export function Campo({
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium">{etiqueta}</label>
       <Input id={id} name={id} type={type} spellCheck={false} value={value}
-        onChange={(e) => onChange(e.target.value)} aria-invalid={aviso ? true : undefined} required {...resto} />
+        onChange={(e) => onChange(e.target.value)} aria-invalid={aviso ? true : undefined} required className="h-10" {...resto} />
       {aviso ? <p className="text-xs text-destructive">{aviso}</p> : null}
     </div>
   );

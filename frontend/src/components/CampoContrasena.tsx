@@ -21,10 +21,10 @@ export default function CampoContrasena({
       <div className="relative">
         <Input id={id} name={id} type={visible ? "text" : "password"} autoComplete={autoComplete}
           spellCheck={false} value={value} onChange={(e) => onChange(e.target.value)}
-          aria-invalid={aviso ? true : undefined} required className="pr-9" />
+          aria-invalid={aviso ? true : undefined} required className="h-10 pr-10" />
         <button type="button" onClick={() => setVisible((v) => !v)}
           aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={visible}
-          className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-r-lg">
+          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-r-lg">
           {visible ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
         </button>
       </div>

@@ -8,15 +8,18 @@ import type { Usuario } from "@/lib/types";
  *
  * En el armazón de la casa (`checador-web`, `GeoApertura`) la identidad vive en
  * la barra lateral guinda, y la superior es blanca con el título de la pantalla
- * en guinda: dice DÓNDE estás, no QUÉ producto es. Por eso ya no repite
- * "Compilador GPM", que ahora encabeza la barra lateral.
+ * en guinda: dice DÓNDE estás, no QUÉ producto es.
  *
- * El logo va aquí y no en la barra lateral por una razón concreta: sobre esta
- * superficie clara puede ir en sus colores institucionales —guinda, granate y
- * oro—, mientras que sobre el guinda de la lateral habría que degradarlo a
- * monocromo para que se viera. Y sustituye al texto "Gobierno del Estado de
- * Hidalgo", que es literalmente lo que el logo ya dice.
+ * A la derecha, quién está dentro: iniciales en un círculo guinda tenue, nombre
+ * y dependencia, y «Salir» como acción discreta. El logo institucional cierra
+ * la barra, separado por una línea: va aquí y no en la lateral porque sobre
+ * superficie clara puede ir en sus colores.
  */
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean);
+  return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
 export default function AppHeader({
   titulo,
   usuario,
@@ -29,17 +32,20 @@ export default function AppHeader({
 }) {
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-6">
-      <span className="font-heading text-lg font-bold tracking-tight text-primary">
-        {titulo}
-      </span>
-      <div className="flex items-center gap-4">
+      <span className="font-heading text-lg font-bold tracking-tight text-primary">{titulo}</span>
+      <div className="flex items-center gap-5">
         {usuario ? (
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden text-right sm:block" aria-label="Sesión">
-              <span className="block font-medium text-foreground">{usuario.nombre}</span>
-              <span className="block text-xs text-muted-foreground">{usuario.dependencia}</span>
+          <div className="flex items-center gap-3">
+            <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-primary/10 font-heading text-sm font-bold text-primary">
+              {iniciales(usuario.nombre)}
             </span>
-            <Button type="button" variant="outline" size="sm" onClick={onSalir}>
+            <span className="hidden flex-col leading-tight sm:flex" aria-label="Sesión">
+              <span className="text-sm font-semibold text-foreground">{usuario.nombre}</span>
+              <span className="text-xs text-muted-foreground">
+                {usuario.dependencia}{usuario.rol === "admin" ? " · superusuario" : ""}
+              </span>
+            </span>
+            <Button type="button" variant="ghost" size="sm" onClick={onSalir} className="text-muted-foreground hover:text-foreground">
               <LogOut aria-hidden data-icon="inline-start" />
               Salir
             </Button>
@@ -48,7 +54,7 @@ export default function AppHeader({
         <img
           src="/logo-hidalgo-coemere.svg"
           alt="Gobierno del Estado de Hidalgo · Comisión Estatal de Mejora Regulatoria"
-          className="hidden h-8 w-auto sm:block"
+          className={"hidden h-8 w-auto sm:block" + (usuario ? " border-l border-border pl-5" : "")}
         />
       </div>
     </header>

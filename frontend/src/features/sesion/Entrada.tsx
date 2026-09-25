@@ -3,20 +3,16 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 import CampoContrasena from "@/components/CampoContrasena";
-import PieInstitucional from "@/components/PieInstitucional";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { entrar, ErrorApi } from "@/lib/api";
 import type { Usuario } from "@/lib/types";
 
+import MarcoSesion from "./MarcoSesion";
+
 /**
  * La entrada al asistente cuando el servidor exige sesión (spec 2026-09-25).
- *
- * Mismo armazón que el resto de la casa: superficie `background`, tarjeta
- * `card`, guinda solo en la acción principal y en la franja de identidad.
- * Sin registro ni «olvidé mi contraseña»: las altas las hace la DGT por
- * terminal (`gpmc usuario alta`), y así lo dice la pantalla.
+ * Solo correos institucionales; las cuentas nuevas las aprueba la DGT.
  */
 export default function Entrada({ onEntrar }: { onEntrar: (u: Usuario) => void }) {
   const [correo, setCorreo] = useState("");
@@ -32,7 +28,10 @@ export default function Entrada({ onEntrar }: { onEntrar: (u: Usuario) => void }
       const r = await entrar(correo.trim(), contrasena);
       onEntrar(r.usuario);
     } catch (err: unknown) {
-      if (err instanceof ErrorApi && err.status === 401) setError("Correo o contraseña incorrectos.");
+      // El unico 401 con mensaje propio es «cuenta pendiente»; lo demas es
+      // «incorrectos», sin decir cual de los dos datos fallo.
+      if (err instanceof ErrorApi && err.status === 401)
+        setError(/pendiente/i.test(err.message) ? err.message : "Correo o contraseña incorrectos.");
       else setError("No se pudo entrar. Revisa la conexión e inténtalo de nuevo.");
     } finally {
       setOcupado(false);
@@ -40,63 +39,31 @@ export default function Entrada({ onEntrar }: { onEntrar: (u: Usuario) => void }
   };
 
   return (
-    <div className="flex min-h-svh flex-col bg-background">
-      <main className="flex flex-1 items-center justify-center px-4 py-10">
-        <Card role="region" aria-label="Entrar al Compilador GPM" className="w-full max-w-md py-6">
-          <CardHeader className="items-center text-center">
-            <img
-              src="/logo-hidalgo-coemere.svg"
-              alt="Gobierno del Estado de Hidalgo · Comisión Estatal de Mejora Regulatoria"
-              className="mx-auto mb-2 h-10 w-auto"
-            />
-            <CardTitle className="font-heading text-xl text-primary">
-              <h1>Compilador GPM</h1>
-            </CardTitle>
-            <CardDescription>
-              Entra con tu correo institucional. Uso interno de la DGT y la DSA.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={enviar} className="flex flex-col gap-4" noValidate>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="correo" className="text-sm font-medium">
-                  Correo institucional
-                </label>
-                <Input
-                  id="correo"
-                  name="correo"
-                  type="email"
-                  autoComplete="username"
-                  spellCheck={false}
-                  placeholder="nombre.apellido@hidalgo.gob.mx"
-                  value={correo}
-                  onChange={(e) => setCorreo(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-              <CampoContrasena id="contrasena" etiqueta="Contraseña" value={contrasena} onChange={setContrasena} />
-              {error ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {error}
-                </p>
-              ) : null}
-              <Button type="submit" disabled={ocupado || !correo || !contrasena} className="mt-1">
-                <LogIn aria-hidden data-icon="inline-start" />
-                {ocupado ? "Entrando…" : "Entrar"}
-              </Button>
-              <p className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-                <a href="/registro" className="text-primary underline underline-offset-2">Crear cuenta</a>
-                <a href="/recuperar" className="text-primary underline underline-offset-2">Olvidé mi contraseña</a>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Solo correos institucionales. Una cuenta nueva la aprueba la Dirección General de Tecnologías.
-              </p>
-            </form>
-          </CardContent>
-        </Card>
-      </main>
-      <PieInstitucional />
-    </div>
+    <MarcoSesion titulo="Entrar" etiqueta="Entrar al Compilador GPM"
+      descripcion="Con tu correo institucional. Uso interno de la DGT y la DSA.">
+      <form onSubmit={enviar} className="flex flex-col gap-5" noValidate>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="correo" className="text-sm font-medium">Correo institucional</label>
+          <Input id="correo" name="correo" type="email" autoComplete="username" spellCheck={false}
+            placeholder="nombre.apellido@hidalgo.gob.mx" value={correo}
+            onChange={(e) => setCorreo(e.target.value)} required autoFocus className="h-10" />
+        </div>
+        <CampoContrasena id="contrasena" etiqueta="Contraseña" value={contrasena} onChange={setContrasena} />
+        {error ? (
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+        ) : null}
+        <Button type="submit" size="lg" disabled={ocupado || !correo || !contrasena} className="h-11 w-full text-base">
+          <LogIn aria-hidden data-icon="inline-start" />
+          {ocupado ? "Entrando…" : "Entrar"}
+        </Button>
+        <div className="flex items-center justify-between text-sm">
+          <a href="/registro" className="font-medium text-primary underline-offset-4 hover:underline">Crear cuenta</a>
+          <a href="/recuperar" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Olvidé mi contraseña</a>
+        </div>
+        <p className="border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
+          Solo correos institucionales. Una cuenta nueva la aprueba la Dirección General de Tecnologías antes de poder entrar.
+        </p>
+      </form>
+    </MarcoSesion>
   );
 }

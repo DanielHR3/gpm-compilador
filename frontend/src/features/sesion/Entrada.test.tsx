@@ -22,7 +22,8 @@ it("pide correo institucional y contraseña, y entra con ellos", async () => {
   const onEntrar = vi.fn();
   render(<Entrada onEntrar={onEntrar} />);
   expect(screen.getByRole("region", { name: /entrar al compilador gpm/i })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: /compilador gpm/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /^entrar$/i })).toBeInTheDocument();
+  expect(screen.getByText(/^compilador gpm$/i)).toBeInTheDocument();      // la franja guinda
   const boton = screen.getByRole("button", { name: /entrar/i });
   expect(boton).toBeDisabled();                                   // sin datos no se envía
   await userEvent.type(screen.getByLabelText(/correo institucional/i), " daniel.hernandezr@hidalgo.gob.mx ");

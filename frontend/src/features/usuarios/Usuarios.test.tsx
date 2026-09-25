@@ -23,10 +23,10 @@ it("agrupa las cuentas por estado, en tarjetas, con las pendientes primero", asy
   render(<Usuarios yo={YO} />);
   const pendientes = await screen.findByRole("region", { name: /pendientes de aprobación/i });
   expect(within(pendientes).getByRole("article", { name: "luis.vera@hidalgo.gob.mx" })).toBeInTheDocument();
-  const activas = screen.getByRole("region", { name: /^activas/i });
+  const activas = screen.getByRole("region", { name: /con acceso/i });
   const yo = within(activas).getByRole("article", { name: YO });
   expect(yo).toHaveTextContent(/superusuario/);
-  expect(yo).toHaveTextContent(/· tú/);
+  expect(yo).toHaveTextContent(/tú/);
   expect(within(yo).queryByRole("button", { name: /desactivar/i })).not.toBeInTheDocument();   // no a mi mismo
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
 });
