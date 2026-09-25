@@ -714,3 +714,54 @@ def test_gen03_se_atribuye_al_tobe():
     from gpmc.agentes.fase3 import atribuir
     from gpmc.nucleo.huecos import Hueco
     assert atribuir(Hueco("falta_dato", "GEN-03", "G", "x")) == "tobe"
+
+
+# --- medir-ia --fase3: medida estructural y el ejemplo fuera (2026-09-25) --------
+# «Tareas que casan» compara por nombre y el modelo bautiza distinto que el
+# equipo («Solicitud de Reposicion» vs «Nueva Solicitud»): salia ~0 aunque la
+# estructura fuera la misma. Y Avisos Judiciales viaja como <<EJEMPLO>> en el
+# prompt: medirlo contra si mismo daba 7/8 tareas, cifra inflada.
+
+def test_medir_fase3_trae_la_medida_estructural(tmp_path):
+    from gpmc.agentes.medir_fase3 import medir_carpeta, imprimir
+    from gpmc.agentes.proveedor import ProveedorFalso
+    _expediente_humano(tmp_path)
+    tobe_gen = ("# Propuesta TO-BE — Constancia\n\n" + _TOBE_CON_VUELTA)   # ramifica y vuelve
+    # La Pantalla 2 lleva su catalogo en la columna de siempre: sin opciones el
+    # flujo no ramifica y no habria compuerta que medir.
+    dicc_gen = _DICC_OK.split("### Pantalla 2")[0] + (
+        "### Pantalla 2 — Funcionario — Revisión\n\n"
+        "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad | Límite/Especificaciones | Catálogo de Valores | Descripcion |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+        "| Dictamen | Select | Lista desplegable | Si | Siempre visible | N/A | Aprobado · Requiere corrección | `@@dictamen` |\n") + (
+        "\n### Pantalla 3 — Funcionario — Emisión\n\n"
+        "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+        "| Constancia | Archivo | Visor | Si | `@@constancia` |\n"
+        "\n### Pantalla 4 — Ciudadano — Corrección\n\n"
+        "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+        "| Documento corregido | Archivo | Visor | Si | `@@doc_corregido` |\n")
+    prov = ProveedorFalso([_json("diccionario", dicc_gen), _json("tobe", tobe_gen)] * 3)
+    m = medir_carpeta(tmp_path, prov, tmp_path / "almacen")[0]
+    assert m.estado == "listo"
+    assert (m.pantallas_humano, m.pantallas_generadas) == (2, 4)
+    assert (m.compuertas_humano, m.compuertas_generadas) == (0, 1)
+    assert (m.ciclo_humano, m.ciclo_generado) == (False, True)
+    salida = imprimir(m and [m])
+    assert "pant." in salida and "4/2" in salida and "1/0" in salida and "ciclo" in salida
+
+
+def test_medir_fase3_no_mide_el_tramite_que_viaja_como_ejemplo(tmp_path):
+    from gpmc.agentes.medir_fase3 import medir_carpeta, imprimir
+    from gpmc.agentes.prompt_fase3 import NOMBRE_EJEMPLO
+    from gpmc.agentes.proveedor import ProveedorFalso
+    assert NOMBRE_EJEMPLO == "Publicación de Avisos Judiciales en el Periódico Oficial"
+    d = tmp_path / "ANITA" / "PO" / NOMBRE_EJEMPLO
+    d.mkdir(parents=True)
+    (d / "Análisis AS-IS.md").write_text(_ASIS_INLINE, encoding="utf-8")
+    (d / "Propuesta TO-BE.md").write_text(_TOBE_OK, encoding="utf-8")
+    (d / "Diccionario de Datos.md").write_text(_DICC_OK, encoding="utf-8")
+    prov = ProveedorFalso([])
+    medidas = medir_carpeta(tmp_path, prov, tmp_path / "almacen")
+    assert len(medidas) == 1 and medidas[0].estado == "ejemplo del prompt"
+    assert prov.llamadas == 0
+    assert "ejemplo del prompt" in imprimir(medidas)

@@ -229,6 +229,11 @@ def ejemplo() -> str:
         "ejemplos/avisos-judiciales.md").read_text(encoding="utf-8")
 
 
+# El tramite que viaja como ejemplo. `medir-ia --fase3` no lo mide: compararlo
+# contra si mismo daba 7/8 tareas (2026-09-25), cifra inflada.
+NOMBRE_EJEMPLO = "Publicación de Avisos Judiciales en el Periódico Oficial"
+
+
 def _bloque(nombre: str, cuerpo: str) -> str:
     return f"<<{nombre}>>\n{cuerpo}\n<</{nombre}>>"
 
