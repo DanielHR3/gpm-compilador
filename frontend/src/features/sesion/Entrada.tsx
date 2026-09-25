@@ -2,6 +2,7 @@ import { LogIn } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
+import CampoContrasena from "@/components/CampoContrasena";
 import PieInstitucional from "@/components/PieInstitucional";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,21 +75,7 @@ export default function Entrada({ onEntrar }: { onEntrar: (u: Usuario) => void }
                   autoFocus
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="contrasena" className="text-sm font-medium">
-                  Contraseña
-                </label>
-                <Input
-                  id="contrasena"
-                  name="contrasena"
-                  type="password"
-                  autoComplete="current-password"
-                  spellCheck={false}
-                  value={contrasena}
-                  onChange={(e) => setContrasena(e.target.value)}
-                  required
-                />
-              </div>
+              <CampoContrasena id="contrasena" etiqueta="Contraseña" value={contrasena} onChange={setContrasena} />
               {error ? (
                 <p role="alert" className="text-sm text-destructive">
                   {error}

@@ -2,6 +2,7 @@ import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
+import CampoContrasena from "@/components/CampoContrasena";
 import { Button } from "@/components/ui/button";
 import { recuperar, restablecer } from "@/lib/api";
 
@@ -88,9 +89,9 @@ export function Restablecer({ token }: { token: string }) {
         <a href="/" className="text-sm text-primary underline underline-offset-2">Ir a la entrada</a>
       ) : (
         <form onSubmit={enviar} className="flex flex-col gap-4" noValidate>
-          <Campo id="contrasena" etiqueta={`Contraseña nueva (mínimo ${MIN_CONTRASENA} caracteres)`} type="password"
+          <CampoContrasena id="contrasena" etiqueta={`Contraseña nueva (mínimo ${MIN_CONTRASENA} caracteres)`}
             autoComplete="new-password" value={contrasena} onChange={setContrasena} />
-          <Campo id="confirma" etiqueta="Repite la contraseña" type="password" autoComplete="new-password"
+          <CampoContrasena id="confirma" etiqueta="Repite la contraseña" autoComplete="new-password"
             value={confirma} onChange={setConfirma}
             aviso={confirma && confirma !== contrasena ? "Las contraseñas no coinciden." : null} />
           {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}

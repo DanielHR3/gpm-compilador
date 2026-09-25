@@ -26,7 +26,7 @@ it("pide correo institucional y contraseña, y entra con ellos", async () => {
   const boton = screen.getByRole("button", { name: /entrar/i });
   expect(boton).toBeDisabled();                                   // sin datos no se envía
   await userEvent.type(screen.getByLabelText(/correo institucional/i), " daniel.hernandezr@hidalgo.gob.mx ");
-  await userEvent.type(screen.getByLabelText(/contraseña/i), "Secreta-123");
+  await userEvent.type(screen.getByLabelText(/^contraseña$/i), "Secreta-123");
   await userEvent.click(boton);
   expect(entrar).toHaveBeenCalledWith("daniel.hernandezr@hidalgo.gob.mx", "Secreta-123");
   await waitFor(() => expect(onEntrar).toHaveBeenCalledWith(
@@ -38,7 +38,7 @@ it("con credenciales malas lo dice en la misma pantalla y deja reintentar", asyn
   vi.mocked(entrar).mockRejectedValueOnce(new (ErrorApi as unknown as new (s: number) => Error)(401));
   render(<Entrada onEntrar={vi.fn()} />);
   await userEvent.type(screen.getByLabelText(/correo institucional/i), "x@hidalgo.gob.mx");
-  await userEvent.type(screen.getByLabelText(/contraseña/i), "mal");
+  await userEvent.type(screen.getByLabelText(/^contraseña$/i), "mal");
   await userEvent.click(screen.getByRole("button", { name: /entrar/i }));
   expect(await screen.findByRole("alert")).toHaveTextContent(/correo o contraseña incorrectos/i);
   expect(screen.getByRole("button", { name: /entrar/i })).toBeEnabled();
@@ -49,4 +49,14 @@ it("ofrece crear cuenta y recuperar la contraseña, y dice quién aprueba (decis
   expect(screen.getByRole("link", { name: /crear cuenta/i })).toHaveAttribute("href", "/registro");
   expect(screen.getByRole("link", { name: /olvidé mi contraseña/i })).toHaveAttribute("href", "/recuperar");
   expect(screen.getByText(/la aprueba la dirección general de tecnologías/i)).toBeInTheDocument();
+});
+
+it("el ojo enseña y vuelve a ocultar la contraseña", async () => {
+  render(<Entrada onEntrar={vi.fn()} />);
+  const campo = screen.getByLabelText(/^contraseña$/i);
+  expect(campo).toHaveAttribute("type", "password");
+  await userEvent.click(screen.getByRole("button", { name: /mostrar contraseña/i }));
+  expect(campo).toHaveAttribute("type", "text");
+  await userEvent.click(screen.getByRole("button", { name: /ocultar contraseña/i }));
+  expect(campo).toHaveAttribute("type", "password");
 });

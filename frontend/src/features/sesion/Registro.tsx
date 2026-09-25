@@ -2,6 +2,7 @@ import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
+import CampoContrasena from "@/components/CampoContrasena";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ErrorApi, registrar } from "@/lib/api";
@@ -67,9 +68,9 @@ export default function Registro() {
           aviso={correo && !institucional ? `Debe terminar en @${DOMINIO}.` : null} />
         <Campo id="nombre" etiqueta="Nombre completo" autoComplete="name" value={nombre} onChange={setNombre} />
         <Campo id="dependencia" etiqueta="Dependencia" placeholder="DGT, DSA, SEMARNATH…" value={dependencia} onChange={setDependencia} />
-        <Campo id="contrasena" etiqueta={`Contraseña (mínimo ${MIN_CONTRASENA} caracteres)`} type="password"
+        <CampoContrasena id="contrasena" etiqueta={`Contraseña (mínimo ${MIN_CONTRASENA} caracteres)`}
           autoComplete="new-password" value={contrasena} onChange={setContrasena} />
-        <Campo id="confirma" etiqueta="Repite la contraseña" type="password" autoComplete="new-password"
+        <CampoContrasena id="confirma" etiqueta="Repite la contraseña" autoComplete="new-password"
           value={confirma} onChange={setConfirma}
           aviso={confirma && confirma !== contrasena ? "Las contraseñas no coinciden." : null} />
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
