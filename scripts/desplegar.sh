@@ -62,7 +62,7 @@ set -euo pipefail
 cd /opt/gpmc
 [ -d .venv ] || python3 -m venv .venv
 .venv/bin/pip install -q --upgrade pip
-.venv/bin/pip install -q -e '.[web]'
+.venv/bin/pip install -q -e '.[web,agentes]'
 sudo install -m 644 deploy/gpmc.service /etc/systemd/system/gpmc.service
 sudo systemctl daemon-reload
 sudo systemctl enable gpmc >/dev/null

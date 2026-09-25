@@ -52,7 +52,7 @@ variables de IA se copian de `~/.config/gpmc/entorno` de quien despliega, **sin*
 
 ```
 ssh -i ~/.ssh/gpmc-despliegue.pem ubuntu@<IP_SERVIDOR>
-sudo -u gpmc -H bash -c 'set -a; . /etc/gpmc/entorno; set +a; /opt/gpmc/.venv/bin/gpmc usuario alta daniel.hernandezr@hidalgo.gob.mx --nombre "Daniel Hernández" --dependencia DGT --rol admin'
+sudo -u gpmc -H env HOME=/var/lib/gpmc bash -c 'set -a; . /etc/gpmc/entorno; set +a; /opt/gpmc/.venv/bin/gpmc usuario alta daniel.hernandezr@hidalgo.gob.mx --nombre "Daniel Hernández" --dependencia DGT --rol admin'
 ```
 
 Luis se registra desde la pantalla y Daniel lo aprueba en «Cuentas».

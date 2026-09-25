@@ -23,6 +23,7 @@ apt-get install -y python3 python3-venv python3-pip rsync git
 id -u gpmc >/dev/null 2>&1 || useradd --system --create-home --shell /bin/bash gpmc
 mkdir -p /opt/gpmc /var/lib/gpmc/sesiones /var/log/gpmc /etc/gpmc
 chown -R gpmc:gpmc /var/lib/gpmc /var/log/gpmc
+chown root:gpmc /etc/gpmc
 chmod 750 /etc/gpmc
 # El codigo lo escribe ubuntu (rsync del despliegue) y lo lee el servicio (gpmc).
 chown -R ubuntu:gpmc /opt/gpmc
