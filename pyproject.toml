@@ -19,6 +19,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "gpmc.web" = ["plantilla-diccionario.md", "plantilla-tobe.md"]
+"gpmc.agentes" = ["ejemplos/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

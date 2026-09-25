@@ -19,9 +19,9 @@ def test_candado_solo_abre_con_openai_y_llave():
 
 def test_prompts_versionados_y_bloques_delimitados():
     from gpmc.agentes import prompt_fase3 as p
-    assert p.VERSION_PROMPT_DICC == "dicc-v1"
-    assert p.VERSION_PROMPT_TOBE == "tobe-v1"
-    assert p.VERSION_PROMPT_MEJORA == "mejora-v1"
+    assert p.VERSION_PROMPT_DICC == "dicc-v2"
+    assert p.VERSION_PROMPT_TOBE == "tobe-v2"
+    assert p.VERSION_PROMPT_MEJORA == "mejora-v2"
     ctx = p.contexto_dicc("# Analisis AS-IS — X\n\n**Requisitos:** CURP")
     assert "<<PLANTILLA>>" in ctx and "<</PLANTILLA>>" in ctx
     assert "<<DATOS>>" in ctx and "<</DATOS>>" in ctx
@@ -177,7 +177,7 @@ def test_generar_una_ronda_devuelve_listo_con_dos_textos_y_huecos(tmp_path):
     assert g.estado == "listo" and g.motivo is None
     assert g.nombre == "Constancia"
     assert g.diccionario.texto == _DICC_OK and g.diccionario.ronda == 1
-    assert g.tobe.texto == _TOBE_OK and g.tobe.version_prompt == "tobe-v1"
+    assert g.tobe.texto == _TOBE_OK and g.tobe.version_prompt == "tobe-v2"
     assert g.diccionario.decision == "pendiente"
     # Los huecos del extractor van repartidos por documento.
     assert all(h.codigo.startswith(("DIC", "META", "GEN", "API", "DOC", "INS-03"))
@@ -186,7 +186,7 @@ def test_generar_una_ronda_devuelve_listo_con_dos_textos_y_huecos(tmp_path):
     assert "<<DICCIONARIO>>" in prov.ultimo_contexto       # el TO-BE vio el Diccionario
     filas = leer(tmp_path)
     assert [(f["documento"], f["ronda"]) for f in filas] == [("diccionario", 1), ("tobe", 1)]
-    assert filas[0]["version_prompt"] == "dicc-v1"
+    assert filas[0]["version_prompt"] == "dicc-v2"
 
 
 def test_texto_vacio_o_sin_mermaid_es_listo_con_huecos_no_error(tmp_path):
@@ -240,7 +240,7 @@ def test_mejora_conserva_la_ronda_2_cuando_tiene_menos_bloqueantes(tmp_path):
     g = generar(_ASIS_INLINE, prov, tmp_path, "e" * 16)
     assert g.estado == "listo"
     assert g.diccionario.ronda == 2 and g.diccionario.texto == _DICC_OK
-    assert g.diccionario.version_prompt == "mejora-v1"
+    assert g.diccionario.version_prompt == "mejora-v2"
     assert not any(h.codigo == "DIC-00" for h in g.diccionario.huecos)
     # El TO-BE no tenia bloqueantes propios: no se le pidio mejora.
     assert g.tobe.ronda == 1
@@ -505,3 +505,70 @@ def test_el_modo_de_pruebas_abre_el_candado_con_cualquier_proveedor_con_llave():
     assert puede_generar({**gem, "GPMC_FASE3_PRUEBAS": "0"}) is not None
     assert modo_pruebas({"GPMC_IA_PROVEEDOR": "openai", "GPMC_IA_LLAVE": "k",
                          "GPMC_FASE3_PRUEBAS": "1"}) is False   # con licencia no es «pruebas»
+
+
+# --- Prompt v2 (2026-09-25): la escala del equipo ------------------------------
+# El primer uso real con Reposicion de Certificado (2026-09-25) dio un
+# Diccionario de 3 pantallas y un TO-BE de 3 tareas; el del equipo tiene 9 y 8,
+# con ciclo de correccion y modalidad de pago. Las plantillas solo ensenan la
+# FORMA (2 pantallas, trámite lineal) y el modelo copiaba esa escala.
+
+def test_los_tres_contextos_llevan_el_ejemplo_de_escala():
+    from gpmc.agentes import prompt_fase3 as p
+    ctxs = [p.contexto_dicc("as-is"), p.contexto_tobe("as-is", "# Diccionario de Datos — X"),
+            p.contexto_mejora("as-is", "b", ["[GEN-01] x"], "diccionario"),
+            p.contexto_mejora("as-is", "b", ["[FLU-02] x"], "tobe", diccionario="d")]
+    for ctx in ctxs:
+        assert "<<EJEMPLO>>" in ctx and "<</EJEMPLO>>" in ctx
+        assert "### Pantalla 8" in ctx                       # un trámite de 8 pantallas
+        assert "¿@@modalidad_pago?" in ctx and "¿@@tiene_observaciones?" in ctx
+
+
+def test_el_ejemplo_no_lleva_datos_de_casos_reales():
+    """La columna «Ejemplo Real del Campo» del equipo trae datos de casos
+    reales; el generador de DIC-08 ya la excluye y este tampoco la manda."""
+    from gpmc.agentes.prompt_fase3 import ejemplo
+    texto = ejemplo()
+    assert "Ejemplo Real" not in texto and "caso real" not in texto
+    assert not __import__("re").search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d", texto)
+
+
+def test_el_ejemplo_es_coherente_y_dibujable():
+    """Si el ejemplo rompiera las reglas que el prompt exige, el modelo
+    aprenderia la excepcion: cada tarea del diagrama es una pantalla del
+    ejemplo, y las compuertas van entre comillas."""
+    import re
+    from gpmc.agentes.prompt_fase3 import ejemplo
+    texto = ejemplo()
+    pantallas = set(re.findall(r"^### Pantalla \d+ — .+? — (.+)$", texto, re.M))
+    diagrama = re.search(r"```mermaid(.*?)```", texto, re.S).group(1)
+    tareas = set(re.findall(r'\["[^":]+: ([^"]+)"\]', diagrama))
+    assert len(pantallas) == 8 and tareas == pantallas
+    assert re.findall(r'\{"¿@@\w+\?"\}', diagrama)
+
+
+def test_las_instrucciones_piden_la_escala_del_equipo():
+    from gpmc.agentes import prompt_fase3 as p
+    # Diccionario: cada paso conservado del AS-IS es una pantalla, y eso no es inventar.
+    assert "<<EJEMPLO>>" in p.INSTRUCCION_DICC
+    assert "cada paso del AS-IS que no se elimina" in p.INSTRUCCION_DICC
+    assert "no es inventar" in p.INSTRUCCION_DICC
+    for momento in ("corrección", "modalidad de pago", "validación manual del pago",
+                    "estatus"):
+        assert momento in p.INSTRUCCION_DICC, momento
+    # TO-BE: una fila por requisito y por paso, y las compuertas de siempre.
+    assert "<<EJEMPLO>>" in p.INSTRUCCION_TOBE
+    assert "una fila por cada requisito y por cada paso del AS-IS" in p.INSTRUCCION_TOBE
+    assert "ciclo de corrección" in p.INSTRUCCION_TOBE
+    # Mejora: corregir no es recortar.
+    assert "no quites pantallas" in p.INSTRUCCION_MEJORA
+
+
+def test_el_prompt_tobe_prohibe_compuertas_encadenadas_y_ramas_sueltas():
+    """Con dicc-v2/tobe-v2 y flash-lite (2026-09-25), Reposicion salio con
+    `G1 -- Sí --> G2` y ramas «No» sin destino: el compilador no ramifica eso."""
+    from gpmc.agentes import prompt_fase3 as p
+    assert "nunca dos compuertas seguidas" in p.INSTRUCCION_TOBE
+    assert "un valor más del mismo campo" in p.INSTRUCCION_TOBE
+    assert "cada rama de una compuerta llega a una tarea o a `Fin`" in p.INSTRUCCION_TOBE
+    assert "un valor más del mismo campo" in p.INSTRUCCION_DICC
