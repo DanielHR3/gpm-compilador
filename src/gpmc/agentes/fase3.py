@@ -281,6 +281,10 @@ def _ronda_de_mejora(as_is: str, proveedor, raiz: Path, sid: str, elegido: dict,
     ronda 1: sus tokens ya estan gastados y su resultado es util."""
     reparto = {clave: [str(h) for h in bloquean(huecos) if atribuir(h) == clave]
                for clave in ("diccionario", "tobe")}
+    # El ciclo de correccion exige una pantalla nueva del ciudadano, y eso
+    # vive en el Diccionario: si solo lo viera la mejora del TO-BE (que no
+    # puede inventar pantallas) nunca se cerraria — paso el 2026-09-25.
+    reparto["diccionario"] += [str(h) for h in bloquean(huecos) if h.codigo == "GEN-02"]
     if not reparto["diccionario"] and not reparto["tobe"]:
         return elegido, huecos, m_1
     candidatos = {"diccionario": elegido["diccionario"][0], "tobe": elegido["tobe"][0]}

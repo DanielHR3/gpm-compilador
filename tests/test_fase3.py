@@ -765,3 +765,38 @@ def test_medir_fase3_no_mide_el_tramite_que_viaja_como_ejemplo(tmp_path):
     assert len(medidas) == 1 and medidas[0].estado == "ejemplo del prompt"
     assert prov.llamadas == 0
     assert "ejemplo del prompt" in imprimir(medidas)
+
+
+# --- Robustez de la mejora (2026-09-25, tarde) ------------------------------------
+# La prueba del usuario a las 11:29 detecto GEN-02 y la ronda de mejora no lo
+# cerro: el hueco solo llegaba a la mejora del TO-BE, que no puede agregar la
+# pantalla de correccion al Diccionario. Y los GEN-01 (requisito sin campo)
+# se evitan mejor dandole al modelo la lista de requisitos de entrada.
+
+def test_gen02_llega_tambien_a_la_mejora_del_diccionario(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    tobe_1 = "# Propuesta TO-BE — Constancia\n\n" + _TOBE_LINEAL.replace("Rechazado", "Requiere corrección")
+    prov = ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", tobe_1),
+                           _json("diccionario", _DICC_OK), _json("tobe", tobe_1)])
+    contextos = []
+    original = prov.completar
+    def espia(i, c, e):
+        contextos.append(c); return original(i, c, e)
+    prov.completar = espia
+    generar(_ASIS_CON_CICLO, prov, tmp_path, "i" * 16)
+    assert len(contextos) == 4
+    assert "[GEN-02]" in contextos[2]          # la mejora del Diccionario lo ve
+    assert "pantalla de corrección" in contextos[2].lower() or "GEN-02" in contextos[2]
+    assert "[GEN-02]" in contextos[3]          # y la del TO-BE tambien
+
+
+def test_el_contexto_del_diccionario_lleva_los_requisitos_del_as_is_como_lista():
+    from gpmc.agentes import prompt_fase3 as p
+    ctx = p.contexto_dicc(_ASIS_INLINE)
+    assert "<<REQUISITOS>>" in ctx and "<</REQUISITOS>>" in ctx
+    bloque = ctx.split("<<REQUISITOS>>")[1].split("<</REQUISITOS>>")[0]
+    assert "identificación oficial vigente" in bloque and "tarjeta de circulación" in bloque
+    assert "<<REQUISITOS>>" in p.contexto_mejora(_ASIS_INLINE, "b", ["[GEN-01] x"], "diccionario")
+    assert "<<REQUISITOS>>" not in p.contexto_dicc("# Análisis AS-IS — X\n\nSin requisitos.\n")
+    assert "<<REQUISITOS>>" in p.INSTRUCCION_DICC and "campo de tipo Archivo" in p.INSTRUCCION_DICC

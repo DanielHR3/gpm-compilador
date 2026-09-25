@@ -109,6 +109,9 @@ que lo escribe el equipo de Simplificacion.
   copies sus campos, actores ni textos.
 - <<DATOS>> es el Analisis AS-IS del tramite que debes documentar. Su «Ficha tecnica» y su
   «Estado actual» son la fuente de la Ficha tecnica y de los requisitos.
+- <<REQUISITOS>>, si viene, es la lista de requisitos que el AS-IS pide al ciudadano, uno
+  por linea, leida por el compilador. CADA UNO es un campo de tipo Archivo con esa misma
+  etiqueta en la pantalla donde el ciudadano lo entrega; ninguno puede faltar.
 
 {ESTRUCTURA_DICC}
 
@@ -199,6 +202,12 @@ resolverlos, sin cambiar lo que no esta senalado.
   <<HUECOS>> la lista de pendientes, uno por linea, con su codigo.
 - Si hay <<DICCIONARIO>>, es el Diccionario definitivo: sus pantallas y campos son los
   unicos que puedes usar en el TO-BE.
+- Si hay <<REQUISITOS>>, cada uno debe ser un campo de tipo Archivo del Diccionario.
+- Un pendiente GEN-02 (falta el ciclo de correccion) se resuelve en los DOS documentos: en
+  el Diccionario, una pantalla del ciudadano «Corrección de la solicitud» con los documentos
+  que puede volver a subir, y el dictamen de la revision con el valor «Requiere corrección»;
+  en el TO-BE, la rama «Requiere corrección» de la compuerta va a esa pantalla y de ahi una
+  flecha vuelve a la revision.
 - <<EJEMPLO>> es la escala del equipo. Corregir no es recortar: no quites pantallas,
   tareas ni filas del analisis para que desaparezca un pendiente.
 - No inventes datos que el AS-IS no mencione. Si un pendiente no se puede resolver con
@@ -238,9 +247,17 @@ def _bloque(nombre: str, cuerpo: str) -> str:
     return f"<<{nombre}>>\n{cuerpo}\n<</{nombre}>>"
 
 
+def _requisitos(as_is: str) -> list:
+    """El bloque <<REQUISITOS>> con la misma lectura que hace GEN-01: si el
+    modelo los ve de entrada, no hay que reclamarselos despues."""
+    from gpmc.agentes.verificar_fase3 import requisitos_del_as_is
+    reqs = requisitos_del_as_is(as_is)
+    return [_bloque("REQUISITOS", "\n".join(f"- {r}" for r in reqs))] if reqs else []
+
+
 def contexto_dicc(as_is: str) -> str:
     return "\n\n".join([_bloque("PLANTILLA", plantilla("diccionario")), _bloque("EJEMPLO", ejemplo()),
-                        _bloque("DATOS", as_is)])
+                        _bloque("DATOS", as_is)] + _requisitos(as_is))
 
 
 def contexto_tobe(as_is: str, diccionario: str) -> str:
@@ -252,6 +269,8 @@ def contexto_mejora(as_is: str, borrador: str, huecos: list, clave: str,
                     diccionario: Optional[str] = None) -> str:
     partes = [_bloque("PLANTILLA", plantilla(clave)), _bloque("EJEMPLO", ejemplo()),
               _bloque("DATOS", as_is)]
+    if clave == "diccionario":
+        partes += _requisitos(as_is)
     if diccionario is not None:
         partes.append(_bloque("DICCIONARIO", diccionario))
     partes.append(_bloque("BORRADOR", borrador))
