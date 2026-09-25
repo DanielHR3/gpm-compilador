@@ -22,11 +22,11 @@ apt-get update
 apt-get install -y python3 python3-venv python3-pip rsync git
 id -u gpmc >/dev/null 2>&1 || useradd --system --create-home --shell /bin/bash gpmc
 mkdir -p /opt/gpmc /var/lib/gpmc/sesiones /var/log/gpmc /etc/gpmc
-chown -R gpmc:gpmc /opt/gpmc /var/lib/gpmc /var/log/gpmc
+chown -R gpmc:gpmc /var/lib/gpmc /var/log/gpmc
 chmod 750 /etc/gpmc
-# El usuario ubuntu (SSH) puede escribir en /opt/gpmc para el rsync del despliegue.
-usermod -aG gpmc ubuntu
-chmod -R g+w /opt/gpmc
+# El codigo lo escribe ubuntu (rsync del despliegue) y lo lee el servicio (gpmc).
+chown -R ubuntu:gpmc /opt/gpmc
+chmod 755 /opt/gpmc
 EOF
 )
   INSTANCIA=$(aws ec2 run-instances --image-id "$AMI" --instance-type "$GPMC_INSTANCIA" \

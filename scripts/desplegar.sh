@@ -53,7 +53,7 @@ entorno() {
 
 backend() {
   echo "== Backend -> EC2 $IP"
-  rsync -az --delete -e "ssh -i $LLAVE_SSH -o StrictHostKeyChecking=accept-new" \
+  rsync -rlptz --omit-dir-times --delete -e "ssh -i $LLAVE_SSH -o StrictHostKeyChecking=accept-new" \
     --exclude .venv --exclude node_modules --exclude frontend/dist --exclude .git \
     --exclude '__pycache__' --exclude '.pytest_cache' --exclude 'scripts/aws/estado.env' \
     "$RAIZ/" "ubuntu@$IP:/opt/gpmc/"

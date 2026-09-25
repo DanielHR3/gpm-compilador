@@ -432,3 +432,16 @@ def test_usuario_alta_con_rol_admin_y_aprobar(monkeypatch, capsys):
     assert almacen.por_correo("luis.vera@hidalgo.gob.mx").estado == "activo"
     assert main(["usuario", "lista"]) == 0
     assert "admin" in capsys.readouterr().out
+
+
+def test_cargar_entorno_tolera_un_home_que_no_se_puede_leer(tmp_path):
+    """En la EC2 el servicio corre con ProtectHome=true: /home no se puede ni
+    consultar y `Path.exists()` lanza PermissionError. Sin archivo de entorno
+    no hay nada que cargar; las variables ya vienen de systemd."""
+    from pathlib import Path
+    from gpmc.cli import cargar_entorno
+
+    class Inaccesible(type(Path())):
+        def exists(self):
+            raise PermissionError(13, "Permission denied", str(self))
+    assert cargar_entorno(Inaccesible(tmp_path / "entorno")) == 0

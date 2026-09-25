@@ -73,7 +73,12 @@ def cargar_entorno(ruta: Optional[Path] = None) -> int:
     el entorno. Asi la llave del proveedor de IA nunca pasa por el plist ni por
     el instalador. Devuelve cuantas variables cargo."""
     ruta = ruta if ruta is not None else Path.home() / ".config" / "gpmc" / "entorno"
-    if not ruta.exists():
+    try:
+        if not ruta.exists():
+            return 0
+    except OSError:
+        # En la EC2 el servicio corre con ProtectHome=true y /home ni se puede
+        # consultar: las variables ya vienen de systemd, no hay nada que cargar.
         return 0
     n = 0
     for linea in ruta.read_text(encoding="utf-8").splitlines():

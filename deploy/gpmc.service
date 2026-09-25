@@ -16,6 +16,8 @@ Group=gpmc
 WorkingDirectory=/opt/gpmc
 EnvironmentFile=/etc/gpmc/entorno
 Environment=PYTHONUNBUFFERED=1
+# libpq busca ~/.postgresql/*; con ProtectHome /home no se lee. HOME dentro de lo suyo.
+Environment=HOME=/var/lib/gpmc
 ExecStart=/opt/gpmc/.venv/bin/gpmc servir --host 0.0.0.0 --puerto 8000 \
   --almacen /var/lib/gpmc/sesiones --log /var/log/gpmc/asistente.log
 Restart=always
