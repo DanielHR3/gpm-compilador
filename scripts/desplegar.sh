@@ -50,7 +50,9 @@ entorno() {
     # Modo de pruebas de la Fase 3 en AWS: solo si la Direccion lo autorizo
     # (decision de Daniel, 2026-09-25: `guardar GPMC_FASE3_PRUEBAS 1` en estado.env).
     # Con Gemini en nivel gratuito, los expedientes reales pueden usarse para entrenar.
-    [ "$(leer GPMC_FASE3_PRUEBAS)" = "1" ] && echo "GPMC_FASE3_PRUEBAS=1"
+    # `if`, no `&&`: con set -e y pipefail un `&&` falso tumbaba el script
+    # antes del reinicio y el servicio se quedaba con el entorno viejo.
+    if [ "$(leer GPMC_FASE3_PRUEBAS)" = "1" ]; then echo "GPMC_FASE3_PRUEBAS=1"; fi
   } | $SSH "sudo install -m 640 -o root -g gpmc /dev/stdin /etc/gpmc/entorno"
   if [ "$(leer GPMC_FASE3_PRUEBAS)" = "1" ]; then echo "Entorno escrito CON modo de pruebas de la Fase 3 (Gemini sobre expedientes reales)."
   else echo "Entorno escrito (sin GPMC_FASE3_PRUEBAS: rige el candado de licencia)."; fi
