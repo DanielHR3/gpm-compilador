@@ -4,6 +4,8 @@
 # SPA sigue llamando a `/api/...` en su propio dominio, y la CSP
 # `default-src 'self'` sigue valida.
 #
+# OJO: `/historial`, `/catalogos`, `/tablero`, `/usuarios` son pantallas de la SPA, no del
+# backend (el 2026-09-25 `/historial` iba a la EC2 y mostraba «el frontend no esta compilado»).
 # Las rutas de la SPA (`/revisar/xxxx`, `/registro`…) no existen en S3: una
 # CloudFront Function en el comportamiento por omision reescribe a
 # /index.html todo lo que no tiene extension. Se hace asi y NO con «custom
@@ -61,7 +63,7 @@ comportamiento() {
   printf '{"PathPattern":"%s","TargetOriginId":"backend","ViewerProtocolPolicy":"redirect-to-https","AllowedMethods":{"Quantity":7,"Items":["GET","HEAD","OPTIONS","PUT","PATCH","POST","DELETE"],"CachedMethods":{"Quantity":2,"Items":["GET","HEAD"]}},"Compress":true,"CachePolicyId":"%s","OriginRequestPolicyId":"%s"}' "$1" "$CACHE_APAGADO" "$PETICION_TODO"
 }
 COMPORTAMIENTOS=""
-for p in "/api/*" "/simulador/*" "/aprobacion/*" "/historial" "/vistas/*" "/descargar/*" "/descargar-plantilla*" "/extraer" "/resolver/*" "/reconocer/*"; do
+for p in "/api/*" "/simulador/*" "/aprobacion/*" "/vistas/*" "/descargar/*" "/descargar-plantilla*" "/extraer" "/resolver/*" "/reconocer/*"; do
   COMPORTAMIENTOS="$COMPORTAMIENTOS,$(comportamiento "$p")"
 done
 COMPORTAMIENTOS="${COMPORTAMIENTOS#,}"
