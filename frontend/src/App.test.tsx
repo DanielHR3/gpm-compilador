@@ -10,6 +10,8 @@ import { generateCssVariables, tokensWeb } from "@/lib/tokens";
 // dispare desde el arbol. En jsdom `pathname` es `/`, asi que el `useEffect`
 // del deep-link sale sin llamar a nada.
 vi.mock("@/lib/api", () => ({
+  // El panel de descargas pide los avisos de la comparativa al montar.
+  leerComparativa: vi.fn().mockResolvedValue({ disponible: false, huecos: [] }),
   // Sin usuarios en el servidor: 404 en /sesion y la SPA entra directo.
   leerSesion: vi.fn().mockRejectedValue(Object.assign(new Error("404"), { status: 404 })),
   entrar: vi.fn(),
