@@ -1,6 +1,6 @@
 # Comparativa «Antes y después» de la reingeniería — diseño
 
-Fecha: 2026-09-28 · Estado: por revisar · Solicita: Simplificación Administrativa (DSA)
+Fecha: 2026-09-28 · Estado: aprobada con la gráfica añadida (2026-09-28) · Solicita: Simplificación Administrativa (DSA)
 
 ## Propósito
 
@@ -90,6 +90,26 @@ Una frase determinista, armada con las cuentas, y una de tres señales:
 
 Con menos de dos métricas comparables el veredicto es «no se puede medir» y dice qué falta.
 
+### 6. Gráfica del porcentaje de simplificación
+
+Pedida por Daniel el 2026-09-28.
+
+- **Por métrica:** `(antes − después) / antes × 100`, solo cuando los dos lados son números
+  y el antes es mayor que cero. Una métrica que sube da porcentaje negativo y se enseña
+  así, no se esconde.
+- **Global:** el promedio simple de los porcentajes de las métricas comparables. Va siempre
+  con su base a la vista: «47 % sobre 3 de 7 métricas». Con menos de dos métricas
+  comparables no hay cifra global: se dice qué falta declarar.
+- **El tiempo no entra** mientras venga como texto («13 días hábiles» contra «24 horas»).
+  Entra si se declara en la pantalla con número y la misma unidad en los dos lados.
+- **Forma:** barras horizontales emparejadas, antes y después, una pareja por métrica
+  comparable, con su porcentaje al lado; y la cifra global arriba como indicador. SVG y
+  CSS propios, como el tablero, sin librería. Colores de la rampa `--viz-*`, validados en
+  claro y oscuro con la guía `dataviz`. Cada barra lleva su valor en texto: el color no es
+  el único portador del dato.
+- **En el documento descargable** la misma gráfica va como SVG incrustado.
+- El cálculo vive en `comparativa/armar.py`; la SPA solo pinta lo que recibe.
+
 ## Métricas declaradas
 
 Dos caminos para el mismo dato; **gana lo capturado en la pantalla**, porque es lo último
@@ -157,7 +177,8 @@ responde `200` con `disponible: false` y el motivo; la pantalla lo dice y no pin
 - `tests/test_as_is.py`: pasos en lista anidada y en línea con `→`; requisitos; tiempo;
   sistemas; fricciones; AS-IS sin forma devuelve vacío sin excepción.
 - `tests/test_rediseno.py`: tabla de métricas declaradas; cambios; eliminaciones.
-- `tests/test_comparativa.py`: orígenes; diferencia solo entre números; tres veredictos;
+- `tests/test_comparativa.py`: porcentaje por métrica y global con su base, métrica que
+  sube, menos de dos comparables; orígenes; diferencia solo entre números; tres veredictos;
   cada `CMP-*`; la pantalla gana sobre el TO-BE; requisito «sin destino» contra «eliminado».
 - `tests/test_comparativa_documento.py`: escapado de `<script>` en un requisito.
 - API: sin AS-IS, con AS-IS, declarar y releer.
@@ -175,9 +196,14 @@ responde `200` con `disponible: false` y el motivo; la pantalla lo dice y no pin
 - Conversión de unidades de tiempo.
 - Cualquier redacción hecha por un modelo.
 
-## Supuestos por confirmar
+## Supuestos
 
-1. «En cards» se entendió como: la vista entera en tarjetas **y** la captura de métricas
-   faltantes en tarjetas dentro de la pantalla.
+Confirmados por Daniel el 2026-09-28:
+
+1. «En cards»: la vista entera en tarjetas **y** la captura de métricas faltantes en
+   tarjetas dentro de la pantalla.
 2. El documento descargable es HTML imprimible a PDF desde el navegador, sin librería nueva.
+
+Sin respuesta explícita, se mantiene como está escrito:
+
 3. Los huecos `CMP-*` no aparecen en el wizard ni en las observaciones que se mandan.
