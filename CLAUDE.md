@@ -38,7 +38,9 @@ src/gpmc/
 │   ├── expediente.py     orquestador: carpeta de insumos -> manifiesto + huecos
 │   ├── metadatos.py      frontmatter y encabezados -> nombre, homoclave, dependencia, ficha RUTS
 │   ├── diccionario.py    Diccionario .md -> pantallas, campos, catalogos, condiciones de visibilidad
-│   └── mermaid.py        flowchart del TO-BE -> tareas, compuertas, conexiones, actores
+│   ├── mermaid.py        flowchart del TO-BE -> tareas, compuertas, conexiones, actores
+│   ├── as_is.py          Analisis AS-IS -> pasos, requisitos, tiempo, sistemas, fricciones
+│   └── rediseno.py       prosa del TO-BE -> cambios, eliminaciones, impacto, metricas declaradas
 ├── compilador/
 │   ├── a_gpm.py          manifiesto -> .gpm
 │   ├── acciones.py       los cuatro arquetipos: folio, costo, documento, notificacion
@@ -49,6 +51,9 @@ src/gpmc/
 │   ├── analisis.py       analisis estatico del flujo (tareas inalcanzables, ramas muertas, bucles)
 │   ├── documentos.py     las acciones `documento` con su tarea, instante y legibilidad de la plantilla
 │   └── html.py           recorrido navegable del tramite + vista «Documentos»
+├── comparativa/
+│   ├── armar.py          AS-IS + TO-BE + manifiesto -> comparativa de antes y despues (funcion pura)
+│   └── documento.py      comparativa -> HTML descargable con la grafica en SVG
 ├── planeacion/
 │   ├── registro.py       mide el ciclo real de cada tramite
 │   └── proyeccion.py     proyecta capacidad y tiempo
@@ -59,7 +64,7 @@ src/gpmc/
 └── cli.py                las 9 ordenes (abajo)
 ```
 
-**Dependencia en un solo sentido:** `web`/`cli` → `compilador`/`validador`/`extractores` →
+**Dependencia en un solo sentido:** `web`/`cli` → `compilador`/`validador`/`comparativa`/`extractores` →
 `nucleo`. Nada por debajo de `web` conoce interfaz de usuario: son funciones sobre archivos, sin
 estado de sesión. Esa separación es la que permite que la CLI y las pruebas existan sin navegador.
 
@@ -618,3 +623,44 @@ Bitácora: `2026-09-25 - Pruebas de Simplificacion y la propuesta que salia a es
   hace ~4 llamadas por trámite y compite por la cuota gratuita del día. El 2026-09-25 se
   detuvo a los 3 trámites por eso. Todo lo del día lo escribió `gemini-3.5-flash-lite`:
   el techo de calidad hoy es el modelo, no el prompt.
+
+### 13. Comparativa de antes y después (2026-09-28)
+
+La pidió Simplificación para comprobar que un trámite sí tuvo reingeniería. Es de **uso
+interno**. Spec y plan en `docs/superpowers/` (`2026-09-28-comparativa-antes-despues`).
+
+- **Determinista.** `comparativa/armar.comparar` es una función pura: no hay un modelo
+  opinando. `comparativa/` y los dos extractores nuevos no importan de `agentes`, `web`, `cli`
+  ni `compilador` (prueba `test_la_comparativa_y_los_extractores_nuevos_no_importan_capas_de_arriba`).
+- **Cada valor dice de dónde salió:** `contado`, `leido`, `declarado` o `sin_dato`. Una lista
+  vacía es «no se leyó», nunca «hay cero».
+- **Regla de unidades.** Dos valores se comparan solo si traen número y la **misma unidad**.
+  «13 días hábiles» contra «24 horas» se enseña tal cual y no entra al porcentaje: convertir
+  sería inferir.
+- **Porcentaje de simplificación.** Por métrica, `(antes − después) / antes`. El global es el
+  promedio de las métricas comparables y viaja **siempre con su base** («15.8 % sobre 3 de 7
+  métricas»). Con menos de dos comparables no hay cifra. Si sale negativo se rotula «(aumento
+  neto)». Los decimales van con punto, como se escribe en México.
+- **«Sin destino» no es «eliminado».** Un requisito del AS-IS que no casa con un campo `file`
+  solo se rotula eliminado si una línea del TO-BE lo nombra; esa línea va como fundamento.
+- **Lo declarado** vive en `comparativa.json` dentro de la sesión, nunca en el manifiesto.
+  Gana la pantalla sobre la tabla «Métricas del rediseño» del TO-BE, y también corrige una
+  cuenta mal leída. `POST …/comparativa/declarar` queda en la auditoría como
+  `comparativa.declarar`.
+- **`CMP-01..04` son `por_confirmar`** y viven solo en la comparativa: no se escriben en
+  `huecos.json`, no entran al wizard ni a `bloquean`. **Sí van en las observaciones**, en su
+  propia sección; `PanelDescargas` los pide al montar y calla si la comparativa falla.
+- **El lector de requisitos se mudó** de `agentes/verificar_fase3.py` a `extractores/as_is.py`
+  (`requisitos_del_as_is`, `casa`). `agentes` lo importa de ahí.
+- **Formas del AS-IS que lee `as_is.py`**, medidas sobre seis expedientes reales: pasos en lista
+  anidada, en la misma línea con `→`, o en **tabla** con columna «Paso» o «Etapa» (solo la
+  primera tabla). En una lista numerada, una viñeta suelta es un total, no un paso. Cuentas:
+  Avisos de Testamento 19 pasos, Constancia de No Infracción 7, Prórroga 10, Reposición 4,
+  Holograma Exento 8. *Publicación en el Periódico Oficial* homologa tres trámites, no sigue
+  la forma y sale con `CMP-01`.
+- **Colores de la gráfica:** `--cmp-antes` / `--cmp-despues` en `index.css`. Son `--viz-2` y
+  `--viz-4` en claro, `--viz-1` y `--viz-3` en oscuro: el validador de `dataviz` rechazó los
+  extremos de la rampa. El contraste queda bajo 3:1 y por eso cada barra lleva su valor escrito.
+- **Pendiente anotado, no hecho:** el fixture `wiki` de `tests/conftest.py` comprueba la
+  carpeta con `legible()`, que la abre como archivo; con un directorio siempre da falso y toda
+  prueba que lo use se salta aunque `GPMC_WIKI` esté puesta. `test_comparativa_real.py` no lo usa.
