@@ -63,3 +63,13 @@ it("ya no carga las descargas: se mudaron al panel", () => {
     screen.queryByRole("button", { name: /descargar observaciones/i }),
   ).not.toBeInTheDocument();
 });
+it("abre la comparativa de antes y después, también con el expediente bloqueado", () => {
+  // Es evidencia interna y no depende del linter: se consulta justo mientras
+  // se discute si la reingenieria esta bien hecha.
+  pintar();
+
+  expect(screen.getByRole("link", { name: /ver antes y después/i })).toHaveAttribute(
+    "href",
+    `/revisar/${"a".repeat(16)}/comparativa`,
+  );
+});

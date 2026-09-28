@@ -90,3 +90,8 @@ def test_titulo_de_prefiere_la_negrita_inicial():
 def test_verificar_fase3_sigue_exportando_el_lector():
     from gpmc.agentes.verificar_fase3 import requisitos_del_as_is as viejo
     assert viejo is requisitos_del_as_is
+
+
+def test_quitar_una_nota_entre_parentesis_no_deja_dos_espacios():
+    texto = "- **Requisitos:** Ingresar el Formato (aprobado por el Consejo) con previo pago.\n"
+    assert requisitos_del_as_is(texto) == ["Ingresar el Formato con previo pago"]

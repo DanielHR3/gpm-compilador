@@ -208,8 +208,11 @@ def _veredicto(metricas: list) -> tuple:
     partes = "; ".join(
         f"{m.nombre.lower()} de {m.antes.texto} a {m.despues.texto} ({texto_cambio(m.porcentaje)})"
         for m in comparables)
+    # Negativa quiere decir que, en promedio, las metricas medidas crecieron:
+    # se dice con palabras para que nadie lea «−26 %» como una reduccion.
+    cifra = f"{_cifra(pct)} %" if pct >= 0 else f"−{_cifra(abs(pct))} % (aumento neto)"
     frase = (f"{_CABEZA[veredicto]}: {partes}. Simplificación global: "
-             f"{_cifra(pct)} % sobre {len(comparables)} de {total} métricas.")
+             f"{cifra} sobre {len(comparables)} de {total} métricas.")
     return veredicto, pct, len(comparables), frase
 
 
@@ -252,6 +255,7 @@ def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
         "visitas": (Valor(), Valor()),
         "capturas": (Valor(), Valor()),
     }
+    nombres_actor = {a.id: a.nombre for a in m.actores}
     metricas = [_metrica(k, base[k][0], base[k][1], d.get(k, {})) for k, _ in METRICAS]
     requisitos = _requisitos(estado, archivos, rediseno.eliminaciones)
     veredicto, pct, n, frase = _veredicto(metricas)
@@ -260,7 +264,8 @@ def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
         metricas=metricas,
         requisitos=requisitos,
         pasos_antes=list(estado.pasos),
-        tareas_despues=[{"nombre": t.nombre, "actor": t.actor or ""} for t in m.flujo.tareas],
+        tareas_despues=[{"nombre": t.nombre, "actor": nombres_actor.get(t.actor, t.actor or "")}
+                        for t in m.flujo.tareas],
         fricciones=list(estado.fricciones),
         cambios=[p.titulo for p in rediseno.cambios],
         eliminaciones=[p.titulo for p in rediseno.eliminaciones],

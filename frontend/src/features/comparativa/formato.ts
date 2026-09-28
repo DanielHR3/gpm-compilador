@@ -51,7 +51,12 @@ export function textoGlobal(c: ComparativaOut): string {
   if (c.porcentaje_global === null) {
     return `Sin cifra global: solo ${c.base_global} de ${c.total_metricas} métricas se pueden comparar`;
   }
-  return `${NUMERO.format(c.porcentaje_global)} % sobre ${c.base_global} de ${c.total_metricas} métricas`;
+  // Negativa quiere decir que las metricas medidas crecieron en promedio.
+  const cifra =
+    c.porcentaje_global >= 0
+      ? `${NUMERO.format(c.porcentaje_global)} %`
+      : `−${NUMERO.format(Math.abs(c.porcentaje_global))} % (aumento neto)`;
+  return `${cifra} sobre ${c.base_global} de ${c.total_metricas} métricas`;
 }
 
 /** Ancho en porcentaje del carril. Minimo 1: un cero sigue siendo una barra. */

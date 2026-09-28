@@ -168,7 +168,8 @@ def test_los_cuatro_huecos_son_por_confirmar():
 def test_actores_tareas_y_autollenados_salen_del_manifiesto():
     c = comparar(_estado(), Rediseno(), _m(autollena={"nombres": "nombre", "sexo": "sexo"}))
     assert _metrica(c, "actores").despues.numero == 2.0
-    assert c.tareas_despues[0] == {"nombre": "Tarea 0", "actor": "ciudadano"}
+    # El actor va con su nombre, no con su id tecnico: lo lee una persona.
+    assert c.tareas_despues[0] == {"nombre": "Tarea 0", "actor": "Ciudadano"}
     assert c.autollenados == 2
 
 
@@ -217,3 +218,11 @@ def test_los_decimales_van_con_punto_como_se_escribe_en_mexico():
     c = comparar(_estado(requisitos=[]), r, _m())
     # pasos 50 y tiempo 76.9 -> promedio 63.45 -> 63.5 (o 63.4 por redondeo bancario)
     assert "−76.9 %" in c.frase and "," not in c.frase.split("Simplificación global:")[1]
+
+
+def test_una_cifra_global_negativa_dice_que_es_aumento_neto():
+    c = comparar(_estado(pasos=["a"], requisitos=["x"]), Rediseno(),
+                 _m(archivos=("Documento: Uno", "Documento: Dos"), tareas=2))
+    # requisitos 1 -> 2 (-100) y pasos 1 -> 2 (-100): nada baja.
+    assert c.porcentaje_global == -100.0
+    assert "Simplificación global: −100 % (aumento neto) sobre 2 de 7 métricas." in c.frase

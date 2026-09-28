@@ -435,3 +435,18 @@ def test_las_rutas_de_los_dos_caminos_sirven_la_spa(monkeypatch, tmp_path):
     c = TestClient(crear_app(almacen=tmp_path))
     assert 'id=root' in c.get("/expediente").text
     assert 'id=root' in c.get("/desde-as-is").text
+
+
+def test_la_ruta_de_la_comparativa_sirve_la_spa(monkeypatch, tmp_path):
+    """La liga basta para reconstruir la vista: la catch-all entrega el shell y
+    el cliente enruta `/revisar/{sid}/comparativa`."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>spa</title>", encoding="utf-8")
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(dist))
+    from fastapi.testclient import TestClient
+    from gpmc.web.app import crear_app
+    c = TestClient(crear_app(almacen=tmp_path / "almacen"))
+    r = c.get("/revisar/0123456789abcdef/comparativa")
+    assert r.status_code == 200
+    assert "<title>spa</title>" in r.text

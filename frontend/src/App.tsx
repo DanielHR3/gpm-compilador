@@ -18,6 +18,7 @@ import Registro from "@/features/sesion/Registro";
 import Usuarios from "@/features/usuarios/Usuarios";
 import { useSesion } from "@/features/sesion/useSesion";
 import Tablero from "@/features/tablero/Tablero";
+import Comparativa from "@/features/comparativa/Comparativa";
 import WizardHuecos from "@/features/huecos/WizardHuecos";
 import { useUrlDeRevision } from "@/features/huecos/useUrlDeRevision";
 import { ErrorApi, leerExpediente, leerGenerados } from "@/lib/api";
@@ -94,6 +95,7 @@ export default function App() {
     ruta.tipo === "catalogos" ? "Catálogos"
     : ruta.tipo === "historial" ? "Historial"
     : ruta.tipo === "tablero" ? "Tablero"
+    : ruta.tipo === "comparativa" ? "Antes y después"
     : ruta.tipo === "usuarios" ? "Cuentas"
     : est ? "Revisión del expediente"
     : sidPropuesta ? "Propuesta del compilador"
@@ -105,6 +107,7 @@ export default function App() {
   if (ruta.tipo === "catalogos") contenido = <Catalogos />;
   else if (ruta.tipo === "historial") contenido = <Historial />;
   else if (ruta.tipo === "tablero") contenido = <Tablero />;
+  else if (ruta.tipo === "comparativa") contenido = <Comparativa sid={ruta.sid} />;
   else if (ruta.tipo === "usuarios")
     contenido = sesion.usuario?.rol === "admin"
       ? <Usuarios yo={sesion.usuario.correo} />

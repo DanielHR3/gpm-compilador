@@ -89,7 +89,8 @@ export default function RielEntrega({
 
       {/* Dos destinos que no son archivos y no dependen del linter. La
           aprobacion no tiene otra puerta en toda la SPA: si sale de aqui,
-          desaparece. */}
+          desaparece. La comparativa tampoco depende del linter: es
+          evidencia interna. */}
       <div className="flex flex-col gap-1.5 border-t border-border/60 pt-3 text-sm">
         <p className="font-mono text-[0.625rem] uppercase tracking-[0.09em] text-muted-foreground">
           Siempre disponible
@@ -99,6 +100,9 @@ export default function RielEntrega({
         </a>
         <a className={enlace} href={`/aprobacion/${sid}`}>
           Abrir aprobación
+        </a>
+        <a className={enlace} href={`/revisar/${sid}/comparativa`}>
+          Ver antes y después
         </a>
       </div>
     </aside>

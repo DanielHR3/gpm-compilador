@@ -46,3 +46,9 @@ it("una barra nunca desaparece ni se sale", () => {
   expect(anchoBarra(12, 10)).toBe(100);
   expect(anchoBarra(3, 0)).toBe(1);
 });
+
+it("una cifra global negativa dice que es aumento neto", () => {
+  expect(textoGlobal({ ...BASE, porcentaje_global: -26.3, base_global: 2 })).toBe(
+    "−26.3 % (aumento neto) sobre 2 de 7 métricas",
+  );
+});

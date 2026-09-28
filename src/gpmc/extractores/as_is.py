@@ -43,7 +43,8 @@ class EstadoActual:
 def _limpio(item: str) -> str:
     # Hasta la raya o el parentesis: lo que sigue es nota del analista.
     t = re.split(r"\s+[—–-]\s+|\s*\(", item, maxsplit=1)[0]
-    return t.strip().rstrip(".").strip()
+    # Quitar una nota entre parentesis deja dos espacios donde estaba.
+    return re.sub(r"\s+", " ", t).strip().rstrip(".").strip()
 
 
 def _enumeracion(texto: str) -> list:
