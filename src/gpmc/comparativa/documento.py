@@ -17,7 +17,7 @@ from gpmc.comparativa.armar import Comparativa, texto_cambio
 COLOR_ANTES = "#CF7A95"
 COLOR_DESPUES = "#A22D4E"
 
-_ORIGEN = {"contado": "contado", "leido": "leído",
+_ORIGEN = {"contado": "contado", "leido": "leído", "revisado": "revisado",
            "declarado": "declarado", "sin_dato": "sin dato"}
 _DESTINO = {"conservado": "Se conserva", "eliminado": "Se elimina",
             "sin_destino": "Sin destino", "nuevo": "Nuevo en el TO-BE"}
@@ -88,7 +88,7 @@ def _lado(rotulo: str, v) -> str:
     cifra = _e(v.texto) if v.origen != "sin_dato" else "—"
     return (f'<div><span class="origen">{rotulo}</span>'
             f'<span class="cifra">{cifra}</span>'
-            f'<span class="origen">{_e(_ORIGEN[v.origen])}</span></div>')
+            f'<span class="origen">{_e(_ORIGEN.get(v.origen, v.origen))}</span></div>')
 
 
 def _tarjeta_metrica(m) -> str:
@@ -135,6 +135,15 @@ def a_html(c: Comparativa) -> str:
         f'<p class="nota">Campos que se llenan solos por consulta en línea: '
         f"{c.autollenados}.</p>",
     ]
+    if c.documentos:
+        cuerpo.append("<h2>Documentos del trámite</h2>"
+                      f"<p>{_e(c.documentos['titular'])}</p>")
+        if c.documentos.get("simplificacion"):
+            cuerpo += ["<ul>",
+                       "".join(f"<li><strong>{_e(x['frase'])}:</strong> "
+                               f"{_e(', '.join(x['documentos']))}</li>"
+                               for x in c.documentos["simplificacion"]),
+                       "</ul>"]
     if c.requisitos:
         cuerpo += ['<h2>Requisitos, uno por uno</h2><div class="rejilla">',
                    "".join(_tarjeta_requisito(r) for r in c.requisitos), "</div>"]

@@ -18,7 +18,7 @@ const valor = (texto: string, origen: string) => ({
   texto, numero: texto && /^\d+$/.test(texto) ? Number(texto) : null, unidad: "", origen,
 });
 const DATOS = {
-  disponible: true, motivo: "", tramite: "Alta de Avisos de Testamento",
+  disponible: true, motivo: "", tramite: "Alta de Avisos de Testamento", documentos: null,
   metricas: [
     { clave: "requisitos", nombre: "Requisitos documentales", antes: valor("5", "contado"),
       despues: valor("3", "contado"), diferencia: 2, porcentaje: 40 },
@@ -205,4 +205,30 @@ it("con número en los dos lados y sin porcentaje dice por qué no se compara", 
 
   const tarjeta = await screen.findByRole("article", { name: "Tiempo de respuesta" });
   expect(tarjeta).toHaveTextContent(/no se compara: las unidades no coinciden/i);
+});
+it("con los documentos revisados enseña su titular y enlaza a la página", async () => {
+  leerComparativa.mockResolvedValue({
+    ...DATOS,
+    requisitos: [],
+    documentos: {
+      total: 3, decididos: 3, ya_no_se_piden: 2, completo: true, agregados: [],
+      titular: "De 3 documentos que pedía el trámite, 2 ya no se piden.",
+      simplificacion: [{ destino: "elimina", frase: "Se eliminó", documentos: ["Orden de trabajo"] }],
+      por_destino: { elimina: 1, conserva: 1, consulta: 1, sistema: 0, sin_destino: 0 },
+    },
+  });
+  render(<Comparativa sid={SID} />);
+
+  expect(
+    await screen.findByText("De 3 documentos que pedía el trámite, 2 ya no se piden."),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /ver documentos del trámite/i })).toHaveAttribute(
+    "href", `/revisar/${SID}/documentos`);
+  expect(screen.getByText(/Se eliminó:/)).toBeInTheDocument();
+  expect(screen.getByText(/Orden de trabajo/)).toBeInTheDocument();
+});
+
+it("sin documentos revisados invita a revisarlos", async () => {
+  render(<Comparativa sid={SID} />);
+  expect(await screen.findByRole("link", { name: /ver documentos del trámite/i })).toBeInTheDocument();
 });

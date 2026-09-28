@@ -104,6 +104,9 @@ export default function RielEntrega({
         <a className={enlace} href={`/revisar/${sid}/comparativa`}>
           Ver antes y después
         </a>
+        <a className={enlace} href={`/revisar/${sid}/documentos`}>
+          Ver documentos del trámite
+        </a>
       </div>
     </aside>
   );

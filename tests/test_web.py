@@ -450,3 +450,15 @@ def test_la_ruta_de_la_comparativa_sirve_la_spa(monkeypatch, tmp_path):
     r = c.get("/revisar/0123456789abcdef/comparativa")
     assert r.status_code == 200
     assert "<title>spa</title>" in r.text
+
+
+def test_la_ruta_de_los_documentos_sirve_la_spa(monkeypatch, tmp_path):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>spa</title>", encoding="utf-8")
+    monkeypatch.setenv("GPMC_FRONTEND_DIST", str(dist))
+    from fastapi.testclient import TestClient
+    from gpmc.web.app import crear_app
+    c = TestClient(crear_app(almacen=tmp_path / "almacen"))
+    r = c.get("/revisar/0123456789abcdef/documentos")
+    assert r.status_code == 200 and "<title>spa</title>" in r.text

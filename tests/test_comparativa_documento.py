@@ -60,3 +60,19 @@ def test_cada_valor_dice_su_origen():
 def test_sin_as_is_el_documento_lo_dice():
     html = a_html(no_disponible("No se cargó el Análisis AS-IS."))
     assert "No se cargó el Análisis AS-IS." in html and "<svg" not in html
+
+
+def test_con_documentos_revisados_dice_como_se_simplifico():
+    from gpmc.comparativa.documentos import decidir, inventario_determinista
+    m = _m()
+    docs = inventario_determinista("- **Requisitos:** identificación oficial, <i>orden</i>\n", m)
+    decidir(docs[0], "conserva")
+    decidir(docs[1], "elimina")
+    html = a_html(comparar(_estado(), Rediseno(), m, documentos=docs))
+    assert "De 2 documentos que pedía el trámite, 1 ya no se pide." in html
+    assert "<strong>Se eliminó:</strong> &lt;i&gt;orden&lt;/i&gt;" in html
+    assert "<i>orden</i>" not in html
+
+
+def test_sin_documentos_revisados_el_documento_no_los_menciona():
+    assert "Documentos del trámite" not in a_html(comparar(_estado(), Rediseno(), _m()))

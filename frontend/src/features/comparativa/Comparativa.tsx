@@ -208,6 +208,32 @@ export default function Comparativa({ sid }: { sid: string }) {
         </ul>
       </Seccion>
 
+      <Card>
+        <CardContent className="flex flex-col gap-2">
+          <span className="text-sm font-semibold">Documentos del trámite</span>
+          <p className="text-sm">
+            {datos.documentos
+              ? datos.documentos.titular
+              : "Revisa qué pasó con cada documento que pedía el trámite."}
+          </p>
+          {datos.documentos && datos.documentos.simplificacion.length > 0 ? (
+            <ul className="flex flex-col gap-1 text-sm">
+              {datos.documentos.simplificacion.map((x) => (
+                <li key={x.destino}>
+                  <strong>{x.frase}:</strong> {x.documentos.join(", ")}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <a
+            href={`/revisar/${sid}/documentos`}
+            className="self-start text-sm text-primary underline underline-offset-2"
+          >
+            Ver documentos del trámite
+          </a>
+        </CardContent>
+      </Card>
+
       {datos.requisitos.length > 0 ? (
         <Seccion titulo="Requisitos, uno por uno"
                  nota="«Sin destino» quiere decir que el TO-BE no lo conserva ni dice que lo elimina.">

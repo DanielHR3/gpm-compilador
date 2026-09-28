@@ -73,3 +73,10 @@ it("abre la comparativa de antes y después, también con el expediente bloquead
     `/revisar/${"a".repeat(16)}/comparativa`,
   );
 });
+it("abre los documentos del trámite, también con el expediente bloqueado", () => {
+  pintar();
+  expect(screen.getByRole("link", { name: /ver documentos del trámite/i })).toHaveAttribute(
+    "href",
+    `/revisar/${"a".repeat(16)}/documentos`,
+  );
+});
