@@ -28,6 +28,18 @@
 - No se relaja ninguna aserción existente. Suites en verde antes de cada commit: `.venv/bin/pytest -q` y `bash scripts/check-frontend.sh`.
 - Commits terminan con `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
+## Añadido al aprobar el plan (Daniel, 2026-09-28)
+
+**«Cómo se simplificó el trámite».** `resumen()` gana la clave `simplificacion`: una lista
+de `{"destino", "frase", "documentos"}` en el orden `elimina`, `consulta`, `sistema`,
+`conserva`, solo con lo **decidido** y sin los destinos vacíos. Frases: «Se eliminó»,
+«Se sustituyó por consulta en línea», «Lo genera el sistema», «Se conserva»; en plural,
+«Se eliminaron», «Se sustituyeron por consulta en línea», «Los genera el sistema», «Se
+conservan». Se prueba en la Task 1, se pinta en la página (Task 8) y en la tarjeta de la
+comparativa, y sale en `pagina_documentos.a_html` (Task 5) bajo el titular. El tipo
+`ResumenDocumentos` de la SPA lleva `simplificacion: { destino: Destino; frase: string;
+documentos: string[] }[]`.
+
 ## Review Focus
 
 1. **El modelo parafrasea la cita** en vez de copiarla. Se espera que el documento no entre con una cita falsa: se descarta si la cita es del AS-IS, y queda `sin_destino` si es del TO-BE. Prueba en Task 3.

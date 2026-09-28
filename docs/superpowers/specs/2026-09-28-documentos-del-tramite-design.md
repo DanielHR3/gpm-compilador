@@ -1,6 +1,6 @@
 # Documentos del trámite: qué se dejó de pedir — diseño
 
-Fecha: 2026-09-28 · Estado: por revisar · Solicita: Daniel, a partir de lo que pidió Simplificación
+Fecha: 2026-09-28 · Estado: aprobada (2026-09-28) · Solicita: Daniel, a partir de lo que pidió Simplificación
 
 ## Propósito
 
@@ -128,6 +128,11 @@ Ruta `/revisar/{sid}/documentos`. Se entra desde el riel de entrega y desde la c
 - **Titular:** «De 9 documentos que pedía el trámite, 5 ya no se piden». Cuenta como «ya no
   se piden» los destinos `elimina`, `consulta` y `sistema` **aceptados**. Mientras haya
   tarjetas sin decidir, el titular lo dice: «…según 6 de 9 documentos revisados».
+- **Cómo se simplificó el trámite** (añadido por Daniel, 2026-09-28): bajo el titular, una
+  lista en palabras que **nombra** los documentos de cada destino ya decidido: «Se eliminó:
+  orden de trabajo», «Se sustituyó por consulta en línea: identificación oficial». Sale
+  también en la comparativa y en el documento descargable. Solo cuenta lo decidido por una
+  persona; lo propuesto y sin revisar no se afirma.
 - **Barra de destinos:** una barra apilada con un tramo por destino, con su cuenta escrita.
 - **Tablero:** una columna por destino y una tarjeta por documento. En teléfono las columnas
   se apilan. Solo tarjetas; ninguna `<table>`.
