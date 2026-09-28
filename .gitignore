@@ -25,3 +25,8 @@ frontend/dist/
 # AWS: identificadores y credenciales que crean los scripts (nunca al repo)
 scripts/aws/estado.env
 *.pem
+
+# Capturas del navegador automatizado (traen pantallas de cuentas de AWS) y una
+# copia suelta del estado de despliegue en la raiz: nunca al repo.
+.playwright-mcp/
+/estado.env
