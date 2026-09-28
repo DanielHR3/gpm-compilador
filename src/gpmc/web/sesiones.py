@@ -225,3 +225,30 @@ def escribir_comparativa(carpeta: Path, d: dict) -> None:
     temporal = ruta.with_suffix(".json.tmp")
     temporal.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
     os.replace(temporal, ruta)
+
+
+# «Documentos del tramite» (2026-09-28): lo que propuso el agente y lo que
+# decidio la persona sobre cada documento que pedia el AS-IS. Lo escribe la
+# API, nunca `agentes/`, y nunca toca el manifiesto.
+ARCHIVO_DOCUMENTOS = "documentos.json"
+
+
+def documentos_de(carpeta: Path) -> Optional[dict]:
+    ruta = carpeta / ARCHIVO_DOCUMENTOS
+    if not ruta.is_file():
+        return None
+    try:
+        d = json.loads(ruta.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        # Un archivo a medio escribir no puede dejar la pagina sin inventario.
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def escribir_documentos(carpeta: Path, d: dict) -> None:
+    """Atomico, como `escribir_generados`: lo escribe un hilo de fondo mientras
+    la SPA consulta cada 3 s."""
+    destino = carpeta / ARCHIVO_DOCUMENTOS
+    temporal = destino.with_name(destino.name + ".tmp")
+    temporal.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    os.replace(temporal, destino)

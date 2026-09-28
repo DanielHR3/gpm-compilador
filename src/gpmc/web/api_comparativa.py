@@ -14,12 +14,14 @@ from pydantic import BaseModel, Field
 
 from gpmc.comparativa.armar import METRICAS, Comparativa, a_dict, comparar, no_disponible
 from gpmc.comparativa.documento import a_html
+from gpmc.comparativa.documentos import desde_dicts, reconciliar
 from gpmc.extractores import as_is as ext_as_is
 from gpmc.extractores import rediseno as ext_rediseno
 from gpmc.web.sesiones import (
     INSUMOS,
     carpeta_de,
     comparativa_de,
+    documentos_de,
     escribir_comparativa,
     manifiesto_de,
 )
@@ -51,8 +53,12 @@ def _armar(raiz: Path, sid: str) -> Tuple[Optional[Comparativa], Optional[JSONRe
             "No se cargó el Análisis AS-IS en este expediente: sin el antes no hay "
             "comparativa. Vuelve a cargar el expediente con su AS-IS."), None
     declaradas = comparativa_de(carpeta).get("declaradas")
+    # Lo que una persona ya decidio en «Documentos del tramite», reconciliado
+    # con el manifiesto de ahora.
+    revisados = reconciliar(desde_dicts((documentos_de(carpeta) or {}).get("documentos")), m)
     return comparar(ext_as_is.extraer(as_is), ext_rediseno.extraer(_leer(carpeta, "to_be")),
-                    m, declaradas if isinstance(declaradas, dict) else None), None
+                    m, declaradas if isinstance(declaradas, dict) else None,
+                    documentos=revisados or None), None
 
 
 def crear_router_comparativa(raiz: Path) -> APIRouter:
