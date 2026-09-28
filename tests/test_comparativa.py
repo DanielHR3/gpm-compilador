@@ -226,3 +226,28 @@ def test_una_cifra_global_negativa_dice_que_es_aumento_neto():
     # requisitos 1 -> 2 (-100) y pasos 1 -> 2 (-100): nada baja.
     assert c.porcentaje_global == -100.0
     assert "Simplificación global: −100 % (aumento neto) sobre 2 de 7 métricas." in c.frase
+
+
+# --- Hallazgos de la revision de la rama (2026-09-28) ---------------------------
+
+def test_singular_y_plural_son_la_misma_unidad():
+    # La plantilla del TO-BE enseña justo este caso: «3 días hábiles» a «1 día hábil».
+    for antes, despues, pct in (("13 días hábiles", "1 día hábil", 92.3),
+                                ("2 visitas", "1 visita", 50.0),
+                                ("6 meses", "1 mes", 83.3)):
+        c = comparar(_estado(), Rediseno(), _m(),
+                     declaradas={"visitas": {"antes": antes, "despues": despues}})
+        assert _metrica(c, "visitas").porcentaje == pct, (antes, despues)
+
+
+def test_unidades_distintas_siguen_sin_compararse():
+    c = comparar(_estado(), Rediseno(), _m(),
+                 declaradas={"visitas": {"antes": "2 días", "despues": "1 hora"}})
+    assert _metrica(c, "visitas").porcentaje is None
+
+
+def test_cmp03_dice_que_es_con_las_cifras_leidas_y_manda_a_revisarlas():
+    c = comparar(_estado(pasos=["a", "b"], requisitos=["identificación oficial"]),
+                 Rediseno(), _m())
+    h = [x for x in c.huecos if x.codigo == "CMP-03"][0]
+    assert "Con las cifras leídas" in h.mensaje and "corrígelas" in h.mensaje

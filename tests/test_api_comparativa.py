@@ -124,3 +124,15 @@ def test_con_usuarios_la_comparativa_exige_sesion_y_declarar_queda_en_la_auditor
     fila = [f for f in usuarios.auditoria() if f["accion"] == "comparativa.declarar"]
     assert len(fila) == 1 and fila[0]["sid"] == sid
     assert not [f for f in usuarios.auditoria() if f["accion"].startswith("comparativa.leer")]
+
+
+def test_declarar_en_blanco_deshace_lo_declarado(tmp_path):
+    c = _cli(tmp_path)
+    sid = _sesion(c)
+    url = f"/api/v1/expedientes/{sid}/comparativa/declarar"
+    c.post(url, json={"clave": "pasos", "antes": "19", "despues": ""})
+    assert _metrica(c.get(url[:-9]).json(), "pasos")["antes"]["origen"] == "declarado"
+    r = c.post(url, json={"clave": "pasos", "antes": "", "despues": ""})
+    assert r.status_code == 200
+    assert _metrica(r.json(), "pasos")["antes"] == {
+        "texto": "3", "numero": 3.0, "unidad": "", "origen": "contado"}

@@ -52,6 +52,15 @@ function TarjetaMetrica({
 }) {
   const falta = metrica.antes.origen === "sin_dato" || metrica.despues.origen === "sin_dato";
   const declarada = metrica.antes.origen === "declarado" || metrica.despues.origen === "declarado";
+  // Una cifra contada tambien se puede corregir: el lector del AS-IS puede
+  // contar mal un documento con forma rara. Va plegado para no llenar de
+  // formularios las tarjetas que ya estan bien.
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  const sinComparar =
+    metrica.porcentaje === null &&
+    metrica.antes.numero !== null &&
+    metrica.despues.numero !== null &&
+    metrica.antes.unidad !== metrica.despues.unidad;
   return (
     <Card role="article" aria-label={metrica.nombre} className="h-full">
       <CardHeader>
@@ -65,7 +74,18 @@ function TarjetaMetrica({
         {metrica.porcentaje !== null ? (
           <p className="text-sm font-semibold tabular-nums">{textoCambio(metrica.porcentaje)}</p>
         ) : null}
-        {falta || declarada ? (
+        {sinComparar ? (
+          <p className="text-xs text-muted-foreground">
+            No se compara: las unidades no coinciden. Escribe los dos lados con la misma unidad.
+          </p>
+        ) : null}
+        {!falta && !declarada && !corrigiendo ? (
+          <Button type="button" size="sm" variant="ghost" className="self-start"
+                  onClick={() => setCorrigiendo(true)}>
+            Corregir
+          </Button>
+        ) : null}
+        {falta || declarada || corrigiendo ? (
           // La llave cambia con el valor: tras guardar, el formulario arranca
           // de lo que el servidor devolvio y no de lo que quedo tecleado.
           <CapturaMetrica

@@ -152,3 +152,57 @@ it("si la sesión no existe lo dice", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent(/no se pudo abrir la comparativa/i);
 });
+
+// --- Hallazgos de la revision de la rama (2026-09-28) ---------------------------
+
+it("una cifra contada se puede corregir: el formulario sale al pedirlo", async () => {
+  declararMetrica.mockResolvedValue(DATOS);
+  const usuario = userEvent.setup();
+  render(<Comparativa sid={SID} />);
+
+  const tarjeta = await screen.findByRole("article", { name: "Pasos del proceso" });
+  expect(within(tarjeta).queryByLabelText(/antes/i)).toBeNull();
+  await usuario.click(within(tarjeta).getByRole("button", { name: /corregir/i }));
+  await usuario.type(within(tarjeta).getByLabelText(/antes/i), "7");
+  await usuario.click(within(tarjeta).getByRole("button", { name: /guardar/i }));
+
+  expect(declararMetrica).toHaveBeenCalledWith(SID, "pasos", "7", "");
+});
+
+it("lo declarado se puede quitar dejando los dos campos en blanco", async () => {
+  const declarada = {
+    ...DATOS,
+    metricas: DATOS.metricas.map((m) =>
+      m.clave === "visitas"
+        ? { ...m, antes: valor("2", "declarado"), despues: valor("0", "declarado"),
+            diferencia: 2, porcentaje: 100 }
+        : m),
+  };
+  leerComparativa.mockResolvedValue(declarada);
+  declararMetrica.mockResolvedValue(DATOS);
+  const usuario = userEvent.setup();
+  render(<Comparativa sid={SID} />);
+
+  const tarjeta = await screen.findByRole("article", { name: "Visitas presenciales" });
+  await usuario.clear(within(tarjeta).getByLabelText(/antes/i));
+  await usuario.clear(within(tarjeta).getByLabelText(/después/i));
+  await usuario.click(within(tarjeta).getByRole("button", { name: /guardar/i }));
+
+  expect(declararMetrica).toHaveBeenCalledWith(SID, "visitas", "", "");
+});
+
+it("con número en los dos lados y sin porcentaje dice por qué no se compara", async () => {
+  leerComparativa.mockResolvedValue({
+    ...DATOS,
+    metricas: [
+      { clave: "tiempo", nombre: "Tiempo de respuesta",
+        antes: { texto: "13 días hábiles", numero: 13, unidad: "dia habil", origen: "leido" },
+        despues: { texto: "24 horas", numero: 24, unidad: "hora", origen: "declarado" },
+        diferencia: null, porcentaje: null },
+    ],
+  });
+  render(<Comparativa sid={SID} />);
+
+  const tarjeta = await screen.findByRole("article", { name: "Tiempo de respuesta" });
+  expect(tarjeta).toHaveTextContent(/no se compara: las unidades no coinciden/i);
+});

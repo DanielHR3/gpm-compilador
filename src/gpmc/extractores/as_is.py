@@ -42,11 +42,20 @@ class EstadoActual:
     fricciones: list = field(default_factory=list)
 
 
+# «Requisitos: ninguno» dice que no hay, no nombra un requisito.
+_NADA = {"ninguno", "ninguna", "no hay", "no aplica", "n a", "na"}
+
+
+def _es_nada(texto: str) -> bool:
+    return clave(texto) in _NADA
+
+
 def _limpio(item: str) -> str:
     # Hasta la raya o el parentesis: lo que sigue es nota del analista.
     t = re.split(r"\s+[—–-]\s+|\s*\(", item, maxsplit=1)[0]
     # Quitar una nota entre parentesis deja dos espacios donde estaba.
-    return re.sub(r"\s+", " ", t).strip().rstrip(".").strip()
+    t = re.sub(r"\s+", " ", t).strip().rstrip(".").strip()
+    return "" if _es_nada(t) else t
 
 
 def _enumeracion(texto: str) -> list:
@@ -193,7 +202,8 @@ def _dato(lineas: list, prefijos: tuple) -> str:
 
 def _sistemas(lineas: list) -> list:
     resto, _, _ = _vineta(lineas, ("sistemas",))
-    return [s for s in (_sin_punto(p) for p in _sin_parentesis(resto).split(",")) if s]
+    return [s for s in (_sin_punto(p) for p in _sin_parentesis(resto).split(","))
+            if s and not _es_nada(s)]
 
 
 def _fricciones(lineas: list) -> list:

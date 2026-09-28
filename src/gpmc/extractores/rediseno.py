@@ -15,7 +15,6 @@ _ENC_ELIMINAR = re.compile(r"^(?:#+\s*|\*\*)Principio aplicado", re.I)
 _ENC_IMPACTO = re.compile(r"^(?:#+\s*|\*\*)Impacto estimado", re.I)
 _ENC_METRICAS = re.compile(r"^#+\s*M[eé]tricas del redise[nñ]o", re.I)
 _FILA = re.compile(r"^\s*\|(.+)\|\s*$")
-_ELIMINA = re.compile(r"elimin", re.I)
 
 
 @dataclass
@@ -78,13 +77,12 @@ def _declaradas(lineas: list) -> list:
 def extraer(texto: str) -> Rediseno:
     lineas = (texto or "").splitlines()
     cambios = _lista_tras(lineas, _ENC_CAMBIOS)
-    eliminaciones = _lista_tras(lineas, _ENC_ELIMINAR)
-    vistos = {p.texto for p in eliminaciones}
-    eliminaciones += [p for p in cambios
-                      if _ELIMINA.search(p.texto) and p.texto not in vistos]
     return Rediseno(
         cambios=cambios,
-        eliminaciones=eliminaciones,
+        # Solo lo que el equipo puso bajo «Principio aplicado: eliminar». Buscar
+        # «elimin» en los cambios listaba como eliminado lo que se AÑADIO
+        # («Autocompletado… elimina la captura»): revision del 2026-09-28.
+        eliminaciones=_lista_tras(lineas, _ENC_ELIMINAR),
         impacto=_lista_tras(lineas, _ENC_IMPACTO),
         declaradas=_declaradas(lineas),
     )

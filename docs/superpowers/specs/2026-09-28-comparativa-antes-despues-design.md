@@ -67,8 +67,10 @@ porcentaje solo se calculan cuando los dos lados son números. «13 días hábil
 Cada requisito del AS-IS con su destino: **conservado** (casa con la etiqueta de un campo
 `file`, con la misma regla de `GEN-01`), **sin destino** (no casa con ninguno) o **nuevo**
 (campo `file` que no estaba en el AS-IS). «Sin destino» no se rotula «eliminado»: el
-compilador no sabe si se eliminó o se olvidó. Si el TO-BE lo nombra en su lista de
-eliminados, se rotula «eliminado» y se cita la línea como fundamento.
+compilador no sabe si se eliminó o se olvidó. Si el TO-BE lo nombra en la lista bajo
+«Principio aplicado: eliminar», se rotula «eliminado» y se cita la línea como fundamento. No
+se buscan eliminaciones en los «Cambios concretos»: la revisión de la rama mostró que así se
+listaba como eliminado lo que se había añadido.
 
 ### 3. Pasos de antes y tareas de después
 

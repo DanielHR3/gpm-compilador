@@ -23,6 +23,9 @@ export default function CapturaMetrica({
   const [despues, setDespues] = useState(
     metrica.despues.origen === "declarado" ? metrica.despues.texto : "",
   );
+  // Con algo ya declarado, guardar en blanco lo quita y vuelve a lo contado.
+  const habiaDeclarado =
+    metrica.antes.origen === "declarado" || metrica.despues.origen === "declarado";
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +46,7 @@ export default function CapturaMetrica({
     <form onSubmit={enviar} className="flex flex-col gap-2 border-t border-border/60 pt-3">
       <p className="text-xs text-muted-foreground">
         Escribe solo el número, o el número con la misma unidad en los dos lados.
+        {habiaDeclarado ? " Para quitar lo declarado, deja los dos en blanco y guarda." : ""}
       </p>
       <div className="flex gap-2">
         <label htmlFor={`${id}-antes`} className="flex flex-1 flex-col gap-1 text-xs">
@@ -58,7 +62,9 @@ export default function CapturaMetrica({
       </div>
       {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
       <Button type="submit" size="sm" variant="outline"
-              disabled={guardando || (antes.trim() === "" && despues.trim() === "")}>
+              disabled={
+                guardando || (!habiaDeclarado && antes.trim() === "" && despues.trim() === "")
+              }>
         {guardando ? "Guardando…" : "Guardar"}
       </Button>
     </form>

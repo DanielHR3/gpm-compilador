@@ -636,16 +636,19 @@ interno**. Spec y plan en `docs/superpowers/` (`2026-09-28-comparativa-antes-des
   vacía es «no se leyó», nunca «hay cero».
 - **Regla de unidades.** Dos valores se comparan solo si traen número y la **misma unidad**.
   «13 días hábiles» contra «24 horas» se enseña tal cual y no entra al porcentaje: convertir
-  sería inferir.
+  sería inferir. Singular y plural sí son la misma unidad («3 días hábiles» y «1 día hábil»).
 - **Porcentaje de simplificación.** Por métrica, `(antes − después) / antes`. El global es el
   promedio de las métricas comparables y viaja **siempre con su base** («15.8 % sobre 3 de 7
   métricas»). Con menos de dos comparables no hay cifra. Si sale negativo se rotula «(aumento
   neto)». Los decimales van con punto, como se escribe en México.
 - **«Sin destino» no es «eliminado».** Un requisito del AS-IS que no casa con un campo `file`
-  solo se rotula eliminado si una línea del TO-BE lo nombra; esa línea va como fundamento.
+  solo se rotula eliminado si lo nombra una línea de la lista que el equipo puso bajo
+  «Principio aplicado: eliminar» en el TO-BE; esa línea va como fundamento. **No se busca
+  «elimin» en los cambios concretos:** eso listaba como eliminado lo que se había añadido
+  («Autocompletado… elimina la captura»).
 - **Lo declarado** vive en `comparativa.json` dentro de la sesión, nunca en el manifiesto.
   Gana la pantalla sobre la tabla «Métricas del rediseño» del TO-BE, y también corrige una
-  cuenta mal leída. `POST …/comparativa/declarar` queda en la auditoría como
+  cuenta mal leída (botón «Corregir» en la tarjeta). Guardar en blanco quita lo declarado. `POST …/comparativa/declarar` queda en la auditoría como
   `comparativa.declarar`.
 - **`CMP-01..04` son `por_confirmar`** y viven solo en la comparativa: no se escriben en
   `huecos.json`, no entran al wizard ni a `bloquean`. **Sí van en las observaciones**, en su

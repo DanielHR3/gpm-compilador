@@ -92,6 +92,20 @@ def clave_de_metrica(nombre: str) -> Optional[str]:
     return None
 
 
+def _singular(palabra: str) -> str:
+    """«dias» y «dia», «habiles» y «habil», «meses» y «mes» son la misma
+    unidad. No es convertir unidades: es no tropezar con el plural."""
+    if len(palabra) > 4 and palabra.endswith("es") and palabra[-3] not in "aeiou":
+        return palabra[:-2]
+    if len(palabra) > 3 and palabra.endswith("s"):
+        return palabra[:-1]
+    return palabra
+
+
+def _unidad(texto: str) -> str:
+    return " ".join(_singular(p) for p in clave(texto).split())
+
+
 def _valor(texto: str, origen: str) -> Valor:
     t = (texto or "").strip()
     if not t:
@@ -100,7 +114,7 @@ def _valor(texto: str, origen: str) -> Valor:
     if not m:
         return Valor(texto=t, origen=origen)
     return Valor(texto=t, numero=float(m.group(1).replace(",", ".")),
-                 unidad=clave(m.group(2)), origen=origen)
+                 unidad=_unidad(m.group(2)), origen=origen)
 
 
 def _contado(n: int) -> Valor:
@@ -228,7 +242,9 @@ def _huecos(estado: EstadoActual, metricas: list, requisitos: list, veredicto: s
                             "Falta el dato del después para: " + ", ".join(faltan) + "."))
     if veredicto == "no_reduce":
         huecos.append(Hueco("por_confirmar", "CMP-03", "to_be",
-                            "La reingeniería no reduce ninguna de las métricas medidas."))
+                            "Con las cifras leídas, la reingeniería no reduce ninguna de "
+                            "las métricas medidas. Revisa las cuentas en la vista «Antes "
+                            "y después» y corrígelas si el lector contó mal."))
     sueltos = [r.nombre for r in requisitos if r.destino == "sin_destino"]
     if sueltos:
         huecos.append(Hueco("por_confirmar", "CMP-04", "to_be",

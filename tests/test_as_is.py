@@ -150,3 +150,11 @@ def test_las_etapas_en_tabla_tambien_son_pasos():
 def test_una_tabla_sin_columna_de_paso_no_se_adivina():
     texto = ("- **Pasos:**\n  | Área | Tiempo |\n  |---|---|\n  | Ventanilla | 5 min |\n")
     assert extraer(texto).pasos == []
+
+
+# --- Hallazgos de la revision de la rama (2026-09-28) ---------------------------
+
+def test_ninguno_no_es_un_requisito_ni_un_sistema():
+    for nada in ("ninguno", "Ninguno.", "No hay", "no aplica", "N/A"):
+        e = extraer(f"- **Requisitos:** {nada}\n- **Sistemas involucrados:** {nada}\n")
+        assert e.requisitos == [] and e.sistemas == [], nada

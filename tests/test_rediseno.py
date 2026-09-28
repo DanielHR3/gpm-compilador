@@ -53,13 +53,22 @@ def test_cambios_concretos_solo_el_primer_nivel():
     assert "sin depender de Oficialía" in r.cambios[0].texto
 
 
-def test_eliminaciones_juntan_el_principio_y_los_cambios_que_eliminan():
+def test_eliminaciones_son_solo_las_que_el_equipo_puso_bajo_el_principio():
     r = extraer(_TOBE)
     assert [p.titulo for p in r.eliminaciones] == [
         "El Excel para oficios se elimina por completo",
         "La orden de trabajo llenada a mano se elimina",
-        "Dirección General eliminada del flujo por completo",
     ]
+
+
+def test_un_cambio_que_menciona_eliminar_no_es_una_eliminacion():
+    # Hallazgo de la revision (2026-09-28): «Autocompletado… elimina la captura»
+    # es algo que se AÑADIO; buscar «elimin» en los cambios lo listaba al reves.
+    texto = ("**Cambios concretos frente al AS-IS:**\n"
+             "1. **Autocompletado vía RENAPO**, que elimina la captura manual.\n")
+    r = extraer(texto)
+    assert [p.titulo for p in r.cambios] == ["Autocompletado vía RENAPO"]
+    assert r.eliminaciones == []
 
 
 def test_impacto_no_se_traga_la_seccion_siguiente():
