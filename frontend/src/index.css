@@ -89,6 +89,14 @@
        barra lleva su valor escrito. */
     --cmp-antes: var(--viz-2);
     --cmp-despues: var(--viz-4);
+    /* Destinos de los documentos del trámite. Son identidades, no magnitudes:
+       paleta categórica, no la rampa --viz-*. Validada con validate_palette.js
+       en claro y en oscuro (2026-09-28). Orden fijo; cada tramo lleva su nombre,
+       porque dos tonos del claro quedan bajo 3:1 de contraste. */
+    --dest-elimina: #2a78d6;
+    --dest-consulta: #eb6834;
+    --dest-sistema: #1baf7a;
+    --dest-conserva: #eda100;
     --muted-foreground: var(--text-muted);
     --accent: var(--gray-100);
     --accent-foreground: var(--text-primary);
@@ -134,6 +142,10 @@
     /* En oscuro el par validado es otro: el que resalta es el más claro. */
     --cmp-antes: var(--viz-1);
     --cmp-despues: var(--viz-3);
+    --dest-elimina: #3987e5;
+    --dest-consulta: #d95926;
+    --dest-sistema: #199e70;
+    --dest-conserva: #c98500;
     --muted-foreground: var(--gray-300);
     --accent: var(--gray-700);
     --accent-foreground: var(--gray-50);
