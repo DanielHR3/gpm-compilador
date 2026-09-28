@@ -86,3 +86,12 @@ def test_un_to_be_sin_nada_de_esto_devuelve_vacio():
 def test_una_fila_de_metricas_con_dos_celdas_se_ignora():
     texto = "## Métricas del rediseño\n\n| Métrica | Antes |\n| --- | --- |\n| Pasos | 9 |\n"
     assert extraer(texto).declaradas == []
+
+
+def test_la_plantilla_del_to_be_ensena_la_tabla_y_el_extractor_la_lee():
+    from pathlib import Path
+    import gpmc.web
+    texto = (Path(gpmc.web.__file__).parent / "plantilla-tobe.md").read_text(encoding="utf-8")
+    declaradas = extraer(texto).declaradas
+    assert ("Visitas presenciales", "2", "0") in declaradas
+    assert all(len(f) == 3 for f in declaradas)

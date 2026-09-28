@@ -95,3 +95,58 @@ def test_verificar_fase3_sigue_exportando_el_lector():
 def test_quitar_una_nota_entre_parentesis_no_deja_dos_espacios():
     texto = "- **Requisitos:** Ingresar el Formato (aprobado por el Consejo) con previo pago.\n"
     assert requisitos_del_as_is(texto) == ["Ingresar el Formato con previo pago"]
+
+
+# --- Formas halladas en los expedientes reales (2026-09-28) ---------------------
+
+def test_una_vineta_de_total_entre_pasos_numerados_no_es_un_paso():
+    texto = ("- **Pasos / tiempos documentados (2 pasos):**\n"
+             "  1. Recibir y revisar documentación (3 min)\n"
+             "  2. Emitir holograma (3 min)\n"
+             "  - **Tiempo interno documentado: 25 minutos** (sin contar el banco).\n")
+    assert extraer(texto).pasos == [
+        "Recibir y revisar documentación (3 min)", "Emitir holograma (3 min)"]
+
+
+def test_el_tiempo_se_corta_donde_acaba_la_frase():
+    texto = "- **Tiempo interno documentado:** 150 minutos en total. El caso real tomó 4 días.\n"
+    assert extraer(texto).tiempo == "150 minutos en total"
+
+
+_TABLAS = """- **Pasos y tiempos — dos mediciones distintas:**
+
+  *Manual operativo (tiempo de trabajo activo):*
+  | # | Paso | Tiempo |
+  |---|---|---|
+  | 1 | Solicitud de Información (el ciudadano pide información) | 3 min |
+  | 5A | *Ruta Prórroga* — Evaluación de Supuestos | 3 min |
+
+  **Total de trabajo activo: 24 min.**
+
+  *Ficha RUTS oficial:*
+  | Etapa | Área de atención | Tiempo | Producto |
+  |---|---|---|---|
+  | Solicitud | Atención a Usuarios | 5 minutos | Formato |
+- **Requisitos:** uno, dos
+"""
+
+
+def test_los_pasos_en_tabla_salen_de_la_columna_paso_de_la_primera_tabla():
+    assert extraer(_TABLAS).pasos == [
+        "Solicitud de Información (el ciudadano pide información)",
+        "*Ruta Prórroga* — Evaluación de Supuestos",
+    ]
+
+
+def test_las_etapas_en_tabla_tambien_son_pasos():
+    texto = ("- **Etapas y tiempos (ficha RUTS oficial):**\n"
+             "  | Etapa | Área de atención | Tiempo | Producto |\n"
+             "  |---|---|---|---|\n"
+             "  | Solicitud | Atención a Usuarios | 5 minutos | Formato |\n"
+             "  | Búsqueda de certificado | Dirección | 3 a 5 días hábiles | Copia |\n")
+    assert extraer(texto).pasos == ["Solicitud", "Búsqueda de certificado"]
+
+
+def test_una_tabla_sin_columna_de_paso_no_se_adivina():
+    texto = ("- **Pasos:**\n  | Área | Tiempo |\n  |---|---|\n  | Ventanilla | 5 min |\n")
+    assert extraer(texto).pasos == []

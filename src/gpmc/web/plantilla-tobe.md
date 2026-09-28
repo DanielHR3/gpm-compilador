@@ -29,6 +29,22 @@ Si tu trámite tiene una compuerta que decide algo que el Diccionario no
 captura como campo (una regla de negocio, un cálculo), está bien dejarla sin
 `@@campo` — el sistema la marca como pendiente y se configura a mano después.
 
+## Métricas del rediseño
+
+Opcional. Sirve para la comparativa de antes y después: lo que el compilador
+no puede contar de los documentos, dilo aquí. Escribe solo el número, o el
+número con la misma unidad en los dos lados (`13 días hábiles` y `3 días
+hábiles`). Si dejas una celda vacía, esa cifra sale como «sin dato».
+
+| Métrica | Antes | Después |
+| --- | --- | --- |
+| Tiempo de respuesta | 3 días hábiles | 1 día hábil |
+| Visitas presenciales | 2 | 0 |
+| Capturas manuales del mismo dato | 3 | 1 |
+| Actores que intervienen | 2 | 2 |
+| Sistemas externos | 1 | 0 |
+
+
 ## Ejemplo
 
 ```mermaid

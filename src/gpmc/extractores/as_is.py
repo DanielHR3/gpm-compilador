@@ -20,13 +20,15 @@ from gpmc.planeacion.registro import clave
 _LINEA_REQ = re.compile(r"^\s*[-*]?\s*\*\*Requisitos[^*]*\*\*:?\s*(.*)$", re.I)
 _ITEM = re.compile(r"^\s+[-*]\s+(.*)$")
 _VINETA = re.compile(r"^\s*[-*]?\s*\*\*([^*]+?)\*\*:?\s*(.*)$")
-_HIJO = re.compile(r"^(\s+)(?:[-*]|\d+[.)])\s+(.*)$")
+_HIJO = re.compile(r"^(\s+)([-*]|\d+[.)])\s+(.*)$")
+_FILA_TABLA = re.compile(r"^\s*\|(.+)\|\s*$")
 PUNTO = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+(.*)$")
 _SECCION_FRICCION = re.compile(r"^##+\s+Fricci[oó]n", re.I)
 _NEGRITA_INICIAL = re.compile(r"^\*\*(.+?)\*\*")
 _RAYA = re.compile(r"\s+[—–]\s+")
-# Tras el dato viene la nota del analista: «13 dias habiles, confirmado con…».
-_CORTE = re.compile(r"\s+[—–]\s+|[,;(]")
+# Tras el dato viene la nota del analista: «13 dias habiles, confirmado con…»
+# o una frase nueva: «150 minutos en total. El caso real observado…».
+_CORTE = re.compile(r"\s+[—–]\s+|[,;(]|\.\s+(?=[A-ZÁÉÍÓÚÑ])")
 
 
 @dataclass
@@ -115,9 +117,9 @@ def _sin_parentesis(texto: str) -> str:
 
 
 def _vineta(lineas: list, prefijos: tuple) -> tuple:
-    """(resto, hijos) de la PRIMERA viñeta cuyo nombre empieza por `prefijos`.
-    La primera y no todas: Prorroga trae dos mediciones de pasos de dos fuentes
-    y sumarlas daria una cifra que nadie escribio."""
+    """(resto, hijos, indice) de la PRIMERA viñeta cuyo nombre empieza por
+    `prefijos`. La primera y no todas: Prorroga trae dos mediciones de pasos de
+    dos fuentes y sumarlas daria una cifra que nadie escribio."""
     for i, linea in enumerate(lineas):
         m = _VINETA.match(linea)
         if not m or not clave(m.group(1)).startswith(prefijos):
@@ -132,21 +134,52 @@ def _vineta(lineas: list, prefijos: tuple) -> tuple:
                 sangria = nivel
             if nivel > sangria:
                 continue
-            hijos.append(mh.group(2).strip())
-        return m.group(2).strip(), hijos
-    return "", []
+            hijos.append((mh.group(2) not in "-*", mh.group(3).strip()))
+        # En una lista numerada, una viñeta suelta es un total o una nota
+        # («Tiempo interno documentado: 25 minutos»), no un paso mas.
+        if any(numerado for numerado, _ in hijos):
+            hijos = [h for h in hijos if h[0]]
+        return m.group(2).strip(), [t for _, t in hijos], i
+    return "", [], -1
 
 
 def _sin_punto(texto: str) -> str:
     return texto.strip().rstrip(".").strip()
 
 
+def _pasos_de_tabla(lineas: list, desde: int) -> list:
+    """Los pasos cuando vienen en una tabla bajo la viñeta (Prorroga,
+    Reposicion). Solo la primera tabla, y solo si tiene una columna que se
+    llame «Paso» o «Etapa»: sin ese encabezado no se adivina cual es."""
+    columna, salida = None, []
+    for linea in lineas[desde:]:
+        if linea.strip() and not linea[:1].isspace():
+            break
+        m = _FILA_TABLA.match(linea)
+        if not m:
+            if columna is not None:
+                break
+            continue
+        celdas = [c.strip() for c in m.group(1).split("|")]
+        if columna is None:
+            columna = next((k for k, c in enumerate(celdas)
+                            if clave(c) in ("paso", "etapa")), None)
+            if columna is None:
+                return []
+            continue
+        if set(celdas[0]) <= set("-: "):
+            continue
+        if columna < len(celdas) and celdas[columna]:
+            salida.append(celdas[columna])
+    return salida
+
+
 def _pasos(lineas: list) -> list:
-    resto, hijos = _vineta(lineas, ("pasos",))
+    resto, hijos, i = _vineta(lineas, ("pasos", "etapas"))
     if hijos:
         return [p for p in (_sin_punto(h) for h in hijos) if p]
     if "→" not in resto:
-        return []
+        return _pasos_de_tabla(lineas, i + 1) if i >= 0 else []
     tramos = resto.split("→")
     # «7 etapas — Recepcion → …»: lo de antes de la raya es la cuenta, no un paso.
     tramos[0] = _RAYA.split(tramos[0])[-1]
@@ -154,12 +187,12 @@ def _pasos(lineas: list) -> list:
 
 
 def _dato(lineas: list, prefijos: tuple) -> str:
-    resto, _ = _vineta(lineas, prefijos)
+    resto, _, _ = _vineta(lineas, prefijos)
     return _sin_punto(_CORTE.split(resto, maxsplit=1)[0]) if resto else ""
 
 
 def _sistemas(lineas: list) -> list:
-    resto, _ = _vineta(lineas, ("sistemas",))
+    resto, _, _ = _vineta(lineas, ("sistemas",))
     return [s for s in (_sin_punto(p) for p in _sin_parentesis(resto).split(",")) if s]
 
 
@@ -179,8 +212,8 @@ def _fricciones(lineas: list) -> list:
 
 def extraer(texto: str) -> EstadoActual:
     lineas = (texto or "").splitlines()
-    resto_canal, _ = _vineta(lineas, ("canal",))
-    resto_costo, _ = _vineta(lineas, ("costo",))
+    resto_canal, _, _ = _vineta(lineas, ("canal",))
+    resto_costo, _, _ = _vineta(lineas, ("costo",))
     return EstadoActual(
         canal=_sin_punto(resto_canal),
         pasos=_pasos(lineas),
