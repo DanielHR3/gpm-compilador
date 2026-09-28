@@ -84,9 +84,11 @@ estimado del TO-BE. El impacto lleva la advertencia del propio equipo de que es 
 
 Una frase determinista, armada con las cuentas, y una de tres señales:
 
-- **Reduce:** bajan los requisitos o los pasos y ninguno sube.
-- **Mixto:** uno baja y el otro sube.
-- **No reduce:** ninguno baja. Sale `CMP-03`.
+Se mira toda métrica con número en los dos lados:
+
+- **Reduce:** alguna baja y ninguna sube.
+- **Mixto:** unas bajan y otras suben.
+- **No reduce:** ninguna baja. Sale `CMP-03`.
 
 Con menos de dos métricas comparables el veredicto es «no se puede medir» y dice qué falta.
 
@@ -100,8 +102,9 @@ Pedida por Daniel el 2026-09-28.
 - **Global:** el promedio simple de los porcentajes de las métricas comparables. Va siempre
   con su base a la vista: «47 % sobre 3 de 7 métricas». Con menos de dos métricas
   comparables no hay cifra global: se dice qué falta declarar.
-- **El tiempo no entra** mientras venga como texto («13 días hábiles» contra «24 horas»).
-  Entra si se declara en la pantalla con número y la misma unidad en los dos lados.
+- **Regla de unidades:** dos valores se comparan solo si traen número y la **misma unidad**
+  («13 días hábiles» contra «3 días hábiles»). «13 días hábiles» contra «24 horas» no
+  entra: convertir sería inferir.
 - **Forma:** barras horizontales emparejadas, antes y después, una pareja por métrica
   comparable, con su porcentaje al lado; y la cifra global arriba como indicador. SVG y
   CSS propios, como el tablero, sin librería. Colores de la rampa `--viz-*`, validados en
@@ -127,7 +130,11 @@ que decidió una persona.
    ```
 
 2. **En la pantalla**, una tarjeta por métrica sin dato, con su campo de captura. Se guarda
-   en `comparativa.json` dentro de la sesión, con quién y cuándo. No toca el manifiesto.
+   en `comparativa.json` dentro de la sesión, con la fecha. El quién ya lo registra la
+   auditoría del servidor. No toca el manifiesto.
+
+Lo declarado también **corrige una cuenta**: si el extractor leyó mal los pasos de un
+AS-IS con forma rara, la persona escribe la cifra y queda rotulada «declarado».
 
 ## Huecos `CMP-*` (todos `por_confirmar`, ninguno bloquea)
 
@@ -152,7 +159,7 @@ Dependencia en un solo sentido, como el resto: `web` → `comparativa` → `extr
 | `extractores/rediseno.py` (nuevo) | Del texto del TO-BE: cambios, eliminaciones, impacto y métricas declaradas. |
 | `comparativa/armar.py` (nuevo) | `comparar(estado_actual, rediseno, manifiesto, declaradas) -> Comparativa`. Función pura. |
 | `comparativa/documento.py` (nuevo) | `Comparativa` → HTML estático, autocontenido e imprimible. Todo dato pasa por escapado. |
-| `web/api.py` | `GET /api/v1/expedientes/{sid}/comparativa`, `POST …/comparativa/declarar`, `GET …/comparativa/documento` (con `Content-Disposition`). |
+| `web/api_comparativa.py` (nuevo) | `GET /api/v1/expedientes/{sid}/comparativa`, `POST …/comparativa/declarar`, `GET …/comparativa/documento` (con `Content-Disposition`). |
 | `frontend/src/features/comparativa/` (nuevo) | Vista en tarjetas; `veredicto.ts` aparte del componente. |
 
 **Reacomodo necesario:** `requisitos_del_as_is` y `_casa` viven hoy en
@@ -170,7 +177,8 @@ responde `200` con `disponible: false` y el motivo; la pantalla lo dice y no pin
   tarea. Ninguna `<table>`.
 - Cada valor enseña su origen con una etiqueta: «contado», «declarado», «sin dato».
 - Colores de la rampa `--viz-*` y tokens del sistema de diseño; claro y oscuro.
-- La descarga sale en el panel de descargas como una entrada más, **nunca bloqueada**.
+- La descarga sale en la propia vista, **nunca bloqueada**. No va en el panel de descargas:
+  ese panel enseña una vista previa en texto y el documento es una página.
 
 ## Pruebas
 
