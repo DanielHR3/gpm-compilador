@@ -180,7 +180,7 @@ def _requisitos(estado: EstadoActual, archivos: list, eliminaciones: list) -> li
 
 
 def _cifra(n: float) -> str:
-    return str(int(n)) if float(n).is_integer() else str(n).replace(".", ",")
+    return str(int(n)) if float(n).is_integer() else str(n)
 
 
 def texto_cambio(pct: float) -> str:

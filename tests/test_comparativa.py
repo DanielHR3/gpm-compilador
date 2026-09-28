@@ -210,3 +210,10 @@ def test_la_comparativa_y_los_extractores_nuevos_no_importan_capas_de_arriba():
                 nombres = [a.name for a in nodo.names]
             for n in nombres:
                 assert not n.startswith(prohibidos), f"{ruta.name} importa {n}"
+
+
+def test_los_decimales_van_con_punto_como_se_escribe_en_mexico():
+    r = Rediseno(declaradas=[("Tiempo de respuesta", "", "3 días hábiles")])
+    c = comparar(_estado(requisitos=[]), r, _m())
+    # pasos 50 y tiempo 76.9 -> promedio 63.45 -> 63.5 (o 63.4 por redondeo bancario)
+    assert "−76.9 %" in c.frase and "," not in c.frase.split("Simplificación global:")[1]

@@ -83,6 +83,12 @@
     --viz-3: #BA5171;
     --viz-4: #A22D4E;
     --viz-5: #7A1833;
+    /* Par «antes / después» de la comparativa. No son los extremos de la
+       rampa: validate_palette.js los rechazó por luminosidad y croma
+       (2026-09-28). El contraste del claro queda bajo 3:1, y por eso cada
+       barra lleva su valor escrito. */
+    --cmp-antes: var(--viz-2);
+    --cmp-despues: var(--viz-4);
     --muted-foreground: var(--text-muted);
     --accent: var(--gray-100);
     --accent-foreground: var(--text-primary);
@@ -125,6 +131,9 @@
     --viz-3: #C7688A;
     --viz-4: #D98BA5;
     --viz-5: #EAB0C1;
+    /* En oscuro el par validado es otro: el que resalta es el más claro. */
+    --cmp-antes: var(--viz-1);
+    --cmp-despues: var(--viz-3);
     --muted-foreground: var(--gray-300);
     --accent: var(--gray-700);
     --accent-foreground: var(--gray-50);
