@@ -200,3 +200,28 @@ def escribir_huecos(carpeta: Path, huecos: "list[Hueco]") -> None:
                      "mensaje": h.mensaje, "propuesta": h.propuesta} for h in huecos],
                    ensure_ascii=False),
         encoding="utf-8")
+
+
+# Lo que una persona declaro en la pantalla «Antes y despues» (2026-09-28). Vive
+# aparte del manifiesto a proposito: la comparativa es evidencia interna y no
+# puede cambiar lo que se compila.
+ARCHIVO_COMPARATIVA = "comparativa.json"
+
+
+def comparativa_de(carpeta: Path) -> dict:
+    ruta = carpeta / ARCHIVO_COMPARATIVA
+    if not ruta.is_file():
+        return {}
+    try:
+        d = json.loads(ruta.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        # Un archivo a medio escribir no puede dejar la pantalla sin comparativa.
+        return {}
+    return d if isinstance(d, dict) else {}
+
+
+def escribir_comparativa(carpeta: Path, d: dict) -> None:
+    ruta = carpeta / ARCHIVO_COMPARATIVA
+    temporal = ruta.with_suffix(".json.tmp")
+    temporal.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(temporal, ruta)

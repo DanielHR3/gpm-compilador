@@ -55,6 +55,7 @@ _ACCIONES = [
     ("POST", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/reconocer$"), "hueco.reconocer"),
     ("POST", re.compile(r"^/reconocer/(?P<sid>[^/]+)$"), "hueco.reconocer"),
     ("POST", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/propuestas/(?P<pid>[^/]+)/decision$"), "propuesta_ia.decidir"),
+    ("POST", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/comparativa/declarar$"), "comparativa.declarar"),
     ("GET", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/gpm$"), "gpm.descargar"),
     ("GET", re.compile(r"^/descargar/(?P<sid>[^/]+)/gpm(-pruebas)?$"), "gpm.descargar"),
 ]
