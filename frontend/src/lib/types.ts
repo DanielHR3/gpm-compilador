@@ -213,7 +213,7 @@ export type CampoVista = {
 export type PantallaVista = { id: string; nombre: string; actor: string; campos: CampoVista[] };
 
 /** Comparativa de antes y después (`GET /api/v1/expedientes/{sid}/comparativa`). */
-export type OrigenValor = "contado" | "leido" | "declarado" | "sin_dato";
+export type OrigenValor = "contado" | "leido" | "declarado" | "revisado" | "sin_dato";
 export type ClaveMetrica =
   | "requisitos" | "pasos" | "actores" | "sistemas" | "tiempo" | "visitas" | "capturas";
 
@@ -258,4 +258,51 @@ export interface ComparativaOut {
   veredicto: "reduce" | "mixto" | "no_reduce" | "sin_medida";
   frase: string;
   huecos: Hueco[];
+  /** El resumen de «Documentos del trámite», si alguien ya empezó a revisarlos. */
+  documentos: ResumenDocumentos | null;
+}
+
+/** Documentos del trámite (`GET /api/v1/expedientes/{sid}/documentos`). */
+export type Destino = "elimina" | "conserva" | "consulta" | "sistema";
+export type DestinoOSin = Destino | "sin_destino";
+
+export interface DocumentoTramite {
+  id: string;
+  nombre: string;
+  cita_as_is: string;
+  destino: DestinoOSin;
+  campo: string;
+  cita_to_be: string;
+  motivo: string;
+  motivo_de: "ia" | "persona" | "";
+  confianza: "alta" | "media" | "baja" | "";
+  veredicto: string;
+  origen: "lector" | "agente";
+  estado: "propuesto" | "aceptado" | "corregido";
+}
+
+export interface ResumenDocumentos {
+  total: number;
+  decididos: number;
+  ya_no_se_piden: number;
+  por_destino: Record<DestinoOSin, number>;
+  agregados: string[];
+  completo: boolean;
+  titular: string;
+  /** «Cómo se simplificó el trámite»: los documentos de cada destino ya decidido. */
+  simplificacion: { destino: Destino; frase: string; documentos: string[] }[];
+}
+
+export interface EstadoDocumentos {
+  disponible: boolean;
+  motivo: string;
+  estado: "sin_analizar" | "analizando" | "lista" | "error";
+  motivo_estado: string | null;
+  pasos: { t: string; mensaje: string }[];
+  origen: "lector" | "agente";
+  documentos: DocumentoTramite[];
+  resumen: ResumenDocumentos;
+  puede_analizar: boolean;
+  motivo_analizar: string | null;
+  pruebas: boolean;
 }

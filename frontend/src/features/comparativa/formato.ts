@@ -17,6 +17,7 @@ const ORIGEN: Record<OrigenValor, string> = {
   contado: "contado",
   leido: "leído",
   declarado: "declarado",
+  revisado: "revisado",
   sin_dato: "sin dato",
 };
 

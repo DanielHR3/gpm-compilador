@@ -57,3 +57,9 @@ it("reconoce la comparativa de un expediente", () => {
   expect(leerRuta(`/revisar/${sid}`)).toEqual({ tipo: "revisar", sid });
   expect(leerRuta("/revisar/XYZ/comparativa")).toEqual({ tipo: "inicio" });
 });
+it("reconoce los documentos de un expediente", () => {
+  const sid = "0123456789abcdef";
+  expect(leerRuta(`/revisar/${sid}/documentos`)).toEqual({ tipo: "documentos", sid });
+  expect(leerRuta(`/revisar/${sid}/comparativa`)).toEqual({ tipo: "comparativa", sid });
+  expect(leerRuta("/revisar/XYZ/documentos")).toEqual({ tipo: "inicio" });
+});

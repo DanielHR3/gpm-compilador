@@ -11,7 +11,7 @@ const BASE = {
   disponible: true, motivo: "", tramite: "T", metricas: [], requisitos: [],
   pasos_antes: [], tareas_despues: [], fricciones: [], cambios: [], eliminaciones: [],
   impacto: [], autollenados: 0, porcentaje_global: 47.5, base_global: 3,
-  total_metricas: 7, veredicto: "reduce", frase: "", huecos: [],
+  total_metricas: 7, veredicto: "reduce", frase: "", huecos: [], documentos: null,
 } as ComparativaOut;
 
 it("una reducción va con signo menos y un aumento con más", () => {
@@ -51,4 +51,7 @@ it("una cifra global negativa dice que es aumento neto", () => {
   expect(textoGlobal({ ...BASE, porcentaje_global: -26.3, base_global: 2 })).toBe(
     "−26.3 % (aumento neto) sobre 2 de 7 métricas",
   );
+});
+it("nombra el origen «revisado»", () => {
+  expect(etiquetaOrigen("revisado")).toBe("revisado");
 });

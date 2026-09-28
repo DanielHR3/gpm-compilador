@@ -16,6 +16,8 @@ import type {
   ClaveDocumento,
   ClaveMetrica,
   ComparativaOut,
+  Destino,
+  EstadoDocumentos,
   Condicion,
   EstadoExpediente,
   EstadoGenerados,
@@ -620,4 +622,40 @@ export async function declararMetrica(
 /** URL del documento descargable (no hace `fetch`). */
 export function urlDocumentoComparativa(sid: string): string {
   return `${BASE}/expedientes/${sid}/comparativa/documento`;
+}
+
+const documentosDe = (sid: string) => `${BASE}/expedientes/${sid}/documentos`;
+
+/** `GET …/documentos` — qué documentos pedía el trámite y qué pasó con cada uno. */
+export async function leerDocumentos(sid: string): Promise<EstadoDocumentos> {
+  return pedirJson(documentosDe(sid));
+}
+
+/** `POST …/documentos/analizar` — 202 y corre en segundo plano; 409 con el candado cerrado. */
+export async function analizarDocumentos(sid: string): Promise<{ estado: string }> {
+  return pedirJson(`${documentosDe(sid)}/analizar`, { method: "POST" });
+}
+
+/** `POST …/documentos/{id}/decision` — no toca el manifiesto. */
+export async function decidirDestino(
+  sid: string,
+  id: string,
+  destino: Destino,
+  motivo: string,
+): Promise<EstadoDocumentos> {
+  return pedirJson(`${documentosDe(sid)}/${encodeURIComponent(id)}/decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ destino, motivo }),
+  });
+}
+
+/** `POST …/documentos/aceptar-verificados` — acepta lo que pasó la verificación. */
+export async function aceptarVerificados(sid: string): Promise<EstadoDocumentos> {
+  return pedirJson(`${documentosDe(sid)}/aceptar-verificados`, { method: "POST" });
+}
+
+/** URL de la página descargable (no hace `fetch`). */
+export function urlDescargaDocumentos(sid: string): string {
+  return `${documentosDe(sid)}/descarga`;
 }

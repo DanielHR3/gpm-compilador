@@ -20,7 +20,7 @@ function comparativa(metricas: MetricaComparada[], global: number | null): Compa
     tareas_despues: [], fricciones: [], cambios: [], eliminaciones: [], impacto: [],
     autollenados: 0, porcentaje_global: global,
     base_global: metricas.filter((m) => m.porcentaje !== null).length,
-    total_metricas: 7, veredicto: global === null ? "sin_medida" : "reduce", frase: "", huecos: [],
+    total_metricas: 7, veredicto: global === null ? "sin_medida" : "reduce", frase: "", huecos: [], documentos: null,
   };
 }
 
