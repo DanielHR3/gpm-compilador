@@ -6,6 +6,8 @@ import WizardHuecos from "./WizardHuecos";
 
 vi.mock("@/lib/api", () => ({
   leerToBe: vi.fn().mockRejectedValue(new Error("sin TO-BE")),
+  // El panel de descargas pide los avisos de la comparativa al montar.
+  leerComparativa: vi.fn().mockResolvedValue({ disponible: false, huecos: [] }),
   camposDelManifiesto: () => [],
   resolverDic08: vi.fn(),
   leerCompuerta: vi.fn(),

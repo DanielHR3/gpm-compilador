@@ -1,8 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+// El panel pide los avisos de la comparativa al montar, para las observaciones.
+const leerComparativa = vi.fn();
 vi.mock("@/lib/api", () => ({
+  leerComparativa: (...a: unknown[]) => leerComparativa(...a),
   urlGpm: (_sid: string, modo: string) => `/api/v1/x/gpm?modo=${modo}`,
   urlManifiesto: () => "/api/v1/x/manifiesto",
 }));
@@ -41,6 +44,11 @@ function pintar(desbloqueado = true) {
     />,
   );
 }
+
+beforeEach(() => {
+  leerComparativa.mockReset();
+  leerComparativa.mockResolvedValue({ disponible: false, huecos: [] });
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -181,4 +189,34 @@ it("entrar con #entrega en la url baja hasta aquí", () => {
 
   expect(bajar).toHaveBeenCalled();
   window.location.hash = "";
+});
+
+it("las observaciones llevan los avisos de la comparativa", async () => {
+  leerComparativa.mockResolvedValue({
+    disponible: true,
+    huecos: [{ nivel: "por_confirmar", codigo: "CMP-02", ubicacion: "to_be",
+               mensaje: "Falta el dato del después para: Visitas presenciales.", propuesta: null }],
+  });
+  pintar();
+  await waitFor(() => expect(leerComparativa).toHaveBeenCalledWith(estado.sid));
+
+  await userEvent.click(
+    screen.getByRole("button", { name: /vista previa de Observaciones/i }),
+  );
+
+  expect(await screen.findByText(/Falta el dato del después para: Visitas presenciales/)).toBeInTheDocument();
+});
+
+it("si la comparativa falla, las observaciones salen igual y sin error a la vista", async () => {
+  leerComparativa.mockRejectedValue(new Error("sin red"));
+  pintar();
+  await waitFor(() => expect(leerComparativa).toHaveBeenCalled());
+
+  await userEvent.click(
+    screen.getByRole("button", { name: /vista previa de Observaciones/i }),
+  );
+
+  expect(await screen.findByText(/Trámite de Prueba/)).toBeInTheDocument();
+  expect(screen.queryByText(/comparativa de antes y después/i)).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
 });

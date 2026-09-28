@@ -137,3 +137,25 @@ test("GEN-03 va al apartado del TO-BE", () => {
   expect(doc).toContain("corregir en la Propuesta TO-BE");
   expect(doc).not.toContain("Otros hallazgos");
 });
+
+describe("avisos de la comparativa", () => {
+  test("van en su propia sección", () => {
+    const doc = documentoDeObservaciones(estado([]), new Date(2026, 8, 28), [
+      hueco("CMP-04", "to_be", "Requisitos del AS-IS que el TO-BE no conserva ni dice que elimina: «acta»."),
+      hueco("CMP-01", "as_is", "El AS-IS no trae una lista de pasos que se pueda leer: los pasos de antes no se cuentan."),
+    ]);
+
+    expect(doc).toContain("## Sobre la comparativa de antes y después  (2)");
+    expect(doc).toContain("«acta»");
+    expect(doc).toContain("En el Análisis AS-IS");
+    expect(doc).toContain("En la Propuesta TO-BE");
+    expect(doc).not.toContain("No hay observaciones que requieran cambios");
+    expect(doc).not.toContain("Otros hallazgos");
+  });
+
+  test("sin avisos el documento queda como antes", () => {
+    expect(documentoDeObservaciones(estado([]), new Date(2026, 8, 28), [])).toBe(
+      documentoDeObservaciones(estado([]), new Date(2026, 8, 28)),
+    );
+  });
+});

@@ -39,6 +39,10 @@ const TITULOS: Record<string, string> = {
   "GEN-01": "Requisito del AS-IS sin campo",
   "GEN-02": "Ciclo de corrección",
   "GEN-03": "Rama que no es una opción del campo",
+  "CMP-01": "El AS-IS no trae pasos legibles",
+  "CMP-02": "Falta el dato del después",
+  "CMP-03": "La reingeniería no reduce",
+  "CMP-04": "Requisitos sin destino",
 };
 
 /** El titulo humano del codigo; si no lo conozco, el codigo tal cual. */

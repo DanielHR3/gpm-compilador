@@ -111,6 +111,7 @@ function seccion(huecos: Hueco[], m: Record<string, unknown>): string[] {
 export function documentoDeObservaciones(
   estado: EstadoExpediente,
   hoy: Date = new Date(),
+  avisosComparativa: Hueco[] = [],
 ): string {
   const m = estado.manifiesto;
   const pendientes = estado.huecos;
@@ -128,7 +129,8 @@ export function documentoDeObservaciones(
   ];
 
   const hayTrabajo =
-    grupos.diccionario.length + grupos.to_be.length + grupos.otros.length > 0;
+    grupos.diccionario.length + grupos.to_be.length + grupos.otros.length +
+      avisosComparativa.length > 0;
 
   if (!hayTrabajo) {
     out.push("No hay observaciones que requieran cambios en los documentos del expediente.");
@@ -139,6 +141,22 @@ export function documentoDeObservaciones(
     if (!grupos[r].length) continue;
     out.push(`## ${TITULO_SECCION[r]}  (${grupos[r].length})`, "");
     out.push(...seccion(grupos[r], m));
+  }
+
+  // Los `CMP-*` no viven en `estado.huecos` (no entran al wizard ni a la
+  // puerta del linter), pero si se le mandan a Simplificacion: son lo que
+  // impide demostrar la reingenieria con cifras (decision del 2026-09-28).
+  if (avisosComparativa.length) {
+    out.push(`## Sobre la comparativa de antes y después  (${avisosComparativa.length})`, "");
+    out.push(
+      "Lo que impide demostrar con cifras que el trámite tuvo reingeniería. No",
+      "bloquea la entrega del trámite.",
+      "",
+    );
+    for (const h of avisosComparativa) {
+      const donde = h.ubicacion === "as_is" ? "En el Análisis AS-IS" : "En la Propuesta TO-BE";
+      out.push(`**${donde}**`, "", h.mensaje, "");
+    }
   }
 
   if (grupos.otros.length) {

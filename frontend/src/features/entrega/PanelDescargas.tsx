@@ -3,7 +3,7 @@ import { Download, ExternalLink, Eye, FileCode2, FileText, FlaskConical, Lock, P
 
 import { Button } from "@/components/ui/button";
 import { cn } from "cn";
-import { urlGpm, urlManifiesto } from "@/lib/api";
+import { leerComparativa, urlGpm, urlManifiesto } from "@/lib/api";
 import { documentoDeObservaciones } from "@/features/huecos/observaciones";
 import type { EstadoExpediente, Hueco } from "@/lib/types";
 
@@ -87,6 +87,18 @@ export default function PanelDescargas({
     panel.current?.scrollIntoView();
     panel.current?.focus();
   }, []);
+  // Los avisos de la comparativa van en las observaciones. Si la comparativa
+  // falla, el analista no puede quedarse sin sus observaciones: se calla.
+  const [avisos, setAvisos] = useState<Hueco[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    leerComparativa(sid)
+      .then((c) => vivo && setAvisos(c.disponible ? c.huecos : []))
+      .catch(() => vivo && setAvisos([]));
+    return () => {
+      vivo = false;
+    };
+  }, [sid]);
   const [viendo, setViendo] = useState<Descarga | null>(null);
   const [texto, setTexto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +116,7 @@ export default function PanelDescargas({
   /** Arma el .md en el navegador. No pasa por el servidor: el castellano de
       las observaciones vive en `redactarHueco`, de este lado. */
   function textoDeObservaciones(): string {
-    return documentoDeObservaciones(estado);
+    return documentoDeObservaciones(estado, new Date(), avisos);
   }
 
   function descargarObservaciones() {
