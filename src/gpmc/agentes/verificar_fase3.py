@@ -10,80 +10,19 @@ from typing import Optional
 from gpmc.extractores import diccionario as ext_dicc
 from gpmc.extractores import expediente as ext_exp
 from gpmc.extractores import mermaid as ext_mmd
+# El lector de requisitos se mudo a `extractores/as_is.py` el 2026-09-28: lo usa
+# tambien la comparativa, que no puede importar de `agentes`.
+from gpmc.extractores.as_is import casa as _casa, requisitos_del_as_is
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.manifiesto import Manifiesto
-from gpmc.planeacion.registro import clave
 
 _BLOQUE_MERMAID = re.compile(r"```mermaid(.*?)```", re.S)
-# Las formas medidas en la boveda de Simplificacion (2026-09-24): `**Requisitos:**`,
-# `**Requisitos documentales:**`, `**Requisitos documentales**:`, `**Requisitos (ficha
-# RUTS):**`, `**Requisitos propios:**`... con la lista en la misma linea o en items
-# anidados debajo. Un AS-IS puede traer mas de una lista; se suman todas.
 # Las palabras con que un AS-IS cuenta que el ciudadano vuelve a entregar tras
 # una revision (Reposicion: «¿Solventa la informacion? Si, regresa a entregar
 # de nuevo»). Si aparecen y el diagrama compilable no regresa a ninguna tarea,
 # falta el ciclo de correccion que el equipo siempre modela (GEN-02).
 _CICLO_EN_AS_IS = re.compile(r"solvent|subsan|correg|correcci[oó]n|observacion", re.I)
 _RAMA_CORRECCION = re.compile(r"correcci[oó]n|corregir|solventar|subsanar|observacion", re.I)
-_LINEA_REQ = re.compile(r"^\s*[-*]?\s*\*\*Requisitos[^*]*\*\*:?\s*(.*)$", re.I)
-_ITEM = re.compile(r"^\s+[-*]\s+(.*)$")
-
-
-def _limpio(item: str) -> str:
-    # Hasta la raya o el parentesis: lo que sigue es nota del analista.
-    t = re.split(r"\s+[—–-]\s+|\s*\(", item, maxsplit=1)[0]
-    return t.strip().rstrip(".").strip()
-
-
-def _enumeracion(texto: str) -> list:
-    """«a, b y c» -> [a, b, c]. Lo que va entre parentesis es nota y se quita
-    antes de partir: «Identificacion oficial (INE, pasaporte o cartilla)» es
-    UN requisito. La «y» solo separa en el ultimo tramo: «pago de derechos y
-    aprovechamientos» sin comas es un solo requisito."""
-    sin_notas = re.sub(r"\([^()]*\)", "", texto)
-    partes = [p for p in sin_notas.split(",")]
-    if len(partes) > 1:
-        # «a, b, y c»: la coma antes de la «y» deja el ultimo tramo como «y c».
-        ultimo = re.sub(r"^\s*y\s+", "", partes[-1])
-        partes = partes[:-1] + re.split(r"\s+y\s+", ultimo.strip(), maxsplit=1)
-    return partes
-
-
-def requisitos_del_as_is(as_is: str) -> list:
-    """Las listas de requisitos del AS-IS, en la misma linea o anidadas debajo
-    (solo el primer nivel: un sub-item es un detalle del requisito). No se
-    leen, a proposito, listas sin sangria, separadas por una linea en blanco o
-    numeradas: fallar hacia «no hay requisitos» no produce GEN-01 falsos."""
-    lineas = (as_is or "").splitlines()
-    salida = []
-    for i, linea in enumerate(lineas):
-        m = _LINEA_REQ.match(linea)
-        if not m:
-            continue
-        resto = m.group(1).strip()
-        if resto:
-            salida += [r for r in (_limpio(p) for p in _enumeracion(resto)) if r]
-            continue
-        sangria = None
-        for sig in lineas[i + 1:]:
-            mi = _ITEM.match(sig)
-            if not mi:
-                break
-            nivel = len(sig) - len(sig.lstrip())
-            if sangria is None:
-                sangria = nivel
-            if nivel > sangria:
-                continue
-            r = _limpio(mi.group(1))
-            if r:
-                salida.append(r)
-    return salida
-
-
-def _casa(requisito: str, etiqueta: str) -> bool:
-    a, b = clave(requisito), clave(etiqueta)
-    return bool(a) and bool(b) and (a in b or b in a)
-
 
 def _vuelve_atras(rm) -> bool:
     """True si el diagrama tiene un ciclo: alguna arista `de -> a` desde cuyo
