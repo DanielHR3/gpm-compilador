@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+from gpmc.comparativa import documentos as docs_tramite
 from gpmc.extractores.as_is import EstadoActual, casa
 from gpmc.extractores.rediseno import Rediseno
 from gpmc.nucleo.huecos import Hueco
@@ -82,6 +83,8 @@ class Comparativa:
     veredicto: str = "sin_medida"
     frase: str = ""
     huecos: list = field(default_factory=list)
+    # El resumen de «Documentos del tramite», si alguien ya empezo a revisarlos.
+    documentos: Optional[dict] = None
 
 
 def clave_de_metrica(nombre: str) -> Optional[str]:
@@ -258,7 +261,8 @@ def no_disponible(motivo: str) -> Comparativa:
 
 
 def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
-             declaradas: Optional[dict] = None) -> Comparativa:
+             declaradas: Optional[dict] = None,
+             documentos: Optional[list] = None) -> Comparativa:
     d = _mezclar(rediseno, declaradas)
     archivos = _archivos(m)
     actores = {t.actor for t in m.flujo.tareas if t.actor} or {p.actor for p in m.pantallas}
@@ -271,9 +275,18 @@ def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
         "visitas": (Valor(), Valor()),
         "capturas": (Valor(), Valor()),
     }
+    revisados = docs_tramite.resumen(documentos, m) if documentos else None
+    completo = bool(revisados and revisados["completo"])
+    if completo:
+        # Con todas las tarjetas decididas, la cuenta de requisitos deja de ser
+        # un emparejado por subcadena y pasa a ser lo que reviso una persona.
+        quedan = revisados["por_destino"]["conserva"] + len(revisados["agregados"])
+        base["requisitos"] = (
+            Valor(str(revisados["total"]), float(revisados["total"]), "", "revisado"),
+            Valor(str(quedan), float(quedan), "", "revisado"))
     nombres_actor = {a.id: a.nombre for a in m.actores}
     metricas = [_metrica(k, base[k][0], base[k][1], d.get(k, {})) for k, _ in METRICAS]
-    requisitos = _requisitos(estado, archivos, rediseno.eliminaciones)
+    requisitos = [] if completo else _requisitos(estado, archivos, rediseno.eliminaciones)
     veredicto, pct, n, frase = _veredicto(metricas)
     return Comparativa(
         tramite=m.tramite.nombre,
@@ -291,7 +304,9 @@ def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
         base_global=n,
         veredicto=veredicto,
         frase=frase,
-        huecos=_huecos(estado, metricas, requisitos, veredicto),
+        huecos=(_huecos(estado, metricas, requisitos, veredicto)
+                + docs_tramite.avisos(documentos or [])),
+        documentos=revisados,
     )
 
 

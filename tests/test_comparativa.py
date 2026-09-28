@@ -251,3 +251,56 @@ def test_cmp03_dice_que_es_con_las_cifras_leidas_y_manda_a_revisarlas():
                  Rediseno(), _m())
     h = [x for x in c.huecos if x.codigo == "CMP-03"][0]
     assert "Con las cifras leídas" in h.mensaje and "corrígelas" in h.mensaje
+# --- Documentos del tramite (2026-09-28) ------------------------------------------
+
+def _docs(m, decididos=True):
+    from gpmc.comparativa.documentos import decidir, inventario_determinista
+    docs = inventario_determinista(
+        "- **Requisitos:** identificación oficial, orden de trabajo, acta\n", m)
+    if decididos:
+        decidir(docs[0], "conserva")
+        decidir(docs[1], "elimina")
+        decidir(docs[2], "consulta")
+    return docs
+
+
+def test_con_todo_revisado_los_requisitos_salen_de_los_documentos():
+    m = _m()
+    c = comparar(_estado(), Rediseno(), m, documentos=_docs(m))
+    r = _metrica(c, "requisitos")
+    assert (r.antes.numero, r.antes.origen) == (3.0, "revisado")
+    # Despues: lo que se conserva mas lo que el TO-BE agrega.
+    assert (r.despues.numero, r.despues.origen) == (1.0, "revisado")
+    assert r.porcentaje == 66.7
+    assert c.requisitos == []
+    assert c.documentos["completo"] is True
+    assert not [h for h in c.huecos if h.codigo == "CMP-04"]
+
+
+def test_con_revision_a_medias_la_comparativa_sigue_como_antes():
+    m = _m()
+    c = comparar(_estado(), Rediseno(), m, documentos=_docs(m, decididos=False))
+    assert _metrica(c, "requisitos").antes.origen == "contado"
+    assert c.requisitos != []
+    assert c.documentos["completo"] is False
+
+
+def test_lo_declarado_a_mano_gana_sobre_lo_revisado():
+    m = _m()
+    c = comparar(_estado(), Rediseno(), m, documentos=_docs(m),
+                 declaradas={"requisitos": {"antes": "9", "despues": ""}})
+    r = _metrica(c, "requisitos")
+    assert (r.antes.numero, r.antes.origen) == (9.0, "declarado")
+    assert r.despues.origen == "revisado"
+
+
+def test_un_eliminado_sin_frase_del_to_be_sale_como_cmp05():
+    m = _m()
+    c = comparar(_estado(), Rediseno(), m, documentos=_docs(m))
+    cmp05 = [h for h in c.huecos if h.codigo == "CMP-05"]
+    assert len(cmp05) == 1 and "orden de trabajo" in cmp05[0].mensaje
+
+
+def test_sin_documentos_no_cambia_nada():
+    c = comparar(_estado(), Rediseno(), _m())
+    assert c.documentos is None
