@@ -53,6 +53,8 @@ src/gpmc/
 │   └── html.py           recorrido navegable del tramite + vista «Documentos»
 ├── comparativa/
 │   ├── armar.py          AS-IS + TO-BE + manifiesto -> comparativa de antes y despues (funcion pura)
+│   ├── documentos.py     los documentos que pedia el tramite y su destino; inventario sin modelo y cuentas
+│   ├── pagina_documentos.py  «Documentos del tramite» como pagina descargable
 │   └── documento.py      comparativa -> HTML descargable con la grafica en SVG
 ├── planeacion/
 │   ├── registro.py       mide el ciclo real de cada tramite
@@ -667,3 +669,52 @@ interno**. Spec y plan en `docs/superpowers/` (`2026-09-28-comparativa-antes-des
 - **Pendiente anotado, no hecho:** el fixture `wiki` de `tests/conftest.py` comprueba la
   carpeta con `legible()`, que la abre como archivo; con un directorio siempre da falso y toda
   prueba que lo use se salta aunque `GPMC_WIKI` esté puesta. `test_comparativa_real.py` no lo usa.
+
+### 14. Documentos del trámite (2026-09-28)
+
+La dependencia entrega el AS-IS; de evaluar los documentos que se le piden al solicitante
+sale el TO-BE. La página `/revisar/{sid}/documentos` hace visible ese análisis: qué
+documentos pedía el trámite, **cuáles ya no pide y por qué**. Spec y plan en
+`docs/superpowers/` (`2026-09-28-documentos-del-tramite`).
+
+- **El agente propone, la verificación descarta, la persona decide.** `agentes/documentos.py`
+  hace una llamada por trámite (`docs-v3`), **solo a petición** y detrás de
+  `fase3.puede_generar`. `agentes/verificar_documentos.py` no usa modelo. Nada de `agentes/`
+  escribe en la sesión: persiste `web/api_documentos.py`, en `documentos.json`, que nunca
+  toca el manifiesto.
+- **Cuatro destinos:** `elimina`, `conserva`, `consulta`, `sistema`; más `sin_destino`, que
+  no es una decisión. Evidencia que exige cada uno: `conserva`, un campo `file` del
+  solicitante; `consulta`, un campo con autollenado o endpoint, o una frase del TO-BE;
+  `sistema`, una acción `documento`, un `file` de otro actor, o una frase; `elimina`, una
+  frase del TO-BE.
+- **Una cita es texto literal** y se compara con `clave()`. Una frase del TO-BE de menos de
+  cuatro palabras no es fundamento. Una frase mal copiada se descarta sin tirar lo que el
+  campo ya respalda.
+- **«Lo entrega el solicitante»** es un `file` de un actor de autoservicio **o del actor que
+  inicia el trámite**: en Periódico Oficial quien solicita es una dependencia, de tipo grupo.
+- **Un eliminado puede entrar sin cita del AS-IS** si trae la frase literal del TO-BE que
+  dice que se quitó. Todo lo demás tiene que estar nombrado en el AS-IS, o se descarta como
+  `documento_inventado`.
+- **Cobertura:** todo requisito que lea `requisitos_del_as_is` tiene que quedar cubierto por
+  alguna tarjeta; el que el modelo omita entra como `sin_destino`.
+- **«Cómo se simplificó el trámite»** nombra los documentos de cada destino y **solo cuenta
+  lo decidido** por una persona. Sale en la página, en la comparativa y en los dos
+  documentos descargables.
+- **Volver a analizar no pisa lo decidido** (`conservar_decisiones`, por `id` estable). Si un
+  `/resolver` quita el campo en que se apoyaba una tarjeta, esa vuelve a `sin_destino`
+  (`reconciliar`) y las demás se conservan. Un `analizando` de más de 20 minutos se lee
+  como error.
+- **Con todas las tarjetas decididas**, la métrica «Requisitos documentales» de la
+  comparativa sale de aquí con origen `revisado`. Lo declarado a mano sigue ganando.
+- **`CMP-05`** (`por_confirmar`): documento eliminado por decisión de una persona sin frase
+  del TO-BE que lo respalde. Va en las observaciones; no bloquea.
+- **Colores:** `--dest-elimina|consulta|sistema|conserva` en `index.css`. Es una paleta
+  **categórica**, no la rampa `--viz-*`: los destinos son identidades, no magnitudes. Validada
+  con `dataviz` en claro y en oscuro.
+- **Probado en vivo** con `gemini-3.5-flash-lite`. *Holograma Exento:* cuatro líneas del
+  AS-IS dieron diez documentos; nueve se conservan y ninguno se elimina. *Periódico Oficial:*
+  ocho documentos, siete se conservan y uno se elimina (la Orden de Trabajo en papel, con su
+  frase del TO-BE). En las dos corridas el modelo copió mal varias frases del TO-BE y la
+  verificación las descartó. **El techo es el modelo:** la calidad no se ha medido contra la
+  bóveda.
+

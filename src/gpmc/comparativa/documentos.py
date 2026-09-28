@@ -67,14 +67,17 @@ def _etiqueta(c) -> str:
 
 def referencias(m: Manifiesto) -> list:
     """Lo que el manifiesto ofrece para respaldar un destino. Un archivo cuenta
-    como «lo entrega el ciudadano» solo si su pantalla es de un actor de
-    autoservicio: el que sube el funcionario es un producto del tramite."""
+    como «lo entrega el solicitante» (clase `archivo_ciudadano`) si su pantalla
+    es de un actor de autoservicio o de quien inicia el tramite: en Periodico
+    Oficial quien solicita es una dependencia, actor de tipo grupo. El archivo
+    que sube cualquier otro actor es un producto del tramite."""
     actores = {a.id: a for a in m.actores}
+    inician = {t.actor for t in m.flujo.tareas if t.inicial and t.actor}
     salida = []
     for p in m.pantallas:
         actor = actores.get(p.actor)
         nombre_actor = actor.nombre if actor else p.actor
-        ciudadano = actor is not None and actor.tipo == "autoservicio"
+        ciudadano = p.actor in inician or (actor is not None and actor.tipo == "autoservicio")
         for c in p.campos:
             etiqueta = _etiqueta(c)
             if c.tipo == "file":

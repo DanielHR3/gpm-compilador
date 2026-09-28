@@ -69,7 +69,9 @@ def _tarjeta(d) -> str:
               f"<h3>{_e(d.nombre)}</h3>",
               f'<span class="rotulo">{_e(NOMBRE.get(d.destino, NOMBRE[SIN_DESTINO]))} · '
               f"{_e(_ESTADO.get(d.estado, d.estado))}</span>",
-              f'<p class="nota">En el AS-IS:</p><blockquote>{_e(d.cita_as_is)}</blockquote>']
+              (f'<p class="nota">En el AS-IS:</p><blockquote>{_e(d.cita_as_is)}</blockquote>'
+               if d.cita_as_is else
+               '<p class="nota">El AS-IS no lo nombra; lo dice el TO-BE.</p>')]
     if d.cita_to_be:
         partes.append(f'<p class="nota">En el TO-BE:</p><blockquote>{_e(d.cita_to_be)}</blockquote>')
     if d.campo:

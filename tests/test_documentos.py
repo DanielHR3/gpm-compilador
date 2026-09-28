@@ -178,3 +178,27 @@ def test_lo_propuesto_y_sin_revisar_no_se_afirma_en_la_simplificacion():
     # El comprobante sale «conserva» del lector, pero nadie lo ha aceptado.
     assert docs[1].destino == "conserva"
     assert resumen(docs, _m())["simplificacion"] == []
+
+
+def test_quien_inicia_el_tramite_es_solicitante_aunque_sea_una_dependencia():
+    # Periodico Oficial (prueba en vivo, 2026-09-28): quien pide la publicacion
+    # es una dependencia, actor de tipo «grupo». Sus archivos son lo que el
+    # tramite le pide, no algo que «genera el sistema».
+    m = Manifiesto(
+        tramite=Tramite(nombre="Publicación", dependencia="X"),
+        actores=[Actor(id="dependencia", nombre="Dependencia", tipo="grupo"),
+                 Actor(id="periodico", nombre="Periódico Oficial", tipo="grupo")],
+        pantallas=[
+            Pantalla(id="p1", nombre="Nueva Solicitud", actor="dependencia", campos=[
+                Campo(nombre="doc_oficio", etiqueta="Oficio de solicitud", tipo="file")]),
+            Pantalla(id="p2", nombre="Cotización", actor="periodico", campos=[
+                Campo(nombre="doc_f7", etiqueta="Formato F7", tipo="file")]),
+        ],
+        flujo=Flujo(tareas=[
+            Tarea(id="t1", nombre="Nueva Solicitud", actor="dependencia", inicial=True),
+            Tarea(id="t2", nombre="Cotización", actor="periodico", terminal=True)]),
+    )
+    assert {r.nombre: r.clase for r in referencias(m)} == {
+        "doc_oficio": "archivo_ciudadano", "doc_f7": "archivo_otro"}
+    docs = inventario_determinista("- **Requisitos:** oficio de solicitud\n", m)
+    assert (docs[0].destino, docs[0].campo) == ("conserva", "doc_oficio")

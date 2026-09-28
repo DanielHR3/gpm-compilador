@@ -86,3 +86,10 @@ it("una tarjeta ya decidida va compacta y abre el formulario al pedirlo", async 
   await usuario.click(screen.getByRole("button", { name: /guardar/i }));
   expect(onDecidir).toHaveBeenCalledWith("sistema", "");
 });
+
+it("un eliminado que solo nombra el TO-BE lo dice, sin una cita vacía", () => {
+  pintar({ cita_as_is: "" });
+  const tarjeta = screen.getByRole("article");
+  expect(tarjeta).toHaveTextContent("El AS-IS no lo nombra; lo dice el TO-BE.");
+  expect(tarjeta).not.toHaveTextContent("En el AS-IS");
+});

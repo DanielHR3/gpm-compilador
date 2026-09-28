@@ -58,3 +58,14 @@ def test_dice_como_se_simplifico_el_tramite_nombrando_los_documentos():
     assert "Se eliminó" in html and "identificación oficial vigente" in html
     assert "Lo genera el sistema" in html and "orden de trabajo" in html
     assert "Cómo se simplificó el trámite" not in _pagina(decididos=False)
+
+
+def test_un_eliminado_que_solo_nombra_el_to_be_lo_dice():
+    from gpmc.comparativa.documentos import Documento, id_de
+    m = _m()
+    doc = Documento(id=id_de("Orden de trabajo", ""), nombre="Orden de trabajo", cita_as_is="",
+                    destino="elimina", cita_to_be="Se elimina la Orden de Trabajo en papel",
+                    origen="agente", estado="aceptado")
+    html = a_html("T", resumen([doc], m), [doc])
+    assert "El AS-IS no lo nombra; lo dice el TO-BE." in html
+    assert "<blockquote></blockquote>" not in html

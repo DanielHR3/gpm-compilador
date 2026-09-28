@@ -75,7 +75,11 @@ export default function TarjetaDocumento({
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <Cita rotulo="En el AS-IS" texto={d.cita_as_is} />
+        {d.cita_as_is ? (
+          <Cita rotulo="En el AS-IS" texto={d.cita_as_is} />
+        ) : (
+          <p className="text-xs text-muted-foreground">El AS-IS no lo nombra; lo dice el TO-BE.</p>
+        )}
         {d.cita_to_be ? <Cita rotulo="En el TO-BE" texto={d.cita_to_be} /> : null}
         {d.campo ? (
           <p className="text-xs text-muted-foreground">

@@ -116,6 +116,19 @@ se corrige en silencio.
 | Un mismo campo no respalda dos documentos | `campo_repetido` en el segundo |
 | Dos documentos no comparten `cita_as_is` y nombre | `duplicado` en el segundo |
 
+**Ajustes tras la prueba en vivo (2026-09-28)**, con Holograma Exento y Periódico Oficial:
+
+- Una `cita_to_be` que no está en el TO-BE **se descarta** y deja alerta, pero no tira una
+  propuesta que su campo ya respalda. Si era lo único que la sostenía, el veredicto es
+  `cita_inventada`.
+- Una `cita_to_be` de menos de cuatro palabras no es fundamento («factura» aparece en
+  cualquier documento).
+- Un documento con destino `elimina` puede entrar **sin cita del AS-IS** si trae una frase
+  literal del TO-BE: esa frase prueba que existía y que se quitó. La tarjeta dice «El AS-IS
+  no lo nombra; lo dice el TO-BE».
+- «Lo entrega el solicitante» incluye al actor que inicia el trámite aunque sea una
+  dependencia y no un ciudadano.
+
 **Cobertura.** Todo requisito que lea `requisitos_del_as_is` tiene que quedar cubierto por
 la cita de algún documento. El que no, entra al tablero como tarjeta `sin_destino` con el
 veredicto `omitido_por_el_modelo`. El modelo puede partir una línea en varios documentos;

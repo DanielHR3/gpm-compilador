@@ -46,9 +46,16 @@ def verificar(items: list, as_is: str, to_be: str, refs: list) -> tuple:
             continue
         nombre, cita = item["nombre"].strip(), item.get("cita_as_is")
         if not _esta(cita, antes):
-            # No existe en el AS-IS: no es un documento que pidiera el tramite.
-            alertas.append("documento_inventado")
-            continue
+            # No existe en el AS-IS. Solo entra si el TO-BE dice, con una frase
+            # literal, que se elimino: esa frase prueba que el documento
+            # existia y que se quito (Periodico Oficial, 2026-09-28).
+            frase_tobe = item.get("cita_to_be")
+            if not (not cita and item.get("destino") == "elimina"
+                    and _esta(frase_tobe, despues)
+                    and len(clave(frase_tobe).split()) >= _MINIMO_PALABRAS_FRASE):
+                alertas.append("documento_inventado")
+                continue
+            cita = ""
         doc = Documento(
             id=id_de(nombre, cita), nombre=nombre, cita_as_is=cita.strip(), origen="agente",
             motivo=str(item.get("motivo") or "").strip()[:MAX_MOTIVO],
@@ -103,7 +110,8 @@ def verificar(items: list, as_is: str, to_be: str, refs: list) -> tuple:
     # puede hacer desaparecer ninguna.
     # Vale la cita o el nombre: el lector corta el requisito en el primer
     # parentesis y el modelo puede haber citado la linea entera.
-    citas = [k for d in salida for k in (clave(d.cita_as_is), clave(d.nombre)) if k]
+    citas = [k for d in salida if d.cita_as_is
+             for k in (clave(d.cita_as_is), clave(d.nombre)) if k]
     for req in requisitos_del_as_is(as_is):
         k = clave(req)
         if not k or any(c in k or k in c for c in citas):

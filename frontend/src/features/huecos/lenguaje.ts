@@ -43,6 +43,7 @@ const TITULOS: Record<string, string> = {
   "CMP-02": "Falta el dato del después",
   "CMP-03": "La reingeniería no reduce",
   "CMP-04": "Requisitos sin destino",
+  "CMP-05": "Documento eliminado sin motivo",
 };
 
 /** El titulo humano del codigo; si no lo conozco, el codigo tal cual. */

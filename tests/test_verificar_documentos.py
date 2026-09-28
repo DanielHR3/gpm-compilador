@@ -188,3 +188,26 @@ def test_un_requisito_cuenta_como_revisado_si_el_agente_nombro_su_documento():
                destino="sistema", campo="oficio")], as_is, _TOBE, _REFS)
     assert [d.veredicto for d in docs] == [""]
     assert "requisito_omitido" not in alertas
+
+
+def test_un_eliminado_que_solo_nombra_el_to_be_entra_con_su_frase():
+    # Periodico Oficial (prueba en vivo): el TO-BE dice «se eliminan … la Orden
+    # de Trabajo en papel» y el AS-IS homologado no la nombra.
+    to_be = _TOBE + "\nSe eliminan Google Form y la Orden de Trabajo en papel.\n"
+    d, alertas = _uno(_item(nombre="Orden de trabajo en papel", cita_as_is=None,
+                            destino="elimina", campo=None,
+                            cita_to_be="Se eliminan Google Form y la Orden de Trabajo en papel"),
+                      to_be=to_be)
+    assert (d.destino, d.veredicto, d.cita_as_is) == ("elimina", "", "")
+    assert d.cita_to_be.startswith("Se eliminan")
+    assert "documento_inventado" not in alertas
+
+
+def test_sin_cita_del_as_is_solo_vale_para_eliminar_y_con_frase_del_to_be():
+    for destino, campo, frase in (("conserva", "doc_tarjeta", None),
+                                  ("elimina", None, None),
+                                  ("elimina", None, "Una frase que el TO-BE no trae en ninguna parte"),
+                                  ("sistema", "oficio", None)):
+        d, alertas = _uno(_item(nombre="Algo", cita_as_is=None, destino=destino,
+                                campo=campo, cita_to_be=frase))
+        assert d is None and "documento_inventado" in alertas, (destino, frase)

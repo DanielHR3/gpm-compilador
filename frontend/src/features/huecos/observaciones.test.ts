@@ -153,6 +153,14 @@ describe("avisos de la comparativa", () => {
     expect(doc).not.toContain("Otros hallazgos");
   });
 
+  test("un documento eliminado sin fundamento va en las observaciones", () => {
+    const doc = documentoDeObservaciones(estado([]), new Date(2026, 8, 28), [
+      hueco("CMP-05", "to_be", "El TO-BE ya no pide «orden de trabajo» y no dice por qué."),
+    ]);
+    expect(doc).toContain("En la Propuesta TO-BE");
+    expect(doc).toContain("«orden de trabajo»");
+  });
+
   test("sin avisos el documento queda como antes", () => {
     expect(documentoDeObservaciones(estado([]), new Date(2026, 8, 28), [])).toBe(
       documentoDeObservaciones(estado([]), new Date(2026, 8, 28)),

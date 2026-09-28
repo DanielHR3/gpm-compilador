@@ -56,7 +56,7 @@ def test_queda_en_la_bitacora_de_ia(tmp_path):
     agente.analizar(_ASIS, _TOBE, _m(), ProveedorFalso([_BUENA], modelo="falso-1"),
                     tmp_path, "a" * 16, usuario="daniel@hidalgo.gob.mx")
     (it,) = bitacora.leer(tmp_path)
-    assert (it["documento"], it["version_prompt"], it["modelo"]) == ("documentos", "docs-v1", "falso-1")
+    assert (it["documento"], it["version_prompt"], it["modelo"]) == ("documentos", "docs-v3", "falso-1")
     assert (it["usuario"], it["sid"], it["estado"]) == ("daniel@hidalgo.gob.mx", "a" * 16, "procesada")
     assert it["instruccion_hash"] == prompt.hash_instruccion()
     assert it["solicitud"]["n_referencias"] == len(referencias(_m()))

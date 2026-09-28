@@ -494,3 +494,7 @@ test("GEN-03 (etiqueta fuera del catálogo) se redacta en palabras y se ancla al
   expect(redactarHueco(h)).not.toBe(h.mensaje);
   expect(redactarHueco({ ...h, mensaje: "otro mensaje" })).toBe("otro mensaje");
 });
+
+test("titula CMP-05", () => {
+  expect(tituloDeCodigo("CMP-05")).toBe("Documento eliminado sin motivo");
+});
