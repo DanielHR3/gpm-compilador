@@ -35,6 +35,9 @@ export default function TarjetaDocumento({
   const [motivo, setMotivo] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Lo ya decidido va compacto: con diez documentos, diez formularios
+  // abiertos tapaban lo que importa, que es que paso con cada uno.
+  const [abierto, setAbierto] = useState(d.estado === "propuesto");
   const cambio = destino !== propuesto || motivo.trim() !== "";
   const sinFundamento = d.destino === "elimina" && !d.cita_to_be && d.estado !== "propuesto";
 
@@ -96,6 +99,18 @@ export default function TarjetaDocumento({
           </p>
         ) : null}
 
+        {!abierto ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="self-start"
+            onClick={() => setAbierto(true)}
+          >
+            Cambiar destino
+          </Button>
+        ) : null}
+        {abierto ? (
         <form onSubmit={enviar} className="flex flex-col gap-2 border-t border-border/60 pt-3">
           <label htmlFor={`${id}-destino`} className="flex flex-col gap-1 text-xs">
             Destino
@@ -154,6 +169,7 @@ export default function TarjetaDocumento({
             </Button>
           </div>
         </form>
+        ) : null}
       </CardContent>
     </Card>
   );

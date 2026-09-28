@@ -12,6 +12,9 @@ from gpmc.planeacion.registro import clave
 
 # Una cita de dos letras «aparece» en cualquier documento.
 _MINIMO_CITA = 3
+# Una frase del TO-BE respalda un destino si dice algo: «factura» aparece en
+# cualquier documento y no dice que paso con ella (prueba en vivo, 2026-09-28).
+_MINIMO_PALABRAS_FRASE = 4
 
 
 def _esta(cita, texto_normalizado: str) -> bool:
@@ -59,22 +62,33 @@ def verificar(items: list, as_is: str, to_be: str, refs: list) -> tuple:
 
         destino = item.get("destino")
         frase, campo = item.get("cita_to_be"), item.get("campo")
+        # Una frase que no esta en el TO-BE, o que no dice nada, no entra como
+        # evidencia; pero no tira lo que el campo ya respalda por su cuenta.
+        mal_copiada = bool(frase) and not _esta(frase, despues)
+        if mal_copiada:
+            alertas.append("cita_inventada")
+            frase = None
+        elif frase and len(clave(frase).split()) < _MINIMO_PALABRAS_FRASE:
+            alertas.append("cita_corta")
+            frase = None
         veredicto = ""
         if destino not in DESTINOS:
             veredicto = "destino_invalido"
-        elif frase and not _esta(frase, despues):
-            veredicto = "cita_inventada"
         elif campo and campo not in por_nombre:
             veredicto = "campo_inventado"
         else:
             clase = por_nombre[campo].clase if campo else ""
             veredicto = _evidencia(destino, clase, bool(frase))
+            if veredicto and mal_copiada:
+                # Lo unico que lo sostenia era la frase que no existe.
+                veredicto = "cita_inventada"
             if not veredicto and campo and destino in ("conserva", "sistema") \
                     and campo in campos_usados:
                 veredicto = "campo_repetido"
 
         if veredicto:
-            alertas.append(veredicto)
+            if veredicto != "cita_inventada":
+                alertas.append(veredicto)
             doc.veredicto = veredicto
             doc.destino = SIN_DESTINO
         else:
@@ -87,7 +101,9 @@ def verificar(items: list, as_is: str, to_be: str, refs: list) -> tuple:
 
     # Cobertura: el modelo puede partir una linea en varios documentos, pero no
     # puede hacer desaparecer ninguna.
-    citas = [clave(d.cita_as_is) for d in salida]
+    # Vale la cita o el nombre: el lector corta el requisito en el primer
+    # parentesis y el modelo puede haber citado la linea entera.
+    citas = [k for d in salida for k in (clave(d.cita_as_is), clave(d.nombre)) if k]
     for req in requisitos_del_as_is(as_is):
         k = clave(req)
         if not k or any(c in k or k in c for c in citas):

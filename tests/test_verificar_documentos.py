@@ -158,3 +158,33 @@ def test_el_nucleo_y_la_comparativa_no_importan_de_agentes():
         for nodo in ast.walk(ast.parse(ruta.read_text(encoding="utf-8"))):
             if isinstance(nodo, ast.ImportFrom):
                 assert not (nodo.module or "").startswith("gpmc.agentes"), ruta.name
+
+
+# --- Hallazgos de la prueba en vivo con Holograma Exento (2026-09-28) -----------
+
+def test_una_cita_del_to_be_mal_copiada_no_tira_lo_que_el_campo_ya_respalda():
+    d, alertas = _uno(_item(cita_to_be="El ciudadano adjunta su tarjeta en el portal"))
+    assert (d.destino, d.campo, d.veredicto, d.cita_to_be) == ("conserva", "doc_tarjeta", "", "")
+    assert "cita_inventada" in alertas
+
+
+def test_una_cita_del_to_be_de_una_palabra_no_es_fundamento():
+    # «factura» aparece en cualquier TO-BE y no dice que paso con el documento.
+    to_be = _TOBE + "\nLa factura se revisa en ventanilla digital.\n"
+    d, alertas = _uno(_item(nombre="Factura", cita_as_is="factura", destino="elimina",
+                            campo=None, cita_to_be="factura"), to_be=to_be)
+    assert (d.destino, d.veredicto, d.cita_to_be) == ("sin_destino", "sin_fundamento", "")
+    assert "cita_corta" in alertas
+    d, _ = _uno(_item(nombre="Factura", cita_as_is="factura", destino="elimina", campo=None,
+                      cita_to_be="La factura se revisa en ventanilla digital"), to_be=to_be)
+    assert (d.destino, d.veredicto) == ("elimina", "")
+
+
+def test_un_requisito_cuenta_como_revisado_si_el_agente_nombro_su_documento():
+    as_is = ("- **Requisitos:**\n"
+             "  - Si el solicitante es persona moral: instrumento notarial (acta y poder)\n")
+    docs, alertas = verificar(
+        [_item(nombre="Instrumento notarial", cita_as_is="instrumento notarial (acta y poder)",
+               destino="sistema", campo="oficio")], as_is, _TOBE, _REFS)
+    assert [d.veredicto for d in docs] == [""]
+    assert "requisito_omitido" not in alertas

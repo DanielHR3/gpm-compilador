@@ -74,3 +74,15 @@ it("si guardar falla lo dice y conserva lo elegido", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(/no se pudo guardar/i);
   expect(screen.getByLabelText(/destino/i)).toHaveValue("sistema");
 });
+
+it("una tarjeta ya decidida va compacta y abre el formulario al pedirlo", async () => {
+  // Con diez documentos decididos, diez formularios abiertos alargaban la
+  // pagina y tapaban lo que importa: que paso con cada documento.
+  const onDecidir = pintar({ estado: "aceptado" });
+  expect(screen.queryByLabelText(/destino/i)).toBeNull();
+  const usuario = userEvent.setup();
+  await usuario.click(screen.getByRole("button", { name: /cambiar destino/i }));
+  await usuario.selectOptions(screen.getByLabelText(/destino/i), "sistema");
+  await usuario.click(screen.getByRole("button", { name: /guardar/i }));
+  expect(onDecidir).toHaveBeenCalledWith("sistema", "");
+});
