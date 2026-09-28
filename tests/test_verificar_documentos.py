@@ -92,7 +92,8 @@ def test_conserva_exige_un_archivo_del_ciudadano():
 def test_consulta_vale_con_campo_de_consulta_o_con_frase_del_to_be():
     d, _ = _uno(_item(destino="consulta", campo="curp"))
     assert d.veredicto == ""
-    d, _ = _uno(_item(destino="consulta", campo=None,
+    d, _ = _uno(_item(nombre="Identificación oficial", cita_as_is="identificación oficial",
+                      destino="consulta", campo=None,
                       cita_to_be="La identificación se valida con RENAPO"))
     assert d.veredicto == ""
     d, _ = _uno(_item(destino="consulta", campo="doc_tarjeta"))
@@ -163,7 +164,7 @@ def test_el_nucleo_y_la_comparativa_no_importan_de_agentes():
 # --- Hallazgos de la prueba en vivo con Holograma Exento (2026-09-28) -----------
 
 def test_una_cita_del_to_be_mal_copiada_no_tira_lo_que_el_campo_ya_respalda():
-    d, alertas = _uno(_item(cita_to_be="El ciudadano adjunta su tarjeta en el portal"))
+    d, alertas = _uno(_item(cita_to_be="El ciudadano adjunta su tarjeta de circulación en el portal"))
     assert (d.destino, d.campo, d.veredicto, d.cita_to_be) == ("conserva", "doc_tarjeta", "", "")
     assert "cita_inventada" in alertas
 
@@ -211,3 +212,62 @@ def test_sin_cita_del_as_is_solo_vale_para_eliminar_y_con_frase_del_to_be():
         d, alertas = _uno(_item(nombre="Algo", cita_as_is=None, destino=destino,
                                 campo=campo, cita_to_be=frase))
         assert d is None and "documento_inventado" in alertas, (destino, frase)
+
+
+# --- Hallazgos de la revision de la rama (2026-09-28) ---------------------------
+
+def test_una_frase_del_to_be_que_no_habla_del_documento_no_lo_respalda():
+    # I1: «Se agrega un paso de pago en linea» es literal, pero no dice nada
+    # del acta de nacimiento.
+    as_is = "- **Requisitos:** acta de nacimiento\n"
+    to_be = "Se agrega un paso de pago en línea para todos.\n"
+    d, alertas = _uno(_item(nombre="Acta de nacimiento", cita_as_is="acta de nacimiento",
+                            destino="elimina", campo=None,
+                            cita_to_be="Se agrega un paso de pago en línea"),
+                      as_is=as_is, to_be=to_be)
+    assert (d.destino, d.veredicto, d.cita_to_be) == ("sin_destino", "sin_fundamento", "")
+    assert "cita_ajena" in alertas
+
+
+def test_un_eliminado_sin_as_is_tiene_que_estar_nombrado_en_su_frase():
+    to_be = "Se agrega un paso de pago en línea para todos.\n"
+    d, alertas = _uno(_item(nombre="Pasaporte vigente", cita_as_is=None, destino="elimina",
+                            campo=None, cita_to_be="Se agrega un paso de pago en línea"),
+                      to_be=to_be)
+    assert d is None and "documento_inventado" in alertas
+
+
+def test_una_cita_del_as_is_que_no_nombra_el_documento_no_lo_deja_entrar():
+    as_is = "El ciudadano acude a la ventanilla.\n- **Requisitos:** comprobante\n"
+    d, alertas = _uno(_item(nombre="Cartilla militar", cita_as_is="acude a la ventanilla"),
+                      as_is=as_is)
+    assert d is None and "documento_inventado" in alertas
+
+
+def test_singular_y_plural_cuentan_como_la_misma_palabra():
+    to_be = "Se eliminan las identificaciones oficiales del trámite.\n"
+    d, _ = _uno(_item(nombre="Identificación oficial", cita_as_is="identificación oficial",
+                      destino="elimina", campo=None,
+                      cita_to_be="Se eliminan las identificaciones oficiales del trámite"),
+                to_be=to_be)
+    assert (d.destino, d.veredicto) == ("elimina", "")
+
+
+def test_un_documento_no_cubre_dos_requisitos():
+    # I2: «identificacion oficial» es subcadena del segundo requisito, pero es
+    # otro documento y nadie lo reviso.
+    as_is = ("- **Requisitos:**\n  - Identificación oficial\n"
+             "  - Copia de identificación oficial del representante legal\n")
+    docs, alertas = verificar(
+        [_item(nombre="Identificación oficial", cita_as_is="Identificación oficial",
+               destino="consulta", campo="curp")], as_is, _TOBE, _REFS)
+    assert [(d.nombre, d.veredicto) for d in docs] == [
+        ("Identificación oficial", ""),
+        ("Copia de identificación oficial del representante legal", "omitido_por_el_modelo")]
+
+
+def test_un_nombre_de_dos_letras_no_cubre_nada():
+    as_is = "- **Requisitos:**\n  - Acta de nacimiento\n  - Comprobante de domicilio\n"
+    docs, _ = verificar([_item(nombre="de", cita_as_is="Acta de nacimiento",
+                               destino="consulta", campo="curp")], as_is, _TOBE, _REFS)
+    assert sorted(d.veredicto for d in docs if d.origen == "lector") == ["omitido_por_el_modelo"] * 2

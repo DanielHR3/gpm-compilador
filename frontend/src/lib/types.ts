@@ -287,6 +287,8 @@ export interface ResumenDocumentos {
   ya_no_se_piden: number;
   por_destino: Record<DestinoOSin, number>;
   agregados: string[];
+  /** Archivos que el trámite rediseñado le pide al solicitante. */
+  solicitados: number;
   completo: boolean;
   titular: string;
   /** «Cómo se simplificó el trámite»: los documentos de cada destino ya decidido. */

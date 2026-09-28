@@ -167,26 +167,49 @@ def _simplificacion(decididos: list) -> list:
 def resumen(docs: list, m: Manifiesto) -> dict:
     decididos = [d for d in docs if _decidido(d)]
     fuera = sum(1 for d in decididos if d.destino in YA_NO_SE_PIDE)
+    # Solo lo decidido cuenta en un destino: recien analizado, «se elimina» es
+    # una propuesta y no un hecho. Lo demas esta por revisar.
     por_destino = {k: 0 for k in (*DESTINOS, SIN_DESTINO)}
-    for d in docs:
-        por_destino[d.destino if d.destino in por_destino else SIN_DESTINO] += 1
+    for d in decididos:
+        por_destino[d.destino] += 1
+    por_destino[SIN_DESTINO] = len(docs) - len(decididos)
     return {
         "total": len(docs),
         "decididos": len(decididos),
         "ya_no_se_piden": fuera,
         "por_destino": por_destino,
         "agregados": agregados(docs, m),
+        # Lo que el tramite rediseñado le pide al solicitante: el «despues» de
+        # la comparativa. No es «conservados + agregados»: un «conserva»
+        # decidido a mano sin campo contaria dos veces.
+        "solicitados": sum(1 for r in referencias(m) if r.clase == "archivo_ciudadano"),
         "completo": bool(docs) and len(decididos) == len(docs),
         "titular": _titular(len(docs), len(decididos), fuera),
         "simplificacion": _simplificacion(decididos),
     }
 
 
-def decidir(doc: Documento, destino: str, motivo: str = "") -> Documento:
+def _campo_libre(doc: Documento, refs: list, docs: list) -> str:
+    ocupados = {d.campo for d in docs if d is not doc and d.campo}
+    for r in refs:
+        if r.clase == "archivo_ciudadano" and r.nombre not in ocupados and (
+                casa(doc.nombre, r.etiqueta) or casa(doc.cita_as_is, r.etiqueta)):
+            return r.nombre
+    return ""
+
+
+def decidir(doc: Documento, destino: str, motivo: str = "",
+            refs: Optional[list] = None, docs: Optional[list] = None) -> Documento:
     if destino not in DESTINOS:
         raise ValueError(f"«{destino}» no es un destino")
     motivo = (motivo or "").strip()[:MAX_MOTIVO]
-    doc.estado = "corregido" if (destino != doc.destino or motivo) else "aceptado"
+    cambia = destino != doc.destino
+    doc.estado = "corregido" if (cambia or motivo) else "aceptado"
+    if cambia:
+        # El campo y la frase respaldaban el destino propuesto, no este.
+        doc.campo, doc.cita_to_be = "", ""
+    if destino == "conserva" and not doc.campo and refs:
+        doc.campo = _campo_libre(doc, refs, docs or [])
     doc.destino = destino
     # El veredicto era de la propuesta; lo que decide la persona no lo hereda.
     doc.veredicto = ""
@@ -206,9 +229,32 @@ def reconciliar(docs: list, m: Manifiesto) -> list:
 
 
 def conservar_decisiones(nuevos: list, previos: list) -> list:
-    """Volver a analizar no pisa lo que ya decidio una persona."""
-    decididos = {d.id: d for d in previos if _decidido(d)}
-    return [decididos.get(d.id, d) for d in nuevos]
+    """Volver a analizar no pisa lo que ya decidio una persona.
+
+    El id sale del nombre y la cita, que el modelo redacta: de una corrida a
+    otra puede cambiar. Por eso lo decidido se reencuentra por id, por cita o
+    por nombre, y lo que el analisis nuevo no trae SE QUEDA: un analisis no
+    puede deshacer una decision."""
+    decididos = [d for d in previos if _decidido(d)]
+    usados, salida = set(), []
+
+    def previo_de(nuevo):
+        for llave in (lambda d: d.id == nuevo.id,
+                      lambda d: bool(clave(d.cita_as_is)) and clave(d.cita_as_is) == clave(nuevo.cita_as_is),
+                      lambda d: clave(d.nombre) == clave(nuevo.nombre)):
+            for i, d in enumerate(decididos):
+                if i not in usados and llave(d):
+                    return i
+        return None
+
+    for nuevo in nuevos:
+        i = previo_de(nuevo)
+        if i is None:
+            salida.append(nuevo)
+        else:
+            usados.add(i)
+            salida.append(decididos[i])
+    return salida + [d for i, d in enumerate(decididos) if i not in usados]
 
 
 def avisos(docs: list) -> list:

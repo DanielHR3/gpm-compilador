@@ -30,6 +30,7 @@ def test_la_barra_lleva_la_cuenta_escrita_en_cada_tramo():
     html = _pagina()
     assert "<svg" in html and 'role="img"' in html
     assert "Se elimina · 1" in html and "Se conserva · 1" in html
+    assert "Por revisar · 3" in _pagina(decididos=False)
 
 
 def test_con_revision_a_medias_lo_dice_y_no_afirma_de_mas():

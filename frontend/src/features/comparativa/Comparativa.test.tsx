@@ -211,7 +211,7 @@ it("con los documentos revisados enseña su titular y enlaza a la página", asyn
     ...DATOS,
     requisitos: [],
     documentos: {
-      total: 3, decididos: 3, ya_no_se_piden: 2, completo: true, agregados: [],
+      total: 3, decididos: 3, ya_no_se_piden: 2, solicitados: 0, completo: true, agregados: [],
       titular: "De 3 documentos que pedía el trámite, 2 ya no se piden.",
       simplificacion: [{ destino: "elimina", frase: "Se eliminó", documentos: ["Orden de trabajo"] }],
       por_destino: { elimina: 1, conserva: 1, consulta: 1, sistema: 0, sin_destino: 0 },

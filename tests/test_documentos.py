@@ -99,6 +99,7 @@ def test_el_titular_cuenta_solo_lo_decidido():
     assert r["titular"] == "De 3 documentos que pedía el trámite, 2 ya no se piden."
     assert r["por_destino"] == {"elimina": 1, "conserva": 1, "consulta": 0,
                                 "sistema": 1, "sin_destino": 0}
+    assert r["solicitados"] == 1
 
 
 def test_sin_documentos_el_titular_lo_dice():
@@ -202,3 +203,62 @@ def test_quien_inicia_el_tramite_es_solicitante_aunque_sea_una_dependencia():
         "doc_oficio": "archivo_ciudadano", "doc_f7": "archivo_otro"}
     docs = inventario_determinista("- **Requisitos:** oficio de solicitud\n", m)
     assert (docs[0].destino, docs[0].campo) == ("conserva", "doc_oficio")
+
+
+# --- Hallazgos de la revision de la rama (2026-09-28) ---------------------------
+
+def test_la_barra_solo_cuenta_lo_decidido_lo_demas_esta_por_revisar():
+    # I5: recien analizado, «conserva» es una propuesta, no un hecho.
+    docs = inventario_determinista(_ASIS, _m())
+    assert resumen(docs, _m())["por_destino"] == {
+        "elimina": 0, "conserva": 0, "consulta": 0, "sistema": 0, "sin_destino": 3}
+
+
+def test_volver_a_analizar_conserva_lo_decidido_aunque_cambie_el_nombre_o_no_venga():
+    # C1: el id sale del nombre y la cita, que el modelo redacta.
+    previos = inventario_determinista(_ASIS, _m())
+    decidir(previos[0], "consulta", "Se valida con la CURP.")
+    decidir(previos[2], "elimina")
+    nuevos = [
+        Documento(id=id_de("INE o pasaporte", "identificación oficial vigente"),
+                  nombre="INE o pasaporte", cita_as_is="identificación oficial vigente",
+                  destino="elimina", origen="agente"),
+        Documento(id=id_de("Comprobante", "comprobante de domicilio"), nombre="Comprobante",
+                  cita_as_is="comprobante de domicilio", destino="conserva",
+                  campo="doc_comprobante", origen="agente"),
+    ]
+    fuera = conservar_decisiones(nuevos, previos)
+    assert [(d.nombre, d.destino, d.estado) for d in fuera] == [
+        ("identificación oficial vigente", "consulta", "corregido"),
+        ("Comprobante", "conserva", "propuesto"),
+        # No vino en el analisis nuevo y la persona ya lo habia decidido: se queda.
+        ("orden de trabajo", "elimina", "corregido"),
+    ]
+
+
+def test_cambiar_el_destino_no_hereda_la_evidencia_de_la_propuesta():
+    # I4: el campo y la frase respaldaban otro destino.
+    doc = Documento(id="x", nombre="Comprobante de domicilio", cita_as_is="comprobante",
+                    destino="conserva", campo="doc_comprobante",
+                    cita_to_be="El comprobante se adjunta en la solicitud", origen="agente")
+    decidir(doc, "elimina")
+    assert (doc.destino, doc.campo, doc.cita_to_be) == ("elimina", "", "")
+    assert [h.codigo for h in avisos([doc])] == ["CMP-05"]
+
+
+def test_aceptar_sin_cambiar_conserva_la_evidencia():
+    doc = Documento(id="x", nombre="Orden", cita_as_is="orden", destino="elimina",
+                    cita_to_be="La orden de trabajo se elimina", origen="agente")
+    decidir(doc, "elimina")
+    assert doc.cita_to_be == "La orden de trabajo se elimina" and avisos([doc]) == []
+
+
+def test_decidir_conserva_a_mano_busca_su_campo_entre_los_libres():
+    # I3: sin campo, el archivo del TO-BE se contaba como conservado y como agregado.
+    m = _m()
+    docs = inventario_determinista("- **Requisitos:** recibo de domicilio, comprobante de domicilio\n", m)
+    assert [d.destino for d in docs] == ["sin_destino", "conserva"]
+    otro = Documento(id="y", nombre="Comprobante de domicilio", cita_as_is="comprobante")
+    decidir(otro, "conserva", refs=referencias(m), docs=[])
+    assert otro.campo == "doc_comprobante"
+    assert agregados([otro], m) == []

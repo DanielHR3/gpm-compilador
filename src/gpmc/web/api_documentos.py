@@ -6,6 +6,7 @@ persiste `documentos.json`. Importa de `gpmc.web.sesiones`, nunca de
 """
 import logging
 import re
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -36,6 +37,18 @@ MOTIVO_INTERRUMPIDO = ("El análisis se interrumpió (el servidor se reinició o
                        "tarea). Vuelve a intentarlo o asigna los destinos a mano.")
 MOTIVO_SIN_AS_IS = ("No se cargó el Análisis AS-IS en este expediente: no hay documentos de "
                     "antes que revisar.")
+
+
+# Un candado por sesion alrededor de cada leer-modificar-escribir de
+# `documentos.json`: el hilo del analisis y las decisiones de la persona
+# escriben el mismo archivo (revision de la rama, 2026-09-28).
+_CANDADOS: dict = {}
+_CANDADO_DE_CANDADOS = threading.Lock()
+
+
+def _candado(sid: str) -> threading.Lock:
+    with _CANDADO_DE_CANDADOS:
+        return _CANDADOS.setdefault(sid, threading.Lock())
 
 
 class DecisionIn(BaseModel):
@@ -104,33 +117,45 @@ def crear_router_documentos(raiz: Path, proveedor, entorno: Optional[dict] = Non
                 "resumen": docs_tramite.resumen(docs, m), **comun}
 
     def _guardar_documentos(carpeta: Path, docs: list) -> None:
+        """Dentro del candado. Conserva el estado: decidir mientras el agente
+        trabaja no puede sacar a la sesion de «analizando»."""
         d = _vigente(documentos_de(carpeta) or {})
-        estado = d.get("estado") if d.get("estado") in ("lista", "error") else "sin_analizar"
+        estado = d.get("estado") if d.get("estado") in ("analizando", "lista", "error") \
+            else "sin_analizar"
         escribir_documentos(carpeta, {**d, "estado": estado,
                                       "documentos": docs_tramite.a_dicts(docs)})
 
-    def _anotador(carpeta: Path):
+    def _anotador(carpeta: Path, sid: str):
         def avisar(mensaje: str) -> None:
-            d = documentos_de(carpeta) or {}
-            d["pasos"] = list(d.get("pasos") or []) + [{"t": _ahora(), "mensaje": mensaje}]
-            escribir_documentos(carpeta, d)
+            with _candado(sid):
+                d = documentos_de(carpeta) or {}
+                d["pasos"] = list(d.get("pasos") or []) + [{"t": _ahora(), "mensaje": mensaje}]
+                escribir_documentos(carpeta, d)
         return avisar
 
     def analizar_en_segundo_plano(sid: str, usuario: str) -> None:
         carpeta, m = _sesion(sid)
         if carpeta is None:
             return
-        previos = docs_tramite.desde_dicts((documentos_de(carpeta) or {}).get("documentos"))
         a = analizar(_leer(carpeta, "as_is"), _leer(carpeta, "to_be"), m, proveedor, raiz, sid,
-                     avisar=_anotador(carpeta), usuario=usuario)
+                     avisar=_anotador(carpeta, sid), usuario=usuario)
         log.info("documentos sid=%s estado=%s n=%s", sid, a.estado, len(a.documentos))
-        nuevos = docs_tramite.conservar_decisiones(
-            docs_tramite.desde_dicts(a.documentos), previos)
-        d = documentos_de(carpeta) or {}
-        escribir_documentos(carpeta, {
-            "estado": a.estado, "motivo": a.motivo, "origen": a.origen,
-            "iniciado": d.get("iniciado"), "pasos": d.get("pasos") or [],
-            "documentos": docs_tramite.a_dicts(nuevos)})
+        with _candado(sid):
+            # Lo previo se lee AHORA y no al empezar: la persona pudo decidir
+            # mientras el agente trabajaba.
+            d = documentos_de(carpeta) or {}
+            previos = docs_tramite.desde_dicts(d.get("documentos"))
+            if a.estado == "error" and previos:
+                # Un fallo de red no borra trabajo: se queda lo que habia.
+                nuevos, origen = previos, d.get("origen") or a.origen
+            else:
+                nuevos = docs_tramite.conservar_decisiones(
+                    docs_tramite.desde_dicts(a.documentos), previos)
+                origen = a.origen
+            escribir_documentos(carpeta, {
+                "estado": a.estado, "motivo": a.motivo, "origen": origen,
+                "iniciado": d.get("iniciado"), "pasos": d.get("pasos") or [],
+                "documentos": docs_tramite.a_dicts(nuevos)})
 
     @r.get("/expedientes/{sid}/documentos")
     async def leer_documentos(sid: str):
@@ -149,11 +174,16 @@ def crear_router_documentos(raiz: Path, proveedor, entorno: Optional[dict] = Non
             return JSONResponse(status_code=409, content={"error": motivo})
         if not _leer(carpeta, "as_is").strip():
             return JSONResponse(status_code=409, content={"error": MOTIVO_SIN_AS_IS})
-        d = _vigente(documentos_de(carpeta) or {})
-        if d.get("estado") == "analizando":
-            return JSONResponse(status_code=202, content={"estado": "analizando"})
-        escribir_documentos(carpeta, {**d, "estado": "analizando", "motivo": None,
-                                      "iniciado": _ahora(), "pasos": []})
+        with _candado(sid):
+            d = _vigente(documentos_de(carpeta) or {})
+            if d.get("estado") == "analizando":
+                return JSONResponse(status_code=202, content={"estado": "analizando"})
+            # El inventario a la vista se guarda antes de empezar, para que
+            # una decision a media tarea tenga donde escribirse.
+            docs = _documentos(carpeta, m, d)
+            escribir_documentos(carpeta, {**d, "estado": "analizando", "motivo": None,
+                                          "iniciado": _ahora(), "pasos": [],
+                                          "documentos": docs_tramite.a_dicts(docs)})
         quien = getattr(request.state, "usuario", None)
         tareas.add_task(analizar_en_segundo_plano, sid, quien.correo if quien else "anonimo")
         return JSONResponse(status_code=202, content={"estado": "analizando"})
@@ -163,12 +193,13 @@ def crear_router_documentos(raiz: Path, proveedor, entorno: Optional[dict] = Non
         carpeta, m = _sesion(sid)
         if carpeta is None:
             return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
-        docs = _documentos(carpeta, m, _vigente(documentos_de(carpeta) or {}))
-        for doc in docs:
-            if doc.estado == "propuesto" and not doc.veredicto \
-                    and doc.destino in docs_tramite.DESTINOS:
-                docs_tramite.decidir(doc, doc.destino)
-        _guardar_documentos(carpeta, docs)
+        with _candado(sid):
+            docs = _documentos(carpeta, m, _vigente(documentos_de(carpeta) or {}))
+            for doc in docs:
+                if doc.estado == "propuesto" and not doc.veredicto \
+                        and doc.destino in docs_tramite.DESTINOS:
+                    docs_tramite.decidir(doc, doc.destino)
+            _guardar_documentos(carpeta, docs)
         return _estado(carpeta, m)
 
     @r.post("/expedientes/{sid}/documentos/{doc_id}/decision")
@@ -179,12 +210,14 @@ def crear_router_documentos(raiz: Path, proveedor, entorno: Optional[dict] = Non
         if cuerpo.destino not in docs_tramite.DESTINOS:
             return JSONResponse(status_code=422, content={
                 "error": f"«{cuerpo.destino[:40]}» no es un destino"})
-        docs = _documentos(carpeta, m, _vigente(documentos_de(carpeta) or {}))
-        doc = next((x for x in docs if x.id == doc_id), None)
-        if doc is None:
-            return JSONResponse(status_code=404, content={"error": "documento no encontrado"})
-        docs_tramite.decidir(doc, cuerpo.destino, cuerpo.motivo)
-        _guardar_documentos(carpeta, docs)
+        with _candado(sid):
+            docs = _documentos(carpeta, m, _vigente(documentos_de(carpeta) or {}))
+            doc = next((x for x in docs if x.id == doc_id), None)
+            if doc is None:
+                return JSONResponse(status_code=404, content={"error": "documento no encontrado"})
+            docs_tramite.decidir(doc, cuerpo.destino, cuerpo.motivo,
+                                 refs=docs_tramite.referencias(m), docs=docs)
+            _guardar_documentos(carpeta, docs)
         return _estado(carpeta, m)
 
     @r.get("/expedientes/{sid}/documentos/descarga")

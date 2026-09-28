@@ -37,7 +37,7 @@ const ESTADO = {
     doc("Orden de trabajo", "sin_destino", { veredicto: "cita_inventada" }),
   ],
   resumen: {
-    total: 3, decididos: 0, ya_no_se_piden: 0, completo: false, agregados: ["RFC"],
+    total: 3, decididos: 0, ya_no_se_piden: 0, solicitados: 0, completo: false, agregados: ["RFC"],
     titular: "Faltan 3 documentos por revisar.", simplificacion: [],
     por_destino: { elimina: 1, conserva: 1, consulta: 0, sistema: 0, sin_destino: 1 },
   },
@@ -80,7 +80,7 @@ it("decidir una tarjeta actualiza la página con lo que devuelve el servidor", a
     ...ESTADO,
     documentos: ESTADO.documentos.map((d) =>
       d.id === "Identificación oficial" ? { ...d, estado: "aceptado" } : d),
-    resumen: { ...ESTADO.resumen, decididos: 1, ya_no_se_piden: 1,
+    resumen: { ...ESTADO.resumen, decididos: 1, ya_no_se_piden: 1, solicitados: 0,
                titular: "De 1 documento revisado, 1 ya no se pide. Faltan 2 por revisar." },
   });
   render(<Documentos sid={SID} />);

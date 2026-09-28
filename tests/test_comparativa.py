@@ -304,3 +304,15 @@ def test_un_eliminado_sin_frase_del_to_be_sale_como_cmp05():
 def test_sin_documentos_no_cambia_nada():
     c = comparar(_estado(), Rediseno(), _m())
     assert c.documentos is None
+
+
+def test_el_despues_de_lo_revisado_son_los_archivos_que_pide_el_to_be():
+    # I3 de la revision: «conserva» decidido a mano sin campo no puede contar
+    # dos veces. El despues es lo que el tramite rediseñado le pide al solicitante.
+    from gpmc.comparativa.documentos import decidir, inventario_determinista
+    m = _m()
+    docs = inventario_determinista("- **Requisitos:** credencial, cartilla\n", m)
+    decidir(docs[0], "conserva")
+    decidir(docs[1], "elimina")
+    r = _metrica(comparar(_estado(), Rediseno(), m, documentos=docs), "requisitos")
+    assert (r.antes.numero, r.despues.numero) == (2.0, 1.0)

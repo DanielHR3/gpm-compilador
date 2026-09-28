@@ -689,23 +689,35 @@ documentos pedía el trámite, **cuáles ya no pide y por qué**. Spec y plan en
   frase del TO-BE.
 - **Una cita es texto literal** y se compara con `clave()`. Una frase del TO-BE de menos de
   cuatro palabras no es fundamento. Una frase mal copiada se descarta sin tirar lo que el
-  campo ya respalda.
+  campo ya respalda. **Que la frase exista no basta: tiene que hablar del documento**, es
+  decir, compartir con su nombre al menos una palabra que nombre algo (`_comparten`). Sin
+  eso, «Se agrega un paso de pago» respaldaba la eliminación de un acta.
 - **«Lo entrega el solicitante»** es un `file` de un actor de autoservicio **o del actor que
   inicia el trámite**: en Periódico Oficial quien solicita es una dependencia, de tipo grupo.
 - **Un eliminado puede entrar sin cita del AS-IS** si trae la frase literal del TO-BE que
   dice que se quitó. Todo lo demás tiene que estar nombrado en el AS-IS, o se descarta como
   `documento_inventado`.
 - **Cobertura:** todo requisito que lea `requisitos_del_as_is` tiene que quedar cubierto por
-  alguna tarjeta; el que el modelo omita entra como `sin_destino`.
+  alguna tarjeta; el que el modelo omita entra como `sin_destino`. Varios documentos pueden
+  cubrir un requisito, pero **un documento cubre uno solo**, el que mejor le ajusta.
 - **«Cómo se simplificó el trámite»** nombra los documentos de cada destino y **solo cuenta
   lo decidido** por una persona. Sale en la página, en la comparativa y en los dos
   documentos descargables.
-- **Volver a analizar no pisa lo decidido** (`conservar_decisiones`, por `id` estable). Si un
+- **Volver a analizar no pisa lo decidido.** `conservar_decisiones` reencuentra cada decisión
+  por id, por cita o por nombre, porque el id sale de texto que el modelo redacta; y lo que
+  el análisis nuevo no trae **se queda**. Un análisis que termina en error no reemplaza los
+  documentos. Cada leer-modificar-escribir de `documentos.json` va dentro de un candado por
+  sesión: la persona puede decidir mientras el agente trabaja. Si un
   `/resolver` quita el campo en que se apoyaba una tarjeta, esa vuelve a `sin_destino`
   (`reconciliar`) y las demás se conservan. Un `analizando` de más de 20 minutos se lee
   como error.
 - **Con todas las tarjetas decididas**, la métrica «Requisitos documentales» de la
-  comparativa sale de aquí con origen `revisado`. Lo declarado a mano sigue ganando.
+  comparativa sale de aquí con origen `revisado`. El «después» son los archivos que el
+  trámite rediseñado le pide al solicitante (`solicitados`), no «conservados + agregados».
+  Lo declarado a mano sigue ganando.
+- **Cambiar el destino no hereda la evidencia:** el campo y la frase respaldaban la propuesta.
+  Al decidir «se conserva» a mano se busca su campo entre los archivos libres.
+- **La barra solo cuenta lo decidido;** lo demás va como «Por revisar».
 - **`CMP-05`** (`por_confirmar`): documento eliminado por decisión de una persona sin frase
   del TO-BE que lo respalde. Va en las observaciones; no bloquea.
 - **Colores:** `--dest-elimina|consulta|sistema|conserva` en `index.css`. Es una paleta
@@ -714,7 +726,8 @@ documentos pedía el trámite, **cuáles ya no pide y por qué**. Spec y plan en
 - **Probado en vivo** con `gemini-3.5-flash-lite`. *Holograma Exento:* cuatro líneas del
   AS-IS dieron diez documentos; nueve se conservan y ninguno se elimina. *Periódico Oficial:*
   ocho documentos, siete se conservan y uno se elimina (la Orden de Trabajo en papel, con su
-  frase del TO-BE). En las dos corridas el modelo copió mal varias frases del TO-BE y la
-  verificación las descartó. **El techo es el modelo:** la calidad no se ha medido contra la
+  frase del TO-BE). En todas las corridas el modelo copió mal varias frases del TO-BE y la
+  verificación las descartó. **El resultado varía de una corrida a otra:** una repetición,
+  contestada por `gemini-3.5-flash`, ya no encontró la Orden de Trabajo. **El techo es el modelo:** la calidad no se ha medido contra la
   bóveda.
 

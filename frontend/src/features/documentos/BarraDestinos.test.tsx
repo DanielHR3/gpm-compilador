@@ -7,7 +7,7 @@ import type { ResumenDocumentos } from "@/lib/types";
 import BarraDestinos from "./BarraDestinos";
 
 const resumen = (por: Partial<ResumenDocumentos["por_destino"]>): ResumenDocumentos => ({
-  total: 0, decididos: 0, ya_no_se_piden: 0, agregados: [], completo: false, titular: "",
+  total: 0, decididos: 0, ya_no_se_piden: 0, solicitados: 0, agregados: [], completo: false, titular: "",
   simplificacion: [],
   por_destino: { elimina: 0, conserva: 0, consulta: 0, sistema: 0, sin_destino: 0, ...por },
 });
@@ -18,7 +18,8 @@ it("pinta un tramo por destino con su cuenta escrita, y una leyenda", () => {
   expect(screen.getByRole("img", { name: /documentos por destino/i })).toBeInTheDocument();
   expect(screen.getByRole("listitem", { name: "Se elimina: 3" })).toBeInTheDocument();
   expect(screen.getByRole("listitem", { name: "Se conserva: 2" })).toBeInTheDocument();
-  expect(screen.getByRole("listitem", { name: "Sin destino: 1" })).toBeInTheDocument();
+  // Lo que nadie ha decidido no esta en un destino: esta por revisar.
+  expect(screen.getByRole("listitem", { name: "Por revisar: 1" })).toBeInTheDocument();
   expect(screen.queryByRole("listitem", { name: /consulta/i })).toBeNull();
   expect(screen.queryByRole("table")).toBeNull();
 });

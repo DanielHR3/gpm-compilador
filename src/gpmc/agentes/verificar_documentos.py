@@ -17,6 +17,36 @@ _MINIMO_CITA = 3
 _MINIMO_PALABRAS_FRASE = 4
 
 
+# Palabras de cuatro letras o mas que no nombran nada.
+_VACIAS = {"para", "como", "este", "esta", "esto", "todo", "toda", "todos", "todas", "sobre",
+           "entre", "desde", "hasta", "cuando", "donde", "solo", "caso", "cada", "otro", "otra",
+           "pero", "tambien", "debe", "deben", "sera", "seran", "tiene", "tienen", "tramite"}
+
+
+def _raiz(palabra: str) -> str:
+    if len(palabra) > 4 and palabra.endswith("es"):
+        return palabra[:-2]
+    if len(palabra) > 3 and palabra.endswith("s"):
+        return palabra[:-1]
+    return palabra
+
+
+def _significativas(texto) -> set:
+    return {_raiz(p) for p in clave(texto if isinstance(texto, str) else "").split()
+            if len(p) >= 4 and p not in _VACIAS}
+
+
+def _comparten(a, b) -> bool:
+    """Que una frase exista en el documento no prueba que hable de ESTE
+    documento: tiene que compartir con el al menos una palabra que nombre algo
+    (revision de la rama, 2026-09-28)."""
+    return bool(_significativas(a) & _significativas(b))
+
+
+def _vale_para_cubrir(k: str) -> bool:
+    return len(k.split()) >= 2 or len(k) >= 5
+
+
 def _esta(cita, texto_normalizado: str) -> bool:
     k = clave(cita if isinstance(cita, str) else "")
     return len(k) >= _MINIMO_CITA and k in texto_normalizado
@@ -45,13 +75,14 @@ def verificar(items: list, as_is: str, to_be: str, refs: list) -> tuple:
             alertas.append("respuesta_invalida")
             continue
         nombre, cita = item["nombre"].strip(), item.get("cita_as_is")
-        if not _esta(cita, antes):
-            # No existe en el AS-IS. Solo entra si el TO-BE dice, con una frase
+        if not (_esta(cita, antes) and _comparten(nombre, cita)):
+            # No existe en el AS-IS, o la cita no lo nombra. Solo entra si el TO-BE dice, con una frase
             # literal, que se elimino: esa frase prueba que el documento
             # existia y que se quito (Periodico Oficial, 2026-09-28).
             frase_tobe = item.get("cita_to_be")
             if not (not cita and item.get("destino") == "elimina"
                     and _esta(frase_tobe, despues)
+                    and _comparten(nombre, frase_tobe)
                     and len(clave(frase_tobe).split()) >= _MINIMO_PALABRAS_FRASE):
                 alertas.append("documento_inventado")
                 continue
@@ -77,6 +108,9 @@ def verificar(items: list, as_is: str, to_be: str, refs: list) -> tuple:
             frase = None
         elif frase and len(clave(frase).split()) < _MINIMO_PALABRAS_FRASE:
             alertas.append("cita_corta")
+            frase = None
+        elif frase and not _comparten(f"{nombre} {cita}", frase):
+            alertas.append("cita_ajena")
             frase = None
         veredicto = ""
         if destino not in DESTINOS:
@@ -107,14 +141,24 @@ def verificar(items: list, as_is: str, to_be: str, refs: list) -> tuple:
         salida.append(doc)
 
     # Cobertura: el modelo puede partir una linea en varios documentos, pero no
-    # puede hacer desaparecer ninguna.
-    # Vale la cita o el nombre: el lector corta el requisito en el primer
-    # parentesis y el modelo puede haber citado la linea entera.
-    citas = [k for d in salida if d.cita_as_is
-             for k in (clave(d.cita_as_is), clave(d.nombre)) if k]
-    for req in requisitos_del_as_is(as_is):
-        k = clave(req)
-        if not k or any(c in k or k in c for c in citas):
+    # puede hacer desaparecer ninguna. Varios documentos pueden cubrir un mismo
+    # requisito; un documento cubre UNO, el que mejor le ajusta: «identificacion
+    # oficial» no cubre tambien «copia de identificacion oficial del
+    # representante» (revision de la rama, 2026-09-28).
+    requisitos = [(req, clave(req)) for req in requisitos_del_as_is(as_is)]
+    cubiertos = set()
+    for d in salida:
+        if not d.cita_as_is:
+            continue
+        # Vale la cita o el nombre: el lector corta el requisito en el primer
+        # parentesis y el modelo puede haber citado la linea entera.
+        llaves = [k for k in (clave(d.cita_as_is), clave(d.nombre)) if _vale_para_cubrir(k)]
+        ajustes = [(abs(len(kr) - len(k)), i) for i, (_, kr) in enumerate(requisitos)
+                   for k in llaves if kr and (k in kr or kr in k)]
+        if ajustes:
+            cubiertos.add(min(ajustes)[1])
+    for i, (req, k) in enumerate(requisitos):
+        if not k or i in cubiertos:
             continue
         alertas.append("requisito_omitido")
         salida.append(Documento(id=id_de(req, req), nombre=req, cita_as_is=req,

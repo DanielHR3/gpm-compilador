@@ -1,6 +1,12 @@
 import type { ResumenDocumentos } from "@/lib/types";
 
+import type { DestinoOSin } from "@/lib/types";
+
 import { ORDEN, colorDe, nombreDe } from "./destinos";
+
+// En la barra solo cuenta lo decidido; lo demas esta «por revisar». En una
+// tarjeta, «sin destino» quiere decir que nadie le ha propuesto uno.
+const rotulo = (d: DestinoOSin) => (d === "sin_destino" ? "Por revisar" : nombreDe(d));
 
 /**
  * Parte de un todo: cuantos documentos hay en cada destino. CSS y tokens, sin
@@ -24,7 +30,7 @@ export default function BarraDestinos({ resumen }: { resumen: ResumenDocumentos 
         {tramos.map((t) => (
           <div
             key={t.destino}
-            title={`${nombreDe(t.destino)}: ${t.n}`}
+            title={`${rotulo(t.destino)}: ${t.n}`}
             style={{ width: `${(100 * t.n) / total}%`, background: colorDe(t.destino) }}
           />
         ))}
@@ -33,7 +39,7 @@ export default function BarraDestinos({ resumen }: { resumen: ResumenDocumentos 
         {tramos.map((t) => (
           <li
             key={t.destino}
-            aria-label={`${nombreDe(t.destino)}: ${t.n}`}
+            aria-label={`${rotulo(t.destino)}: ${t.n}`}
             className="flex items-center gap-1.5"
           >
             <span
@@ -41,7 +47,7 @@ export default function BarraDestinos({ resumen }: { resumen: ResumenDocumentos 
               className="inline-block size-2.5 rounded-sm"
               style={{ background: colorDe(t.destino) }}
             />
-            {nombreDe(t.destino)} · {t.n}
+            {rotulo(t.destino)} · {t.n}
           </li>
         ))}
       </ul>

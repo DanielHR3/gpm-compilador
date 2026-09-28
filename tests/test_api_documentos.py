@@ -237,3 +237,74 @@ def test_la_descarga_es_una_pagina_escapada(tmp_path):
     assert "attachment" in r.headers["content-disposition"]
     assert r.text.startswith("<!doctype html>")
     assert "<b>acta</b>" not in r.text and "&lt;b&gt;acta&lt;/b&gt;" in r.text
+
+
+# --- Hallazgos de la revision de la rama (2026-09-28) ---------------------------
+
+def test_decidir_a_mano_y_luego_analizar_no_pierde_la_decision(tmp_path):
+    c = _cli(tmp_path, [_BUENA])
+    sid = _sesion(c)
+    url = f"/api/v1/expedientes/{sid}/documentos"
+    doc = _doc(c.get(url).json(), "identificación oficial vigente")
+    c.post(f"{url}/{doc['id']}/decision", json={"destino": "consulta", "motivo": "Con la CURP."})
+    c.post(f"{url}/analizar")
+    d = c.get(url).json()
+    decididos = [x for x in d["documentos"] if x["estado"] != "propuesto"]
+    assert [(x["destino"], x["motivo"]) for x in decididos] == [("consulta", "Con la CURP.")]
+    assert d["resumen"]["decididos"] == 1
+    # Y el agente no deja la misma identificacion dos veces en el tablero.
+    assert len(d["documentos"]) == 2
+
+
+def test_un_fallo_de_red_al_reanalizar_no_borra_lo_decidido(tmp_path, monkeypatch):
+    from gpmc.agentes import documentos as agente
+    monkeypatch.setattr(agente, "ESPERAS_REINTENTO", (0.0, 0.0))
+    c = _cli(tmp_path, [_BUENA])          # la segunda llamada agota el guion: error de red
+    sid = _sesion(c)
+    url = f"/api/v1/expedientes/{sid}/documentos"
+    c.post(f"{url}/analizar")
+    c.post(f"{url}/aceptar-verificados")
+    antes = c.get(url).json()
+    c.post(f"{url}/analizar")
+    despues = c.get(url).json()
+    assert despues["estado"] == "error" and despues["motivo_estado"]
+    assert despues["documentos"] == antes["documentos"]
+    assert despues["resumen"]["titular"] == antes["resumen"]["titular"]
+
+
+def test_una_decision_tomada_durante_el_analisis_no_se_pierde_ni_rompe_el_estado(tmp_path):
+    # C2: las tarjetas siguen activas mientras el agente trabaja.
+    visto = {}
+
+    class DecideAMedias(ProveedorFalso):
+        def completar(self, *a):
+            d = cliente.get(url).json()
+            visto["estado_antes"] = d["estado"]
+            doc = _doc(d, "identificación oficial vigente")
+            r = cliente.post(f"{url}/{doc['id']}/decision",
+                             json={"destino": "sistema", "motivo": "A media tarea."})
+            visto["codigo"] = r.status_code
+            visto["estado_despues"] = cliente.get(url).json()["estado"]
+            return super().completar(*a)
+
+    cliente = _cli(tmp_path, proveedor=DecideAMedias([_BUENA]))
+    sid = _sesion(cliente)
+    url = f"/api/v1/expedientes/{sid}/documentos"
+    cliente.post(f"{url}/analizar")
+    assert visto == {"estado_antes": "analizando", "codigo": 200, "estado_despues": "analizando"}
+    d = cliente.get(url).json()
+    assert d["estado"] == "lista"
+    decidido = [x for x in d["documentos"] if x["estado"] != "propuesto"]
+    assert [(x["destino"], x["motivo"]) for x in decidido] == [("sistema", "A media tarea.")]
+
+
+def test_decidir_conserva_a_mano_no_infla_el_despues_de_la_comparativa(tmp_path):
+    c = _cli(tmp_path)
+    sid = _sesion(c)
+    url = f"/api/v1/expedientes/{sid}"
+    for doc in c.get(f"{url}/documentos").json()["documentos"]:
+        c.post(f"{url}/documentos/{doc['id']}/decision", json={"destino": "conserva"})
+    req = next(m for m in c.get(f"{url}/comparativa").json()["metricas"]
+               if m["clave"] == "requisitos")
+    # El TO-BE pide dos archivos al solicitante: comprobante y comprobante corregido.
+    assert (req["antes"]["texto"], req["despues"]["texto"]) == ("2", "2")

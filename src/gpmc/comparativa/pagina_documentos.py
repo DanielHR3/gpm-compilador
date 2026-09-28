@@ -54,8 +54,11 @@ def barra_svg(por_destino: dict) -> str:
         # 2 px de superficie entre tramos: el borde no depende del color.
         tramos.append(f'<rect x="{x + 1:.1f}" y="0" width="{max(w - 2, 1):.1f}" height="28" '
                       f'rx="4" fill="{COLOR[k]}"/>')
+        # En la barra, lo que no tiene decision esta «por revisar»: en una
+        # tarjeta, «sin destino» es que nadie le ha propuesto uno.
+        rotulo = "Por revisar" if k == SIN_DESTINO else NOMBRE[k]
         leyenda.append(f'<circle cx="{8 + len(leyenda) * 180}" cy="52" r="6" fill="{COLOR[k]}"/>'
-                       f'<text x="{20 + len(leyenda) * 180}" y="56">{_e(NOMBRE[k])} · {n}</text>')
+                       f'<text x="{20 + len(leyenda) * 180}" y="56">{_e(rotulo)} · {n}</text>')
         x += w
     alto = 68
     return (f'<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 {ancho} {alto}" '

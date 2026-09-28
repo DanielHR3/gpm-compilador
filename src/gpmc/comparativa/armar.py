@@ -280,7 +280,7 @@ def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
     if completo:
         # Con todas las tarjetas decididas, la cuenta de requisitos deja de ser
         # un emparejado por subcadena y pasa a ser lo que reviso una persona.
-        quedan = revisados["por_destino"]["conserva"] + len(revisados["agregados"])
+        quedan = revisados["solicitados"]
         base["requisitos"] = (
             Valor(str(revisados["total"]), float(revisados["total"]), "", "revisado"),
             Valor(str(quedan), float(quedan), "", "revisado"))
