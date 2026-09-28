@@ -2963,8 +2963,104 @@ git add src/gpmc/web/plantilla-tobe.md tests/test_rediseno.py tests/test_compara
 git commit -m "feat(plantilla): métricas del rediseño en el TO-BE; comparativa probada contra expedientes reales"
 ```
 
-- [ ] **Step 7: Constancia**
+- [ ] **Step 7: Bitácora**
 
-1. Escribir la entrada del día en la bitácora de Obsidian (`~/Documents/Daniel_DGT/Daniel DGT/02 - Proyectos/Compilador GPM/Bitacora/`) con el formato de las anteriores —callout «En una línea», tabla «Lo que se hizo», cifras de la suite al cierre y «Qué sigue»— y su fila en el `README.md`. Incluir las cuentas del Step 4.
-2. **Pedir aprobación a Daniel** para añadir a `CLAUDE.md` una sección «13. Comparativa de antes y después (2026-09-28)» y la fila de `comparativa/`, `extractores/as_is.py` y `extractores/rediseno.py` en el árbol de «Estructura». No editar `CLAUDE.md` sin esa aprobación.
-3. El despliegue a AWS (`scripts/desplegar.sh`) es una decisión aparte de Daniel: no se despliega desde este plan.
+Escribir la entrada del día en la bitácora de Obsidian (`~/Documents/Daniel_DGT/Daniel DGT/02 - Proyectos/Compilador GPM/Bitacora/`) con el formato de las anteriores —callout «En una línea», tabla «Lo que se hizo», cifras de la suite al cierre y «Qué sigue»— y su fila en el `README.md`. Incluir las cuentas del Step 4. Se escribe al final de la Task 13, con el resultado del despliegue.
+
+---
+
+### Task 11: Los avisos de la comparativa van en las observaciones
+
+Añadida el 2026-09-28 por decisión de Daniel: los `CMP-*` sí se le mandan a Simplificación.
+
+**Files:**
+- Modify: `frontend/src/features/huecos/observaciones.ts`, `frontend/src/features/huecos/lenguaje.ts` (títulos de los cuatro códigos), `frontend/src/features/entrega/PanelDescargas.tsx`
+- Test: `frontend/src/features/huecos/observaciones.test.ts`, `frontend/src/features/entrega/PanelDescargas.test.tsx`
+
+**Interfaces:**
+- Consumes: `leerComparativa(sid)` (Task 6); `Hueco` de `@/lib/types`.
+- Produces: `documentoDeObservaciones(estado: EstadoExpediente, hoy?: Date, avisosComparativa?: Hueco[]): string`.
+
+- [ ] **Step 1: Pruebas que fallan** en `observaciones.test.ts`, usando los ayudantes `estado` y `hueco` que ya existen en ese archivo:
+
+```ts
+it("los avisos de la comparativa van en su propia sección", () => {
+  const doc = documentoDeObservaciones(estado([]), new Date(2026, 8, 28), [
+    hueco("CMP-04", "to_be", "Requisitos del AS-IS que el TO-BE no conserva ni dice que elimina: «acta»."),
+    hueco("CMP-01", "as_is", "El AS-IS no trae una lista de pasos que se pueda leer: los pasos de antes no se cuentan."),
+  ]);
+
+  expect(doc).toContain("## Sobre la comparativa de antes y después  (2)");
+  expect(doc).toContain("«acta»");
+  expect(doc).toContain("En el Análisis AS-IS");
+  expect(doc).toContain("En la Propuesta TO-BE");
+  expect(doc).not.toContain("No hay observaciones que requieran cambios");
+  expect(doc).not.toContain("Otros hallazgos");
+});
+
+it("sin avisos de la comparativa el documento queda como antes", () => {
+  expect(documentoDeObservaciones(estado([]), new Date(2026, 8, 28), [])).toBe(
+    documentoDeObservaciones(estado([]), new Date(2026, 8, 28)),
+  );
+});
+```
+
+Y en `PanelDescargas.test.tsx`, una prueba de que la vista previa de «Observaciones» contiene el mensaje de un `CMP-02` devuelto por `leerComparativa`, y otra de que si `leerComparativa` rechaza, las observaciones salen sin esa sección y sin error a la vista. Se escriben con el mismo arreglo de `render` y de simulación de `@/lib/api` que ya usa ese archivo.
+
+- [ ] **Step 2:** Run `cd frontend && npx vitest run src/features/huecos/observaciones.test.ts src/features/entrega` → FAIL.
+
+- [ ] **Step 3: Implementar.** En `observaciones.ts`, tercer parámetro `avisosComparativa: Hueco[] = []`; `hayTrabajo` cuenta también `avisosComparativa.length`; y antes del bloque de «Otros hallazgos»:
+
+```ts
+  if (avisosComparativa.length) {
+    out.push(`## Sobre la comparativa de antes y después  (${avisosComparativa.length})`, "");
+    out.push(
+      "Lo que impide demostrar con cifras que el trámite tuvo reingeniería. No",
+      "bloquea la entrega del trámite.",
+      "",
+    );
+    for (const h of avisosComparativa) {
+      const donde = h.ubicacion === "as_is" ? "En el Análisis AS-IS" : "En la Propuesta TO-BE";
+      out.push(`**${donde}**`, "", h.mensaje, "");
+    }
+  }
+```
+
+En `PanelDescargas.tsx`: un estado `avisos: Hueco[]` que se llena al montar con `leerComparativa(sid).then((c) => setAvisos(c.disponible ? c.huecos : [])).catch(() => setAvisos([]))`, y `textoDeObservaciones()` pasa `avisos` como tercer argumento. Un fallo de la comparativa no puede dejar al analista sin sus observaciones: por eso el `catch` calla.
+
+En `lenguaje.ts`, añadir a la tabla de títulos por código: `CMP-01` «El AS-IS no trae pasos legibles», `CMP-02` «Falta el dato del después», `CMP-03` «La reingeniería no reduce», `CMP-04` «Requisitos sin destino».
+
+- [ ] **Step 4:** Run `bash scripts/check-frontend.sh` → PASS.
+
+- [ ] **Step 5: Commit** `feat(spa): los avisos de la comparativa van en las observaciones`.
+
+---
+
+### Task 12: `CLAUDE.md`
+
+Aprobada por Daniel el 2026-09-28.
+
+**Files:**
+- Modify: `CLAUDE.md` (árbol de «Estructura» y sección nueva al final)
+
+- [ ] **Step 1:** En el árbol de «Estructura», añadir bajo `extractores/` las líneas de `as_is.py` y `rediseno.py`, y tras `simulador/` el paquete `comparativa/` con `armar.py` y `documento.py`. En la frase de la dependencia en un sentido, añadir `comparativa` junto a `compilador`/`validador`/`extractores`.
+
+- [ ] **Step 2:** Añadir al final la sección «### 13. Comparativa de antes y después (2026-09-28)» con: quién la pidió y para qué; que es determinista y de uso interno; los cuatro orígenes de un valor; la regla de unidades; que «sin destino» no es «eliminado»; los cuatro `CMP-*`, que son `por_confirmar`, no entran a `huecos.json` ni a la puerta del linter y sí van en las observaciones; que lo declarado vive en `comparativa.json` y gana sobre la tabla del TO-BE; la mudanza de `requisitos_del_as_is`; y las cuentas medidas en el Step 4 de la Task 10. Solo hechos comprobados en esta implementación.
+
+- [ ] **Step 3: Commit** `docs(CLAUDE): sección 13, comparativa de antes y después`.
+
+---
+
+### Task 13: Despliegue a AWS
+
+Añadida el 2026-09-28 por decisión de Daniel.
+
+- [ ] **Step 1:** `.venv/bin/pytest -q && bash scripts/check-frontend.sh` → PASS. Árbol de git limpio salvo lo que ya estaba sin seguimiento.
+
+- [ ] **Step 2:** Comprobar la sesión de AWS con `aws sts get-caller-identity`. Si expiró, `aws login` pide navegador y MFA: eso lo hace Daniel, no el agente. Sin sesión, la tarea se detiene aquí y se informa.
+
+- [ ] **Step 3:** `scripts/desplegar.sh` (todo). El script corre la suite otra vez antes de subir nada. No se corre `desplegar.sh entorno`: esta entrega no cambia variables.
+
+- [ ] **Step 4: Verificar en producción.** `curl -s -o /dev/null -w "%{http_code}" https://d1zuvw2fi2wub0.cloudfront.net/revisar/0123456789abcdef/comparativa` debe dar `200` (el shell de la SPA) y `…/api/v1/expedientes/0123456789abcdef/comparativa` debe dar `401` o `404`, nunca `200` con HTML: eso querría decir que CloudFront manda la ruta al bucket y no al servidor. Si `/revisar/*/comparativa` no llega a la SPA, revisar los comportamientos de CloudFront en `scripts/aws/` antes de tocar nada.
+
+- [ ] **Step 5:** Escribir la bitácora del día (Step 7 de la Task 10) con el resultado.

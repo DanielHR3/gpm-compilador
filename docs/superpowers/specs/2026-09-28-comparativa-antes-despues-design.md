@@ -148,6 +148,9 @@ AS-IS con forma rara, la persona escribe la cifra y queda rotulada «declarado»
 Viven **solo en la comparativa**: no entran a la lista del wizard ni a la puerta del
 linter, para no engordar la cuenta de pendientes de un expediente que ya compila.
 
+**Sí van en las observaciones** que se le mandan a Simplificación (decisión de Daniel,
+2026-09-28), en una sección propia «Sobre la comparativa de antes y después».
+
 ## Arquitectura
 
 Dependencia en un solo sentido, como el resto: `web` → `comparativa` → `extractores` →
@@ -212,6 +215,5 @@ Confirmados por Daniel el 2026-09-28:
    tarjetas dentro de la pantalla.
 2. El documento descargable es HTML imprimible a PDF desde el navegador, sin librería nueva.
 
-Sin respuesta explícita, se mantiene como está escrito:
-
-3. Los huecos `CMP-*` no aparecen en el wizard ni en las observaciones que se mandan.
+3. Los huecos `CMP-*` no aparecen en el wizard, y **sí** en las observaciones.
+4. `CLAUDE.md` se actualiza y la entrega se despliega a AWS dentro de este plan.
