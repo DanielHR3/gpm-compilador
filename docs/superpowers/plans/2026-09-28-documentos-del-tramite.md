@@ -1632,11 +1632,18 @@ Expected: FAIL: `ModuleNotFoundError` en la página y 404 en las rutas de la API
 
 - [ ] **Step 3: Cargar la guía de gráficas y elegir la paleta de destinos**
 
-Invocar la skill `dataviz` y leer `references/palette.md`. Tomar los primeros cuatro tonos de su tema categórico por omisión, en su orden, y correr el validador con los cuatro en `--mode light` y en `--mode dark`. Si alguno falla, tomar el paso que el validador señale. Anotar los ocho valores en el ledger y usarlos en `pagina_documentos.py` (los de claro) y en `index.css` (Task 7). El orden es fijo: `elimina`, `consulta`, `sistema`, `conserva`. `sin_destino` usa el gris de `--muted-foreground`, que no es un color de la paleta.
+Invocar la skill `dataviz`. La paleta ya está elegida y validada al escribir este plan (2026-09-28): los primeros cuatro tonos del tema categórico de `references/palette.md`, en su orden. Volver a correr el validador para confirmarlo:
+
+| Destino | Claro | Oscuro |
+| --- | --- | --- |
+| `elimina` | `#2a78d6` | `#3987e5` |
+| `consulta` | `#eb6834` | `#d95926` |
+| `sistema` | `#1baf7a` | `#199e70` |
+| `conserva` | `#eda100` | `#c98500` |
+
+`sin_destino` usa el gris de `--muted-foreground`, que no es un color de la paleta. El validador avisa contraste bajo 3:1 en dos tonos del claro: lo cubre que cada tramo y cada tarjeta llevan su nombre escrito.
 
 - [ ] **Step 4: Escribir `src/gpmc/comparativa/pagina_documentos.py`**
-
-Los cuatro colores `COLOR` de abajo son marcadores de posición con la forma correcta: **se sustituyen por los valores que dio el validador en el Step 3** antes de correr las pruebas.
 
 ```python
 """«Documentos del tramite» como pagina suelta: se baja, se abre y se imprime.
@@ -1654,8 +1661,8 @@ NOMBRE = {"elimina": "Se elimina", "consulta": "Se sustituye por consulta en lí
 # Orden de lectura: primero lo que el ciudadano dejo de traer.
 ORDEN = ("elimina", "consulta", "sistema", "conserva", SIN_DESTINO)
 # Paleta categorica validada con la guia `dataviz` (tema claro): ver el Step 3.
-COLOR = {"elimina": "#000000", "consulta": "#000000", "sistema": "#000000",
-         "conserva": "#000000", SIN_DESTINO: "#8A8A8A"}
+COLOR = {"elimina": "#2a78d6", "consulta": "#eb6834", "sistema": "#1baf7a",
+         "conserva": "#eda100", SIN_DESTINO: "#8A8A8A"}
 _ESTADO = {"propuesto": "Propuesto, sin revisar", "aceptado": "Aceptado",
            "corregido": "Corregido por una persona"}
 
@@ -2270,19 +2277,19 @@ git commit -m "feat(spa): tipos, cliente y ruta de los documentos del trámite"
 
 - [ ] **Step 1: Tokens de color**
 
-En `frontend/src/index.css`, tras `--cmp-despues` en el bloque claro y en el oscuro, añadir los cuatro colores que dio el validador en el Step 3 de la Task 5, con este comentario en el bloque claro:
+En `frontend/src/index.css`, tras `--cmp-despues` en el bloque claro y en el oscuro, añadir los cuatro colores validados, con este comentario en el bloque claro:
 
 ```css
     /* Destinos de los documentos del trámite. Son identidades, no magnitudes:
        paleta categórica, no la rampa --viz-*. Validada con validate_palette.js
        en claro y en oscuro (2026-09-28). Orden fijo; cada tramo lleva su nombre. */
-    --dest-elimina: <valor>;
-    --dest-consulta: <valor>;
-    --dest-sistema: <valor>;
-    --dest-conserva: <valor>;
+    --dest-elimina: #2a78d6;
+    --dest-consulta: #eb6834;
+    --dest-sistema: #1baf7a;
+    --dest-conserva: #eda100;
 ```
 
-`<valor>` se sustituye por el hexadecimal validado; no se comitea con el marcador.
+En el bloque oscuro, los mismos cuatro tokens con `#3987e5`, `#d95926`, `#199e70` y `#c98500`.
 
 - [ ] **Step 2: Escribir las pruebas que fallan**
 
