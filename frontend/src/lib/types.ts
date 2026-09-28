@@ -211,3 +211,51 @@ export type CampoVista = {
   condicion: string | null;
 };
 export type PantallaVista = { id: string; nombre: string; actor: string; campos: CampoVista[] };
+
+/** Comparativa de antes y después (`GET /api/v1/expedientes/{sid}/comparativa`). */
+export type OrigenValor = "contado" | "leido" | "declarado" | "sin_dato";
+export type ClaveMetrica =
+  | "requisitos" | "pasos" | "actores" | "sistemas" | "tiempo" | "visitas" | "capturas";
+
+export interface ValorComparado {
+  texto: string;
+  numero: number | null;
+  unidad: string;
+  origen: OrigenValor;
+}
+
+export interface MetricaComparada {
+  clave: ClaveMetrica;
+  nombre: string;
+  antes: ValorComparado;
+  despues: ValorComparado;
+  diferencia: number | null;
+  porcentaje: number | null;
+}
+
+export interface RequisitoComparado {
+  nombre: string;
+  destino: "conservado" | "eliminado" | "sin_destino" | "nuevo";
+  fundamento: string;
+}
+
+export interface ComparativaOut {
+  disponible: boolean;
+  motivo: string;
+  tramite: string;
+  metricas: MetricaComparada[];
+  requisitos: RequisitoComparado[];
+  pasos_antes: string[];
+  tareas_despues: { nombre: string; actor: string }[];
+  fricciones: string[];
+  cambios: string[];
+  eliminaciones: string[];
+  impacto: string[];
+  autollenados: number;
+  porcentaje_global: number | null;
+  base_global: number;
+  total_metricas: number;
+  veredicto: "reduce" | "mixto" | "no_reduce" | "sin_medida";
+  frase: string;
+  huecos: Hueco[];
+}

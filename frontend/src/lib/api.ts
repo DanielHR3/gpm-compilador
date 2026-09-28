@@ -14,6 +14,8 @@ import type {
   CampoManifiesto,
   Capacidades,
   ClaveDocumento,
+  ClaveMetrica,
+  ComparativaOut,
   Condicion,
   EstadoExpediente,
   EstadoGenerados,
@@ -591,4 +593,31 @@ export async function cambiarRol(correo: string, rol: "admin" | "analista"): Pro
   return pedirJson(`/api/v1/usuarios/${encodeURIComponent(correo)}/rol`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rol }),
   });
+}
+
+/** `GET /api/v1/expedientes/{sid}/comparativa` — el antes y el después, ya contados. */
+export async function leerComparativa(sid: string): Promise<ComparativaOut> {
+  return pedirJson(`${BASE}/expedientes/${sid}/comparativa`);
+}
+
+/**
+ * `POST …/comparativa/declarar` — un dato que no sale de los documentos. No
+ * toca el manifiesto: devuelve la comparativa recalculada.
+ */
+export async function declararMetrica(
+  sid: string,
+  clave: ClaveMetrica,
+  antes: string,
+  despues: string,
+): Promise<ComparativaOut> {
+  return pedirJson(`${BASE}/expedientes/${sid}/comparativa/declarar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clave, antes, despues }),
+  });
+}
+
+/** URL del documento descargable (no hace `fetch`). */
+export function urlDocumentoComparativa(sid: string): string {
+  return `${BASE}/expedientes/${sid}/comparativa/documento`;
 }

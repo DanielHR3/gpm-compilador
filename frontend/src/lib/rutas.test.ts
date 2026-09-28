@@ -50,3 +50,10 @@ describe("rutas de sesion (2026-09-25)", () => {
     expect(leerRuta("/restablecer")).toEqual({ tipo: "restablecer", token: "" });
   });
 });
+it("reconoce la comparativa de un expediente", () => {
+  const sid = "0123456789abcdef";
+  expect(leerRuta(`/revisar/${sid}/comparativa`)).toEqual({ tipo: "comparativa", sid });
+  // La revision sigue siendo la suya; un sid mal formado no abre nada.
+  expect(leerRuta(`/revisar/${sid}`)).toEqual({ tipo: "revisar", sid });
+  expect(leerRuta("/revisar/XYZ/comparativa")).toEqual({ tipo: "inicio" });
+});

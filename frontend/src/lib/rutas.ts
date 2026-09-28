@@ -9,6 +9,7 @@ export type Ruta =
   | { tipo: "expediente" }
   | { tipo: "desde_as_is" }
   | { tipo: "revisar"; sid: string }
+  | { tipo: "comparativa"; sid: string }
   | { tipo: "catalogos" }
   | { tipo: "historial" }
   | { tipo: "tablero" }
@@ -18,8 +19,11 @@ export type Ruta =
   | { tipo: "usuarios" };
 
 const RE_REVISAR = /^\/revisar\/([0-9a-f]{16})$/;
+const RE_COMPARATIVA = /^\/revisar\/([0-9a-f]{16})\/comparativa$/;
 
 export function leerRuta(pathname: string, search = ""): Ruta {
+  const c = RE_COMPARATIVA.exec(pathname);
+  if (c) return { tipo: "comparativa", sid: c[1] };
   const m = RE_REVISAR.exec(pathname);
   if (m) return { tipo: "revisar", sid: m[1] };
   if (pathname === "/restablecer") {
