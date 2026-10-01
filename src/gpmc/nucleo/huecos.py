@@ -15,6 +15,14 @@ NIVELES = ("bloqueante", "falta_dato", "por_confirmar")
 ORDEN_NIVEL = {nivel: i for i, nivel in enumerate(NIVELES)}
 
 
+# Decisiones que no estan en ningun insumo y que hoy se corregian en la
+# plataforma despues de importar: si el tramite es publico y a que grupo real
+# corresponde cada responsable. Salen en TODO tramite, por construccion, asi
+# que no señalan un defecto del expediente: quien cuente o reparta huecos por
+# documento (tablero, borradores de la Fase 3) las deja fuera. Spec 2026-10-01.
+DE_PUBLICACION = ("META-07", "ACT-01")
+
+
 @dataclass
 class Hueco:
     nivel: str            # uno de NIVELES

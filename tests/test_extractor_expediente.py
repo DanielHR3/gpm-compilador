@@ -542,3 +542,52 @@ def test_dos_pantallas_que_solo_difieren_en_la_nota_no_se_confunden():
     nodos = [_N("A", "Cargar Documento"), _N("B", "Cargar Documento")]
     pantallas = [_P("Cargar Documento (ciudadano)"), _P("Cargar Documento (funcionario)")]
     assert _mapear_nodos_a_pantallas(nodos, pantallas) is None
+
+
+# --- Decisiones de publicacion: META-07 y ACT-01 (spec 2026-10-01) -----------
+
+def _huecos_de(r, codigo):
+    return [h for h in r.huecos if h.codigo == codigo]
+
+
+def test_avisa_que_el_tramite_saldra_oculto_y_propone_publicarlo_si_lo_inicia_el_ciudadano(tmp_path):
+    """P-17: `publico` nace en False y nadie lo decia. El aviso propone, no
+    aplica: el manifiesto sigue oculto hasta que una persona diga que si."""
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA, "3.-Propuesta TO-BE.md": _TOBE_RAMA,
+    })
+    r = extraer_expediente(carpeta)
+    [h] = _huecos_de(r, "META-07")
+    assert (h.nivel, h.ubicacion) == ("por_confirmar", "metadatos")
+    assert h.propuesta and "ciudadano" in h.propuesta
+    assert r.manifiesto.tramite.ruts.publico is False
+
+
+def test_si_el_tramite_lo_inicia_un_grupo_no_se_propone_publicarlo(tmp_path):
+    dicc = _DICC_RAMA.replace("— SOLICITANTE —", "— VENTANILLA —")
+    r = extraer_expediente(_expediente(tmp_path, **{"5.-Diccionario de Datos.md": dicc}))
+    [h] = _huecos_de(r, "META-07")
+    assert h.propuesta is None
+
+
+def test_avisa_un_grupo_por_cada_responsable_que_no_es_el_ciudadano(tmp_path):
+    """PLAT-11: el grupo sale con el nombre del responsable, que no es un grupo
+    de la plataforma, y la restriccion no ata. Uno por actor, no por tarea."""
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA, "3.-Propuesta TO-BE.md": _TOBE_RAMA,
+    })
+    r = extraer_expediente(carpeta)
+    de_grupo = [a for a in r.manifiesto.actores if a.tipo == "grupo"]
+    assert [a.id for a in de_grupo] == ["area"]
+    [h] = _huecos_de(r, "ACT-01")
+    assert (h.nivel, h.ubicacion) == ("por_confirmar", "area")
+    assert "«Area»" in h.mensaje
+
+
+def test_las_decisiones_de_publicacion_no_cierran_la_descarga(tmp_path):
+    from gpmc.nucleo.huecos import bloquean
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA, "3.-Propuesta TO-BE.md": _TOBE_RAMA,
+    })
+    r = extraer_expediente(carpeta)
+    assert not [h for h in bloquean(r.huecos) if h.codigo in ("META-07", "ACT-01")]

@@ -325,6 +325,45 @@ def _leer(ruta: Path) -> str:
         ) from exc
 
 
+def _decisiones_de_publicacion(actores: "list[Actor]", flujo: Flujo) -> "list[Hueco]":
+    """Lo que hoy se corrige en la plataforma despues de importar, dicho antes.
+
+    Ninguna de las dos cosas esta en los insumos, asi que no se derivan: se
+    avisan `por_confirmar` y las decide una persona en el asistente (`meta07`
+    y `act01` de `POST /resolver`). Sin decidir, el .gpm sale como siempre.
+    Se emiten aqui y no en `metadatos` porque solo aqui se conocen a la vez
+    los actores y la tarea inicial. Spec 2026-10-01.
+    """
+    huecos = []
+    por_id = {a.id: a for a in actores}
+
+    # P-17: `publico` nace en False y ningun extractor lo cambia. El tramite
+    # importa limpio, el funcionario lo ve y el ciudadano no.
+    inicial = next((t for t in flujo.tareas if t.inicial), None)
+    actor_inicial = por_id.get(inicial.actor) if inicial and inicial.actor else None
+    lo_inicia_el_ciudadano = actor_inicial is not None and actor_inicial.tipo == "autoservicio"
+    huecos.append(Hueco(
+        "por_confirmar", "META-07", "metadatos",
+        "el tramite saldra oculto del portal del ciudadano: nada en el "
+        "expediente dice si es publico",
+        propuesta="Sí: lo inicia el ciudadano" if lo_inicia_el_ciudadano else None,
+    ))
+
+    # PLAT-11: el grupo se llena con el nombre del responsable tal como lo
+    # escribe el Diccionario. La plataforma busca un grupo suyo
+    # (`verificacion_vehicular`) y, al no hallarlo, la restriccion no ata.
+    for a in actores:
+        if a.tipo != "grupo":
+            continue
+        grupo = a.grupos_usuarios[0] if a.grupos_usuarios else a.nombre
+        huecos.append(Hueco(
+            "por_confirmar", "ACT-01", a.id,
+            f"las tareas de «{a.nombre}» se restringen al grupo «{grupo}», que "
+            f"es el nombre del responsable y no un grupo de la plataforma",
+        ))
+    return huecos
+
+
 def extraer_expediente(carpeta: Path) -> Resultado:
     carpeta = Path(carpeta)
     r = Resultado()
@@ -526,6 +565,8 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     # primera tarea que ya tiene todos sus datos, y se reporta para confirmar.
     flujo = Flujo(tareas=tareas, conexiones=conexiones)
     r.huecos += ext_docs.atar_a_tareas(acciones_doc, flujo, pantallas)
+
+    r.huecos += _decisiones_de_publicacion(list(actores_vistos.values()), flujo)
 
     r.manifiesto = Manifiesto(
         tramite=tramite,

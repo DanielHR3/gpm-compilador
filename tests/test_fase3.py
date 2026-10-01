@@ -842,3 +842,20 @@ def test_un_error_del_generador_conserva_los_pasos_hasta_el_fallo(tmp_path):
     from gpmc.agentes.proveedor import ProveedorFalso
     g = generar(_ASIS_INLINE, ProveedorFalso([]), tmp_path, "l" * 16)
     assert g.estado == "error" and g.pasos and g.pasos[-1].startswith("Falló")
+
+
+def test_las_decisiones_de_publicacion_no_se_le_cuelgan_a_ningun_borrador():
+    """META-07 y ACT-01 salen en todo tramite y no dicen nada del Diccionario
+    ni del TO-BE propuestos: se deciden despues, en la revision. Colgarlos de
+    un borrador lo haria parecer defectuoso por algo que no es suyo."""
+    from gpmc.agentes.fase3 import _por_documento
+    from gpmc.nucleo.huecos import Hueco
+    huecos = [
+        Hueco("por_confirmar", "META-07", "metadatos", "saldra oculto"),
+        Hueco("por_confirmar", "ACT-01", "area", "grupo"),
+        Hueco("falta_dato", "DIC-02", "p1", "catalogo pendiente"),
+        Hueco("falta_dato", "FLU-01", "flujo", "compuertas"),
+    ]
+    reparto = _por_documento(huecos)
+    assert [h.codigo for h in reparto["diccionario"]] == ["DIC-02"]
+    assert [h.codigo for h in reparto["tobe"]] == ["FLU-01"]
