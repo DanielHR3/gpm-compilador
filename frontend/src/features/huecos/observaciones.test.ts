@@ -186,7 +186,7 @@ describe("puntos de mejora del agente", () => {
     id: "abc", titulo: "Quitar la tarjeta de circulación", tipo: "documento",
     propuesta: "Consultarla en el padrón vehicular.", beneficio: "Se ahorra un escaneo.",
     cita: "Se adjunta en formato digital PDF", fuente: "to_be", campo: "doc_tarjeta",
-    etiqueta_campo: "Tarjeta de Circulación", servicio: "", requiere: "convenio",
+    etiqueta_campo: "Tarjeta de Circulación", servicio: "", requiere: "convenio", accion: "eliminar",
     descartada: false, ...mas,
   });
 
@@ -199,7 +199,8 @@ describe("puntos de mejora del agente", () => {
     expect(doc).toContain("Qué se gana: Se ahorra un escaneo.");
     expect(doc).toContain("Documento que se sigue pidiendo: Tarjeta de Circulación.");
     expect(doc).toContain("Propuesta TO-BE: «Se adjunta en formato digital PDF»");
-    expect(doc).toContain("Requiere un convenio o un sistema de la dependencia");
+    expect(doc).toContain("A futuro: requiere conectar un sistema de la dependencia o un convenio");
+    expect(doc).toContain("**Quitar la tarjeta de circulación** — Se puede eliminar");
     // Quien lo recibe tiene que saber que lo propuso un modelo y no el equipo.
     expect(doc).toContain("propuestas de un agente");
     expect(doc).not.toContain("No hay observaciones que requieran cambios");

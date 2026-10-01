@@ -316,3 +316,16 @@ def test_el_despues_de_lo_revisado_son_los_archivos_que_pide_el_to_be():
     decidir(docs[1], "elimina")
     r = _metrica(comparar(_estado(), Rediseno(), m, documentos=docs), "requisitos")
     assert (r.antes.numero, r.despues.numero) == (2.0, 1.0)
+
+
+def test_lo_que_sube_el_funcionario_no_es_un_requisito():
+    """Respuesta de Simplificacion (2026-10-01): requisito es lo que entrega el
+    ciudadano. En Reposicion contaba el «Documento de Reposicion» que sube el
+    funcionario, y los requisitos salian 3 -> 7."""
+    m = _m()
+    # Como en el manifiesto real de Reposicion: el funcionario es un grupo.
+    m.actores[1] = Actor(id="funcionario", nombre="Funcionario", tipo="grupo")
+    m.pantallas.append(Pantalla(id="p2", nombre="Emisión", actor="funcionario", campos=[
+        Campo(nombre="doc_emitido", etiqueta="Documento de Reposición", tipo="file")]))
+    r = _metrica(comparar(_estado(), Rediseno(), m), "requisitos")
+    assert (r.despues.numero, r.despues.origen) == (1.0, "contado")

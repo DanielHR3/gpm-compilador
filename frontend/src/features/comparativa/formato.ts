@@ -102,7 +102,7 @@ export function colorDeClase(c: ClaseElemento): string {
 const REQUIERE: Record<MejoraTramite["requiere"], string> = {
   "": "",
   servicio_publico: "Se puede hacer hoy con un servicio público en línea",
-  convenio: "Requiere un convenio o un sistema de la dependencia",
+  convenio: "A futuro: requiere conectar un sistema de la dependencia o un convenio",
 };
 
 export function requiereEnPalabras(r: MejoraTramite["requiere"]): string {
@@ -120,6 +120,20 @@ const TIPO_MEJORA: Record<MejoraTramite["tipo"], string> = {
 
 export function tipoDeMejora(t: MejoraTramite["tipo"]): string {
   return TIPO_MEJORA[t] ?? "Fricción";
+}
+
+/**
+ * Las tres preguntas del metodo de Simplificacion, en su orden: quitar vale
+ * mas que automatizar, y automatizar mas que hacerlo a distancia.
+ */
+const ACCION: Record<string, string> = {
+  eliminar: "Se puede eliminar",
+  automatizar: "Lo puede hacer el sistema",
+  a_distancia: "Se puede hacer a distancia",
+};
+
+export function accionEnPalabras(a: MejoraTramite["accion"]): string {
+  return (a && ACCION[a]) || "";
 }
 
 export function fuenteEnPalabras(f: MejoraTramite["fuente"]): string {

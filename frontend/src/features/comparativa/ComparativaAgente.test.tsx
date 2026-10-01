@@ -50,7 +50,8 @@ const MEJORA = {
   id: "abc123", titulo: "Quitar la tarjeta de circulación", tipo: "documento",
   propuesta: "Consultarla en el padrón vehicular.", beneficio: "El ciudadano se ahorra un escaneo.",
   cita: "Se adjunta en formato digital PDF", fuente: "to_be", campo: "doc_tarjeta",
-  etiqueta_campo: "Tarjeta de Circulación", servicio: "", requiere: "convenio", descartada: false,
+  etiqueta_campo: "Tarjeta de Circulación", servicio: "", requiere: "convenio", accion: "eliminar",
+  descartada: false,
 };
 const BASE = {
   disponible: true, motivo: "", tramite: "Reposición de Certificado", documentos: null,
@@ -237,7 +238,8 @@ it("un punto de mejora trae propuesta, beneficio y evidencia, y se puede descart
   expect(tarjeta).toHaveTextContent("El ciudadano se ahorra un escaneo.");
   expect(tarjeta).toHaveTextContent("Tarjeta de Circulación");
   expect(tarjeta).toHaveTextContent("«Se adjunta en formato digital PDF»");
-  expect(tarjeta).toHaveTextContent(/requiere un convenio/i);
+  expect(tarjeta).toHaveTextContent(/a futuro: requiere conectar/i);
+  expect(tarjeta).toHaveTextContent(/se puede eliminar/i);
 
   await usuario.click(within(tarjeta).getByRole("button", { name: /descartar/i }));
   expect(api.descartarMejora).toHaveBeenCalledWith(SID, "abc123", true);

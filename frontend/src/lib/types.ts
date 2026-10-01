@@ -278,6 +278,8 @@ export interface MejoraTramite {
   etiqueta_campo: string;
   servicio: string;
   requiere: "" | "servicio_publico" | "convenio";
+  /** Qué pregunta del método de Simplificación contesta; `""` en un análisis anterior. */
+  accion?: "" | "eliminar" | "automatizar" | "a_distancia";
   descartada: boolean;
 }
 export interface AnalisisComparativa {

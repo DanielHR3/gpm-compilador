@@ -126,4 +126,4 @@ def test_cambiar_una_instruccion_obliga_a_cambiar_su_version():
     assert (prompt.VERSION_EVIDENCIA, prompt.hash_de(prompt.INSTRUCCION_EVIDENCIA)) == (
         "cmp-v1", "d94723c3f03f395f")
     assert (prompt.VERSION_MEJORAS, prompt.hash_de(prompt.INSTRUCCION_MEJORAS)) == (
-        "mejoras-v1", "8efd8da35ebac76e")
+        "mejoras-v2", "f38e6ed14352b4e0")

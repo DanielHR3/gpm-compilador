@@ -148,8 +148,14 @@ def _contado_si_hay(lista: list) -> Valor:
 
 
 def _archivos(m: Manifiesto) -> list:
+    """Los archivos que entrega el solicitante. Lo que sube otro actor es un
+    producto del tramite, no un requisito (respuesta de Simplificacion,
+    2026-10-01). Misma regla que `documentos.referencias`."""
     salida, vistos = [], set()
+    del_solicitante = docs_tramite.pantallas_del_solicitante(m)
     for p in m.pantallas:
+        if p.id not in del_solicitante:
+            continue
         for c in p.campos:
             if c.tipo != "file":
                 continue

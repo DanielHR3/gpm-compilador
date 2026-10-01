@@ -65,6 +65,16 @@ def _etiqueta(c) -> str:
     return t
 
 
+def pantallas_del_solicitante(m: Manifiesto) -> set:
+    """Las pantallas de quien solicita: un actor de autoservicio o el que
+    inicia el tramite (en Periodico Oficial solicita una dependencia)."""
+    actores = {a.id: a for a in m.actores}
+    inician = {t.actor for t in m.flujo.tareas if t.inicial and t.actor}
+    return {p.id for p in m.pantallas
+            if p.actor in inician
+            or (actores.get(p.actor) is not None and actores[p.actor].tipo == "autoservicio")}
+
+
 def referencias(m: Manifiesto) -> list:
     """Lo que el manifiesto ofrece para respaldar un destino. Un archivo cuenta
     como «lo entrega el solicitante» (clase `archivo_ciudadano`) si su pantalla
@@ -72,12 +82,12 @@ def referencias(m: Manifiesto) -> list:
     Oficial quien solicita es una dependencia, actor de tipo grupo. El archivo
     que sube cualquier otro actor es un producto del tramite."""
     actores = {a.id: a for a in m.actores}
-    inician = {t.actor for t in m.flujo.tareas if t.inicial and t.actor}
+    del_solicitante = pantallas_del_solicitante(m)
     salida = []
     for p in m.pantallas:
         actor = actores.get(p.actor)
         nombre_actor = actor.nombre if actor else p.actor
-        ciudadano = p.actor in inician or (actor is not None and actor.tipo == "autoservicio")
+        ciudadano = p.id in del_solicitante
         for c in p.campos:
             etiqueta = _etiqueta(c)
             if c.tipo == "file":

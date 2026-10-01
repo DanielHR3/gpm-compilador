@@ -1,4 +1,6 @@
-import { fuenteEnPalabras, requiereEnPalabras } from "@/features/comparativa/formato";
+import {
+  accionEnPalabras, fuenteEnPalabras, requiereEnPalabras,
+} from "@/features/comparativa/formato";
 import type { EstadoExpediente, Hueco, MejoraTramite } from "@/lib/types";
 
 import { leerMensajeVisibilidad, redactarHueco, tituloDeCodigo } from "./lenguaje";
@@ -178,7 +180,8 @@ export function documentoDeObservaciones(
       "",
     );
     for (const x of vivas) {
-      out.push(`**${x.titulo}**`, "", x.propuesta, "");
+      const accion = accionEnPalabras(x.accion);
+      out.push(accion ? `**${x.titulo}** — ${accion}` : `**${x.titulo}**`, "", x.propuesta, "");
       if (x.beneficio) out.push(`Qué se gana: ${x.beneficio}`, "");
       if (x.etiqueta_campo) out.push(`Documento que se sigue pidiendo: ${x.etiqueta_campo}.`, "");
       if (x.cita) out.push(`${fuenteEnPalabras(x.fuente) || "Expediente"}: «${x.cita}»`, "");

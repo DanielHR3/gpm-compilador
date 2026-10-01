@@ -90,7 +90,8 @@ def _con_agente():
     mejoras = [
         Mejora("a1", "Quitar la tarjeta", "documento", "Consultarla en el padrón.",
                "Ahorra un escaneo.", cita="Se adjunta en PDF", fuente="to_be",
-               campo="doc_tarjeta", etiqueta_campo="Tarjeta de Circulación", requiere="convenio"),
+               campo="doc_tarjeta", etiqueta_campo="Tarjeta de Circulación", requiere="convenio",
+               accion="eliminar"),
         Mejora("b2", "Punto descartado", "paso", "x", "y", descartada=True)]
     return comparar(_estado(), r, _m(), propuestas=propuestas, mejoras=mejoras)
 
@@ -110,7 +111,8 @@ def test_el_documento_trae_el_resumen_los_elementos_y_las_mejoras_vivas():
     assert "Qué pasó con cada elemento del trámite" in html
     assert "<b>acta</b>" not in html and "Se consulta en línea." in html
     assert "Qué más se puede simplificar" in html and "Quitar la tarjeta" in html
-    assert "Requiere un convenio" in html and "Tarjeta de Circulación" in html
+    assert "A futuro: requiere conectar" in html and "Tarjeta de Circulación" in html
+    assert "Se puede eliminar" in html
     assert "Punto descartado" not in html
 
 

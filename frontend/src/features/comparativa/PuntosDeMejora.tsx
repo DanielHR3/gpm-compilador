@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { MejoraTramite } from "@/lib/types";
 
-import { fuenteEnPalabras, requiereEnPalabras, tipoDeMejora } from "./formato";
+import { accionEnPalabras, fuenteEnPalabras, requiereEnPalabras, tipoDeMejora } from "./formato";
 
 /**
  * «Qué más se puede simplificar»: lo que el tramite ya rediseñado todavia le
@@ -42,6 +42,7 @@ function Tarjeta({
       <CardContent className="flex h-full flex-col gap-2">
         <span className="text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
           {tipoDeMejora(mejora.tipo)}
+          {accionEnPalabras(mejora.accion) ? ` · ${accionEnPalabras(mejora.accion)}` : ""}
           {mejora.descartada ? " · Descartado" : ""}
         </span>
         <span className="text-sm font-semibold">{mejora.titulo}</span>

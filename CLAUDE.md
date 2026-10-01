@@ -744,7 +744,7 @@ Aprobado por Daniel el 2026-10-01, incluido el cambio a la sección 13.
   (`elimina`/`cambia`/`conserva`/`sin_decision`/`otro`) solo cuenta y colorea, y una respuesta
   que no se reconoce queda `otro`, nunca forzada. No entra a las siete métricas.
 - **El agente entrega frases, no cifras** (`agentes/comparativa.py`, dos llamadas: `cmp-v1` y
-  `mejoras-v1`). `agentes/verificar_comparativa.py` acepta el tramo literal más largo de cada
+  `mejoras-v2`). `agentes/verificar_comparativa.py` acepta el tramo literal más largo de cada
   cita y guarda ESE tramo tal como está en el documento; las etiquetas HTML y la ruta de un
   enlace `[[…]]` no son texto. El «antes» solo se sostiene en el AS-IS. Cada métrica exige que
   la frase hable del tema; «ninguno» exige una frase que diga que ya no hay, con giros por
@@ -756,6 +756,14 @@ Aprobado por Daniel el 2026-10-01, incluido el cambio a la sección 13.
 - **Puntos de mejora:** entran si se apoyan en un campo del manifiesto o en una frase literal.
   Un servicio fuera de `integraciones.CATALOGOS` no se promete: se rotula «requiere convenio».
   Se descartan en la SPA y el descarte sobrevive a «Volver a analizar» (`conservar_descartes`).
+  `mejoras-v2` sigue el método de Simplificación (documento de Luis Vera, 2026-10-01): cada
+  mejora contesta una de tres preguntas en orden (`eliminar` > `automatizar` > `a_distancia`)
+  y respeta sus límites de diseño. La verificación descarta lo que pide e.firma al ciudadano o
+  quita una de las dos formas de pago (`fuera_de_limites`), y rotula «a futuro» lo que
+  conectaría un padrón o sistema interno aunque el modelo no lo marque.
+- **Requisito es lo que entrega el solicitante** (respuesta de Simplificación, 2026-10-01):
+  lo que sube otro actor no cuenta (`documentos.pantallas_del_solicitante`). Pendiente de su
+  respuesta: si un documento que emite la propia dependencia (el F7) cuenta.
 - **Se lanza solo** la primera vez que se abre la página (detrás de `fase3.puede_generar`) y se
   guarda en `comparativa.json` con candado por sesión. Un error no borra el análisis anterior.
   `comparativa.analizar` y `comparativa.descartar` van a la auditoría.

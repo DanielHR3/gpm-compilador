@@ -15,8 +15,13 @@ from gpmc.planeacion.registro import clave
 
 LADOS = ("antes", "despues")
 TIPOS_DE_MEJORA = ("documento", "paso", "captura", "visita", "friccion", "tiempo")
-# Lo que hace falta para llevar a cabo un punto de mejora.
+# Lo que hace falta para llevar a cabo un punto de mejora. «convenio» es «a
+# futuro»: el sistema no se conecta con sistemas internos de la dependencia.
 REQUIERE = ("", "servicio_publico", "convenio")
+# Cual de las cuatro preguntas del metodo de Simplificacion contesta la mejora,
+# en el orden en que se hacen: quitar vale mas que automatizar, y automatizar
+# mas que hacerlo a distancia (2026-10-01).
+ACCIONES = ("eliminar", "automatizar", "a_distancia")
 
 
 @dataclass
@@ -51,6 +56,7 @@ class Mejora:
     etiqueta_campo: str = ""
     servicio: str = ""
     requiere: str = ""
+    accion: str = ""
     descartada: bool = False
 
 

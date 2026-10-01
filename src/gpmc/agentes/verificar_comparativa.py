@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from gpmc.comparativa.propuestas import (
-    TIPOS_DE_MEJORA, Evidencia, Mejora, Propuesta, id_de_mejora)
+    ACCIONES, TIPOS_DE_MEJORA, Evidencia, Mejora, Propuesta, id_de_mejora)
 from gpmc.planeacion.registro import clave
 
 _PALABRA = re.compile(r"[^\W_]+")
@@ -73,6 +73,24 @@ _DICE_NINGUNO = {
 }
 # En que metricas tiene sentido un cero: no hay tramite sin actores ni sin plazo.
 _ADMITE_NINGUNO = ("sistemas", "visitas", "capturas")
+# Limites de diseño del metodo de Simplificacion (2026-10-01). Una mejora que
+# los rompe no se propone: no es una opcion que el equipo pueda tomar.
+# - El ciudadano no tiene firma electronica avanzada.
+# - Siempre dos formas de pagar: en linea, o en el banco con comprobante.
+_ROMPE_LIMITES = (
+    re.compile(r"\be\s?\.?\s?firma\b|firma electr[oó]nica avanzada", re.I),
+    re.compile(r"(elimin|quit|suprim)\w*\s+(el\s+)?pago\s+(en|por)\s+(el\s+)?banco"
+               r"|solo\s+(el\s+)?pago\s+en\s+l[ií]nea", re.I),
+)
+# El sistema no se conecta con los sistemas internos de la dependencia: lo que
+# lo necesite es «a futuro» aunque el modelo no lo marque.
+_SISTEMA_INTERNO = re.compile(
+    r"padr[oó]n|base de datos|sistema interno|sistemas internos|tesorer[ií]a|"
+    r"historial de|registro (estatal|de la)|integra(r|ci[oó]n) con|"
+    # Formas medidas en la prueba en vivo de mejoras-v2 (Reposicion, 2026-10-01).
+    r"registros? (digital|interno)|cuenta con el registro|"
+    r"bus[cq]\w*\b.{0,60}\bautom[aá]tic|consult\w* (directamente|autom[aá]tic)", re.I)
+
 # La metrica es «sistemas EXTERNOS»: la plataforma donde corre el tramite no lo
 # es. Sin esto el despues de un tramite digitalizado siempre sumaba uno.
 _PLATAFORMA_PROPIA = "gpm"
@@ -350,6 +368,9 @@ def verificar_mejoras(items: list, as_is: str, to_be: str, refs: list, servicios
             alertas.append("respuesta_invalida")
             continue
         tipo = item.get("tipo") if item.get("tipo") in TIPOS_DE_MEJORA else "friccion"
+        if any(r.search(f"{titulo} {propuesta}") for r in _ROMPE_LIMITES):
+            alertas.append("fuera_de_limites")
+            continue
 
         campo = item.get("campo") if isinstance(item.get("campo"), str) else ""
         if campo and campo not in por_nombre:
@@ -385,7 +406,7 @@ def verificar_mejoras(items: list, as_is: str, to_be: str, refs: list, servicios
         elif servicio:
             alertas.append("servicio_fuera_del_catalogo")
             servicio, requiere = "", "convenio"
-        elif item.get("requiere_convenio") is True:
+        elif item.get("requiere_convenio") is True or _SISTEMA_INTERNO.search(propuesta):
             requiere = "convenio"
 
         salida.append(Mejora(
@@ -393,5 +414,6 @@ def verificar_mejoras(items: list, as_is: str, to_be: str, refs: list, servicios
             beneficio=_cadena(item, "beneficio", MAX_BENEFICIO),
             cita=cita, fuente=fuente, campo=campo,
             etiqueta_campo=por_nombre[campo].etiqueta if campo else "",
-            servicio=servicio, requiere=requiere))
+            servicio=servicio, requiere=requiere,
+            accion=item.get("accion") if item.get("accion") in ACCIONES else ""))
     return salida[:MAX_MEJORAS], alertas

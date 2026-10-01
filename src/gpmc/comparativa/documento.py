@@ -25,7 +25,10 @@ _CLASE_ELEMENTO = {"elimina": "Se elimina", "cambia": "Cambia", "conserva": "Se 
                    "sin_decision": "Sin decisión", "otro": "Otra respuesta"}
 _ORDEN_ELEMENTOS = ("elimina", "cambia", "conserva", "sin_decision", "otro")
 _REQUIERE = {"servicio_publico": "Se puede hacer hoy con un servicio público en línea",
-             "convenio": "Requiere un convenio o un sistema de la dependencia"}
+             "convenio": "A futuro: requiere conectar un sistema de la dependencia o un convenio"}
+# Las tres preguntas del metodo de Simplificacion (mismas palabras que la SPA).
+_ACCION = {"eliminar": "Se puede eliminar", "automatizar": "Lo puede hacer el sistema",
+           "a_distancia": "Se puede hacer a distancia"}
 _FUENTE = {"as_is": "AS-IS", "to_be": "TO-BE"}
 _DESTINO = {"conservado": "Se conserva", "eliminado": "Se elimina",
             "sin_destino": "Sin destino", "nuevo": "Nuevo en el TO-BE"}
@@ -157,8 +160,10 @@ def _mejoras(c: Comparativa) -> str:
                     if x["requiere"] in _REQUIERE else "")
         beneficio = f"<p><strong>Qué se gana:</strong> {_e(x['beneficio'])}</p>" \
             if x["beneficio"] else ""
+        accion = (f'<span class="origen">{_e(_ACCION[x["accion"]])}</span>'
+                  if x.get("accion") in _ACCION else "")
         tarjetas.append(
-            f'<article class="tarjeta"><h3>{_e(x["titulo"])}</h3><p>{_e(x["propuesta"])}</p>'
+            f'<article class="tarjeta"><h3>{_e(x["titulo"])}</h3>{accion}<p>{_e(x["propuesta"])}</p>'
             f'{beneficio}<p class="nota">{" ".join(apoyo)}</p>{requiere}</article>')
     return ("<h2>Qué más se puede simplificar</h2>"
             '<p class="nota">Propuestas del agente sobre el trámite ya rediseñado. Cada una '

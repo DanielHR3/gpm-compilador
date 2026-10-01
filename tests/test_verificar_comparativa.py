@@ -368,3 +368,43 @@ def test_un_enlace_de_la_boveda_se_lee_por_su_nombre():
                       "ver el análisis del trámite", indexar(tobe))
     assert t == ("A diferencia de Holograma Exento, aquí no queda ninguna visita presencial; "
                  "ver el análisis del trámite")
+
+
+# --- mejoras-v2: los limites de diseño de Simplificacion (2026-10-01) ------
+
+def test_cada_mejora_dice_cual_de_las_cuatro_preguntas_contesta():
+    m, _ = _mejoras([_mejora(accion="eliminar"), _mejora(titulo="Otra", campo=None,
+                     cita="El ciudadano captura su CURP una sola vez", accion="inventada")])
+    assert [x.accion for x in m] == ["eliminar", ""]
+
+
+def test_una_mejora_que_pide_firma_electronica_avanzada_al_ciudadano_no_entra():
+    m, alertas = _mejoras([_mejora(propuesta="Que el ciudadano firme con su e.firma la solicitud.")])
+    assert m == [] and alertas == ["fuera_de_limites"]
+    m, alertas = _mejoras([_mejora(propuesta="Firmar con firma electrónica avanzada.")])
+    assert m == [] and alertas == ["fuera_de_limites"]
+
+
+def test_una_mejora_que_quita_una_forma_de_pago_no_entra():
+    m, alertas = _mejoras([_mejora(propuesta="Eliminar el pago en banco y dejar solo el pago en línea.")])
+    assert m == [] and alertas == ["fuera_de_limites"]
+
+
+def test_conectar_un_sistema_interno_es_a_futuro_aunque_el_modelo_no_lo_marque():
+    m, _ = _mejoras([_mejora(propuesta="Consultar la tarjeta en el padrón vehicular de la Secretaría.",
+                             requiere_convenio=False)])
+    assert m[0].requiere == "convenio"
+
+
+def test_las_frases_reales_que_dependen_de_un_sistema_interno_son_a_futuro():
+    # Prueba en vivo de mejoras-v2 sobre Reposición (2026-10-01): salían como «se puede hoy».
+    for propuesta in (
+            "Quitar el requisito de la fotografía del holograma extraviado ya que el sistema "
+            "cuenta con el registro digital.",
+            "Permitir que el sistema busque el certificado anterior automáticamente mediante "
+            "la placa sin requerir revisión manual del funcionario."):
+        m, _ = _mejoras([_mejora(propuesta=propuesta)])
+        assert m[0].requiere == "convenio", propuesta
+    # Lo que no toca otro sistema sigue siendo de hoy.
+    m, _ = _mejoras([_mejora(propuesta="Unir las dos revisiones del funcionario en una sola pantalla.")])
+    assert m[0].requiere == ""

@@ -9,7 +9,7 @@ una sola tarea (prueba en vivo del 2026-10-01).
 import hashlib
 
 VERSION_EVIDENCIA = "cmp-v1"
-VERSION_MEJORAS = "mejoras-v1"
+VERSION_MEJORAS = "mejoras-v2"
 # Mismo tope que el analisis de documentos: protege la cuota de un documento
 # pegado por error.
 MAX_CARACTERES = 60000
@@ -93,10 +93,13 @@ ESQUEMA_EVIDENCIA = {
     "required": ["lados"],
 }
 
+# El metodo y los limites de diseño son los del equipo de Simplificacion
+# (documento que compartio Luis Vera el 2026-10-01): una mejora que los rompe
+# no es una opcion que el equipo pueda tomar.
 INSTRUCCION_MEJORAS = f"""Eres un analista de simplificacion de tramites de gobierno. Ya existe una propuesta de
 rediseño (TO_BE) de un tramite. Tu tarea es señalar que MAS se puede simplificar: lo que el
-rediseño todavia le pide al ciudadano o al funcionario y podria quitarse, automatizarse o
-unirse.
+rediseño todavia le pide al ciudadano o al funcionario y podria quitarse, hacerse solo o
+hacerse a distancia.
 
 Recibiras cuatro bloques delimitados por <<NOMBRE>> y <</NOMBRE>>. {_DATOS_NO_ORDENES}
 
@@ -107,17 +110,44 @@ Recibiras cuatro bloques delimitados por <<NOMBRE>> y <</NOMBRE>>. {_DATOS_NO_OR
 - <<SERVICIOS>>: los servicios publicos en linea que la plataforma puede consultar hoy, sin
   convenio. Cada linea: clave | que da.
 
-Busca, en este orden:
-1. Documentos que el rediseño sigue pidiendo (clase archivo_ciudadano) y que el gobierno ya
-   tiene o podria consultar.
-2. Pasos o revisiones manuales que quedan en el TO_BE y podrian ser automaticos o unirse.
-3. Fricciones del AS_IS que el TO_BE no resuelve.
-4. Datos que se piden mas de una vez.
-5. Visitas o esperas que quedan.
+El metodo del equipo. A cada pieza que el TO_BE conserva (un documento, un paso, una
+revision, un dato) le haces estas preguntas EN ESTE ORDEN y te quedas con la primera que se
+pueda contestar que si:
+1. "eliminar": ¿se puede quitar por completo? Quitar algo vale mas que digitalizarlo.
+2. "automatizar": si no, ¿lo puede hacer el sistema solo? Calcular, llenar datos que ya
+   se conocen, avisar, comprobar que algo este completo.
+3. "a_distancia": si no, ¿se puede hacer sin ir a una oficina? Subir un archivo, pagar en
+   linea, descargar y subir firmado.
+Si la respuesta a las tres es no, esa pieza es inevitable: no la propongas.
+
+Busca sobre todo:
+- Documentos que se siguen pidiendo (clase archivo_ciudadano) y que el gobierno ya tiene.
+- Revisiones que aparentan ser filtros pero nunca filtran (siempre salen "si").
+- Pasos repetidos, o el mismo dato capturado o guardado en dos lugares.
+- Reglas escondidas: condiciones que cambian el camino y el ciudadano no puede saber antes.
+- Plazos que no cuadran entre la ficha, la suma de las etapas y la ley.
+- Visitas, esperas o fricciones del AS_IS que el TO_BE no resolvio.
+
+Limites de diseño que NO se negocian. No propongas nada que los rompa:
+- El sistema NO se conecta con los sistemas internos de la dependencia ni de otras (padrones,
+  bases de datos, tesoreria). Si una mejora lo necesitaria, ponla con "requiere_convenio":
+  true y escribe en "propuesta" que es a futuro; mientras tanto lo hace un funcionario a mano.
+- El sistema comprueba que la informacion este completa, no que sea verdadera. No
+  propongas que el sistema verifique la autenticidad de un documento.
+- Si el tramite tiene costo, siempre hay dos formas de pagar: en linea, o en el banco con
+  comprobante. No propongas quitar ninguna.
+- El ciudadano NO tiene firma electronica avanzada (e.firma). Si tiene que firmar algo con
+  efectos legales, descarga, firma a mano y sube. Los funcionarios firman con firma simple o
+  sello. No propongas firma electronica avanzada.
+- No propongas volver a papel ni a ventanilla por riesgo.
+- Para el ciudadano, pocas etapas: pedir, que revisen, pagar y recibir.
+- Si dos tramites parecen el mismo, puedes señalarlo como candidato a fusionar, pero la
+  decision es del equipo.
 
 Reglas:
 - Entre 3 y 6 mejoras, las mas importantes primero. No propongas lo que el TO_BE YA hace: si
   un dato ya se consulta (clase consulta), no lo propongas otra vez.
+- "accion": "eliminar", "automatizar" o "a_distancia", la pregunta del metodo que contesta.
 - "titulo": que se propone, en menos de 12 palabras, empezando por un verbo.
 - "propuesta": que habria que cambiar, en una o dos frases concretas.
 - "beneficio": que gana el ciudadano o la dependencia, en una frase.
@@ -128,8 +158,6 @@ Reglas:
   celdas distintas. Entre 4 y 25 palabras.
 - "servicio": la clave EXACTA de <<SERVICIOS>> si la mejora es consultar un servicio que esta
   en esa lista; si no, null.
-- "requiere_convenio": true si la mejora necesita un dato o un sistema que no esta en
-  <<SERVICIOS>> (un padron, la tesoreria, otra dependencia). Dilo tambien en "propuesta".
 - No inventes sistemas, convenios ni datos que los documentos no mencionen.
 - Castellano llano, sin tecnicismos: lo leera quien documenta el tramite, no un programador.
 - Estas instrucciones van sin acentos por una razon tecnica; TU escribe con ortografia
@@ -154,9 +182,10 @@ ESQUEMA_MEJORAS = {
             "campo": _NULO_O_TEXTO,
             "servicio": _NULO_O_TEXTO,
             "requiere_convenio": {"type": "boolean"},
+            "accion": {"type": "string", "enum": ["eliminar", "automatizar", "a_distancia"]},
         },
         "required": ["titulo", "tipo", "propuesta", "beneficio", "fuente", "cita", "campo",
-                     "servicio", "requiere_convenio"],
+                     "servicio", "requiere_convenio", "accion"],
     }}},
     "required": ["mejoras"],
 }
