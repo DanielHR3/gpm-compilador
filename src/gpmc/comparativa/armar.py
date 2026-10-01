@@ -41,6 +41,13 @@ _CANTIDAD = re.compile(r"^\s*(\d+(?:[.,]\d+)?)\s*(.*?)\s*$")
 # requisito y la fila de solo lectura no es un documento que entregue nadie.
 _PREFIJO_DOC = "documento:"
 _NO_ES_REQUISITO = "vista de solo lectura"
+# La ficha de pago (el F7, la orden de pago, la linea de captura) es un insumo
+# que emite la dependencia para que el ciudadano pague, aunque el ciudadano la
+# suba: no es requisito. El comprobante de pago si lo es (respuesta de
+# Simplificacion, 2026-10-01). Formas medidas en los Diccionarios del almacen.
+_FICHA_DE_PAGO = re.compile(
+    r"\b(formato|ficha|orden) de pago\b|\bformato f-?7\b|\bf-?7\b|l[ií]nea de captura|"
+    r"referencia (bancaria|de pago)|pre-?recibo", re.I)
 
 
 @dataclass
@@ -162,7 +169,8 @@ def _archivos(m: Manifiesto) -> list:
             t = (c.etiqueta or c.nombre).strip()
             if t.lower().startswith(_PREFIJO_DOC):
                 t = t[len(_PREFIJO_DOC):].strip()
-            if not t or t.lower().startswith(_NO_ES_REQUISITO) or clave(t) in vistos:
+            if not t or t.lower().startswith(_NO_ES_REQUISITO) or clave(t) in vistos \
+                    or _FICHA_DE_PAGO.search(t):
                 continue
             vistos.add(clave(t))
             salida.append(t)

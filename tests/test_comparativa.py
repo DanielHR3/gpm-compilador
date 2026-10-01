@@ -329,3 +329,19 @@ def test_lo_que_sube_el_funcionario_no_es_un_requisito():
         Campo(nombre="doc_emitido", etiqueta="Documento de Reposición", tipo="file")]))
     r = _metrica(comparar(_estado(), Rediseno(), m), "requisitos")
     assert (r.despues.numero, r.despues.origen) == (1.0, "contado")
+
+
+def test_la_ficha_de_pago_no_es_requisito_y_el_comprobante_si():
+    """Respuesta de Simplificacion (2026-10-01): el F7 es un insumo documental
+    que emite la dependencia para que el ciudadano pague, aunque el ciudadano lo
+    suba. El comprobante de pago si es requisito."""
+    m = _m(archivos=("Documento: Identificación Oficial", "Formato de Pago F7",
+                     "Ficha de pago", "Orden de pago", "Línea de captura",
+                     "Referencia bancaria", "Pre-recibo de solicitud",
+                     "Comprobante de Pago", "Recibo de pago"))
+    r = _metrica(comparar(_estado(), Rediseno(), m), "requisitos")
+    assert r.despues.numero == 3.0
+    nombres = [x.nombre for x in comparar(_estado(requisitos=[]), Rediseno(), m).requisitos]
+    assert nombres == []
+    from gpmc.comparativa.armar import _archivos
+    assert _archivos(m) == ["Identificación Oficial", "Comprobante de Pago", "Recibo de pago"]

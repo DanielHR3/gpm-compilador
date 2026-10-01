@@ -762,8 +762,10 @@ Aprobado por Daniel el 2026-10-01, incluido el cambio a la sección 13.
   quita una de las dos formas de pago (`fuera_de_limites`), y rotula «a futuro» lo que
   conectaría un padrón o sistema interno aunque el modelo no lo marque.
 - **Requisito es lo que entrega el solicitante** (respuesta de Simplificación, 2026-10-01):
-  lo que sube otro actor no cuenta (`documentos.pantallas_del_solicitante`). Pendiente de su
-  respuesta: si un documento que emite la propia dependencia (el F7) cuenta.
+  lo que sube otro actor no cuenta (`documentos.pantallas_del_solicitante`). La ficha de pago
+  (F7, orden de pago, línea de captura, referencia bancaria, pre-recibo) **no es requisito**:
+  es un insumo que emite la dependencia para pagar, aunque el ciudadano la suba. El
+  **comprobante de pago sí lo es** (`armar._FICHA_DE_PAGO`, por la etiqueta del campo).
 - **Se lanza solo** la primera vez que se abre la página (detrás de `fase3.puede_generar`) y se
   guarda en `comparativa.json` con candado por sesión. Un error no borra el análisis anterior.
   `comparativa.analizar` y `comparativa.descartar` van a la auditoría.
