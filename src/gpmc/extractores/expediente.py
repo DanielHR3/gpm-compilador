@@ -524,13 +524,14 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     r.huecos += huecos_doc
     # Sin Evento en una tarea el PDF nunca se produce: se cuelga de la
     # primera tarea que ya tiene todos sus datos, y se reporta para confirmar.
-    r.huecos += ext_docs.atar_a_tareas(acciones_doc, tareas, pantallas)
+    flujo = Flujo(tareas=tareas, conexiones=conexiones)
+    r.huecos += ext_docs.atar_a_tareas(acciones_doc, flujo, pantallas)
 
     r.manifiesto = Manifiesto(
         tramite=tramite,
         actores=list(actores_vistos.values()),
         pantallas=pantallas,
-        flujo=Flujo(tareas=tareas, conexiones=conexiones),
+        flujo=flujo,
         acciones=acciones_doc,
     )
     return r

@@ -272,3 +272,93 @@ def test_el_gpm_lleva_el_evento_que_dispara_el_documento(tmp_path):
     eventos = [e for t in g["Tareas"] for e in t["Eventos"] if e["accion_id"] == str(accion["id"])]
     assert len(eventos) == 1
     assert eventos[0]["instante"] == "despues"
+
+
+# --- En que tarea puede salir un documento (spec 2026-10-01) -----------------
+
+def _flujo_de_prueba():
+    """T1 -> T2 (rama si) / T3 (rama no) -> fin. Cada tarea captura un campo."""
+    from gpmc.nucleo.manifiesto import Campo, Conexion, Flujo, Pantalla, Tarea
+    pantallas = [
+        Pantalla(id="p1", nombre="Solicitud", actor="c", campos=[Campo(nombre="curp")]),
+        Pantalla(id="p2", nombre="Cotiza", actor="a", campos=[Campo(nombre="monto")]),
+        Pantalla(id="p3", nombre="Rechazo", actor="a", campos=[Campo(nombre="motivo")]),
+    ]
+    flujo = Flujo(
+        tareas=[
+            Tarea(id="t1", nombre="Solicitud", inicial=True, pantallas=["p1"]),
+            Tarea(id="t2", nombre="Cotiza", pantallas=["p2"]),
+            Tarea(id="t3", nombre="Rechazo", pantallas=["p3"]),
+            Tarea(id="fin", nombre="Fin", terminal=True),
+        ],
+        conexiones=[
+            Conexion(de="t1", a="t2"), Conexion(de="t1", a="t3"),
+            Conexion(de="t2", a="fin"), Conexion(de="t3", a="fin"),
+        ],
+    )
+    return flujo, pantallas
+
+
+def _doc(nombre, *variables):
+    from gpmc.nucleo.manifiesto import Accion
+    return Accion(tipo="documento", nombre=nombre, variables=list(variables), plantilla="x")
+
+
+def test_a_una_tarea_le_llegan_sus_campos_y_los_de_las_anteriores():
+    from gpmc.extractores.documentos import tareas_posibles
+    flujo, pantallas = _flujo_de_prueba()
+    assert tareas_posibles(_doc("Oficio", "curp", "motivo"), flujo, pantallas) == [
+        ("t1", ["motivo"]), ("t2", ["motivo"]), ("t3", []), ("fin", []),
+    ]
+
+
+def test_una_rama_hermana_no_aporta_sus_campos():
+    """Antes se acumulaba por orden de lista: a T3 le «llegaba» el monto de T2,
+    aunque un expediente que va por la rama del rechazo nunca pasa por ahi."""
+    from gpmc.extractores.documentos import tareas_posibles, vale_para
+    flujo, pantallas = _flujo_de_prueba()
+    doc = _doc("Oficio", "monto", "motivo")
+    posibles = dict(tareas_posibles(doc, flujo, pantallas))
+    assert posibles["t2"] == ["motivo"] and posibles["t3"] == ["monto"]
+    assert "monto" in vale_para(doc, flujo, pantallas, "t3")
+
+
+def test_la_tarea_terminal_nunca_vale_aunque_le_lleguen_todos_los_datos():
+    from gpmc.extractores.documentos import vale_para
+    flujo, pantallas = _flujo_de_prueba()
+    assert vale_para(_doc("Oficio", "curp"), flujo, pantallas, "fin") is not None
+    assert vale_para(_doc("Oficio", "curp"), flujo, pantallas, "t2") is None
+
+
+def test_una_plantilla_sin_variables_vale_en_cualquier_tarea_que_no_sea_el_cierre():
+    from gpmc.extractores.documentos import vale_para
+    flujo, pantallas = _flujo_de_prueba()
+    doc = _doc("Oficio")
+    assert [vale_para(doc, flujo, pantallas, t) is None for t in ("t1", "t2", "t3", "fin")] == [
+        True, True, True, False]
+
+
+def test_una_tarea_que_no_existe_no_vale():
+    from gpmc.extractores.documentos import vale_para
+    flujo, pantallas = _flujo_de_prueba()
+    assert "no existe" in vale_para(_doc("Oficio"), flujo, pantallas, "t9")
+
+
+def test_un_ciclo_de_correccion_no_cuelga_el_calculo():
+    from gpmc.extractores.documentos import tareas_posibles
+    from gpmc.nucleo.manifiesto import Conexion
+    flujo, pantallas = _flujo_de_prueba()
+    flujo.conexiones.append(Conexion(de="t3", a="t1"))   # el rechazo regresa a corregir
+    posibles = dict(tareas_posibles(_doc("Oficio", "motivo"), flujo, pantallas))
+    assert posibles["t1"] == [] and posibles["t3"] == []
+
+
+def test_atar_cuelga_el_documento_de_la_primera_tarea_que_vale_y_no_de_una_rama_ajena():
+    from gpmc.extractores.documentos import atar_a_tareas
+    flujo, pantallas = _flujo_de_prueba()
+    huecos = atar_a_tareas([_doc("Rechazo", "motivo"), _doc("Mixto", "monto", "motivo")],
+                           flujo, pantallas)
+    assert flujo.tareas[2].acciones_despues == ["Rechazo"]
+    assert not any("Mixto" in t.acciones_despues for t in flujo.tareas)
+    assert [(h.nivel, h.ubicacion) for h in huecos] == [
+        ("por_confirmar", "documentos/Rechazo"), ("falta_dato", "documentos/Mixto")]
