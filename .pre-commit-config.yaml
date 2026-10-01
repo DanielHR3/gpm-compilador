@@ -1,0 +1,8 @@
+# Revisa cada commit antes de que entre. El repositorio es publico.
+# Instalar una vez:  .venv/bin/pre-commit install
+# Revisar todo:      .venv/bin/pre-commit run --all-files
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
