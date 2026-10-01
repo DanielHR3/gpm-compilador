@@ -1,0 +1,33 @@
+# git-cliff: arma desde los commits el borrador de «Lo que se hizo» de la
+# bitacora y, si se quiere, un CHANGELOG. Lo narrativo sigue siendo a mano.
+# Uso diario: scripts/bitacora.sh 2026-10-01
+
+[changelog]
+header = ""
+body = """
+{% for grupo, commits in commits | group_by(attribute="group") %}
+### {{ grupo | striptags | trim }}
+{% for c in commits %}
+- {% if c.scope %}**{{ c.scope }}:** {% endif %}{{ c.message | split(pat="\n") | first | trim }} (`{{ c.id | truncate(length=7, end="") }}`)\
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+# El numero en el nombre ordena los grupos; striptags lo quita al pintar.
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->Funcionalidad" },
+  { message = "^fix", group = "<!-- 1 -->Correcciones" },
+  { message = "^refactor", group = "<!-- 2 -->Reorganización" },
+  { message = "^test", group = "<!-- 3 -->Pruebas" },
+  { message = "^docs", group = "<!-- 4 -->Documentación" },
+  { message = "^(chore|ci|build)", group = "<!-- 5 -->Mantenimiento" },
+  { message = "^Merge", skip = true },
+  { message = ".*", group = "<!-- 6 -->Otros" },
+]
+sort_commits = "oldest"
