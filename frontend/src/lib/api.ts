@@ -224,6 +224,15 @@ export async function leerCatalogos(): Promise<CatalogosOut> {
   return pedirJson(`${BASE}/catalogos`);
 }
 
+/**
+ * `GET /api/v1/grupos` — grupos de la plataforma ya vistos en uso. Solo son
+ * sugerencias para la tarjeta de `ACT-01`: escribir otro es valido.
+ */
+export async function leerGrupos(): Promise<string[]> {
+  const r = await pedirJson<{ grupos?: string[] }>(`${BASE}/grupos`);
+  return r.grupos ?? [];
+}
+
 export interface TramiteHistorial {
   sid: string;
   nombre: string;

@@ -41,8 +41,12 @@ import ControlActor, { type Actor } from "./controles/ControlActor";
 import ControlCampoPadre, { type Campo } from "./controles/ControlCampoPadre";
 import ControlCompuerta from "./controles/ControlCompuerta";
 import ControlConfirmar from "./controles/ControlConfirmar";
+import ControlGrupo from "./controles/ControlGrupo";
+import ControlSiNo from "./controles/ControlSiNo";
+import ControlTarea from "./controles/ControlTarea";
 import ControlTexto from "./controles/ControlTexto";
 import ControlVisibilidad from "./controles/ControlVisibilidad";
+import { tareasDeDocumento } from "./tareasDeDocumento";
 import { useAccion } from "./useAccion";
 
 /**
@@ -245,6 +249,42 @@ export default function TarjetaHueco({
           o lo configuro a mano
         </Button>
       </div>
+    );
+  } else if (hueco.codigo === "META-07") {
+    // Las tres decisiones de publicacion son `por_confirmar`, pero no caen al
+    // «Entendido» generico: aqui si hay algo que decidir. «Dejarlo así» es el
+    // reconocer de siempre y el .gpm sale como salia. Spec 2026-10-01.
+    control = (
+      <ControlSiNo
+        hueco={hueco}
+        guardando={guardando}
+        onConfirmar={(v) => resolverCon("meta07", v)}
+        onDejar={reconocerHueco}
+      />
+    );
+  } else if (hueco.codigo === "DOC-04" && hueco.nivel === "por_confirmar") {
+    // El DOC-04 `falta_dato` (ninguna tarea llega a tener los datos) no tiene
+    // tarea que elegir y sigue con el control por defecto, mas abajo.
+    control = (
+      <ControlTarea
+        hueco={hueco}
+        guardando={guardando}
+        candidatas={tareasDeDocumento(
+          manifiesto,
+          hueco.ubicacion.replace(/^documentos\//, ""),
+        )}
+        onConfirmar={(v) => resolverCon("doc04", v)}
+        onDejar={reconocerHueco}
+      />
+    );
+  } else if (hueco.codigo === "ACT-01") {
+    control = (
+      <ControlGrupo
+        hueco={hueco}
+        guardando={guardando}
+        onConfirmar={(v) => resolverCon("act01", v)}
+        onDejar={reconocerHueco}
+      />
     );
   } else if (hueco.nivel === "por_confirmar") {
     control = (

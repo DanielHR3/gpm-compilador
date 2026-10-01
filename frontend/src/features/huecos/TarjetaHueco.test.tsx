@@ -12,6 +12,7 @@ vi.mock("@/lib/api", () => ({
   leerCompuerta: vi.fn(),
   resolverCompuertaCampo: vi.fn(),
   resolverCompuertaRamas: vi.fn(),
+  leerGrupos: vi.fn().mockResolvedValue(["verificacion_vehicular"]),
   ErrorApi: class ErrorApi extends Error {},
 }));
 
@@ -374,4 +375,122 @@ it("los demas huecos sin control siguen ofreciendo «Lo configuro a mano»", () 
     />,
   );
   expect(screen.getByRole("button", { name: /lo configuro a mano/i })).toBeTruthy();
+});
+
+
+// --- Decisiones de publicacion (spec 2026-10-01) ----------------------------
+// Las tres son `por_confirmar`, pero no caen al «Entendido» generico: cada una
+// lleva su control, y «Dejarlo así» es el reconocer de siempre.
+
+const manifiestoConOficio = {
+  actores: [{ id: "ciudadano", nombre: "Ciudadano" }, { id: "area", nombre: "Area" }],
+  pantallas: [
+    { id: "p1", campos: [{ nombre: "curp" }] },
+    { id: "p2", campos: [{ nombre: "dictamen" }] },
+  ],
+  flujo: {
+    tareas: [
+      { id: "t_p1", nombre: "Solicitud", terminal: false, pantallas: [{ id: "p1" }], acciones_antes: [], acciones_despues: ["Oficio"] },
+      { id: "t_p2", nombre: "Revisión", terminal: false, pantallas: [{ id: "p2" }], acciones_antes: [], acciones_despues: [] },
+      { id: "t_fin", nombre: "Trámite concluido", terminal: true, pantallas: [], acciones_antes: [], acciones_despues: [] },
+    ],
+    conexiones: [{ de: "t_p1", a: "t_p2" }, { de: "t_p2", a: "t_fin" }],
+  },
+  acciones: [{ tipo: "documento", nombre: "Oficio", variables: ["curp"] }],
+};
+
+const META07 = {
+  nivel: "por_confirmar",
+  codigo: "META-07",
+  ubicacion: "metadatos",
+  mensaje: "el tramite saldra oculto del portal del ciudadano: nada en el expediente dice si es publico",
+  propuesta: "Sí: lo inicia el ciudadano",
+};
+
+const DOC04 = {
+  nivel: "por_confirmar",
+  codigo: "DOC-04",
+  ubicacion: "documentos/Oficio",
+  mensaje:
+    "el documento «Oficio» se genera al terminar la tarea «Solicitud», la primera en la que ya están todos sus datos. Si debe salir en otra tarea (por ejemplo tras una firma), cámbialo a mano",
+  propuesta: null,
+};
+
+const ACT01 = {
+  nivel: "por_confirmar",
+  codigo: "ACT-01",
+  ubicacion: "area",
+  mensaje:
+    "las tareas de «Area» se restringen al grupo «Area», que es el nombre del responsable y no un grupo de la plataforma",
+  propuesta: null,
+};
+
+it("META-07: decidir que el trámite es público lo manda a resolver", async () => {
+  const { resolver } = await import("@/lib/api");
+  vi.mocked(resolver).mockResolvedValue({ manifiesto: {}, huecos: [] });
+  const onResuelto = vi.fn();
+  render(<TarjetaHueco hueco={META07} manifiesto={manifiestoConOficio} sid={sid} onResuelto={onResuelto} />);
+
+  expect(screen.queryByRole("button", { name: /entendido/i })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /sí, que aparezca en el portal/i }));
+
+  expect(resolver).toHaveBeenCalledWith(sid, [
+    { tipo: "meta07", ubicacion: "metadatos", valor: "si" },
+  ]);
+  expect(onResuelto).toHaveBeenCalled();
+});
+
+it("DOC-04: elegir otra tarea para el documento lo manda a resolver", async () => {
+  const { resolver } = await import("@/lib/api");
+  vi.mocked(resolver).mockResolvedValue({ manifiesto: {}, huecos: [] });
+  render(<TarjetaHueco hueco={DOC04} manifiesto={manifiestoConOficio} sid={sid} onResuelto={vi.fn()} />);
+
+  const combo = screen.getByRole("combobox", { name: /tarea en la que se genera/i });
+  expect(combo).toHaveValue("t_p1");
+  await userEvent.selectOptions(combo, "t_p2");
+  await userEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+  expect(resolver).toHaveBeenCalledWith(sid, [
+    { tipo: "doc04", ubicacion: "documentos/Oficio", valor: "t_p2" },
+  ]);
+});
+
+it("DOC-04 sin tarea posible sigue con el control de «falta un dato»", () => {
+  render(
+    <TarjetaHueco
+      hueco={{ ...DOC04, nivel: "falta_dato", mensaje: "el documento «Oficio» no se genera en ninguna tarea: ninguna del flujo llega a tener todos sus datos (folio). Revisa que esas pantallas estén en el flujo" }}
+      manifiesto={manifiestoConOficio}
+      sid={sid}
+      onResuelto={vi.fn()}
+    />,
+  );
+  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /lo configuro a mano/i })).toBeInTheDocument();
+});
+
+it("ACT-01: escribir el grupo real lo manda a resolver con el responsable", async () => {
+  const { resolver } = await import("@/lib/api");
+  vi.mocked(resolver).mockResolvedValue({ manifiesto: {}, huecos: [] });
+  render(<TarjetaHueco hueco={ACT01} manifiesto={manifiestoConOficio} sid={sid} onResuelto={vi.fn()} />);
+
+  await userEvent.type(
+    screen.getByLabelText(/grupo de usuarios en la plataforma/i),
+    "verificacion_vehicular",
+  );
+  await userEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+  expect(resolver).toHaveBeenCalledWith(sid, [
+    { tipo: "act01", ubicacion: "area", valor: "verificacion_vehicular" },
+  ]);
+});
+
+it.each([META07, DOC04, ACT01])("$codigo: «Dejarlo así» deja constancia sin cambiar nada", async (hueco) => {
+  const { reconocer, resolver } = await import("@/lib/api");
+  vi.mocked(resolver).mockClear();
+  render(<TarjetaHueco hueco={hueco} manifiesto={manifiestoConOficio} sid={sid} onResuelto={vi.fn()} />);
+
+  await userEvent.click(screen.getByRole("button", { name: /dejarlo así/i }));
+
+  expect(reconocer).toHaveBeenCalledWith(sid, hueco.codigo, hueco.ubicacion);
+  expect(resolver).not.toHaveBeenCalled();
 });

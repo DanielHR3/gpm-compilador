@@ -200,6 +200,8 @@ const MENSAJES_REALES: ReadonlyArray<readonly [string, string]> = [
   ["FLU-02", "el diagrama tiene 5 tareas y el Diccionario 4 pantallas; confirmar la correspondencia"],
   ["FLU-03", "el flujo se ramificó automáticamente del diagrama TO-BE (1 compuerta(s), 2 conexión(es) con condición). Confirma que las tareas casan con las pantallas: «nueva solicitud» → P1"],
   ["DOC-04", "el documento «Constancia» no se genera en ninguna tarea: ninguna del flujo llega a tener todos sus datos (curp, nombre). Revisa que esas pantallas estén en el flujo"],
+  ["META-07", "el tramite saldra oculto del portal del ciudadano: nada en el expediente dice si es publico"],
+  ["ACT-01", "las tareas de «Direccion De Verificacion Vehicular» se restringen al grupo «Direccion De Verificacion Vehicular», que es el nombre del responsable y no un grupo de la plataforma"],
 ];
 
 const MENSAJE: Record<string, string> = Object.fromEntries(MENSAJES_REALES);
@@ -449,10 +451,12 @@ describe("pistaDeCodigo: instrucciones sin jerga de programador", () => {
   test("DOC-04 no dice que el compilador «colgó» el documento de una tarea", () => {
     const p = pistaDeCodigo("DOC-04");
 
+    // Desde el 2026-10-01 la tarea se elige en la propia tarjeta
+    // (`ControlTarea`): la pista ya no manda a ajustarlo en la plataforma.
     expect(p?.instruccion).toBe(
       "El documento quedó en la primera tarea del flujo que ya tiene todos sus " +
-        "datos. Si está bien, confírmalo; si debe salir en otra (por ejemplo, " +
-        "después de una firma), ajústalo en la plataforma.",
+        "datos. Si debe salir en otra (por ejemplo, después de una revisión o " +
+        "una firma), elígela.",
     );
     expect(p?.instruccion).not.toMatch(/compilador/);
   });
@@ -497,4 +501,39 @@ test("GEN-03 (etiqueta fuera del catálogo) se redacta en palabras y se ancla al
 
 test("titula CMP-05", () => {
   expect(tituloDeCodigo("CMP-05")).toBe("Documento eliminado sin motivo");
+});
+
+
+describe("decisiones de publicación (spec 2026-10-01)", () => {
+  test("META-07 dice quién verá el trámite y quién no", () => {
+    expect(tituloDeCodigo("META-07")).toBe("Visibilidad en el portal");
+    expect(redactarHueco(hueco("META-07", MENSAJE["META-07"], "por_confirmar"))).toBe(
+      "Ningún documento dice si el trámite es público. Si nadie lo decide, se " +
+        "importará oculto: el funcionario lo verá en su panel y el ciudadano " +
+        "no lo encontrará en el portal.",
+    );
+  });
+
+  test("ACT-01 nombra al responsable y la consecuencia de un grupo que no existe", () => {
+    expect(tituloDeCodigo("ACT-01")).toBe("Grupo de usuarios de un responsable");
+    expect(redactarHueco(hueco("ACT-01", MENSAJE["ACT-01"], "por_confirmar"))).toBe(
+      "Las tareas de «Direccion De Verificacion Vehicular» quedarán restringidas " +
+        "al grupo «Direccion De Verificacion Vehicular», que es el nombre del " +
+        "responsable tal como viene en el Diccionario. Si en la plataforma el " +
+        "grupo se llama distinto, la restricción no se aplica y cualquiera " +
+        "podría atender esas tareas.",
+    );
+  });
+
+  test("si el backend cambia la cadena, las dos caen al mensaje crudo", () => {
+    expect(redactarHueco(hueco("META-07", "otra cosa", "por_confirmar"))).toBe("otra cosa");
+    expect(redactarHueco(hueco("ACT-01", "otra cosa", "por_confirmar"))).toBe("otra cosa");
+  });
+
+  test("las pistas dicen qué hacer, y la de DOC-04 ya no manda a la plataforma", () => {
+    expect(pistaDeCodigo("META-07")?.instruccion).toMatch(/portal/i);
+    expect(pistaDeCodigo("ACT-01")?.marcador).toBe("verificacion_vehicular");
+    expect(pistaDeCodigo("DOC-04")?.instruccion).toMatch(/elígela/i);
+    expect(pistaDeCodigo("DOC-04")?.instruccion).not.toMatch(/en la plataforma/i);
+  });
 });

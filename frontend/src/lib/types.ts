@@ -56,7 +56,11 @@ export type EstadoExpediente = {
  * (`src/gpmc/web/api.py::ResolucionIn`).
  */
 export type Resolucion = {
-  tipo: "mmd03" | "meta01" | "meta02" | "meta04" | "api03";
+  tipo:
+    | "mmd03" | "meta01" | "meta02" | "meta04" | "api03"
+    // Decisiones de publicacion: publico si/no, tarea de un documento, grupo
+    // real de un responsable.
+    | "meta07" | "doc04" | "act01";
   ubicacion: string;
   valor: string;
 };

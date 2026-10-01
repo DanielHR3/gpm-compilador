@@ -15,6 +15,8 @@ const TITULOS: Record<string, string> = {
   "META-04": "Nombre del trámite",
   "META-05": "Homoclave",
   "META-06": "A quién va dirigido",
+  "META-07": "Visibilidad en el portal",
+  "ACT-01": "Grupo de usuarios de un responsable",
   "DIC-01": "Campo sin pantalla asignada",
   "DIC-04": "División en pantallas",
   "DIC-05": "Etiqueta de un campo",
@@ -186,8 +188,17 @@ const PISTAS: Record<string, Pista> = {
   "DOC-04": {
     instruccion:
       "El documento quedó en la primera tarea del flujo que ya tiene todos sus " +
-      "datos. Si está bien, confírmalo; si debe salir en otra (por ejemplo, " +
-      "después de una firma), ajústalo en la plataforma.",
+      "datos. Si debe salir en otra (por ejemplo, después de una revisión o " +
+      "una firma), elígela.",
+  },
+  "META-07": {
+    instruccion:
+      "Decide si el trámite aparece en el portal para que el ciudadano lo inicie.",
+  },
+  "ACT-01": {
+    instruccion:
+      "Escribe el grupo de usuarios tal como está dado de alta en la plataforma.",
+    marcador: "verificacion_vehicular",
   },
   "DOC-03": {
     instruccion:
@@ -310,6 +321,24 @@ const REDACCIONES: Record<string, Redaccion> = {
     "Ningún documento dice a quién va dirigido el trámite, así que quedará " +
       "abierto a personas físicas y morales por igual.",
   ),
+  "META-07": fijo(
+    /saldra oculto del portal del ciudadano/,
+    "Ningún documento dice si el trámite es público. Si nadie lo decide, se " +
+      "importará oculto: el funcionario lo verá en su panel y el ciudadano " +
+      "no lo encontrará en el portal.",
+  ),
+
+  // --- Responsables: el grupo que restringe sus tareas. ---------------------
+  "ACT-01": (mensaje) => {
+    const m = /las tareas de «(.+?)» se restringen al grupo «(.+?)», que es el nombre del responsable/.exec(mensaje);
+    if (!m) return null;
+    return (
+      `Las tareas de «${m[1]}» quedarán restringidas al grupo «${m[2]}», que ` +
+      "es el nombre del responsable tal como viene en el Diccionario. Si en " +
+      "la plataforma el grupo se llama distinto, la restricción no se aplica " +
+      "y cualquiera podría atender esas tareas."
+    );
+  },
 
   // --- Diccionario: hay que sacar del crudo la etiqueta del campo. ----------
   "DIC-02": (mensaje) => {

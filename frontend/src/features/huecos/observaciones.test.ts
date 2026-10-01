@@ -72,6 +72,19 @@ describe("documentoDeObservaciones", () => {
     expect(doc).toContain("2 se configuran en la plataforma");
   });
 
+  test("las decisiones de publicación son nuestras: se cuentan y no se les mandan", () => {
+    const doc = documentoDeObservaciones(
+      estado([
+        hueco("META-07", "metadatos", "el tramite saldra oculto del portal del ciudadano: nada en el expediente dice si es publico", "por_confirmar"),
+        hueco("ACT-01", "area", "las tareas de «Area» se restringen al grupo «Area», que es el nombre del responsable y no un grupo de la plataforma", "por_confirmar"),
+      ]),
+    );
+
+    expect(doc).not.toContain("## Otros hallazgos");
+    expect(doc).not.toContain("oculto");
+    expect(doc).toContain("2 se configuran en la plataforma");
+  });
+
   test("un codigo que nadie clasifico acaba en «Otros», no en el olvido", () => {
     const doc = documentoDeObservaciones(estado([hueco("ZZZ-99", "p1::x", "algo nuevo que nadie clasifico")]));
 

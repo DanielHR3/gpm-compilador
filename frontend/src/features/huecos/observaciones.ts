@@ -46,6 +46,9 @@ const RESPONSABLE: Record<string, Responsable> = {
   "META-05": "plataforma", "META-06": "plataforma",
   "API-01": "plataforma", "API-02": "plataforma", "API-04": "plataforma",
   "API-05": "plataforma", "API-06": "plataforma", "DOC-04": "plataforma", "FLU-03": "plataforma",
+  // Si el tramite es publico y a que grupo real va cada responsable: no esta
+  // en ningun insumo, se decide en el asistente (spec 2026-10-01).
+  "META-07": "plataforma", "ACT-01": "plataforma",
 };
 
 const TITULO_SECCION: Record<Responsable, string> = {
