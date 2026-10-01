@@ -64,6 +64,7 @@ def test_una_cita_muerta_se_reporta_y_la_matriz_la_marca(tmp_path):
     assert "HU-ANA-09" in md
     assert "`test_ya_no_existe` ⚠️ no existe" in md
     assert "Generado por scripts/trazabilidad.py" in md
+    assert "- [" not in md   # Obsidian Tasks no debe leer la matriz como tareas
 
 
 def test_solo_lee_la_nota_principal_de_cada_historia(tmp_path):

@@ -148,7 +148,8 @@ def matriz(historias: List[Historia], existentes: Set[str]) -> str:
         lineas.append("{} de {} criterios marcados.".format(hechos, len(h.criterios)))
         lineas.append("")
         for c in h.criterios:
-            marca = "x" if c.hecho else " "
+            # Sin casillas «- [ ]»: Obsidian Tasks las contaria como tareas pendientes.
+            marca = "✅" if c.hecho else "⬜"
             if c.pruebas:
                 citas = ", ".join(
                     "`{}`".format(p) if p in existentes else "`{}` ⚠️ no existe".format(p)
@@ -156,7 +157,7 @@ def matriz(historias: List[Historia], existentes: Set[str]) -> str:
                 )
             else:
                 citas = "*sin prueba citada*"
-            lineas.append("- [{}] **{}** — {}".format(marca, c.clave, citas))
+            lineas.append("- {} **{}** — {}".format(marca, c.clave, citas))
         lineas.append("")
     return "\n".join(lineas)
 
