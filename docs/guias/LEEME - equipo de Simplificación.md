@@ -25,6 +25,10 @@ No hay que instalar Python ni nada más: usa el que ya trae la Mac.
 3. **Resuelve los huecos.** Son las cosas que la herramienta no pudo deducir de sus documentos y
    que decidió *no inventar*. Por ejemplo: un campo sin nombre técnico `@@` en su descripción, o
    un catálogo que el Diccionario marca como pendiente.
+   Tres tarjetas de «Solo confirmar» deciden lo que antes se corregía en la plataforma: si el
+   trámite **aparece en el portal**, en qué tarea **sale cada oficio** y a qué **grupo de
+   usuarios** corresponde cada área. Si no las tocas, el `.gpm` sale oculto, con el oficio en
+   la primera tarea y con el nombre del área como grupo.
 4. **Recorre el trámite** en el simulador, para ver el flujo como lo vería el ciudadano. En su
    menú, **Documentos** enseña cada oficio o formato que entrega el trámite con la plantilla tal
    como quedó guardada; se puede descargar como PDF de prueba.

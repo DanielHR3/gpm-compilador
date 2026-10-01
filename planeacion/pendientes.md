@@ -156,7 +156,15 @@ buscar.
   **Esperamos su respuesta.** De paso salieron tres datos que el formato en papel pide y el
   Diccionario no captura (centro expedidor, semestre/fecha de expedicion, numero de oficio).
 
-- **PLAT-11 — nombramos el grupo con una etiqueta legible, no con el identificador real.** El
+- **PLAT-11 — nombramos el grupo con una etiqueta legible, no con el identificador real.**
+  **2026-10-01: ya se avisa y se decide en el asistente; falta el acta.** Cada responsable que
+  no es el ciudadano produce un `ACT-01` (`por_confirmar`) con una caja para escribir el grupo
+  real, con sugerencias de `nucleo/grupos.py` (`GET /api/v1/grupos`); `POST /resolver` (`act01`)
+  lo escribe en `grupos_usuarios`. La forma no se valida: un export trae `grupo práctica`. Sin
+  decidir, el `.gpm` sale como antes. **Falta comprobar en la plataforma que el grupo real ata**
+  (no está probado que el import case `GruposUsuarios` por nombre con un grupo existente), y
+  releer los exports para ampliar las sugerencias: las cuatro de hoy salen de este archivo.
+  Spec `docs/superpowers/specs/2026-10-01-decisiones-de-publicacion-design.md`. Texto original: El
   extractor toma el nombre del carril del TO-BE y lo emite tal cual: `Direccion De Verificacion
   Vehicular`. La plataforma usa **slugs**: `transparencia_admin`, `area_primer_contacto`,
   `licitaciones_admin`, `verificacion_vehicular`. Comparacion A/B sobre el MISMO tramite:
@@ -215,6 +223,11 @@ buscar.
   sale `text` en vez de `date` y `doc_oficio_resolucion` sale `text` en vez de `file`. Y de los
   campos de archivo no se lee el formato admitido, el tamano maximo ni la carga multiple.
 - **P-17 — todo `.gpm` que emitimos sale OCULTO del portal del ciudadano, y nadie lo dice.**
+  **2026-10-01: ya se dice y se decide en el asistente.** Todo expediente trae un `META-07`
+  (`por_confirmar`) con dos botones; si quien inicia es el ciudadano, propone «sí» sin
+  aplicarlo. `POST /resolver` (`meta07`) escribe `ruts.publico`. No se deriva del expediente:
+  sin decidir sigue saliendo oculto. Que `publico` enciende el trámite en el portal ya estaba
+  probado (PLAT-6). Texto original:
   `ruts.publico` nace en `False` y **ningun extractor lo pone nunca en `True`**: no hay una sola
   ruta que lo derive del AS-IS, del TO-BE ni del Diccionario. El compilador ata `public` y
   `add_in_menu` correctamente (PLAT-6), asi que el `.gpm` importa limpio, el funcionario ve el
@@ -224,7 +237,16 @@ buscar.
   Faltan dos cosas: derivarlo del expediente cuando se pueda, y **decirlo** —hoy no hay hueco
   que avise de que el tramite saldra invisible—. Mientras tanto se corrige a mano en el
   manifiesto (`publico: true`) o en la plataforma.
-- **P-19 — todos los documentos se generan al enviar la solicitud del ciudadano.** Comprobado en
+- **P-19 — todos los documentos se generan al enviar la solicitud del ciudadano.**
+  **2026-10-01: la tarea se elige en el asistente; falta el acta.** El `DOC-04` `por_confirmar`
+  lleva un selector con las tareas del flujo; las que no valen salen deshabilitadas con el
+  motivo. `POST /resolver` (`doc04`) mueve el evento y valida con `documentos.vale_para`: a una
+  tarea le llegan sus campos y los de las tareas desde las que se alcanza, y el cierre nunca
+  vale. **No se subió a `falta_dato`** (decisión de Daniel: solo avisan), así que el valor por
+  omisión sigue siendo la primera tarea con los datos. De paso se corrigió un defecto que borraba
+  la decisión: `reensamblar_flujo` armaba tareas nuevas sin acciones al resolver una compuerta y
+  cada documento se quedaba sin evento. **Falta comprobar en la plataforma** que el oficio sale
+  al terminar la tarea elegida. Texto original: Comprobado en
   plataforma el 2026-09-22 (proceso 1103): los **cinco** oficios de Prorroga cuelgan de «Nueva
   Solicitud» con `instante: "despues"`. En cuanto el ciudadano envia, se generan a la vez el
   oficio de prorroga, el de ampliacion y los **dos de rechazo**, antes de que nadie decida nada.

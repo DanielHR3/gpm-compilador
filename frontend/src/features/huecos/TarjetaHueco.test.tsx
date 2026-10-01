@@ -404,7 +404,7 @@ const META07 = {
   codigo: "META-07",
   ubicacion: "metadatos",
   mensaje: "el tramite saldra oculto del portal del ciudadano: nada en el expediente dice si es publico",
-  propuesta: "Sí: lo inicia el ciudadano",
+  propuesta: "Sí, porque lo inicia el ciudadano",
 };
 
 const DOC04 = {

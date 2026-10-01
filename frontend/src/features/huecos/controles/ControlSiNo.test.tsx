@@ -10,7 +10,7 @@ const hueco = {
   ubicacion: "metadatos",
   mensaje:
     "el tramite saldra oculto del portal del ciudadano: nada en el expediente dice si es publico",
-  propuesta: "Sí: lo inicia el ciudadano",
+  propuesta: "Sí, porque lo inicia el ciudadano",
 };
 
 it("ofrece las dos decisiones con lo que pasa en cada una", async () => {

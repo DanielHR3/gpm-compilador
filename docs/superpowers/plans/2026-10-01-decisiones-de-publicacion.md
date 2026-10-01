@@ -61,7 +61,7 @@ campos), plantilla sin variables, terminal excluida, ciclo que termina.
 
 **Archivos:** `src/gpmc/extractores/expediente.py` · prueba `tests/test_extractor_expediente.py`
 
-Tras armar el flujo: un `META-07` (`metadatos`), con `propuesta="Sí: lo inicia el ciudadano"`
+Tras armar el flujo: un `META-07` (`metadatos`), con `propuesta="Sí, porque lo inicia el ciudadano"`
 cuando el actor de la tarea inicial es `autoservicio`; un `ACT-01` por actor `grupo`, con
 `ubicacion` = id del actor. Mensajes:
 

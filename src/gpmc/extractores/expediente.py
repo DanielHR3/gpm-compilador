@@ -346,7 +346,7 @@ def _decisiones_de_publicacion(actores: "list[Actor]", flujo: Flujo) -> "list[Hu
         "por_confirmar", "META-07", "metadatos",
         "el tramite saldra oculto del portal del ciudadano: nada en el "
         "expediente dice si es publico",
-        propuesta="Sí: lo inicia el ciudadano" if lo_inicia_el_ciudadano else None,
+        propuesta="Sí, porque lo inicia el ciudadano" if lo_inicia_el_ciudadano else None,
     ))
 
     # PLAT-11: el grupo se llena con el nombre del responsable tal como lo
