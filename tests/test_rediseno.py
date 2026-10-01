@@ -104,3 +104,61 @@ def test_la_plantilla_del_to_be_ensena_la_tabla_y_el_extractor_la_lee():
     declaradas = extraer(texto).declaradas
     assert ("Visitas presenciales", "2", "0") in declaradas
     assert all(len(f) == 3 for f in declaradas)
+
+
+_TABLA = """# Propuesta TO-BE
+
+## Análisis de eliminación por requisito y por paso
+
+Se recorrió cada requisito y cada paso del AS-IS.
+
+| Elemento del AS-IS | ¿Se elimina? | Fundamento |
+|---|---|---|
+| Requisito: escrito de solicitud en el formato oficial | Se integra a la solicitud digital | Deja de ser un formato aparte. |
+| Requisito: tarjeta de circulación | No, se conserva en digital | Identifica el vehículo. |
+| Requisito: documentos de representación | Sin decisión | Ver Pendientes. |
+| Paso 1. Solicitud de información | **Sí** | La información se consulta en el sistema. |
+| Paso 3. Recepción y revisión | No | Es la revisión documental. |
+| Pasos 6A y 7B. Elaborar y firmar el oficio | Se reduce | Tres roles pasan a una pantalla. |
+| Tarjeta de circulación física para cotejo | Se conserva digitalmente | Se adjunta en PDF. |
+| Entrega del comprobante | Depende del canal de pago | Lo decide el banco. |
+
+## Propuesta
+
+| Tarea del diagrama | Pantalla | Actor |
+|---|---|---|
+| Solicitud | Pantalla 1 | Ciudadano |
+"""
+
+
+def test_la_tabla_de_eliminacion_se_lee_fila_por_fila_con_la_palabra_del_equipo():
+    e = extraer(_TABLA).elementos
+    assert len(e) == 8
+    assert (e[0].nombre, e[0].decision, e[0].fundamento) == (
+        "Requisito: escrito de solicitud en el formato oficial",
+        "Se integra a la solicitud digital", "Deja de ser un formato aparte.")
+    # La negrita es del markdown, no de la decision.
+    assert e[3].decision == "Sí"
+
+
+def test_cada_fila_se_clasifica_solo_para_contar():
+    clases = [x.clase for x in extraer(_TABLA).elementos]
+    assert clases == ["cambia", "conserva", "sin_decision", "elimina", "conserva",
+                      "cambia", "conserva", "otro"]
+
+
+def test_la_fila_dice_si_es_requisito_o_paso_cuando_el_equipo_lo_escribio():
+    tipos = [x.tipo for x in extraer(_TABLA).elementos]
+    assert tipos == ["requisito", "requisito", "requisito", "paso", "paso", "paso", "", ""]
+
+
+def test_solo_se_lee_la_tabla_bajo_su_encabezado():
+    # La tabla tarea-pantalla-actor que viene despues no es de eliminacion.
+    assert all("Pantalla 1" not in x.decision for x in extraer(_TABLA).elementos)
+    assert extraer(_TOBE).elementos == []
+
+
+def test_una_tabla_sin_la_columna_de_decision_no_se_adivina():
+    texto = ("## Análisis de eliminación por requisito y por paso\n\n"
+             "| Elemento | Notas |\n|---|---|\n| Acta | Sí |\n")
+    assert extraer(texto).elementos == []

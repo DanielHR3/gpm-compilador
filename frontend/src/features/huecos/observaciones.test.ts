@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { EstadoExpediente, Hueco } from "@/lib/types";
+import type { EstadoExpediente, Hueco, MejoraTramite } from "@/lib/types";
 
 import { documentoDeObservaciones } from "./observaciones";
 
@@ -177,6 +177,45 @@ describe("avisos de la comparativa", () => {
   test("sin avisos el documento queda como antes", () => {
     expect(documentoDeObservaciones(estado([]), new Date(2026, 8, 28), [])).toBe(
       documentoDeObservaciones(estado([]), new Date(2026, 8, 28)),
+    );
+  });
+});
+
+describe("puntos de mejora del agente", () => {
+  const mejora = (mas: Partial<MejoraTramite> = {}): MejoraTramite => ({
+    id: "abc", titulo: "Quitar la tarjeta de circulación", tipo: "documento",
+    propuesta: "Consultarla en el padrón vehicular.", beneficio: "Se ahorra un escaneo.",
+    cita: "Se adjunta en formato digital PDF", fuente: "to_be", campo: "doc_tarjeta",
+    etiqueta_campo: "Tarjeta de Circulación", servicio: "", requiere: "convenio",
+    descartada: false, ...mas,
+  });
+
+  test("van en su propia sección, con propuesta, beneficio y evidencia", () => {
+    const doc = documentoDeObservaciones(estado([]), new Date(2026, 9, 1), [], [mejora()]);
+
+    expect(doc).toContain("## Qué más se puede simplificar  (1)");
+    expect(doc).toContain("**Quitar la tarjeta de circulación**");
+    expect(doc).toContain("Consultarla en el padrón vehicular.");
+    expect(doc).toContain("Qué se gana: Se ahorra un escaneo.");
+    expect(doc).toContain("Documento que se sigue pidiendo: Tarjeta de Circulación.");
+    expect(doc).toContain("Propuesta TO-BE: «Se adjunta en formato digital PDF»");
+    expect(doc).toContain("Requiere un convenio o un sistema de la dependencia");
+    // Quien lo recibe tiene que saber que lo propuso un modelo y no el equipo.
+    expect(doc).toContain("propuestas de un agente");
+    expect(doc).not.toContain("No hay observaciones que requieran cambios");
+  });
+
+  test("lo descartado no se manda", () => {
+    const doc = documentoDeObservaciones(estado([]), new Date(2026, 9, 1), [], [
+      mejora({ descartada: true }),
+    ]);
+    expect(doc).not.toContain("Qué más se puede simplificar");
+    expect(doc).toContain("No hay observaciones que requieran cambios");
+  });
+
+  test("sin mejoras el documento queda como antes", () => {
+    expect(documentoDeObservaciones(estado([]), new Date(2026, 9, 1), [], [])).toBe(
+      documentoDeObservaciones(estado([]), new Date(2026, 9, 1)),
     );
   });
 });

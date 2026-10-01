@@ -1,13 +1,21 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { declararMetrica, leerComparativa, urlDocumentoComparativa } from "@/lib/api";
+import {
+  analizarComparativa, declararMetrica, descartarMejora, leerComparativa,
+  urlDocumentoComparativa,
+} from "@/lib/api";
 import type { ComparativaOut, MetricaComparada, ValorComparado } from "@/lib/types";
 
 import CapturaMetrica from "./CapturaMetrica";
+import ElementosRediseno from "./ElementosRediseno";
+import EstadoAnalisis from "./EstadoAnalisis";
+import EvidenciaPropuesta from "./EvidenciaPropuesta";
 import GraficaSimplificacion from "./GraficaSimplificacion";
+import PuntosDeMejora from "./PuntosDeMejora";
+import ResumenLlano from "./ResumenLlano";
 import { etiquetaDestino, etiquetaOrigen, textoCambio, tituloVeredicto } from "./formato";
 
 /**
@@ -17,7 +25,15 @@ import { etiquetaDestino, etiquetaOrigen, textoCambio, tituloVeredicto } from ".
  * Solo pinta lo que `GET …/comparativa` devuelve ya contado. Todo en tarjetas:
  * en la SPA no hay tablas. Cada cifra lleva su origen a la vista, porque una
  * cifra sin origen no sirve de evidencia.
+ *
+ * Desde el 2026-10-01 la pagina llega completa: la primera vez que se abre,
+ * un agente busca en el AS-IS y el TO-BE la evidencia de los lados que el
+ * compilador no supo contar y propone que mas se puede simplificar. Lo que
+ * propone va rotulado y con sus frases a la vista.
  */
+const MS_CONSULTA = 2500;
+// 20 minutos: la misma ventana tras la que el servidor da el analisis por muerto.
+const MAX_CONSULTAS = 480;
 
 function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
   return (
@@ -45,9 +61,12 @@ function Lado({ rotulo, valor }: { rotulo: string; valor: ValorComparado }) {
 
 function TarjetaMetrica({
   metrica,
+  agente,
   onGuardar,
 }: {
   metrica: MetricaComparada;
+  /** En que va el agente: mientras busca no se pide captura; si ya busco, se dice. */
+  agente: "sin_agente" | "buscando" | "termino";
   onGuardar: (antes: string, despues: string) => Promise<void>;
 }) {
   const falta = metrica.antes.origen === "sin_dato" || metrica.despues.origen === "sin_dato";
@@ -79,13 +98,29 @@ function TarjetaMetrica({
             No se compara: las unidades no coinciden. Escribe los dos lados con la misma unidad.
           </p>
         ) : null}
+        {metrica.propuesta_antes ? (
+          <EvidenciaPropuesta lado="antes" propuesta={metrica.propuesta_antes} />
+        ) : null}
+        {metrica.propuesta_despues ? (
+          <EvidenciaPropuesta lado="después" propuesta={metrica.propuesta_despues} />
+        ) : null}
+        {falta && agente === "buscando" ? (
+          <p className="text-xs text-muted-foreground">
+            El agente está buscando este dato en el expediente…
+          </p>
+        ) : null}
+        {falta && agente === "termino" && !declarada ? (
+          <p className="text-xs text-muted-foreground">
+            El expediente no trae evidencia de este dato. Si lo conoces, escríbelo aquí.
+          </p>
+        ) : null}
         {!falta && !declarada && !corrigiendo ? (
           <Button type="button" size="sm" variant="ghost" className="self-start"
                   onClick={() => setCorrigiendo(true)}>
             Corregir
           </Button>
         ) : null}
-        {falta || declarada || corrigiendo ? (
+        {(falta && agente !== "buscando") || declarada || corrigiendo ? (
           // La llave cambia con el valor: tras guardar, el formulario arranca
           // de lo que el servidor devolvio y no de lo que quedo tecleado.
           <CapturaMetrica
@@ -116,6 +151,10 @@ function Puntos({ etiqueta, lado, puntos }: { etiqueta: string; lado: string; pu
 export default function Comparativa({ sid }: { sid: string }) {
   const [datos, setDatos] = useState<ComparativaOut | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const consultas = useRef(0);
+  const lanzado = useRef(false);
 
   useEffect(() => {
     let vivo = true;
@@ -126,6 +165,42 @@ export default function Comparativa({ sid }: { sid: string }) {
       vivo = false;
     };
   }, [sid]);
+
+  const analizar = useCallback(async () => {
+    setOcupado(true);
+    setAviso(null);
+    consultas.current = 0;
+    try {
+      await analizarComparativa(sid);
+      setDatos(await leerComparativa(sid));
+    } catch {
+      setAviso("No se pudo empezar el análisis. La comparativa muestra lo que contó el compilador.");
+    } finally {
+      setOcupado(false);
+    }
+  }, [sid]);
+
+  // La primera vez que alguien abre la comparativa de un expediente, el agente
+  // corre solo (decision del 2026-10-01: la pagina tiene que llegar completa).
+  // Una sola vez por montaje: un fallo no se reintenta en bucle.
+  const estado = datos?.disponible ? datos.analisis : undefined;
+  useEffect(() => {
+    if (!estado || lanzado.current) return;
+    if (estado.estado !== "sin_analizar" || !estado.puede_analizar) return;
+    lanzado.current = true;
+    void analizar();
+  }, [estado, analizar]);
+
+  // Mientras el agente trabaja se consulta cada 2.5 s, con un tope para no
+  // dejar una pestaña olvidada preguntando toda la noche.
+  useEffect(() => {
+    if (estado?.estado !== "analizando") return;
+    if (consultas.current++ >= MAX_CONSULTAS) return;
+    const reloj = setTimeout(() => {
+      leerComparativa(sid).then(setDatos).catch(() => undefined);
+    }, MS_CONSULTA);
+    return () => clearTimeout(reloj);
+  }, [datos, estado, sid]);
 
   const volver = (
     <a href={`/revisar/${sid}`}
@@ -155,6 +230,22 @@ export default function Comparativa({ sid }: { sid: string }) {
   }
 
   const tareas = datos.tareas_despues.map((t) => (t.actor ? `${t.nombre} · ${t.actor}` : t.nombre));
+  const analisis = datos.analisis;
+  // «termino» solo si de verdad busco: tras un fallo no se puede decir que el
+  // expediente no trae el dato, solo que no se pudo buscar.
+  const agente =
+    analisis?.estado === "lista"
+      ? "termino"
+      : analisis?.estado === "analizando" ||
+          (analisis?.estado === "sin_analizar" && analisis.puede_analizar)
+        ? "buscando"
+        : "sin_agente";
+  const mejoras = datos.mejoras ?? [];
+  const elementos = datos.elementos ?? [];
+  // El aviso solo aparece cuando hay algo que decir.
+  const hayAviso =
+    analisis !== undefined &&
+    (analisis.estado !== "sin_analizar" || !analisis.puede_analizar || aviso !== null);
 
   return (
     <div className="flex flex-col gap-8">
@@ -176,12 +267,27 @@ export default function Comparativa({ sid }: { sid: string }) {
         <p className="text-sm text-muted-foreground">{datos.tramite}</p>
       </header>
 
+      {hayAviso && analisis ? (
+        <EstadoAnalisis analisis={analisis} ocupado={ocupado} aviso={aviso}
+                        onAnalizar={() => void analizar()} />
+      ) : null}
+
       <Card className="border-l-4 border-l-primary">
-        <CardContent className="flex flex-col gap-1">
-          <span className="text-lg font-bold">{tituloVeredicto(datos.veredicto)}</span>
-          <p className="max-w-prose text-sm">{datos.frase}</p>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-lg font-bold">{tituloVeredicto(datos.veredicto)}</span>
+            <p className="max-w-prose text-sm">{datos.frase}</p>
+          </div>
+          <ResumenLlano lineas={datos.resumen ?? []} />
         </CardContent>
       </Card>
+
+      {elementos.length > 0 && datos.resumen_elementos ? (
+        <Seccion titulo="Qué pasó con cada elemento del trámite"
+                 nota="La tabla «Análisis de eliminación» del TO-BE, tal como la escribió el equipo.">
+          <ElementosRediseno elementos={elementos} resumen={datos.resumen_elementos} />
+        </Seccion>
+      ) : null}
 
       <Seccion titulo="Porcentaje de simplificación"
                nota="Promedio de las métricas que tienen número en los dos lados.">
@@ -199,6 +305,7 @@ export default function Comparativa({ sid }: { sid: string }) {
             <li key={m.clave}>
               <TarjetaMetrica
                 metrica={m}
+                agente={agente}
                 onGuardar={async (antes, despues) => {
                   setDatos(await declararMetrica(sid, m.clave, antes, despues));
                 }}
@@ -207,6 +314,18 @@ export default function Comparativa({ sid }: { sid: string }) {
           ))}
         </ul>
       </Seccion>
+
+      {mejoras.length > 0 ? (
+        <Seccion titulo="Qué más se puede simplificar"
+                 nota="Propuestas del agente sobre el trámite ya rediseñado. Cada una se apoya en una frase del expediente o en un documento que se sigue pidiendo; decide el equipo.">
+          <PuntosDeMejora
+            mejoras={mejoras}
+            onDescartar={async (id, descartada) => {
+              setDatos(await descartarMejora(sid, id, descartada));
+            }}
+          />
+        </Seccion>
+      ) : null}
 
       <Card>
         <CardContent className="flex flex-col gap-2">

@@ -1,4 +1,5 @@
-import type { EstadoExpediente, Hueco } from "@/lib/types";
+import { fuenteEnPalabras, requiereEnPalabras } from "@/features/comparativa/formato";
+import type { EstadoExpediente, Hueco, MejoraTramite } from "@/lib/types";
 
 import { leerMensajeVisibilidad, redactarHueco, tituloDeCodigo } from "./lenguaje";
 
@@ -115,6 +116,7 @@ export function documentoDeObservaciones(
   estado: EstadoExpediente,
   hoy: Date = new Date(),
   avisosComparativa: Hueco[] = [],
+  mejoras: MejoraTramite[] = [],
 ): string {
   const m = estado.manifiesto;
   const pendientes = estado.huecos;
@@ -131,9 +133,11 @@ export function documentoDeObservaciones(
     "",
   ];
 
+  // Lo que una persona descarto en «Antes y después» no se le manda a nadie.
+  const vivas = mejoras.filter((x) => !x.descartada);
   const hayTrabajo =
     grupos.diccionario.length + grupos.to_be.length + grupos.otros.length +
-      avisosComparativa.length > 0;
+      avisosComparativa.length + vivas.length > 0;
 
   if (!hayTrabajo) {
     out.push("No hay observaciones que requieran cambios en los documentos del expediente.");
@@ -159,6 +163,27 @@ export function documentoDeObservaciones(
     for (const h of avisosComparativa) {
       const donde = h.ubicacion === "as_is" ? "En el Análisis AS-IS" : "En la Propuesta TO-BE";
       out.push(`**${donde}**`, "", h.mensaje, "");
+    }
+  }
+
+  // Los puntos de mejora no son defectos del expediente: son lo que el
+  // tramite ya rediseñado todavia podria simplificar. Van aparte y dicen que
+  // los propuso un modelo, para que nadie los lea como una decision del equipo.
+  if (vivas.length) {
+    out.push(`## Qué más se puede simplificar  (${vivas.length})`, "");
+    out.push(
+      "Son propuestas de un agente sobre el trámite ya rediseñado, no defectos del",
+      "expediente. Cada una se apoya en una frase del expediente o en un documento",
+      "que se sigue pidiendo. Decide el equipo.",
+      "",
+    );
+    for (const x of vivas) {
+      out.push(`**${x.titulo}**`, "", x.propuesta, "");
+      if (x.beneficio) out.push(`Qué se gana: ${x.beneficio}`, "");
+      if (x.etiqueta_campo) out.push(`Documento que se sigue pidiendo: ${x.etiqueta_campo}.`, "");
+      if (x.cita) out.push(`${fuenteEnPalabras(x.fuente) || "Expediente"}: «${x.cita}»`, "");
+      const requiere = requiereEnPalabras(x.requiere);
+      if (requiere) out.push(`_${requiere}._`, "");
     }
   }
 

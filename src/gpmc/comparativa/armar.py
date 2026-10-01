@@ -1,9 +1,13 @@
 """Cruza el AS-IS con el TO-BE y el manifiesto: la comparativa de antes y despues.
 
 La pidio Simplificacion el 2026-09-28 para comprobar que un tramite si tuvo
-reingenieria. Es una funcion pura y determinista: no hay un modelo opinando.
-Cada valor dice de donde salio (contado, leido, declarado o sin dato), porque
-una cifra sin origen no sirve de evidencia.
+reingenieria. Es una funcion pura y determinista: aqui no se llama a ningun
+modelo. Cada valor dice de donde salio (contado, leido, declarado, propuesto o
+sin dato), porque una cifra sin origen no sirve de evidencia.
+
+Desde el 2026-10-01 puede recibir, ya verificado, lo que propone el agente
+para los lados que el compilador no sabe contar (`propuestas`) y los puntos de
+mejora (`mejoras`). Entran como datos: este modulo no importa de `agentes`.
 """
 import dataclasses
 import re
@@ -11,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from gpmc.comparativa import documentos as docs_tramite
+from gpmc.comparativa.propuestas import LADOS, mejoras_a_dicts
 from gpmc.extractores.as_is import EstadoActual, casa
 from gpmc.extractores.rediseno import Rediseno
 from gpmc.nucleo.huecos import Hueco
@@ -54,6 +59,11 @@ class Metrica:
     despues: Valor
     diferencia: Optional[float] = None
     porcentaje: Optional[float] = None
+    # La evidencia de un lado que propuso el agente: {motivo, ninguno, evidencia}.
+    # Va aparte del `Valor` para que una cifra contada y una propuesta tengan la
+    # misma forma y solo cambie su origen.
+    propuesta_antes: Optional[dict] = None
+    propuesta_despues: Optional[dict] = None
 
 
 @dataclass
@@ -85,6 +95,13 @@ class Comparativa:
     huecos: list = field(default_factory=list)
     # El resumen de «Documentos del tramite», si alguien ya empezo a revisarlos.
     documentos: Optional[dict] = None
+    # La tabla «Analisis de eliminacion» del TO-BE, fila por fila y contada.
+    elementos: list = field(default_factory=list)
+    resumen_elementos: Optional[dict] = None
+    # Lo mismo que dicen las cifras, en frases: que bajo, que subio, que falta.
+    resumen: list = field(default_factory=list)
+    # «Que mas se puede simplificar»: lo propone el agente, verificado.
+    mejoras: list = field(default_factory=list)
 
 
 def clave_de_metrica(nombre: str) -> Optional[str]:
@@ -163,18 +180,45 @@ def _mezclar(rediseno: Rediseno, pantalla: Optional[dict]) -> dict:
     return d
 
 
-def _metrica(k: str, antes: Valor, despues: Valor, declarado: dict) -> Metrica:
+def _de_propuesta(p) -> tuple:
+    """(Valor, evidencia) de una propuesta. Sin evidencia no hay cifra: el
+    agente no puede poner un numero que no se pueda abrir."""
+    if not p.evidencias:
+        return Valor(), None
+    if p.texto:
+        valor = _valor(p.texto, "propuesto")
+    else:
+        n = 0 if p.ninguno else len(p.evidencias)
+        valor = Valor(str(n), float(n), "", "propuesto")
+    return valor, {"motivo": p.motivo, "ninguno": p.ninguno,
+                   "evidencia": [{"nombre": e.nombre, "cita": e.cita} for e in p.evidencias]}
+
+
+def _metrica(k: str, antes: Valor, despues: Valor, declarado: dict,
+             propuestas: Optional[dict] = None) -> Metrica:
     if declarado.get("antes"):
         antes = _valor(declarado["antes"], "declarado")
     if declarado.get("despues"):
         despues = _valor(declarado["despues"], "declarado")
+    # Lo propuesto solo ocupa un lado que seguia vacio: no pisa lo contado, lo
+    # leido ni lo que declaro una persona.
+    evidencia = {"antes": None, "despues": None}
+    lados = {"antes": antes, "despues": despues}
+    for lado in LADOS:
+        p = (propuestas or {}).get((k, lado))
+        if p is not None and lados[lado].origen == "sin_dato":
+            valor, ev = _de_propuesta(p)
+            if ev is not None:
+                lados[lado], evidencia[lado] = valor, ev
+    antes, despues = lados["antes"], lados["despues"]
     dif = pct = None
     if (antes.numero is not None and despues.numero is not None
             and antes.unidad == despues.unidad):
         dif = antes.numero - despues.numero
         if antes.numero > 0:
             pct = round(dif / antes.numero * 100, 1)
-    return Metrica(k, _NOMBRES[k], antes, despues, dif, pct)
+    return Metrica(k, _NOMBRES[k], antes, despues, dif, pct,
+                   evidencia["antes"], evidencia["despues"])
 
 
 def _requisitos(estado: EstadoActual, archivos: list, eliminaciones: list) -> list:
@@ -243,6 +287,13 @@ def _huecos(estado: EstadoActual, metricas: list, requisitos: list, veredicto: s
     if faltan:
         huecos.append(Hueco("por_confirmar", "CMP-02", "to_be",
                             "Falta el dato del después para: " + ", ".join(faltan) + "."))
+    propuestas = [f"{m.nombre} ({_lados_propuestos(m)})" for m in metricas if _lados_propuestos(m)]
+    if propuestas:
+        huecos.append(Hueco("por_confirmar", "CMP-06", "to_be",
+                            "Cifras propuestas por el agente a partir de frases del "
+                            "expediente, sin revisar por una persona: "
+                            + ", ".join(propuestas) + ". Abre cada una en «Antes y "
+                            "después» y corrígela si la evidencia no la sostiene."))
     if veredicto == "no_reduce":
         huecos.append(Hueco("por_confirmar", "CMP-03", "to_be",
                             "Con las cifras leídas, la reingeniería no reduce ninguna de "
@@ -256,14 +307,92 @@ def _huecos(estado: EstadoActual, metricas: list, requisitos: list, veredicto: s
     return huecos
 
 
+def _lados_propuestos(m: Metrica) -> str:
+    lados = [rotulo for rotulo, v in (("antes", m.antes), ("después", m.despues))
+             if v.origen == "propuesto"]
+    return " y ".join(lados)
+
+
+def lados_sin_dato(c: Comparativa) -> list:
+    """Los (metrica, lado) que el compilador no pudo llenar: lo que se le pide
+    al agente. Se calcula sobre una comparativa armada SIN propuestas."""
+    return [(m.clave, lado) for m in c.metricas
+            for lado, v in (("antes", m.antes), ("despues", m.despues))
+            if v.origen == "sin_dato"]
+
+
+_CLASES_ELEMENTO = ("elimina", "conserva", "cambia", "sin_decision", "otro")
+# (singular, plural) de cada clase, en el orden en que se cuenta la historia.
+_VERBO_ELEMENTO = (
+    ("elimina", "se elimina", "se eliminan"),
+    ("cambia", "cambia", "cambian"),
+    ("conserva", "se conserva", "se conservan"),
+    ("sin_decision", "sigue sin decisión", "siguen sin decisión"),
+    ("otro", "tiene otra respuesta", "tienen otra respuesta"),
+)
+
+
+def _resumen_elementos(elementos: list) -> Optional[dict]:
+    if not elementos:
+        return None
+    cuenta = {k: sum(1 for e in elementos if e.clase == k) for k in _CLASES_ELEMENTO}
+    return {"total": len(elementos), **cuenta}
+
+
+def _enumerar(partes: list) -> str:
+    if len(partes) <= 1:
+        return "".join(partes)
+    return ", ".join(partes[:-1]) + " y " + partes[-1]
+
+
+def _resumen(metricas: list, cuenta: Optional[dict]) -> list:
+    """Las cifras, dichas en frases para quien no va a leer siete tarjetas."""
+    salida = []
+    if cuenta:
+        partes = [f"{cuenta[k]} {uno if cuenta[k] == 1 else varios}"
+                  for k, uno, varios in _VERBO_ELEMENTO if cuenta[k]]
+        n = cuenta["total"]
+        cabeza = ("Del único elemento" if n == 1 else f"De los {n} elementos")
+        salida.append({"clase": "elementos",
+                       "texto": f"{cabeza} del trámite actual que revisó el equipo, "
+                                f"{_enumerar(partes)}."})
+    baja, sube, igual, sin_comparar, sin_dato = [], [], [], [], []
+    for m in metricas:
+        nombre = m.nombre.lower()
+        vacios = [rotulo for rotulo, v in (("antes", m.antes), ("después", m.despues))
+                  if v.origen == "sin_dato"]
+        if len(vacios) == 2:
+            sin_dato.append(nombre)
+        elif vacios:
+            sin_dato.append(f"{nombre} ({vacios[0]})")
+        elif m.diferencia is None:
+            sin_comparar.append(f"{nombre} ({m.antes.texto} → {m.despues.texto})")
+        elif m.diferencia > 0:
+            baja.append(f"{nombre}, de {m.antes.texto} a {m.despues.texto}")
+        elif m.diferencia < 0:
+            sube.append(f"{nombre}, de {m.antes.texto} a {m.despues.texto}")
+        else:
+            igual.append(f"{nombre} ({m.antes.texto})")
+    for clase, rotulo, puntos in (
+            ("baja", "Baja", baja), ("igual", "Queda igual", igual), ("sube", "Sube", sube),
+            ("sin_comparar", "No se compara, porque las unidades no coinciden", sin_comparar),
+            ("sin_dato", "Sin dato en el expediente", sin_dato)):
+        if puntos:
+            salida.append({"clase": clase, "texto": f"{rotulo}: {'; '.join(puntos)}."})
+    return salida
+
+
 def no_disponible(motivo: str) -> Comparativa:
     return Comparativa(disponible=False, motivo=motivo)
 
 
 def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
              declaradas: Optional[dict] = None,
-             documentos: Optional[list] = None) -> Comparativa:
+             documentos: Optional[list] = None,
+             propuestas: Optional[list] = None,
+             mejoras: Optional[list] = None) -> Comparativa:
     d = _mezclar(rediseno, declaradas)
+    por_lado = {(p.metrica, p.lado): p for p in propuestas or []}
     archivos = _archivos(m)
     actores = {t.actor for t in m.flujo.tareas if t.actor} or {p.actor for p in m.pantallas}
     base = {
@@ -285,9 +414,17 @@ def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
             Valor(str(revisados["total"]), float(revisados["total"]), "", "revisado"),
             Valor(str(quedan), float(quedan), "", "revisado"))
     nombres_actor = {a.id: a.nombre for a in m.actores}
-    metricas = [_metrica(k, base[k][0], base[k][1], d.get(k, {})) for k, _ in METRICAS]
+    metricas = [_metrica(k, base[k][0], base[k][1], d.get(k, {}), por_lado)
+                for k, _ in METRICAS]
     requisitos = [] if completo else _requisitos(estado, archivos, rediseno.eliminaciones)
     veredicto, pct, n, frase = _veredicto(metricas)
+    con_propuesta = sum(1 for x in metricas
+                        if x.porcentaje is not None and _lados_propuestos(x))
+    if con_propuesta:
+        # La cifra global nunca viaja sin decir cuanto de ella interpreto un modelo.
+        frase += (f" {con_propuesta} de esas {n} {'usa' if con_propuesta == 1 else 'usan'} "
+                  f"cifras propuestas por el agente.")
+    cuenta = _resumen_elementos(rediseno.elementos)
     return Comparativa(
         tramite=m.tramite.nombre,
         metricas=metricas,
@@ -307,6 +444,10 @@ def comparar(estado: EstadoActual, rediseno: Rediseno, m: Manifiesto,
         huecos=(_huecos(estado, metricas, requisitos, veredicto)
                 + docs_tramite.avisos(documentos or [])),
         documentos=revisados,
+        elementos=[dataclasses.asdict(e) for e in rediseno.elementos],
+        resumen_elementos=cuenta,
+        resumen=_resumen(metricas, cuenta),
+        mejoras=mejoras_a_dicts(mejoras or []),
     )
 
 

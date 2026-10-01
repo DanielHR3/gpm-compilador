@@ -628,6 +628,30 @@ export async function declararMetrica(
   });
 }
 
+/**
+ * `POST …/comparativa/analizar` — 202 y corre en segundo plano: el agente
+ * completa los lados sin dato y propone puntos de mejora. 409 con el candado cerrado.
+ */
+export async function analizarComparativa(sid: string): Promise<{ estado: string }> {
+  return pedirJson(`${BASE}/expedientes/${sid}/comparativa/analizar`, { method: "POST" });
+}
+
+/** `POST …/comparativa/mejoras/{id}/descartar` — se puede deshacer con `false`. */
+export async function descartarMejora(
+  sid: string,
+  id: string,
+  descartada: boolean,
+): Promise<ComparativaOut> {
+  return pedirJson(
+    `${BASE}/expedientes/${sid}/comparativa/mejoras/${encodeURIComponent(id)}/descartar`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ descartada }),
+    },
+  );
+}
+
 /** URL del documento descargable (no hace `fetch`). */
 export function urlDocumentoComparativa(sid: string): string {
   return `${BASE}/expedientes/${sid}/comparativa/documento`;

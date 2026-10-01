@@ -207,6 +207,28 @@ it("las observaciones llevan los avisos de la comparativa", async () => {
   expect(await screen.findByText(/Falta el dato del después para: Visitas presenciales/)).toBeInTheDocument();
 });
 
+it("las observaciones llevan los puntos de mejora que no se descartaron", async () => {
+  const mejora = {
+    id: "abc", titulo: "Quitar la tarjeta de circulación", tipo: "documento",
+    propuesta: "Consultarla en el padrón vehicular.", beneficio: "Se ahorra un escaneo.",
+    cita: "", fuente: "", campo: "doc_tarjeta", etiqueta_campo: "Tarjeta de Circulación",
+    servicio: "", requiere: "", descartada: false,
+  };
+  leerComparativa.mockResolvedValue({
+    disponible: true, huecos: [],
+    mejoras: [mejora, { ...mejora, id: "def", titulo: "Punto descartado", descartada: true }],
+  });
+  pintar();
+  await waitFor(() => expect(leerComparativa).toHaveBeenCalledWith(estado.sid));
+
+  await userEvent.click(
+    screen.getByRole("button", { name: /vista previa de Observaciones/i }),
+  );
+
+  expect(await screen.findByText(/Quitar la tarjeta de circulación/)).toBeInTheDocument();
+  expect(screen.queryByText(/Punto descartado/)).toBeNull();
+});
+
 it("si la comparativa falla, las observaciones salen igual y sin error a la vista", async () => {
   leerComparativa.mockRejectedValue(new Error("sin red"));
   pintar();

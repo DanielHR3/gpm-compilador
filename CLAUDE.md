@@ -631,10 +631,12 @@ Bitácora: `2026-09-25 - Pruebas de Simplificacion y la propuesta que salia a es
 La pidió Simplificación para comprobar que un trámite sí tuvo reingeniería. Es de **uso
 interno**. Spec y plan en `docs/superpowers/` (`2026-09-28-comparativa-antes-despues`).
 
-- **Determinista.** `comparativa/armar.comparar` es una función pura: no hay un modelo
-  opinando. `comparativa/` y los dos extractores nuevos no importan de `agentes`, `web`, `cli`
-  ni `compilador` (prueba `test_la_comparativa_y_los_extractores_nuevos_no_importan_capas_de_arriba`).
-- **Cada valor dice de dónde salió:** `contado`, `leido`, `declarado` o `sin_dato`. Una lista
+- **Las cuentas son deterministas.** `comparativa/armar.comparar` es una función pura. Un
+  agente puede proponer la evidencia de los lados que el compilador no sabe contar; la cifra
+  es cuántas frases sobreviven una verificación sin modelo, y va rotulada `propuesto` (ver
+  sección 15). `comparativa/` y los dos extractores nuevos no importan de `agentes`, `web`,
+  `cli` ni `compilador` (prueba `test_la_comparativa_y_los_extractores_nuevos_no_importan_capas_de_arriba`).
+- **Cada valor dice de dónde salió:** `contado`, `leido`, `declarado`, `propuesto` o `sin_dato`. Una lista
   vacía es «no se leyó», nunca «hay cero».
 - **Regla de unidades.** Dos valores se comparan solo si traen número y la **misma unidad**.
   «13 días hábiles» contra «24 horas» se enseña tal cual y no entra al porcentaje: convertir
@@ -731,3 +733,33 @@ documentos pedía el trámite, **cuáles ya no pide y por qué**. Spec y plan en
   contestada por `gemini-3.5-flash`, ya no encontró la Orden de Trabajo. **El techo es el modelo:** la calidad no se ha medido contra la
   bóveda.
 
+### 15. La comparativa llega completa: evidencia del agente y puntos de mejora (2026-10-01)
+
+Simplificación pidió que «Antes y después» llegue sin que el equipo llene nada y con
+propuestas de mejora. Spec: `docs/superpowers/specs/2026-10-01-comparativa-con-agente-design.md`.
+Aprobado por Daniel el 2026-10-01, incluido el cambio a la sección 13.
+
+- **La tabla «Análisis de eliminación» del TO-BE se lee sin modelo** (`rediseno.elementos`,
+  columna «¿Se elimina?» obligatoria). Encabeza la página con la palabra del equipo; la clase
+  (`elimina`/`cambia`/`conserva`/`sin_decision`/`otro`) solo cuenta y colorea, y una respuesta
+  que no se reconoce queda `otro`, nunca forzada. No entra a las siete métricas.
+- **El agente entrega frases, no cifras** (`agentes/comparativa.py`, dos llamadas: `cmp-v1` y
+  `mejoras-v1`). `agentes/verificar_comparativa.py` acepta el tramo literal más largo de cada
+  cita y guarda ESE tramo tal como está en el documento; las etiquetas HTML y la ruta de un
+  enlace `[[…]]` no son texto. El «antes» solo se sostiene en el AS-IS. Cada métrica exige que
+  la frase hable del tema; «ninguno» exige una frase que diga que ya no hay, con giros por
+  métrica (que el trámite sea digital no dice que no haya capturas repetidas). La plataforma
+  GPM no es un sistema externo. Un plazo que el documento da por pendiente no es un plazo.
+- **Precedencia:** declarado > revisado/contado/leído > propuesto. Lo propuesto solo ocupa un
+  lado vacío. La frase del veredicto dice cuántas métricas usan cifras propuestas; `CMP-06`
+  (`por_confirmar`) las nombra en las observaciones.
+- **Puntos de mejora:** entran si se apoyan en un campo del manifiesto o en una frase literal.
+  Un servicio fuera de `integraciones.CATALOGOS` no se promete: se rotula «requiere convenio».
+  Se descartan en la SPA y el descarte sobrevive a «Volver a analizar» (`conservar_descartes`).
+- **Se lanza solo** la primera vez que se abre la página (detrás de `fase3.puede_generar`) y se
+  guarda en `comparativa.json` con candado por sesión. Un error no borra el análisis anterior.
+  `comparativa.analizar` y `comparativa.descartar` van a la auditoría.
+- **Probado en vivo** con `gemini-3.5-flash-lite` sobre Reposición y Prórroga: de 2 a 6 y de 2
+  a 3 métricas comparables. **Varía entre corridas** (2 o 4 visitas en el mismo trámite): por
+  eso la evidencia va a la vista. Sigue abierto qué cuenta como requisito y como paso: en
+  Reposición el «después» de requisitos incluye el archivo que sube el funcionario.

@@ -76,3 +76,45 @@ def test_con_documentos_revisados_dice_como_se_simplifico():
 
 def test_sin_documentos_revisados_el_documento_no_los_menciona():
     assert "Documentos del trámite" not in a_html(comparar(_estado(), Rediseno(), _m()))
+
+
+def _con_agente():
+    from gpmc.comparativa.propuestas import Evidencia, Mejora, Propuesta
+    from gpmc.extractores.rediseno import Elemento
+    r = Rediseno(elementos=[
+        Elemento("Requisito: <b>acta</b>", "Sí", "Se consulta en línea.", "elimina", "requisito"),
+        Elemento("Paso 3. Revisión", "No, se conserva", "", "conserva", "paso")])
+    propuestas = [Propuesta("visitas", "antes", [
+        Evidencia("Ir a <i>ventanilla</i>", "Usuario lo lleva a Ventanilla"),
+        Evidencia("Ir al banco", "paga (en banco)")], motivo="Va dos veces en persona.")]
+    mejoras = [
+        Mejora("a1", "Quitar la tarjeta", "documento", "Consultarla en el padrón.",
+               "Ahorra un escaneo.", cita="Se adjunta en PDF", fuente="to_be",
+               campo="doc_tarjeta", etiqueta_campo="Tarjeta de Circulación", requiere="convenio"),
+        Mejora("b2", "Punto descartado", "paso", "x", "y", descartada=True)]
+    return comparar(_estado(), r, _m(), propuestas=propuestas, mejoras=mejoras)
+
+
+def test_el_documento_enseña_la_evidencia_de_cada_cifra_propuesta():
+    html = a_html(_con_agente())
+    assert "propuesto por el agente" in html
+    assert "Va dos veces en persona." in html
+    assert "«Usuario lo lleva a Ventanilla»" in html
+    # El nombre lo redacta el modelo: entra escapado como cualquier otro dato.
+    assert "<i>ventanilla</i>" not in html and "&lt;i&gt;ventanilla&lt;/i&gt;" in html
+
+
+def test_el_documento_trae_el_resumen_los_elementos_y_las_mejoras_vivas():
+    html = a_html(_con_agente())
+    assert "De los 2 elementos del trámite actual que revisó el equipo" in html
+    assert "Qué pasó con cada elemento del trámite" in html
+    assert "<b>acta</b>" not in html and "Se consulta en línea." in html
+    assert "Qué más se puede simplificar" in html and "Quitar la tarjeta" in html
+    assert "Requiere un convenio" in html and "Tarjeta de Circulación" in html
+    assert "Punto descartado" not in html
+
+
+def test_sin_agente_ni_tabla_el_documento_no_inventa_secciones():
+    html = a_html(comparar(_estado(), Rediseno(), _m()))
+    assert "Qué más se puede simplificar" not in html
+    assert "Qué pasó con cada elemento" not in html

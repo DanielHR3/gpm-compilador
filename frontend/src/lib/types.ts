@@ -217,7 +217,8 @@ export type CampoVista = {
 export type PantallaVista = { id: string; nombre: string; actor: string; campos: CampoVista[] };
 
 /** Comparativa de antes y después (`GET /api/v1/expedientes/{sid}/comparativa`). */
-export type OrigenValor = "contado" | "leido" | "declarado" | "revisado" | "sin_dato";
+export type OrigenValor =
+  | "contado" | "leido" | "declarado" | "revisado" | "propuesto" | "sin_dato";
 export type ClaveMetrica =
   | "requisitos" | "pasos" | "actores" | "sistemas" | "tiempo" | "visitas" | "capturas";
 
@@ -235,6 +236,59 @@ export interface MetricaComparada {
   despues: ValorComparado;
   diferencia: number | null;
   porcentaje: number | null;
+  /** La evidencia de un lado cuya cifra propuso el agente; `null` si no es propuesta. */
+  propuesta_antes?: PropuestaDeLado | null;
+  propuesta_despues?: PropuestaDeLado | null;
+}
+/** Una frase del expediente, tal como está escrita, y lo que el agente dice que nombra. */
+export interface EvidenciaPropuesta {
+  nombre: string;
+  cita: string;
+}
+/** La cifra de un lado propuesto es cuántas evidencias hay; `ninguno` es un cero con su frase. */
+export interface PropuestaDeLado {
+  motivo: string;
+  ninguno: boolean;
+  evidencia: EvidenciaPropuesta[];
+}
+export type ClaseElemento = "elimina" | "conserva" | "cambia" | "sin_decision" | "otro";
+/** Una fila de la tabla «Análisis de eliminación» del TO-BE, con la palabra del equipo. */
+export interface ElementoRediseno {
+  nombre: string;
+  decision: string;
+  fundamento: string;
+  clase: ClaseElemento;
+  tipo: "requisito" | "paso" | "";
+}
+export type ResumenElementos = { total: number } & Record<ClaseElemento, number>;
+export interface LineaResumen {
+  clase: "elementos" | "baja" | "igual" | "sube" | "sin_comparar" | "sin_dato";
+  texto: string;
+}
+/** «Qué más se puede simplificar»: lo propone el agente y lo verifica el servidor. */
+export interface MejoraTramite {
+  id: string;
+  titulo: string;
+  tipo: "documento" | "paso" | "captura" | "visita" | "friccion" | "tiempo";
+  propuesta: string;
+  beneficio: string;
+  cita: string;
+  fuente: "as_is" | "to_be" | "";
+  campo: string;
+  etiqueta_campo: string;
+  servicio: string;
+  requiere: "" | "servicio_publico" | "convenio";
+  descartada: boolean;
+}
+export interface AnalisisComparativa {
+  estado: "sin_analizar" | "analizando" | "lista" | "error";
+  motivo: string | null;
+  pasos: { t: string; mensaje: string }[];
+  puede_analizar: boolean;
+  motivo_analizar: string | null;
+  pruebas: boolean;
+  modelo: string;
+  terminado: string | null;
 }
 
 export interface RequisitoComparado {
@@ -264,6 +318,13 @@ export interface ComparativaOut {
   huecos: Hueco[];
   /** El resumen de «Documentos del trámite», si alguien ya empezó a revisarlos. */
   documentos: ResumenDocumentos | null;
+  // Desde el 2026-10-01. Opcionales: una pestaña abierta contra un servidor
+  // anterior al despliegue recibe la comparativa sin ellos y no debe romperse.
+  elementos?: ElementoRediseno[];
+  resumen_elementos?: ResumenElementos | null;
+  resumen?: LineaResumen[];
+  mejoras?: MejoraTramite[];
+  analisis?: AnalisisComparativa;
 }
 
 /** Documentos del trámite (`GET /api/v1/expedientes/{sid}/documentos`). */

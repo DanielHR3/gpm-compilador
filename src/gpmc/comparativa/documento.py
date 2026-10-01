@@ -18,7 +18,15 @@ COLOR_ANTES = "#CF7A95"
 COLOR_DESPUES = "#A22D4E"
 
 _ORIGEN = {"contado": "contado", "leido": "leído", "revisado": "revisado",
-           "declarado": "declarado", "sin_dato": "sin dato"}
+           "declarado": "declarado", "propuesto": "propuesto por el agente",
+           "sin_dato": "sin dato"}
+# Como responde el equipo en la tabla de eliminacion, dicho en una palabra.
+_CLASE_ELEMENTO = {"elimina": "Se elimina", "cambia": "Cambia", "conserva": "Se conserva",
+                   "sin_decision": "Sin decisión", "otro": "Otra respuesta"}
+_ORDEN_ELEMENTOS = ("elimina", "cambia", "conserva", "sin_decision", "otro")
+_REQUIERE = {"servicio_publico": "Se puede hacer hoy con un servicio público en línea",
+             "convenio": "Requiere un convenio o un sistema de la dependencia"}
+_FUENTE = {"as_is": "AS-IS", "to_be": "TO-BE"}
 _DESTINO = {"conservado": "Se conserva", "eliminado": "Se elimina",
             "sin_destino": "Sin destino", "nuevo": "Nuevo en el TO-BE"}
 _VEREDICTO = {"reduce": "Reduce", "mixto": "Mixto",
@@ -42,6 +50,11 @@ border-bottom:1px solid #ddd;padding-bottom:.25rem}
 .dos{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
 ol,ul{padding-left:1.25rem;margin:0}li{margin:.25rem 0;font-size:.875rem}
 .nota{color:#666;font-size:.8125rem}
+.resumen{padding-left:1.25rem;margin:.5rem 0 1rem}.resumen li{font-size:.9375rem}
+.evidencia{margin:.5rem 0 0;padding-left:1rem;border-left:2px solid #ddd}
+.evidencia li{list-style:none;font-size:.75rem;color:#444;margin:.2rem 0}
+.motivo{font-size:.8125rem;margin:.5rem 0 0}
+.tarjeta p{margin:.35rem 0;font-size:.8125rem}
 @media print{body{margin:0}h2{break-after:avoid}}
 """
 
@@ -91,11 +104,67 @@ def _lado(rotulo: str, v) -> str:
             f'<span class="origen">{_e(_ORIGEN.get(v.origen, v.origen))}</span></div>')
 
 
+def _evidencia(rotulo: str, p) -> str:
+    """Las frases del expediente en que se apoya una cifra propuesta. Van en el
+    documento porque quien lo recibe no tiene la pantalla para abrirlas."""
+    if not p:
+        return ""
+    motivo = f'<p class="motivo">{_e(p["motivo"])}</p>' if p.get("motivo") else ""
+    frases = "".join(f"<li><strong>{_e(x['nombre'])}</strong> — «{_e(x['cita'])}»</li>"
+                     for x in p["evidencia"])
+    return (f'{motivo}<p class="origen">Evidencia de «{rotulo}»</p>'
+            f'<ul class="evidencia">{frases}</ul>')
+
+
 def _tarjeta_metrica(m) -> str:
     cambio = (f'<p class="cambio">{_e(texto_cambio(m.porcentaje))}</p>'
               if m.porcentaje is not None else "")
     return (f'<article class="tarjeta"><h3>{_e(m.nombre)}</h3><div class="par">'
-            f'{_lado("Antes", m.antes)}{_lado("Después", m.despues)}</div>{cambio}</article>')
+            f'{_lado("Antes", m.antes)}{_lado("Después", m.despues)}</div>{cambio}'
+            f'{_evidencia("antes", m.propuesta_antes)}'
+            f'{_evidencia("después", m.propuesta_despues)}</article>')
+
+
+def _elementos(c: Comparativa) -> str:
+    if not c.elementos:
+        return ""
+    tarjetas = []
+    for clase in _ORDEN_ELEMENTOS:
+        for x in (e for e in c.elementos if e["clase"] == clase):
+            fundamento = f"<p>{_e(x['fundamento'])}</p>" if x["fundamento"] else ""
+            tarjetas.append(
+                f'<article class="tarjeta"><h3>{_e(x["nombre"])}</h3>'
+                f'<span class="origen">{_e(_CLASE_ELEMENTO[clase])}</span>'
+                f'<p><strong>{_e(x["decision"])}</strong></p>{fundamento}</article>')
+    return ("<h2>Qué pasó con cada elemento del trámite</h2>"
+            '<p class="nota">Tabla «Análisis de eliminación» del TO-BE, tal como la '
+            "escribió el equipo.</p>"
+            f'<div class="rejilla">{"".join(tarjetas)}</div>')
+
+
+def _mejoras(c: Comparativa) -> str:
+    vivas = [x for x in c.mejoras if not x["descartada"]]
+    if not vivas:
+        return ""
+    tarjetas = []
+    for x in vivas:
+        apoyo = []
+        if x["etiqueta_campo"]:
+            apoyo.append(f"Documento que se sigue pidiendo: {_e(x['etiqueta_campo'])}.")
+        if x["cita"]:
+            apoyo.append(f"{_FUENTE.get(x['fuente'], 'Expediente')}: «{_e(x['cita'])}»")
+        requiere = (f'<p class="origen">{_e(_REQUIERE[x["requiere"]])}</p>'
+                    if x["requiere"] in _REQUIERE else "")
+        beneficio = f"<p><strong>Qué se gana:</strong> {_e(x['beneficio'])}</p>" \
+            if x["beneficio"] else ""
+        tarjetas.append(
+            f'<article class="tarjeta"><h3>{_e(x["titulo"])}</h3><p>{_e(x["propuesta"])}</p>'
+            f'{beneficio}<p class="nota">{" ".join(apoyo)}</p>{requiere}</article>')
+    return ("<h2>Qué más se puede simplificar</h2>"
+            '<p class="nota">Propuestas del agente sobre el trámite ya rediseñado. Cada una '
+            "se apoya en una frase del expediente o en un documento que se sigue pidiendo; "
+            "decide el equipo.</p>"
+            f'<div class="rejilla">{"".join(tarjetas)}</div>')
 
 
 def _tarjeta_requisito(r) -> str:
@@ -128,6 +197,8 @@ def a_html(c: Comparativa) -> str:
         "Administrativa. Cada cifra dice de dónde salió.</p>",
         f'<div class="veredicto"><strong>{_e(_VEREDICTO[c.veredicto])}</strong>'
         f"{_e(c.frase)}</div>",
+        ('<ul class="resumen">' + "".join(f"<li>{_e(x['texto'])}</li>" for x in c.resumen)
+         + "</ul>") if c.resumen else "",
         grafica_svg(c.metricas),
         '<h2>Métricas</h2><div class="rejilla">',
         "".join(_tarjeta_metrica(m) for m in c.metricas),
@@ -135,6 +206,7 @@ def a_html(c: Comparativa) -> str:
         f'<p class="nota">Campos que se llenan solos por consulta en línea: '
         f"{c.autollenados}.</p>",
     ]
+    cuerpo.append(_elementos(c))
     if c.documentos:
         cuerpo.append("<h2>Documentos del trámite</h2>"
                       f"<p>{_e(c.documentos['titular'])}</p>")
@@ -158,5 +230,6 @@ def a_html(c: Comparativa) -> str:
     cuerpo.append(_lista("Lo que se eliminó", c.eliminaciones))
     cuerpo.append(_lista("Impacto estimado", c.impacto,
                          nota="Estimación cualitativa del equipo, no un dato medido."))
+    cuerpo.append(_mejoras(c))
     cuerpo.append(_lista("Por confirmar", [h.mensaje for h in c.huecos]))
     return cabeza + "".join(cuerpo) + "</body></html>"

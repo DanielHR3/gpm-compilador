@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "cn";
 import { leerComparativa, urlGpm, urlManifiesto } from "@/lib/api";
 import { documentoDeObservaciones } from "@/features/huecos/observaciones";
-import type { EstadoExpediente, Hueco } from "@/lib/types";
+import type { EstadoExpediente, Hueco, MejoraTramite } from "@/lib/types";
 
 import { descargasDe, resumenDe, type ClaveDescarga, type Descarga } from "./descargas";
 
@@ -90,11 +90,22 @@ export default function PanelDescargas({
   // Los avisos de la comparativa van en las observaciones. Si la comparativa
   // falla, el analista no puede quedarse sin sus observaciones: se calla.
   const [avisos, setAvisos] = useState<Hueco[]>([]);
+  // Tambien los puntos de mejora que ya propuso el agente. Solo se leen: el
+  // analisis se lanza al abrir «Antes y después», no desde aqui.
+  const [mejoras, setMejoras] = useState<MejoraTramite[]>([]);
   useEffect(() => {
     let vivo = true;
     leerComparativa(sid)
-      .then((c) => vivo && setAvisos(c.disponible ? c.huecos : []))
-      .catch(() => vivo && setAvisos([]));
+      .then((c) => {
+        if (!vivo) return;
+        setAvisos(c.disponible ? c.huecos : []);
+        setMejoras(c.disponible ? (c.mejoras ?? []) : []);
+      })
+      .catch(() => {
+        if (!vivo) return;
+        setAvisos([]);
+        setMejoras([]);
+      });
     return () => {
       vivo = false;
     };
@@ -116,7 +127,7 @@ export default function PanelDescargas({
   /** Arma el .md en el navegador. No pasa por el servidor: el castellano de
       las observaciones vive en `redactarHueco`, de este lado. */
   function textoDeObservaciones(): string {
-    return documentoDeObservaciones(estado, new Date(), avisos);
+    return documentoDeObservaciones(estado, new Date(), avisos, mejoras);
   }
 
   function descargarObservaciones() {

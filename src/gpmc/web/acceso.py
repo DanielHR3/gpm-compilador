@@ -59,6 +59,8 @@ _ACCIONES = [
     ("POST", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/documentos/aceptar-verificados$"), "documentos.decidir"),
     ("POST", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/documentos/[^/]+/decision$"), "documentos.decidir"),
     ("POST", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/comparativa/declarar$"), "comparativa.declarar"),
+    ("POST", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/comparativa/analizar$"), "comparativa.analizar"),
+    ("POST", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/comparativa/mejoras/[^/]+/descartar$"), "comparativa.descartar"),
     ("GET", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/gpm$"), "gpm.descargar"),
     ("GET", re.compile(r"^/descargar/(?P<sid>[^/]+)/gpm(-pruebas)?$"), "gpm.descargar"),
 ]
