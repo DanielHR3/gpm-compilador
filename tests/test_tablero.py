@@ -352,3 +352,14 @@ def test_resumir_solo_cuenta_como_datos_capturados_lo_que_escribe_el_ciudadano()
     assert linea["requisitos"] == ["Tarjeta de Circulación"]
     # La metrica del estimador sigue contando todos los campos, como siempre.
     assert linea["metricas"]["campos"] == 7
+
+
+def test_resumir_no_cuenta_las_decisiones_de_publicacion():
+    """META-07 y ACT-01 salen en todo tramite por construccion. El tablero
+    ordena los avisos por numero de tramites: quedarian primeros en todas las
+    dependencias sin decir nada del expediente."""
+    huecos = [Hueco("por_confirmar", "META-07", "metadatos", "oculto"),
+              Hueco("por_confirmar", "ACT-01", "area", "grupo"),
+              Hueco("por_confirmar", "ACT-01", "caja", "grupo"),
+              Hueco("falta_dato", "DIC-08", "p1", "cond")]
+    assert tablero.resumir(_manifiesto(), huecos, ahora=AHORA)["huecos"] == {"DIC-08": 1}

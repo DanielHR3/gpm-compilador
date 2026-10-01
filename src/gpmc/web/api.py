@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
+from gpmc.extractores.documentos import vale_para
 from gpmc.extractores.expediente import (
     SinPermiso,
     _mapear_nodos_a_pantallas,
@@ -34,6 +35,7 @@ from gpmc.extractores.expediente import (
     ramas_de_compuerta,
 )
 from gpmc.nucleo.formato import serializar
+from gpmc.nucleo.grupos import OBSERVADOS as GRUPOS_OBSERVADOS
 from gpmc.nucleo.huecos import HuecoOut, bloquean
 from gpmc.nucleo.manifiesto import Conexion, Condicion, Manifiesto, guardar
 from gpmc.simulador.analisis import analizar
@@ -100,7 +102,16 @@ _TIPO_A_CODIGO = {
     "meta02": "META-02",
     "meta04": "META-04",
     "api03": "API-03",
+    "meta07": "META-07",
+    "doc04": "DOC-04",
+    "act01": "ACT-01",
 }
+
+
+def _si_o_no(valor: str) -> Optional[bool]:
+    """«Sí», «si», «NO»... como booleano; cualquier otra cosa, None."""
+    llano = (valor or "").strip().lower().replace("í", "i")
+    return {"si": True, "no": False}.get(llano)
 
 
 def _campos_declarados(m: Manifiesto) -> set:
@@ -114,7 +125,8 @@ def _campos_declarados(m: Manifiesto) -> set:
 class ResolucionIn(BaseModel):
     """Una resolucion de hueco: donde aplicarla y con que valor."""
 
-    tipo: Literal["mmd03", "meta01", "meta02", "meta04", "api03"]
+    tipo: Literal["mmd03", "meta01", "meta02", "meta04", "api03",
+                  "meta07", "doc04", "act01"]
     ubicacion: str
     valor: str
 
@@ -465,6 +477,12 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
         """Las cuentas del tablero de Simplificación. Solo agregados; sin
         registro responde 200 con listas vacías, nunca 404."""
         return TableroOut(**tablero.agregar(tablero.leer(raiz), dependencia=dependencia))
+
+    @r.get("/grupos")
+    async def listar_grupos():
+        """Grupos de la plataforma ya vistos en uso, para sugerirlos en la
+        tarjeta de `ACT-01`. Es ayuda, no catalogo: se puede escribir otro."""
+        return {"grupos": list(GRUPOS_OBSERVADOS)}
 
     @r.get("/catalogos", response_model=CatalogosOut)
     async def listar_catalogos():
@@ -908,6 +926,53 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                     if t.id in ids_terminales_reales:
                         t.terminal = True
                 resueltos.append(("MMD-04", res.ubicacion))
+                continue
+            # Decisiones de publicacion (spec 2026-10-01). Van antes del
+            # `if not res.valor` de abajo: aqui un valor vacio es un error de
+            # quien llama, no una resolucion que se salta en silencio.
+            if res.tipo == "meta07":
+                publico = _si_o_no(res.valor)
+                if publico is None:
+                    return JSONResponse(status_code=422, content={
+                        "error": "para decidir si el trámite es público se "
+                                 "espera «si» o «no»"})
+                m.tramite.ruts.publico = publico
+                resueltos.append(("META-07", "metadatos"))
+                continue
+            if res.tipo == "doc04":
+                nombre = res.ubicacion.split("/", 1)[-1]
+                accion = next((a for a in m.acciones
+                               if a.tipo == "documento" and a.nombre == nombre), None)
+                if accion is None:
+                    return JSONResponse(status_code=422, content={
+                        "error": f"el trámite no tiene un documento «{nombre}»"})
+                motivo = vale_para(accion, m.flujo, m.pantallas, res.valor)
+                if motivo:
+                    return JSONResponse(status_code=422, content={
+                        "error": f"el documento «{nombre}» no puede generarse "
+                                 f"en esa tarea: {motivo}"})
+                # Se quita de donde este antes de colgarlo: dos eventos para
+                # el mismo documento lo generarian dos veces.
+                for t in m.flujo.tareas:
+                    t.acciones_antes = [a for a in t.acciones_antes if a != nombre]
+                    t.acciones_despues = [a for a in t.acciones_despues if a != nombre]
+                next(t for t in m.flujo.tareas if t.id == res.valor).acciones_despues.append(nombre)
+                resueltos.append(("DOC-04", f"documentos/{nombre}"))
+                continue
+            if res.tipo == "act01":
+                actor = next((a for a in m.actores if a.id == res.ubicacion), None)
+                if actor is None or actor.tipo != "grupo":
+                    return JSONResponse(status_code=422, content={
+                        "error": f"«{res.ubicacion}» no es un responsable al "
+                                 f"que se le pueda asignar un grupo"})
+                grupo = res.valor.strip()
+                # La forma NO se valida: un export autentico trae
+                # `grupo práctica`. Solo lo que no puede ser un nombre.
+                if not grupo or "\n" in grupo or "\r" in grupo:
+                    return JSONResponse(status_code=422, content={
+                        "error": "escribe el nombre del grupo, en una sola línea"})
+                actor.grupos_usuarios = [grupo]
+                resueltos.append(("ACT-01", actor.id))
                 continue
             if not res.valor:
                 continue

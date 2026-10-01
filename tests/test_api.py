@@ -1766,3 +1766,199 @@ def test_el_token_de_sesion_lleva_el_rol(tmp_path):
     c, _, _ = _cli_admin(tmp_path)
     t = _entrar(c).json()["token"]
     assert leer_token("s3cr3to", t)["rol"] == "admin"
+
+
+# --- Decisiones de publicacion: meta07, doc04, act01 (spec 2026-10-01) -------
+
+_DICC_PUB = (
+    "### Pantalla 1 — CIUDADANO — Solicitud\n\n"
+    "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+    "| CURP | Texto | Input | Sí | La CURP `@@curp` |\n\n"
+    "### Pantalla 2 — AREA — Revisión\n\n"
+    "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
+    "| Dictamen | Texto | Input | Sí | El dictamen `@@dictamen` |\n"
+)
+
+
+def _expediente_pub(tmp_path, plantilla="Oficio para {{curp}}."):
+    """Un ciudadano que solicita, un area que revisa y un oficio. Devuelve
+    (cliente, estado); el oficio nace colgado de la tarea del ciudadano."""
+    c = _cli(tmp_path)
+    r = c.post("/api/v1/expedientes", files=[
+        ("diccionario", ("dd.md", _DICC_PUB.encode("utf-8"), "text/markdown")),
+        ("documentos", ("Oficio.md", plantilla.encode("utf-8"), "text/markdown")),
+    ])
+    assert r.status_code == 201, r.text
+    return c, r.json()
+
+
+def _resolver(c, sid, tipo, ubicacion, valor):
+    return c.post(f"/api/v1/expedientes/{sid}/resolver", json={
+        "resoluciones": [{"tipo": tipo, "ubicacion": ubicacion, "valor": valor}]})
+
+
+def _codigos(estado):
+    return [h["codigo"] for h in estado["huecos"]]
+
+
+def _compilado(estado):
+    from gpmc.compilador.a_gpm import compilar
+    from gpmc.nucleo.manifiesto import Manifiesto
+    return compilar(Manifiesto.model_validate(estado["manifiesto"]), proceso_id="1")
+
+
+def _tarea(estado, nombre):
+    return next(t for t in estado["manifiesto"]["flujo"]["tareas"] if t["nombre"] == nombre)
+
+
+def test_el_expediente_nace_con_los_tres_avisos_de_publicacion(tmp_path):
+    _, est = _expediente_pub(tmp_path)
+    assert {"META-07", "DOC-04", "ACT-01"} <= set(_codigos(est))
+    assert est["manifiesto"]["tramite"]["ruts"]["publico"] is False
+
+
+def test_grupos_lista_los_observados_en_la_plataforma(tmp_path):
+    r = _cli(tmp_path).get("/api/v1/grupos")
+    assert r.status_code == 200
+    assert "verificacion_vehicular" in r.json()["grupos"]
+
+
+def test_meta07_si_publica_el_tramite_y_el_gpm_lo_lleva(tmp_path):
+    c, est = _expediente_pub(tmp_path)
+    r = _resolver(c, est["sid"], "meta07", "metadatos", "Sí")
+    assert r.status_code == 200, r.text
+    assert r.json()["manifiesto"]["tramite"]["ruts"]["publico"] is True
+    assert "META-07" not in _codigos(r.json())
+    g = _compilado(r.json())
+    assert (g["public"], g["add_in_menu"]) == ("1", "1")
+
+
+def test_meta07_no_tambien_es_una_decision_y_tacha_el_aviso(tmp_path):
+    c, est = _expediente_pub(tmp_path)
+    r = _resolver(c, est["sid"], "meta07", "metadatos", "no")
+    assert r.status_code == 200
+    assert r.json()["manifiesto"]["tramite"]["ruts"]["publico"] is False
+    assert "META-07" not in _codigos(r.json())
+
+
+def test_meta07_rechaza_lo_que_no_es_si_ni_no(tmp_path):
+    c, est = _expediente_pub(tmp_path)
+    for valor in ("quizá", "", "   "):
+        r = _resolver(c, est["sid"], "meta07", "metadatos", valor)
+        assert r.status_code == 422, valor
+    assert "META-07" in _codigos(c.get(f"/api/v1/expedientes/{est['sid']}").json())
+
+
+def test_doc04_mueve_el_documento_a_la_tarea_elegida(tmp_path):
+    c, est = _expediente_pub(tmp_path)
+    assert _tarea(est, "Solicitud")["acciones_despues"] == ["Oficio"]
+    destino = _tarea(est, "Revisión")["id"]
+
+    r = _resolver(c, est["sid"], "doc04", "documentos/Oficio", destino)
+    assert r.status_code == 200, r.text
+    nuevo = r.json()
+    assert _tarea(nuevo, "Solicitud")["acciones_despues"] == []
+    assert _tarea(nuevo, "Revisión")["acciones_despues"] == ["Oficio"]
+    assert "DOC-04" not in _codigos(nuevo)
+
+    # El .gpm lleva UN evento, y en la tarea elegida.
+    g = _compilado(nuevo)
+    [accion] = [a for a in g["Acciones"] if a["nombre"] == "Oficio"]
+    con_evento = [t["nombre"] for t in g["Tareas"]
+                  for e in t["Eventos"] if e["accion_id"] == str(accion["id"])]
+    assert con_evento == ["Revisión"]
+
+
+def test_doc04_dos_veces_deja_el_documento_en_una_sola_tarea(tmp_path):
+    c, est = _expediente_pub(tmp_path)
+    sid = est["sid"]
+    _resolver(c, sid, "doc04", "documentos/Oficio", _tarea(est, "Revisión")["id"])
+    r = _resolver(c, sid, "doc04", "documentos/Oficio", _tarea(est, "Solicitud")["id"])
+    assert r.status_code == 200
+    tareas = r.json()["manifiesto"]["flujo"]["tareas"]
+    assert [t["nombre"] for t in tareas if "Oficio" in t["acciones_despues"]] == ["Solicitud"]
+
+
+def test_doc04_rechaza_una_tarea_que_no_puede_generar_el_documento(tmp_path):
+    c, est = _expediente_pub(tmp_path, plantilla="Dictamen: {{dictamen}}.")
+    sid = est["sid"]
+    assert _tarea(est, "Revisión")["acciones_despues"] == ["Oficio"]
+    terminal = next(t["id"] for t in est["manifiesto"]["flujo"]["tareas"] if t["terminal"])
+    casos = {
+        "aun no se captura el dato": _tarea(est, "Solicitud")["id"],
+        "es el cierre": terminal,
+        "no existe": "t_inventada",
+    }
+    for caso, tarea_id in casos.items():
+        r = _resolver(c, sid, "doc04", "documentos/Oficio", tarea_id)
+        assert r.status_code == 422, caso
+        assert "error" in r.json()
+    r = _resolver(c, sid, "doc04", "documentos/Otro", _tarea(est, "Revisión")["id"])
+    assert r.status_code == 422
+    # Nada se movio.
+    vivo = c.get(f"/api/v1/expedientes/{sid}").json()
+    assert _tarea(vivo, "Revisión")["acciones_despues"] == ["Oficio"]
+    assert "DOC-04" in _codigos(vivo)
+
+
+def test_act01_pone_el_grupo_real_y_el_gpm_restringe_con_el(tmp_path):
+    c, est = _expediente_pub(tmp_path)
+    r = _resolver(c, est["sid"], "act01", "area", "  verificacion_vehicular ")
+    assert r.status_code == 200, r.text
+    nuevo = r.json()
+    actor = next(a for a in nuevo["manifiesto"]["actores"] if a["id"] == "area")
+    assert actor["grupos_usuarios"] == ["verificacion_vehicular"]
+    assert "ACT-01" not in _codigos(nuevo)
+    g = _compilado(nuevo)
+    revision = next(t for t in g["Tareas"] if t["nombre"] == "Revisión")
+    assert revision["GruposUsuarios"] == [{"nombre": "verificacion_vehicular"}]
+    assert revision["acceso_modo"] == "grupos_usuarios"
+
+
+def test_act01_acepta_un_grupo_con_espacio_y_acento(tmp_path):
+    """Un export autentico trae `grupo práctica`: la forma no se valida."""
+    c, est = _expediente_pub(tmp_path)
+    r = _resolver(c, est["sid"], "act01", "area", "grupo práctica")
+    assert r.status_code == 200
+    actor = next(a for a in r.json()["manifiesto"]["actores"] if a["id"] == "area")
+    assert actor["grupos_usuarios"] == ["grupo práctica"]
+
+
+def test_act01_rechaza_al_ciudadano_un_actor_inexistente_y_un_nombre_vacio(tmp_path):
+    c, est = _expediente_pub(tmp_path)
+    sid = est["sid"]
+    ciudadano = next(a["id"] for a in est["manifiesto"]["actores"] if a["tipo"] == "autoservicio")
+    casos = [(ciudadano, "verificacion_vehicular"), ("nadie", "verificacion_vehicular"),
+             ("area", "   "), ("area", ""), ("area", "uno\ndos")]
+    for ubicacion, valor in casos:
+        r = _resolver(c, sid, "act01", ubicacion, valor)
+        assert r.status_code == 422, (ubicacion, valor)
+    vivo = c.get(f"/api/v1/expedientes/{sid}").json()
+    assert next(a for a in vivo["manifiesto"]["actores"] if a["id"] == ciudadano)["tipo"] == "autoservicio"
+    assert "ACT-01" in _codigos(vivo)
+
+
+def test_ramificar_el_flujo_no_descuelga_los_documentos_ni_lo_decidido(tmp_path):
+    """Resolver una compuerta rearma el flujo desde el diagrama. Las tareas
+    nuevas nacian sin acciones: el documento se quedaba sin evento —un PDF
+    que nunca se produce— y se perdia la tarea que una persona habia elegido."""
+    c = _cli(tmp_path)
+    tobe = _TOBE_RAMA.replace("{¿@@procede == 'si'?}", "{¿Procede?}")
+    est = c.post("/api/v1/expedientes", files=[
+        ("diccionario", ("dd.md", _DICC_RAMA.encode("utf-8"), "text/markdown")),
+        ("to_be", ("tobe.md", tobe.encode("utf-8"), "text/markdown")),
+        ("documentos", ("Oficio.md", "Oficio para {{curp}}.".encode("utf-8"), "text/markdown")),
+    ]).json()
+    sid = est["sid"]
+    elegida = _tarea(est, "Oficio de improcedencia")
+    assert _resolver(c, sid, "doc04", "documentos/Oficio", elegida["id"]).status_code == 200
+
+    gate = next(h["ubicacion"] for h in est["huecos"] if h["codigo"] == "MMD-04")
+    r = c.post(f"/api/v1/expedientes/{sid}/resolver", json={
+        "resoluciones": [{"tipo": "mmd04campo", "ubicacion": gate, "campo": "procede"}]})
+    assert r.status_code == 200, r.text
+    nuevo = r.json()
+    assert any(cx["cuando"] for cx in nuevo["manifiesto"]["flujo"]["conexiones"])  # ramificó
+    con_oficio = [t["nombre"] for t in nuevo["manifiesto"]["flujo"]["tareas"]
+                  if "Oficio" in t["acciones_despues"]]
+    assert con_oficio == ["Oficio de improcedencia"]

@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from gpmc.extractores import mermaid as ext_mmd
+from gpmc.extractores.documentos import atar_a_tareas
 from gpmc.extractores.expediente import _flujo_ramificado
 from gpmc.nucleo.manifiesto import Flujo, Manifiesto
 from gpmc.web import sesiones
@@ -57,5 +58,32 @@ def reensamblar_flujo(carpeta: Path, m: Manifiesto) -> Manifiesto:
     resultado = _flujo_ramificado(rm, m.pantallas, overrides=overrides)
     if resultado is not None:
         tareas, conexiones, _parejas = resultado
-        m.flujo = Flujo(tareas=tareas, conexiones=conexiones)
+        nuevo = Flujo(tareas=tareas, conexiones=conexiones)
+        _conservar_acciones(m, nuevo)
+        m.flujo = nuevo
     return m
+
+
+def _conservar_acciones(m: Manifiesto, nuevo: Flujo) -> None:
+    """Pasa al flujo rearmado las acciones que colgaban de cada tarea.
+
+    `_flujo_ramificado` arma tareas nuevas a partir del diagrama y no sabe de
+    acciones: sin esto, ramificar dejaba cada documento sin evento —un PDF que
+    nunca se produce— y borraba la tarea que una persona eligio con `doc04`.
+    Una tarea vieja y una nueva son la misma si muestran las mismas pantallas.
+    Lo que no encuentra pareja vuelve a colgarse con la regla de la extraccion.
+    """
+    por_pantallas = {
+        tuple(paso.id for paso in t.pantallas): t for t in nuevo.tareas if t.pantallas
+    }
+    colgadas = set()
+    for vieja in m.flujo.tareas:
+        pareja = por_pantallas.get(tuple(paso.id for paso in vieja.pantallas))
+        if pareja is None:
+            continue
+        pareja.acciones_antes = list(vieja.acciones_antes)
+        pareja.acciones_despues = list(vieja.acciones_despues)
+        colgadas.update(vieja.acciones_antes, vieja.acciones_despues)
+    sueltas = [a for a in m.acciones if a.nombre not in colgadas]
+    # Los avisos que devuelve no se usan: son los de la extraccion, ya dados.
+    atar_a_tareas(sueltas, nuevo, m.pantallas)
