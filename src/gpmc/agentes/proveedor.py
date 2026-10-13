@@ -100,7 +100,13 @@ class ProveedorFalso:
 # Alias, no versiones fijas: `gemini-2.5-flash` dejo de ofrecerse a usuarios
 # nuevos y el generador murio con 404 la primera vez que se llamo de verdad.
 # La version exacta que contesta se registra en la bitacora (ver dic08.py).
-MODELO_POR_OMISION = {"gemini": "gemini-flash-latest", "openai": "gpt-4o"}
+# `norte70` no elige modelo: lo fija la plataforma y no lo informa. El valor es
+# solo la etiqueta que queda en la bitacora.
+MODELO_POR_OMISION = {"gemini": "gemini-flash-latest", "openai": "gpt-4o", "norte70": "norte70"}
+
+# El sistema dado de alta en la plataforma de licencias para el Compilador
+# (2026-09-23). Con el se descuenta la cuota y se elige el prompt del sistema.
+SISTEMA_NORTE70 = "Compilador GPM"
 
 
 def _entorno(entorno: Optional[dict]) -> dict:
@@ -116,6 +122,8 @@ def hay_proveedor(entorno: Optional[dict] = None) -> bool:
 
 def crear_proveedor(entorno: Optional[dict] = None) -> Proveedor:
     """Lee GPMC_IA_PROVEEDOR / GPMC_IA_LLAVE / GPMC_IA_MODELO / GPMC_IA_TIMEOUT_S.
+    Con `norte70`, ademas GPMC_IA_USUARIO_ID (obligatoria), GPMC_IA_SISTEMA y
+    GPMC_IA_URL; la llave es «usuario:contrasena» de la plataforma.
     Sin variables, proveedor desconocido o extra sin instalar -> NingunProveedor."""
     e = _entorno(entorno)
     nombre = e.get("GPMC_IA_PROVEEDOR", "")
@@ -124,6 +132,17 @@ def crear_proveedor(entorno: Optional[dict] = None) -> Proveedor:
         return NingunProveedor()
     modelo = e.get("GPMC_IA_MODELO") or MODELO_POR_OMISION[nombre]
     timeout = float(e.get("GPMC_IA_TIMEOUT_S", "60"))
+    if nombre == "norte70":
+        if ":" not in llave or not e.get("GPMC_IA_USUARIO_ID"):
+            return NingunProveedor()
+        from gpmc.agentes.norte70 import URL_POR_OMISION, ProveedorNorte70
+        return ProveedorNorte70(credenciales=llave, id_usuario=e["GPMC_IA_USUARIO_ID"],
+                                sistema=e.get("GPMC_IA_SISTEMA") or SISTEMA_NORTE70,
+                                url=e.get("GPMC_IA_URL") or URL_POR_OMISION,
+                                # GPMC_IA_MODELO se ignora: el modelo lo fija la
+                                # plataforma, y heredar el de otro proveedor dejaba
+                                # «gemini-...» en la bitacora (visto el 2026-10-13).
+                                timeout_s=timeout, modelo=MODELO_POR_OMISION["norte70"])
     try:
         if nombre == "gemini":
             from gpmc.agentes.gemini import ProveedorGemini

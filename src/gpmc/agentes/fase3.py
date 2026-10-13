@@ -31,6 +31,9 @@ log = logging.getLogger("gpmc.agentes.fase3")
 # lo real, con la licencia de Planeacion. El AS-IS completo viaja al proveedor,
 # asi que el candado vive en el codigo y no en la memoria de nadie.
 PROVEEDOR_CON_LICENCIA = "openai"
+# La misma licencia, consumida por la plataforma del proveedor (Norte 70), que
+# guarda la llave de OpenAI. Es como se entrego la licencia el 2026-09-23.
+PROVEEDORES_CON_LICENCIA = (PROVEEDOR_CON_LICENCIA, "norte70")
 
 MOTIVO_SIN_LICENCIA = (
     "El proveedor de IA configurado no tiene licencia para expedientes reales. "
@@ -87,14 +90,14 @@ def modo_pruebas(entorno: Optional[dict] = None) -> bool:
     """
     e = dict(os.environ) if entorno is None else entorno
     return (e.get("GPMC_FASE3_PRUEBAS") == "1"
-            and e.get("GPMC_IA_PROVEEDOR") != PROVEEDOR_CON_LICENCIA
+            and e.get("GPMC_IA_PROVEEDOR") not in PROVEEDORES_CON_LICENCIA
             and bool(e.get("GPMC_IA_PROVEEDOR")) and bool(e.get("GPMC_IA_LLAVE")))
 
 
 def puede_generar(entorno: Optional[dict] = None) -> Optional[str]:
     """None si se puede generar; si no, el motivo en palabras."""
     e = dict(os.environ) if entorno is None else entorno
-    if e.get("GPMC_IA_PROVEEDOR") == PROVEEDOR_CON_LICENCIA and e.get("GPMC_IA_LLAVE"):
+    if e.get("GPMC_IA_PROVEEDOR") in PROVEEDORES_CON_LICENCIA and e.get("GPMC_IA_LLAVE"):
         return None
     if modo_pruebas(e):
         return None

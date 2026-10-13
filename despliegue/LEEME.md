@@ -140,6 +140,39 @@ GPMC_IA_LLAVE=...               # la llave del proveedor
 # GPMC_IA_MAX_TOKENS_LOTE=24000
 ```
 
+### Licencia de Planeación a través de la plataforma Norte 70
+
+La licencia de IA se entregó el 2026-09-23 como una cuenta en
+`licencias.norte70.com`: la llave de OpenAI la guarda el proveedor y el
+Compilador consume la licencia por su API. Esta conexión no necesita el extra `[agentes]`.
+
+```
+GPMC_IA_PROVEEDOR=norte70
+GPMC_IA_LLAVE=usuario:contraseña          # la cuenta de la plataforma (Basic Auth)
+GPMC_IA_USUARIO_ID=...                    # id de la cuenta (campo id_user de las plantillas)
+# GPMC_IA_SISTEMA=Compilador GPM          # el sistema con cuota de IA en «Mis sistemas»
+# GPMC_IA_URL=https://api-licencias.norte70.com
+GPMC_IA_TIMEOUT_S=120                     # la plataforma no transmite por partes: espera la respuesta completa
+```
+
+Antes de usarla, en la plataforma (**Mis sistemas → Editar «Compilador GPM»**):
+
+1. Capturar el **Prompt del Sistema (IA)**. Sin él, la API contesta 400 «No se
+   ha configurado un prompt para el sistema». Debe ser neutro, porque las
+   instrucciones de cada agente viajan en la consulta. Por ejemplo: «Eres un
+   asistente técnico del Compilador GPM. Sigue al pie de la letra las
+   instrucciones de cada mensaje y responde únicamente con el JSON que se te pide».
+2. Tener tokens de IA disponibles. La plataforma limita el total al volumen
+   contratado (5,000,000), así que la cuota del Compilador se libera bajando la
+   del CHAT_BOT.
+
+La plataforma no informa tokens de entrada ni de salida, así que esos dos
+campos de la bitácora quedan vacíos con este proveedor. El consumo se lee en el
+«Informe de sistemas» de la plataforma.
+
+Prueba real: `GPMC_IA_PRUEBA_REAL=1 pytest tests/test_norte70.py -k real`.
+Gasta unos cientos de tokens de la cuota del sistema.
+
 `gpmc servir` lo carga al arrancar. **La llave nunca va en el `plist`, ni en el
 repositorio, ni en el instalador.** Instala el extra: `pip install -e ".[web,agentes]"`.
 
