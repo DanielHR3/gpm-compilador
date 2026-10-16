@@ -21,6 +21,7 @@ from typing import Optional
 
 from gpmc.comparativa.propuestas import (
     ACCIONES, TIPOS_DE_MEJORA, Evidencia, Mejora, Propuesta, id_de_mejora)
+from gpmc.agentes.palabras import comparten
 from gpmc.planeacion.registro import clave
 
 _PALABRA = re.compile(r"[^\W_]+")
@@ -290,19 +291,31 @@ def _por_nombre(metrica: str, elementos: list, idx: Indice, alertas: list) -> li
     return salida
 
 
+# Metricas en las que una sola frase puede nombrar varios elementos: «con una
+# identificacion y un comprobante de domicilio» son dos requisitos; «revisa,
+# transcribe, imprime y pasa a firma» son cuatro pasos. En visitas y capturas
+# una frase es una visita o una captura, y la repetida sigue siendo duplicado.
+_VARIOS_POR_FRASE = ("requisitos", "pasos")
+
+
 def _por_frase(metrica: str, elementos: list, idx: Indice, alertas: list) -> list:
-    salida, vistas = [], set()
+    salida, vistas, nombres = [], set(), set()
     for nombre, cita in elementos:
         frase = tramo_literal(cita, idx)
+        k_nombre = clave(nombre)
         if not frase:
             alertas.append("cita_inventada")
         elif not _habla_de(metrica, frase) \
                 or (metrica == "capturas" and not _dice(_DICE_REPETIR, frase)):
             alertas.append("cita_ajena")
-        elif clave(frase) in vistas:
+        elif k_nombre in nombres or (clave(frase) in vistas and not (
+                metrica in _VARIOS_POR_FRASE and comparten(nombre, frase))):
+            # Constancia de Residencia (2026-10-16): la frase repetida tiraba el
+            # segundo requisito y la comparativa salia «No reduce, +100 %».
             alertas.append("duplicado")
         else:
             vistas.add(clave(frase))
+            nombres.add(k_nombre)
             salida.append(Evidencia(nombre, frase))
     return salida
 

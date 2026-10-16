@@ -8,6 +8,7 @@ manifiesto. Lo que no se sostiene no se corrige en silencio: la tarjeta queda
 from gpmc.comparativa.documentos import (
     DESTINOS, MAX_MOTIVO, SIN_DESTINO, Documento, id_de)
 from gpmc.extractores.as_is import requisitos_del_as_is
+from gpmc.agentes.palabras import comparten
 from gpmc.planeacion.registro import clave
 
 # Una cita de dos letras «aparece» en cualquier documento.
@@ -17,30 +18,8 @@ _MINIMO_CITA = 3
 _MINIMO_PALABRAS_FRASE = 4
 
 
-# Palabras de cuatro letras o mas que no nombran nada.
-_VACIAS = {"para", "como", "este", "esta", "esto", "todo", "toda", "todos", "todas", "sobre",
-           "entre", "desde", "hasta", "cuando", "donde", "solo", "caso", "cada", "otro", "otra",
-           "pero", "tambien", "debe", "deben", "sera", "seran", "tiene", "tienen", "tramite"}
-
-
-def _raiz(palabra: str) -> str:
-    if len(palabra) > 4 and palabra.endswith("es"):
-        return palabra[:-2]
-    if len(palabra) > 3 and palabra.endswith("s"):
-        return palabra[:-1]
-    return palabra
-
-
-def _significativas(texto) -> set:
-    return {_raiz(p) for p in clave(texto if isinstance(texto, str) else "").split()
-            if len(p) >= 4 and p not in _VACIAS}
-
-
-def _comparten(a, b) -> bool:
-    """Que una frase exista en el documento no prueba que hable de ESTE
-    documento: tiene que compartir con el al menos una palabra que nombre algo
-    (revision de la rama, 2026-09-28)."""
-    return bool(_significativas(a) & _significativas(b))
+# `_comparten` vive en `palabras`: la comparativa lo necesita igual.
+_comparten = comparten
 
 
 def _vale_para_cubrir(k: str) -> bool:

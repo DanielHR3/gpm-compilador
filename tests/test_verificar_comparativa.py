@@ -408,3 +408,50 @@ def test_las_frases_reales_que_dependen_de_un_sistema_interno_son_a_futuro():
     # Lo que no toca otro sistema sigue siendo de hoy.
     m, _ = _mejoras([_mejora(propuesta="Unir las dos revisiones del funcionario en una sola pantalla.")])
     assert m[0].requiere == ""
+
+
+# --- una frase que nombra varios elementos (2026-10-16) ---------------------
+
+_ASIS_PROSA = """# Análisis AS-IS — Constancia de Residencia
+
+El ciudadano acude a la ventanilla con una identificación y un comprobante de domicilio.
+Un funcionario revisa los documentos a ojo, transcribe los datos a un formato de Word,
+lo imprime y lo pasa a firma. Si algo falta, el ciudadano regresa otro día.
+"""
+
+
+def _prosa(items):
+    return verificar_evidencia(items, _ASIS_PROSA, "", [("requisitos", "antes"), ("pasos", "antes"),
+                                                       ("visitas", "antes")])
+
+
+def test_una_frase_que_nombra_dos_requisitos_cuenta_dos():
+    # Constancia de Residencia (2026-10-16): «con una identificacion y un
+    # comprobante de domicilio» daba 1 requisito y la comparativa salia
+    # «No reduce, +100 %». La frase repetida vale si nombra al elemento.
+    frase = "El ciudadano acude a la ventanilla con una identificación y un comprobante de domicilio."
+    p, alertas = _prosa([_lado("requisitos", "antes",
+                               ("identificación", frase), ("comprobante de domicilio", frase))])
+    assert [e.nombre for e in p[0].evidencias] == ["identificación", "comprobante de domicilio"]
+    assert alertas == []
+
+
+def test_una_frase_con_cuatro_pasos_cuenta_los_que_nombra():
+    frase = ("Un funcionario revisa los documentos a ojo, transcribe los datos a un formato "
+             "de Word, lo imprime y lo pasa a firma.")
+    p, alertas = _prosa([_lado("pasos", "antes",
+                               ("revisión de documentos a ojo", frase),
+                               ("transcripción de datos a Word", frase),
+                               ("firma del documento", frase),
+                               ("cobro en caja", frase))])
+    assert [e.nombre for e in p[0].evidencias] == [
+        "revisión de documentos a ojo", "transcripción de datos a Word", "firma del documento"]
+    # El cuarto no comparte ninguna palabra con la frase: es la frase repetida sin mas.
+    assert alertas == ["duplicado"]
+
+
+def test_en_visitas_la_misma_frase_sigue_siendo_una_sola_visita():
+    frase = "El ciudadano acude a la ventanilla con una identificación y un comprobante de domicilio."
+    p, alertas = _prosa([_lado("visitas", "antes",
+                               ("ir a la ventanilla", frase), ("entregar la identificación", frase))])
+    assert len(p[0].evidencias) == 1 and alertas == ["duplicado"]
