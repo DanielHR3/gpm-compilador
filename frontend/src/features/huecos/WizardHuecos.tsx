@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { CircleAlert } from "lucide-react";
+import { CheckCheck, CircleAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Instrucciones from "@/components/Instrucciones";
 import { cn } from "cn";
-import { leerPropuestas } from "@/lib/api";
+import { leerPropuestas, reconocer } from "@/lib/api";
 import type { EstadoExpediente, Hueco, Propuesta, PropuestasOut } from "@/lib/types";
 
 import PanelDescargas from "@/features/entrega/PanelDescargas";
 
-import { agruparPorNivel } from "./agrupar";
+import { agruparPorNivel, soloConfirmar } from "./agrupar";
 import Adjuntos from "./Adjuntos";
 import DiagramaToBe from "./DiagramaToBe";
 import ModoFoco from "./ModoFoco";
@@ -182,6 +183,35 @@ export default function WizardHuecos({
   };
 
   const grupos = agruparPorNivel(enPantalla.map((e) => e.item));
+
+  // «Dar por vistos»: reconoce en orden los avisos sin decision propia, con el
+  // mismo /reconocer de siempre, uno por hueco. Cada respuesta se aplica al
+  // momento, asi que si una falla lo ya reconocido se queda y el boton vuelve
+  // a salir con los que faltan.
+  const porVer = soloConfirmar(huecos, reconocidos);
+  const [dandoPorVistos, setDandoPorVistos] = useState(false);
+  const [errorPorVistos, setErrorPorVistos] = useState<string | null>(null);
+  const darPorVistos = async () => {
+    setDandoPorVistos(true);
+    setErrorPorVistos(null);
+    let hechos = 0;
+    try {
+      for (const h of porVer) {
+        const resp = await reconocer(estado.sid, h.codigo, h.ubicacion);
+        setHuecos(resp.huecos);
+        if (resp.reconocidos) setReconocidos(new Set(resp.reconocidos.map(([c, u]) => `${c}|${u}`)));
+        hechos++;
+      }
+      toast.success(hechos === 1 ? "1 aviso dado por visto" : `${hechos} avisos dados por vistos`);
+    } catch {
+      const falto = porVer[hechos];
+      setErrorPorVistos(
+        `No se pudo dar por visto ${falto.codigo}; los ${hechos} anteriores sí quedaron. Vuelve a intentarlo.`,
+      );
+    } finally {
+      setDandoPorVistos(false);
+    }
+  };
   const salientes = new Set(
     enPantalla.filter((e) => e.saliendo).map((e) => clave(e.item)),
   );
@@ -350,7 +380,28 @@ export default function WizardHuecos({
                 {grupo.total}
               </span>
               <span aria-hidden className="h-px flex-1 bg-border" />
+              {grupo.nivel === "por_confirmar" && porVer.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={dandoPorVistos}
+                  aria-busy={dandoPorVistos}
+                  onClick={() => void darPorVistos()}
+                  className="font-sans text-xs tracking-normal normal-case"
+                >
+                  <CheckCheck aria-hidden className="size-3.5" />
+                  {dandoPorVistos
+                    ? "Dando por vistos…"
+                    : porVer.length === 1
+                      ? "Dar por visto el aviso"
+                      : `Dar por vistos los ${porVer.length} avisos`}
+                </Button>
+              ) : null}
             </h2>
+            {grupo.nivel === "por_confirmar" && errorPorVistos ? (
+              <p role="alert" className="text-sm text-destructive">{errorPorVistos}</p>
+            ) : null}
             {grupo.huecos.map((h) => {
               const saliendo = salientes.has(clave(h));
               return (

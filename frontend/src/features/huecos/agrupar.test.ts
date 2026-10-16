@@ -84,3 +84,26 @@ describe("contarPorCodigo", () => {
     expect(contarPorCodigo([])).toEqual([]);
   });
 });
+
+describe("soloConfirmar (2026-10-16)", () => {
+  const h = (codigo: string, nivel: Hueco["nivel"] = "por_confirmar", ubicacion = "metadatos"): Hueco => ({
+    nivel, codigo, ubicacion, mensaje: "", propuesta: null,
+  });
+
+  test("toma los por_confirmar que caen al «Entendido» genérico y deja fuera los que deciden algo", async () => {
+    const { soloConfirmar } = await import("./agrupar");
+    const lista = [
+      h("META-05"), h("META-03"), h("META-06"), h("FLU-03", "por_confirmar", "flujo"),
+      h("MMD-03", "por_confirmar", "flujo"),
+      h("META-07"), h("ACT-01", "por_confirmar", "funcionario"), h("DOC-04", "por_confirmar", "documentos/x"),
+      h("DIC-07", "falta_dato", "p1::x"), h("INS-01", "bloqueante", ""),
+    ];
+    expect(soloConfirmar(lista).map((x) => x.codigo)).toEqual(["META-05", "META-03", "META-06", "FLU-03", "MMD-03"]);
+  });
+
+  test("lo ya reconocido no cuenta", async () => {
+    const { soloConfirmar } = await import("./agrupar");
+    const lista = [h("META-05"), h("FLU-03", "por_confirmar", "flujo")];
+    expect(soloConfirmar(lista, new Set(["META-05|metadatos"])).map((x) => x.codigo)).toEqual(["FLU-03"]);
+  });
+});

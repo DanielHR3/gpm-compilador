@@ -409,3 +409,57 @@ it("avisa a la cabecera del estado de la puerta, y otra vez al reconocer un huec
     expect(onPuerta).toHaveBeenLastCalledWith({ desbloqueado: true, bloqueantes: [] }),
   );
 });
+
+it("«Dar por vistos» reconoce de una vez los avisos sin decisión y respeta los que sí deciden", async () => {
+  // Tras aceptar una propuesta de la Fase 3 salen siempre cuatro o cinco
+  // «solo confirmar». Un clic en vez de cinco; META-07 y ACT-01 siguen con su
+  // control porque ahi si hay algo que decidir.
+  const { reconocer } = await import("@/lib/api");
+  vi.mocked(reconocer).mockReset();
+  const est = {
+    ...estado,
+    huecos: [
+      { nivel: "por_confirmar", codigo: "META-05", ubicacion: "metadatos", mensaje: "sin homoclave", propuesta: null },
+      { nivel: "por_confirmar", codigo: "FLU-03", ubicacion: "flujo", mensaje: "se ramificó solo", propuesta: null },
+      { nivel: "por_confirmar", codigo: "META-07", ubicacion: "metadatos", mensaje: "saldrá oculto", propuesta: null },
+    ],
+  };
+  vi.mocked(reconocer).mockImplementation(async (_sid: string, codigo: string, ubicacion: string) => ({
+    huecos: est.huecos,
+    reconocidos: codigo === "META-05" ? [["META-05", "metadatos"]] : [["META-05", "metadatos"], [codigo, ubicacion]],
+  }) as any);
+  const onPuerta = vi.fn();
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} onPuerta={onPuerta} />);
+
+  await userEvent.click(screen.getByRole("button", { name: /dar por vistos los 2 avisos/i }));
+
+  await vi.waitFor(() => expect(reconocer).toHaveBeenCalledTimes(2));
+  expect(reconocer).toHaveBeenNthCalledWith(1, est.sid, "META-05", "metadatos");
+  expect(reconocer).toHaveBeenNthCalledWith(2, est.sid, "FLU-03", "flujo");
+  // El contador y el boton reflejan lo reconocido; META-07 sigue pendiente.
+  await vi.waitFor(() => expect(screen.getByText(/de 3 resueltos/)).toHaveTextContent("2 de 3 resueltos"));
+  expect(screen.queryByRole("button", { name: /dar por vistos/i })).toBeNull();
+  expect(screen.getAllByText(/saldrá oculto/).length).toBeGreaterThan(0);
+});
+
+it("si un reconocer falla a medias, «Dar por vistos» se detiene y lo dice", async () => {
+  const { reconocer } = await import("@/lib/api");
+  const est = {
+    ...estado,
+    huecos: [
+      { nivel: "por_confirmar", codigo: "META-05", ubicacion: "metadatos", mensaje: "sin homoclave", propuesta: null },
+      { nivel: "por_confirmar", codigo: "FLU-03", ubicacion: "flujo", mensaje: "se ramificó solo", propuesta: null },
+    ],
+  };
+  vi.mocked(reconocer).mockReset();
+  vi.mocked(reconocer)
+    .mockResolvedValueOnce({ huecos: est.huecos, reconocidos: [["META-05", "metadatos"]] } as any)
+    .mockRejectedValueOnce(new Error("500"));
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+
+  await userEvent.click(screen.getByRole("button", { name: /dar por vistos los 2 avisos/i }));
+
+  await vi.waitFor(() => expect(screen.getByText(/de 2 resueltos/)).toHaveTextContent("1 de 2 resueltos"));
+  expect(await screen.findByRole("button", { name: /dar por visto el aviso/i })).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(/FLU-03/);
+});

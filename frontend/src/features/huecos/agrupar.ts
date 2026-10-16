@@ -59,3 +59,25 @@ export function contarPorCodigo(huecos: Hueco[]): CuentaCodigo[] {
     .map(([codigo, total]) => ({ codigo, total }))
     .sort((a, b) => b.total - a.total || a.codigo.localeCompare(b.codigo));
 }
+
+/**
+ * Codigos `por_confirmar` que SI deciden algo y tienen control propio: si el
+ * tramite es publico (META-07), el grupo de la plataforma (ACT-01), la tarea
+ * de un documento (DOC-04). «Dar por vistos» no los toca.
+ */
+const CON_DECISION = new Set(["META-07", "ACT-01", "DOC-04"]);
+
+/**
+ * Los avisos que solo piden «Entendido»: `por_confirmar` sin decision propia y
+ * sin reconocer. Tras aceptar una propuesta de la Fase 3 salen siempre cuatro
+ * o cinco (homoclave, costo, dirigido, emparejado del flujo): un clic en vez
+ * de cinco, sin esconder ninguno.
+ */
+export function soloConfirmar(huecos: Hueco[], reconocidos: Set<string> = new Set()): Hueco[] {
+  return huecos.filter(
+    (h) =>
+      h.nivel === "por_confirmar" &&
+      !CON_DECISION.has(h.codigo) &&
+      !reconocidos.has(`${h.codigo}|${h.ubicacion}`),
+  );
+}
