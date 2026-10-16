@@ -9,6 +9,7 @@
  */
 
 import type {
+  FilaAuditoria,
   Adjunto,
   Bloqueante,
   CampoManifiesto,
@@ -587,6 +588,31 @@ export async function restablecer(token: string, contrasena: string): Promise<{ 
 }
 
 // --- Administracion de cuentas (solo superusuario) ---------------------------------
+
+/** Filtros de `GET /api/v1/auditoria`; solo el superusuario puede pedirla. */
+export type FiltrosAuditoria = { sid?: string; usuario?: string; desde?: string; solo_errores?: boolean; limite?: number };
+
+function consultaAuditoria(f: FiltrosAuditoria): URLSearchParams {
+  const q = new URLSearchParams();
+  if (f.sid) q.set("sid", f.sid);
+  if (f.usuario) q.set("usuario", f.usuario);
+  if (f.desde) q.set("desde", f.desde);
+  if (f.solo_errores) q.set("solo_errores", "1");
+  if (f.limite) q.set("limite", String(f.limite));
+  return q;
+}
+
+export async function leerAuditoria(f: FiltrosAuditoria = {}): Promise<{ filas: FilaAuditoria[] }> {
+  const q = consultaAuditoria(f).toString();
+  return pedirJson(`${BASE}/auditoria${q ? `?${q}` : ""}`);
+}
+
+/** El mismo filtro, como archivo: el servidor manda `Content-Disposition`. */
+export function urlAuditoriaCsv(f: FiltrosAuditoria = {}): string {
+  const q = consultaAuditoria(f);
+  q.set("formato", "csv");
+  return `${BASE}/auditoria?${q.toString()}`;
+}
 
 export async function listarUsuarios(): Promise<{ usuarios: UsuarioAdmin[] }> {
   return pedirJson("/api/v1/usuarios");

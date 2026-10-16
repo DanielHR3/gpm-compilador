@@ -17,7 +17,8 @@ export type Ruta =
   | { tipo: "registro" }
   | { tipo: "recuperar" }
   | { tipo: "restablecer"; token: string }
-  | { tipo: "usuarios" };
+  | { tipo: "usuarios" }
+  | { tipo: "auditoria"; sid: string | null };
 
 const RE_REVISAR = /^\/revisar\/([0-9a-f]{16})$/;
 const RE_COMPARATIVA = /^\/revisar\/([0-9a-f]{16})\/comparativa$/;
@@ -30,6 +31,11 @@ export function leerRuta(pathname: string, search = ""): Ruta {
   if (c) return { tipo: "comparativa", sid: c[1] };
   const m = RE_REVISAR.exec(pathname);
   if (m) return { tipo: "revisar", sid: m[1] };
+  if (pathname === "/auditoria") {
+    // «Ver quién hizo qué» desde un trámite: el sid viaja en la consulta.
+    const sid = new URLSearchParams(search).get("sid");
+    return { tipo: "auditoria", sid: sid && /^[0-9a-f]{16}$/.test(sid) ? sid : null };
+  }
   if (pathname === "/restablecer") {
     // La liga del correo: el token viaja en la consulta.
     return { tipo: "restablecer", token: new URLSearchParams(search).get("token") ?? "" };

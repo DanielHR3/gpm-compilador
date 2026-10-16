@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, Download, FileUp, History, ListChecks, MonitorPlay, Users } from "lucide-react";
+import { BarChart3, BookOpen, Download, FileUp, History, ListChecks, MonitorPlay, ScrollText, Users } from "lucide-react";
 
 import { cn } from "cn";
 
@@ -121,10 +121,16 @@ export default function NavegacionLateral({
           <span className="max-lg:sr-only">Tablero</span>
         </a>
         {admin ? (
-          <a href="/usuarios" className={cn(base, "text-white/70 hover:bg-white/10 hover:text-white")}>
-            <Users aria-hidden className="size-5 shrink-0" />
-            <span className="max-lg:sr-only">Cuentas</span>
-          </a>
+          <>
+            <a href="/usuarios" className={cn(base, "text-white/70 hover:bg-white/10 hover:text-white")}>
+              <Users aria-hidden className="size-5 shrink-0" />
+              <span className="max-lg:sr-only">Cuentas</span>
+            </a>
+            <a href="/auditoria" className={cn(base, "text-white/70 hover:bg-white/10 hover:text-white")}>
+              <ScrollText aria-hidden className="size-5 shrink-0" />
+              <span className="max-lg:sr-only">Quién hizo qué</span>
+            </a>
+          </>
         ) : null}
       </div>
     </div>

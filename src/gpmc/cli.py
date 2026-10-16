@@ -202,6 +202,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     usr_sub.add_parser("lista", help="lista los usuarios")
     baja = usr_sub.add_parser("baja", help="desactiva un usuario (no se borra: la auditoria lo cita)")
     baja.add_argument("correo")
+    aud = usr_sub.add_parser("auditoria", help="imprime la bitacora de acciones en CSV (quien hizo que)")
+    aud.add_argument("--sid", default=None, help="solo un tramite (id de sesion)")
+    aud.add_argument("--usuario", default=None, help="solo un correo")
+    aud.add_argument("--desde", default=None, help="fecha ISO: solo desde ese momento")
+    aud.add_argument("--errores", action="store_true", help="solo fallos del servidor y acciones rechazadas")
+    aud.add_argument("--limite", type=int, default=5000)
 
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     if not args.orden:
@@ -486,6 +492,20 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.que == "baja":
             almacen.desactivar(args.correo)
             print(f"Desactivado: {args.correo.strip().lower()}")
+            return 0
+        if args.que == "auditoria":
+            from datetime import datetime
+            from gpmc.web.auditoria import a_csv
+            desde = None
+            if args.desde:
+                try:
+                    desde = datetime.fromisoformat(args.desde)
+                except ValueError:
+                    print("--desde debe ser una fecha ISO (2026-10-16 o 2026-10-16T09:00)", file=sys.stderr)
+                    return 2
+            filas = almacen.auditoria(sid=args.sid, usuario=args.usuario, desde=desde,
+                                      limite=args.limite, solo_errores=args.errores)
+            sys.stdout.write(a_csv(filas))
             return 0
         for u in almacen.usuarios():
             print(f"{u.correo:45} {u.nombre:25} {u.dependencia:6} {u.rol:8} {u.estado}")

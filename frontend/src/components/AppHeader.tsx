@@ -44,7 +44,7 @@ export default function AppHeader({
           puntos suspensivos antes que partirse en dos lineas. */}
       <span className="min-w-0 truncate font-heading text-lg font-bold tracking-tight text-primary">{titulo}</span>
       <div className="flex items-center gap-5">
-        {entrega ? <MenuEntrega sid={entrega.sid} puerta={entrega.puerta} /> : null}
+        {entrega ? <MenuEntrega sid={entrega.sid} puerta={entrega.puerta} admin={usuario?.rol === "admin"} /> : null}
         {usuario ? (
           <div className="flex items-center gap-3">
             <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-primary/10 font-heading text-sm font-bold text-primary">

@@ -1559,7 +1559,7 @@ def _cli_usuarios(tmp_path, respuestas=(), entorno=None):
     from gpmc.agentes.proveedor import ProveedorFalso
     from gpmc.web.usuarios import AlmacenEnMemoria
     usuarios = AlmacenEnMemoria()
-    usuarios.alta(*_DANIEL)
+    usuarios.alta(*_DANIEL, rol="admin")          # el superusuario: lee la auditoria
     app = crear_app(almacen=tmp_path, proveedor=ProveedorFalso(list(respuestas)),
                     entorno=entorno or _ENT_OPENAI, usuarios=usuarios, jwt_secreto="s3cr3to")
     return TestClient(app), usuarios
@@ -1585,7 +1585,7 @@ def test_entrar_da_token_y_cookie_y_abre_la_api_por_cabecera_o_por_cookie(tmp_pa
     r = _entrar(c)
     assert r.status_code == 200
     cuerpo = r.json()
-    assert cuerpo["usuario"] == {"correo": _DANIEL[0], "nombre": "Daniel", "dependencia": "DGT", "rol": "analista"}
+    assert cuerpo["usuario"] == {"correo": _DANIEL[0], "nombre": "Daniel", "dependencia": "DGT", "rol": "admin"}
     assert cuerpo["token"].count(".") == 2
     assert "gpmc_sesion=" in r.headers["set-cookie"] and "HttpOnly" in r.headers["set-cookie"]
     # Por cookie (el TestClient la conserva): la API y las paginas del servidor.
@@ -1962,3 +1962,69 @@ def test_ramificar_el_flujo_no_descuelga_los_documentos_ni_lo_decidido(tmp_path)
     con_oficio = [t["nombre"] for t in nuevo["manifiesto"]["flujo"]["tareas"]
                   if "Oficio" in t["acciones_despues"]]
     assert con_oficio == ["Oficio de improcedencia"]
+
+
+# --- la auditoria que se consulta (2026-10-16) --------------------------------------------
+
+def _cli_con_analista(tmp_path):
+    c, usuarios = _cli_usuarios(tmp_path)
+    usuarios.alta("luis.vera@hidalgo.gob.mx", "Luis", "DSA", "Otra-456")      # analista
+    return c, usuarios
+
+
+def test_la_auditoria_solo_la_lee_el_superusuario(tmp_path):
+    c, _ = _cli_con_analista(tmp_path)
+    _entrar(c, "luis.vera@hidalgo.gob.mx", "Otra-456")
+    assert c.get("/api/v1/auditoria").status_code == 403
+    c.post("/api/v1/salir")
+    _entrar(c)
+    assert c.get("/api/v1/auditoria").status_code == 200
+
+
+def test_la_auditoria_se_baja_en_csv(tmp_path):
+    c, _ = _cli_con_analista(tmp_path)
+    _entrar(c)
+    r = c.get("/api/v1/auditoria?formato=csv")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/csv")
+    assert "attachment" in r.headers["content-disposition"] and ".csv" in r.headers["content-disposition"]
+    lineas = r.text.splitlines()
+    assert lineas[0] == "fecha,usuario,dependencia,accion,sid,detalle,ip"
+    assert any(",sesion.entrar," in l for l in lineas[1:])
+
+
+def test_un_fallo_del_servidor_queda_en_la_auditoria_con_su_id_y_se_filtra(tmp_path, monkeypatch, caplog):
+    import logging
+    from fastapi.testclient import TestClient
+    c, usuarios = _cli_con_analista(tmp_path)
+    c = TestClient(c.app, raise_server_exceptions=False)
+    _entrar(c)
+    # Un manejador que revienta: el middleware lo anota y lo deja subir.
+    original = usuarios.auditoria
+    def revienta(*a, **k):
+        raise RuntimeError("se cayó la base")
+    monkeypatch.setattr(usuarios, "auditoria", revienta)
+    with caplog.at_level(logging.ERROR, logger="gpmc.web.acceso"):
+        assert c.get("/api/v1/auditoria?sid=abc").status_code == 500
+    monkeypatch.setattr(usuarios, "auditoria", original)
+    filas = usuarios.auditoria(solo_errores=True)
+    assert filas and filas[0]["accion"] == "error.servidor" and filas[0]["usuario"] == _DANIEL[0]
+    assert "RuntimeError" in filas[0]["detalle"] and "GET /api/v1/auditoria" in filas[0]["detalle"] and "(500)" in filas[0]["detalle"]
+    # El id del error une la fila con la traza del log del servidor.
+    ident = filas[0]["detalle"].split("#")[-1].split()[0]
+    assert len(ident) >= 8 and ident in caplog.text and "se cayó la base" in caplog.text
+    # Y la consulta por el API lo enseña con el mismo filtro.
+    r = c.get("/api/v1/auditoria?solo_errores=1")
+    assert r.status_code == 200 and [f["accion"] for f in r.json()["filas"]] == ["error.servidor"]
+
+
+def test_un_analista_no_ve_cuentas_ni_registros_ni_cambia_roles(tmp_path):
+    """Regla de la DGT (2026-10-16): ver cuentas y auditoria, y dar de alta
+    superusuarios, es solo del superusuario. Un analista recibe 403 en todo."""
+    c, _ = _cli_con_analista(tmp_path)
+    _entrar(c, "luis.vera@hidalgo.gob.mx", "Otra-456")
+    assert c.get("/api/v1/usuarios").status_code == 403
+    assert c.get("/api/v1/auditoria").status_code == 403
+    assert c.get("/api/v1/auditoria?formato=csv").status_code == 403
+    assert c.post("/api/v1/usuarios/luis.vera@hidalgo.gob.mx/rol", json={"rol": "admin"}).status_code == 403
+    assert c.post(f"/api/v1/usuarios/{_DANIEL[0]}/baja").status_code == 403

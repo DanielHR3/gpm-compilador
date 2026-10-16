@@ -19,10 +19,11 @@ siempre: es lo que ven las pruebas de arriba y `gpmc servir --sin-usuarios`.
 """
 import logging
 import re
+import uuid
 from typing import Optional
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 from gpmc.web.usuarios import HORAS_TOKEN, ROLES, correo_institucional, emitir_token, leer_token
@@ -38,7 +39,7 @@ MIN_CONTRASENA = 8
 # va protegido; el resto de GET es el shell de la SPA (catch-all).
 _ABIERTAS = re.compile(r"^/api/v1/(sesion|capacidades|registro|recuperar|restablecer)$")
 # Solo el superusuario (rol admin): cuentas pendientes, roles, bajas.
-_SOLO_ADMIN = re.compile(r"^/api/v1/usuarios(/|$)")
+_SOLO_ADMIN = re.compile(r"^/api/v1/(usuarios(/|$)|auditoria$)")
 _PROTEGIDAS = re.compile(
     r"^/(api/|simulador/|aprobacion/|historial$|vistas/|descargar/|descargar-plantilla|extraer$|resolver/|reconocer/)"
 )
@@ -64,6 +65,9 @@ _ACCIONES = [
     ("GET", re.compile(r"^/api/v1/expedientes/(?P<sid>[^/]+)/gpm$"), "gpm.descargar"),
     ("GET", re.compile(r"^/descargar/(?P<sid>[^/]+)/gpm(-pruebas)?$"), "gpm.descargar"),
 ]
+
+
+log = logging.getLogger("gpmc.web.acceso")
 
 
 class Sesion:
@@ -159,7 +163,21 @@ def instalar(app: FastAPI, usuarios, secreto: str, correo=None,
                 cuerpo_json = await request.json()
             except ValueError:
                 cuerpo_json = None
-        resp = await call_next(request)
+        try:
+            resp = await call_next(request)
+        except Exception as exc:
+            # Un fallo del servidor queda en la auditoria con un id que une la
+            # fila con la traza del log; el error sigue subiendo (500).
+            ident = uuid.uuid4().hex[:12]
+            quien = request.state.usuario
+            log.error("error #%s en %s %s: %s", ident, request.method, ruta, exc, exc_info=exc)
+            try:
+                usuarios.auditar(quien.correo if quien else "anonimo", quien.dependencia if quien else "",
+                                 "error.servidor", getattr(request.state, "sid", None),
+                                 f"{type(exc).__name__} en {request.method} {ruta} #{ident} (500)", _ip(request))
+            except Exception:  # la auditoria nunca tapa el error original
+                log.exception("no se pudo anotar el error #%s en la auditoria", ident)
+            raise
         u = request.state.usuario
         if u is not None:
             for metodo, patron, accion in _ACCIONES:
@@ -289,15 +307,25 @@ def instalar(app: FastAPI, usuarios, secreto: str, correo=None,
 
     @app.get("/api/v1/auditoria")
     async def leer_auditoria(sid: Optional[str] = None, usuario: Optional[str] = None,
-                             desde: Optional[str] = None, limite: int = 200):
+                             desde: Optional[str] = None, limite: int = 200,
+                             solo_errores: bool = False, formato: str = "json"):
+        """Solo el superusuario (`_SOLO_ADMIN`). `formato=csv` baja el archivo
+        para la auditoria interna, con las mismas filas que el JSON."""
         from datetime import datetime
+        from gpmc.web.auditoria import a_csv
         d = None
         if desde:
             try:
                 d = datetime.fromisoformat(desde)
             except ValueError:
                 return JSONResponse(status_code=422, content={"error": "desde debe ser una fecha ISO"})
-        return {"filas": usuarios.auditoria(sid=sid, usuario=usuario, desde=d, limite=min(max(limite, 1), 1000))}
+        filas = usuarios.auditoria(sid=sid, usuario=usuario, desde=d, limite=min(max(limite, 1), 5000),
+                                   solo_errores=solo_errores)
+        if formato == "csv":
+            nombre = f"auditoria-{datetime.now().date().isoformat()}" + (f"-{sid}" if sid else "") + ".csv"
+            return Response(content=a_csv(filas), media_type="text/csv; charset=utf-8",
+                            headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+        return {"filas": filas}
 
 
 

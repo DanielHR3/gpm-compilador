@@ -25,10 +25,13 @@ import type { Hueco } from "@/lib/types";
 export default function MenuEntrega({
   sid,
   puerta,
+  admin = false,
 }: {
   sid: string;
   /** Estado de la puerta del linter; `null` cuando esta pantalla no lo carga. */
   puerta: { desbloqueado: boolean; bloqueantes: Hueco[] } | null;
+  /** Solo el superusuario ve «quién hizo qué»: el servidor responde 403 a los demás. */
+  admin?: boolean;
 }) {
   const enlace = "text-primary underline underline-offset-2 hover:text-primary/80";
   const resumen =
@@ -128,6 +131,11 @@ export default function MenuEntrega({
           <a className={enlace} href={`/revisar/${sid}/documentos`}>
             Ver documentos del trámite
           </a>
+          {admin ? (
+            <a className={enlace} href={`/auditoria?sid=${sid}`}>
+              Ver quién hizo qué
+            </a>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>

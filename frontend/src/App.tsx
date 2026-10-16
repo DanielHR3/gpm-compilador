@@ -16,6 +16,7 @@ import Entrada from "@/features/sesion/Entrada";
 import Recuperar, { Restablecer } from "@/features/sesion/Recuperar";
 import Registro from "@/features/sesion/Registro";
 import Usuarios from "@/features/usuarios/Usuarios";
+import Auditoria from "@/features/auditoria/Auditoria";
 import { useSesion } from "@/features/sesion/useSesion";
 import Tablero from "@/features/tablero/Tablero";
 import Comparativa from "@/features/comparativa/Comparativa";
@@ -102,6 +103,7 @@ export default function App() {
     : ruta.tipo === "comparativa" ? "Antes y después"
     : ruta.tipo === "documentos" ? "Documentos del trámite"
     : ruta.tipo === "usuarios" ? "Cuentas"
+    : ruta.tipo === "auditoria" ? "Quién hizo qué"
     : est ? "Revisión del expediente"
     : sidPropuesta ? "Propuesta del compilador"
     : ruta.tipo === "expediente" ? "Expediente completo"
@@ -118,6 +120,10 @@ export default function App() {
     contenido = sesion.usuario?.rol === "admin"
       ? <Usuarios yo={sesion.usuario.correo} />
       : <p role="alert" className="text-sm text-destructive">Solo el superusuario puede administrar cuentas.</p>;
+  else if (ruta.tipo === "auditoria")
+    contenido = sesion.usuario?.rol === "admin"
+      ? <Auditoria sidInicial={ruta.sid} />
+      : <p role="alert" className="text-sm text-destructive">Solo el superusuario puede ver quién hizo qué.</p>;
   else if (est)
     contenido = (
       <>

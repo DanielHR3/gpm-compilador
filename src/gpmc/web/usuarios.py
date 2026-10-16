@@ -212,11 +212,14 @@ class AlmacenEnMemoria:
                                 "sid": sid, "detalle": detalle or "", "ip": ip})
 
     def auditoria(self, sid: Optional[str] = None, usuario: Optional[str] = None,
-                  desde: Optional[datetime] = None, limite: int = 200) -> list:
+                  desde: Optional[datetime] = None, limite: int = 200,
+                  solo_errores: bool = False) -> list:
+        from gpmc.web.auditoria import es_error
         filas = [f for f in self._auditoria
                  if (sid is None or f["sid"] == sid)
                  and (usuario is None or f["usuario"] == _norm(usuario))
-                 and (desde is None or f["fecha"] >= desde)]
+                 and (desde is None or f["fecha"] >= desde)
+                 and (not solo_errores or es_error(f))]
         filas = sorted(filas, key=lambda f: (f["fecha"], f["id"]), reverse=True)[:limite]
         return [{k: v for k, v in {**f, "fecha": f["fecha"].isoformat()}.items() if k != "id"} for f in filas]
 
@@ -354,7 +357,9 @@ class AlmacenPostgres:
                         (_norm(usuario), dependencia, accion, sid, detalle or "", ip))
 
     def auditoria(self, sid: Optional[str] = None, usuario: Optional[str] = None,
-                  desde: Optional[datetime] = None, limite: int = 200) -> list:
+                  desde: Optional[datetime] = None, limite: int = 200,
+                  solo_errores: bool = False) -> list:
+        from gpmc.web.auditoria import ACCIONES_DE_ERROR
         cond, args = [], []
         if sid is not None:
             cond.append("sid = %s"); args.append(sid)
@@ -362,6 +367,11 @@ class AlmacenPostgres:
             cond.append("usuario = %s"); args.append(_norm(usuario))
         if desde is not None:
             cond.append("fecha >= %s"); args.append(desde)
+        if solo_errores:
+            # Misma regla que `auditoria.es_error`: codigo HTTP de rechazo al
+            # final del detalle, o una accion que es error por si misma.
+            cond.append("(accion = ANY(%s) OR detalle ~ %s)")
+            args += [list(ACCIONES_DE_ERROR), r"\((4|5)\d\d\)$"]
         sql = ("SELECT fecha, usuario, dependencia, accion, sid, detalle, ip FROM auditoria"
                + (" WHERE " + " AND ".join(cond) if cond else "")
                + " ORDER BY fecha DESC, id DESC LIMIT %s")

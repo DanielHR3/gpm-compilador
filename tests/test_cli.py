@@ -445,3 +445,26 @@ def test_cargar_entorno_tolera_un_home_que_no_se_puede_leer(tmp_path):
         def exists(self):
             raise PermissionError(13, "Permission denied", str(self))
     assert cargar_entorno(Inaccesible(tmp_path / "entorno")) == 0
+
+
+def test_usuario_auditoria_imprime_csv_y_filtra_errores(monkeypatch, capsys):
+    """`gpmc usuario auditoria`: el CSV de la auditoria interna desde la
+    terminal de la EC2, sin pasar por el navegador (2026-10-16)."""
+    from gpmc.cli import main
+    from gpmc.web import usuarios as mod
+    almacen = mod.AlmacenEnMemoria()
+    monkeypatch.setattr(mod, "AlmacenPostgres", lambda dsn: almacen)
+    monkeypatch.setattr("gpmc.cli.cargar_entorno", lambda *a, **k: 0)
+    monkeypatch.setenv("GPMC_BD", "postgresql://x")
+    almacen.auditar("luis.vera@hidalgo.gob.mx", "DSA", "hueco.resolver", "a" * 16, "DIC-08", "10.0.0.9")
+    almacen.auditar("luis.vera@hidalgo.gob.mx", "DSA", "gpm.descargar", "b" * 16, "produccion (409)", "10.0.0.9")
+    assert main(["usuario", "auditoria"]) == 0
+    out = capsys.readouterr().out
+    assert out.splitlines()[0] == "fecha,usuario,dependencia,accion,sid,detalle,ip"
+    assert "hueco.resolver" in out and "gpm.descargar" in out
+    assert main(["usuario", "auditoria", "--errores"]) == 0
+    out = capsys.readouterr().out
+    assert "gpm.descargar" in out and "hueco.resolver" not in out
+    assert main(["usuario", "auditoria", "--sid", "a" * 16]) == 0
+    out = capsys.readouterr().out
+    assert "hueco.resolver" in out and "gpm.descargar" not in out

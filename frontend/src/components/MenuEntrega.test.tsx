@@ -88,3 +88,16 @@ it("sin puerta conocida ofrece los enlaces y calla el semáforo", async () => {
   expect(await screen.findByRole("link", { name: /abrir simulador/i })).toBeInTheDocument();
   expect(screen.queryByText(/listo para entregar|por revisar/i)).not.toBeInTheDocument();
 });
+
+it("al superusuario le ofrece «Ver quién hizo qué», filtrado por el trámite", async () => {
+  render(<MenuEntrega sid={SID} puerta={null} admin />);
+  await userEvent.setup().click(screen.getByRole("button", { name: /entrega/i }));
+  expect(await screen.findByRole("link", { name: /quién hizo qué/i })).toHaveAttribute("href", `/auditoria?sid=${SID}`);
+});
+
+it("a un analista no le enseña la auditoría", async () => {
+  render(<MenuEntrega sid={SID} puerta={null} />);
+  await userEvent.setup().click(screen.getByRole("button", { name: /entrega/i }));
+  await screen.findByRole("link", { name: /abrir simulador/i });
+  expect(screen.queryByRole("link", { name: /quién hizo qué/i })).toBeNull();
+});

@@ -63,3 +63,8 @@ it("reconoce los documentos de un expediente", () => {
   expect(leerRuta(`/revisar/${sid}/comparativa`)).toEqual({ tipo: "comparativa", sid });
   expect(leerRuta("/revisar/XYZ/documentos")).toEqual({ tipo: "inicio" });
 });
+
+it("/auditoria es la bitácora de acciones, con el trámite opcional en la query", () => {
+  expect(leerRuta("/auditoria")).toEqual({ tipo: "auditoria", sid: null });
+  expect(leerRuta("/auditoria", "?sid=" + "a".repeat(16))).toEqual({ tipo: "auditoria", sid: "a".repeat(16) });
+});

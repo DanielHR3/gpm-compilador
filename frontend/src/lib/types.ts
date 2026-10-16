@@ -186,6 +186,11 @@ export type UsuarioAdmin = {
   correo: string; nombre: string; dependencia: string;
   rol: "admin" | "analista"; estado: "pendiente" | "activo" | "inactivo";
 };
+/** Una fila de la bitácora de acciones (`GET /api/v1/auditoria`). */
+export type FilaAuditoria = {
+  fecha: string; usuario: string; dependencia: string; accion: string;
+  sid: string | null; detalle: string; ip: string | null;
+};
 /** `GET /api/v1/sesion`. 404 = el servidor corre sin usuarios. */
 export type SesionOut = { usuario: Usuario | null };
 /** `POST /api/v1/sesion`. */
