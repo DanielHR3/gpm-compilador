@@ -15,6 +15,12 @@ from gpmc.nucleo.huecos import Hueco
 _FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.S)
 _HOMOCLAVE = re.compile(r"\*\*Homoclave:?\*\*[:\s]*`?([A-Za-z0-9/\-]+)`?", re.I)
 _DEPENDENCIA = re.compile(r"^dependencia:\s*(.+?)\s*$", re.M | re.I)
+# La fila de la Ficha tecnica («| Dependencia responsable | X |»), que el equipo
+# escribe en el AS-IS y el generador de la Fase 3 en el Diccionario. Sin esto,
+# un AS-IS sin frontmatter bloqueaba el .gpm (META-02) con el dato a la vista.
+_DEPENDENCIA_FICHA = re.compile(r"^\|\s*Dependencia(?:\s+responsable)?\s*\|\s*(.+?)\s*\|", re.M | re.I)
+# Lo que el prompt manda escribir cuando el AS-IS no lo dice: no es un dato.
+_PENDIENTE = re.compile(r"pendiente|por confirmar|^\s*[-—]?\s*$", re.I)
 _TRAMITE_LINK = re.compile(r'^tramite:\s*"?\[\[([^\]]+)\]\]"?', re.M | re.I)
 _TIEMPO = re.compile(r"\*\*Tiempo de (?:respuesta|entrega):?\*\*[:\s]*([^.\n·]+)", re.I)
 _COSTO = re.compile(r"\*\*Costo:?\*\*[:\s]*([^.\n·]+)", re.I)
@@ -41,7 +47,16 @@ def _persona_de(texto: str) -> str:
     return "ambas"
 
 
-def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "") -> Resultado:
+def _dependencia_de_ficha(*fuentes: str) -> str:
+    for fuente in fuentes:
+        m = _DEPENDENCIA_FICHA.search(fuente or "")
+        if m and not _PENDIENTE.search(m.group(1)):
+            return m.group(1).strip().strip("*`")
+    return ""
+
+
+def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "",
+            diccionario: str = "") -> Resultado:
     r = Resultado()
     texto = (as_is or "") + "\n" + (to_be or "")
 
@@ -83,6 +98,10 @@ def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "") -> Resultado:
         md = _DEPENDENCIA.search(fm.group(1))
         if md:
             dependencia = md.group(1).strip().strip('"')
+    if not dependencia:
+        # El frontmatter gana; la Ficha tecnica del Diccionario va antes que la
+        # del AS-IS porque es la que el equipo (o el generador) redacto al final.
+        dependencia = _dependencia_de_ficha(diccionario, as_is)
     if not dependencia:
         r.huecos.append(Hueco("falta_dato", "META-02", "metadatos",
                               "no se encontro la dependencia en el frontmatter del AS-IS"))

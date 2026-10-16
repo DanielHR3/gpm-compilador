@@ -389,7 +389,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
             "no se encontró la Propuesta TO-BE: el flujo sale lineal, sin ramificar",
         ))
 
-    meta = ext_meta.extraer(as_is, to_be, nombre_carpeta=carpeta.name)
+    meta = ext_meta.extraer(as_is, to_be, nombre_carpeta=carpeta.name, diccionario=dicc)
     r.huecos += meta.huecos
     
     # Validacion de concordancia de insumos (flexible)

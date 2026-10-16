@@ -74,3 +74,54 @@ def test_costo_faltante_es_por_confirmar():
     r = ext.extraer(_AS_IS_MINIMO)
     meta03 = [h for h in r.huecos if h.codigo == "META-03"][0]
     assert meta03.nivel == "por_confirmar"
+
+
+# --- la dependencia tambien vive en la Ficha tecnica (2026-10-16) --------------
+
+_AS_IS_SIN_FRONTMATTER = """# Análisis AS-IS — Constancia de Residencia
+
+El ciudadano acude a la ventanilla. **Tiempo de respuesta:** 3 días hábiles.
+"""
+
+_DICC_CON_FICHA = """# Diccionario de Datos — Constancia de Residencia
+
+## Ficha técnica
+
+| Campo | Dato |
+|---|---|
+| Nombre del trámite | Constancia de Residencia |
+| Dependencia responsable | Presidencia Municipal — Secretaría General |
+| Tipo | Trámite |
+"""
+
+
+def test_sin_frontmatter_la_dependencia_sale_de_la_ficha_tecnica_del_diccionario():
+    # En «Solo tengo el AS-IS» el modelo escribe la Ficha tecnica con la
+    # dependencia, pero META-02 bloqueaba el .gpm porque solo se leia el
+    # frontmatter. Nueve de nueve propuestas lo arrastraban.
+    r = ext.extraer(_AS_IS_SIN_FRONTMATTER, diccionario=_DICC_CON_FICHA)
+    assert r.tramite.dependencia == "Presidencia Municipal — Secretaría General"
+    assert not [h for h in r.huecos if h.codigo == "META-02"]
+
+
+def test_sin_frontmatter_la_dependencia_sale_de_la_ficha_tecnica_del_as_is():
+    # Constancia de No Infraccion trae la misma tabla en el cuerpo del AS-IS.
+    as_is = _AS_IS_SIN_FRONTMATTER + "\n| Dependencia responsable | SEMARNATH — Dirección de Verificación Vehicular |\n"
+    r = ext.extraer(as_is)
+    assert r.tramite.dependencia == "SEMARNATH — Dirección de Verificación Vehicular"
+    assert not [h for h in r.huecos if h.codigo == "META-02"]
+
+
+def test_el_frontmatter_gana_sobre_la_ficha_tecnica():
+    as_is = "---\ndependencia: Secretaría X\n---\n" + _AS_IS_SIN_FRONTMATTER
+    r = ext.extraer(as_is, diccionario=_DICC_CON_FICHA)
+    assert r.tramite.dependencia == "Secretaría X"
+
+
+def test_una_ficha_con_la_dependencia_pendiente_no_cuenta():
+    # «[Pendiente de confirmar]» es lo que el prompt manda escribir cuando el
+    # AS-IS no lo dice: no es una dependencia, y META-02 sigue en pie.
+    dicc = _DICC_CON_FICHA.replace("Presidencia Municipal — Secretaría General", "[Pendiente de confirmar]")
+    r = ext.extraer(_AS_IS_SIN_FRONTMATTER, diccionario=dicc)
+    assert r.tramite.dependencia == "[por confirmar]"
+    assert [h for h in r.huecos if h.codigo == "META-02"]
