@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,7 +16,6 @@ import DiagramaToBe from "./DiagramaToBe";
 import ModoFoco from "./ModoFoco";
 import ResumenExpediente from "./ResumenExpediente";
 import { useFoco } from "./useFoco";
-import RielEntrega from "./RielEntrega";
 import TarjetaHueco, { type RespuestaResuelto } from "./TarjetaHueco";
 import { useListaConSalida } from "./useListaConSalida";
 
@@ -33,23 +32,26 @@ const HUECOS_PARA_FOCO = 20;
 /** Debe coincidir con --duracion-salida-tarjeta de index.css. */
 const MS_SALIDA = 240;
 
-/** Clave estable de un hueco: `codigo|ubicacion`. */
-const clave = (h: Hueco): string => `${h.codigo}|${h.ubicacion}`;
+import { clave, puertaDelLinter } from "./puerta";
 
 /**
  * Wizard de resolucion de huecos: una `Card` por hueco y una barra de progreso.
  * Cada control resuelve contra `/api/v1` y fusiona la respuesta en el estado
- * local sin recargar. La seccion de entrega se muestra SIEMPRE: si el linter
+ * local sin recargar. El panel de descargas se muestra SIEMPRE: si el linter
  * aun bloquea (`bloqueante`, o `falta_dato` sin reconocer) se listan los huecos
  * que faltan en vez del enlace al `.gpm`; el simulador, la aprobacion, las
  * vistas y el manifiesto siguen accesibles porque no dependen de esa puerta.
+ * El semaforo vive en la barra superior (`MenuEntrega`): este wizard es el
+ * unico que sabe que se resolvio o reconocio, asi que lo reporta por `onPuerta`.
  */
 export default function WizardHuecos({
   estado,
   onEstado,
+  onPuerta,
 }: {
   estado: EstadoExpediente;
   onEstado: (e: EstadoExpediente) => void;
+  onPuerta?: (p: { desbloqueado: boolean; bloqueantes: Hueco[] }) => void;
 }) {
   const [huecos, setHuecos] = useState<Hueco[]>(estado.huecos);
   const [manifiesto, setManifiesto] = useState<Record<string, unknown>>(
@@ -111,14 +113,17 @@ export default function WizardHuecos({
     totalInicial === 0 ? 100 : (100 * resueltos) / totalInicial;
 
   // Huecos que mantienen cerrada la puerta del linter: los `bloqueante` y los
-  // `falta_dato` que aun no se han reconocido. Es el mismo conjunto que decide
-  // `desbloqueado`, por eso se deriva de aqui.
-  const bloqueantes = huecos.filter(
-    (h) =>
-      h.nivel === "bloqueante" ||
-      (h.nivel === "falta_dato" && !reconocidos.has(clave(h))),
+  // `falta_dato` que aun no se han reconocido. Misma regla que el servidor.
+  const { desbloqueado, bloqueantes } = useMemo(
+    () => puertaDelLinter(huecos, reconocidos),
+    [huecos, reconocidos],
   );
-  const desbloqueado = bloqueantes.length === 0;
+  useEffect(() => {
+    onPuerta?.({ desbloqueado, bloqueantes });
+    // `onPuerta` es una funcion inline de App: suscribirla relanzaria el
+    // efecto en cada render del padre sin que la puerta haya cambiado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desbloqueado, bloqueantes]);
 
   const problemas = estado.problemas ?? [];
   // Cerrado = ya no vive en la lista del servidor, o esta reconocido.
@@ -182,8 +187,7 @@ export default function WizardHuecos({
   );
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-      <main className="flex min-w-0 flex-1 flex-col gap-6 text-foreground">
+    <div className="flex min-w-0 flex-col gap-6 text-foreground">
         {/* Lo que el compilador entendio, antes que lo que falta: el analista
             necesita confirmar que su documento se leyo bien. */}
         <ResumenExpediente manifiesto={manifiesto} estimacion={estado.estimacion} />
@@ -380,13 +384,6 @@ export default function WizardHuecos({
           fraseBloqueo={fraseBloqueo}
           estado={estado}
         />
-      </main>
-
-      <RielEntrega
-        sid={estado.sid}
-        desbloqueado={desbloqueado}
-        bloqueantes={bloqueantes}
-      />
     </div>
   );
 }

@@ -68,12 +68,15 @@ export default function Instrucciones({
           setAbierto(ahora);
           recordar(id, !ahora);
         }}
-        className="max-w-prose rounded-lg border border-border bg-card/60 text-sm"
+        className="rounded-lg border border-border bg-card/60 text-sm"
       >
         <summary className="cursor-pointer px-3 py-2 font-medium text-foreground">
           ¿Cómo funciona esta pantalla?
         </summary>
-        <div className="flex flex-col gap-2 border-t border-border px-3 py-2.5 text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground">
+        {/* La caja ocupa la columna entera, como las tarjetas de arriba; en
+            pantalla ancha el texto se reparte en dos columnas para que la
+            linea no pase de lo legible. Cada parrafo se queda entero. */}
+        <div className="border-t border-border px-3 py-2.5 text-muted-foreground lg:columns-2 lg:gap-8 [&>*]:mb-2 [&>*]:break-inside-avoid [&>*:last-child]:mb-0 [&_strong]:font-medium [&_strong]:text-foreground">
           {children}
         </div>
       </details>

@@ -24,7 +24,7 @@ import WizardHuecos from "@/features/huecos/WizardHuecos";
 import { useUrlDeRevision } from "@/features/huecos/useUrlDeRevision";
 import { ErrorApi, leerExpediente, leerGenerados } from "@/lib/api";
 import { leerRuta, migas, type Camino } from "@/lib/rutas";
-import type { EstadoExpediente } from "@/lib/types";
+import type { EstadoExpediente, Hueco } from "@/lib/types";
 
 /**
  * Raiz de la SPA. La pantalla sale de la direccion (`lib/rutas.ts`): `/` es el
@@ -46,6 +46,9 @@ function nombreDelTramite(est: EstadoExpediente | null): string | null {
 export default function App() {
   const ruta = leerRuta(window.location.pathname, window.location.search);
   const [est, setEst] = useState<EstadoExpediente | null>(null);
+  // Estado de la puerta del linter que reporta el wizard; alimenta el menu
+  // «Entrega» de la barra superior.
+  const [puerta, setPuerta] = useState<{ desbloqueado: boolean; bloqueantes: Hueco[] } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   // Fase 3: sesion nacida solo con el AS-IS y aun sin manifiesto.
   const [sidPropuesta, setSidPropuesta] = useState<string | null>(null);
@@ -119,7 +122,7 @@ export default function App() {
     contenido = (
       <>
         <MigasDePan tramos={migas("revision", camino)} />
-        <WizardHuecos estado={est} onEstado={setEst} />
+        <WizardHuecos estado={est} onEstado={setEst} onPuerta={setPuerta} />
       </>
     );
   else if (sidPropuesta)
@@ -156,6 +159,14 @@ export default function App() {
       </>
     );
 
+  // El menu «Entrega» acompaña al expediente: con semaforo en la revision, y
+  // como atajo en las paginas que no cargan el expediente (comparativa,
+  // documentos), donde la SPA no sabe el estado de la puerta.
+  const entrega =
+    ruta.tipo === "comparativa" || ruta.tipo === "documentos" ? { sid: ruta.sid, puerta: null }
+    : est && ruta.tipo === "revisar" ? { sid: est.sid, puerta }
+    : null;
+
   if (sesion.estado === "cargando") return <div className="min-h-svh bg-background" />;
   // Sin sesion solo existen las pantallas publicas; cualquier otra liga cae
   // en la entrada y, al entrar, se queda en la ruta que traia.
@@ -171,8 +182,11 @@ export default function App() {
       <Toaster />
       <NavegacionLateral sid={est?.sid ?? null} tramite={nombreDelTramite(est)} admin={sesion.usuario?.rol === "admin"} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader titulo={titulo} usuario={sesion.usuario} onSalir={() => void sesion.salir()} />
-        <main className="flex-1 px-6 py-8">
+        <AppHeader titulo={titulo} usuario={sesion.usuario} onSalir={() => void sesion.salir()} entrega={entrega} />
+        {/* Ancho maximo y centrado: en una laptop de 14" llena la columna; en
+            un monitor de 27" el blanco queda en las orillas, no entre las
+            tarjetas. En telefono el relleno lateral baja a 16 px. */}
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:py-8">
           {aviso ? (
             <p role="alert" className="pb-4 text-sm text-destructive">
               {aviso}

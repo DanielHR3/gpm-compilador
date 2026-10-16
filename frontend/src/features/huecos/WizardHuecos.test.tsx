@@ -37,7 +37,7 @@ it("una tarjeta por hueco y barra de progreso", () => {
   expect(screen.getByRole("progressbar")).toBeInTheDocument();
 });
 
-it("un bloqueante de codigo desconocido no deja sin salida: lista el motivo y conserva el simulador, sin enlace al .gpm", () => {
+it("un bloqueante de codigo desconocido no deja sin salida: lista el motivo y cierra la puerta, sin enlace al .gpm", () => {
   const est = {
     ...estado,
     huecos: [
@@ -50,7 +50,8 @@ it("un bloqueante de codigo desconocido no deja sin salida: lista el motivo y co
       },
     ],
   };
-  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  const onPuerta = vi.fn();
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} onPuerta={onPuerta} />);
   // El motivo del bloqueo se explica en pantalla.
   expect(
     screen.getByText(/Falta 1 inconsistencia por revisar antes de descargar el \.gpm/),
@@ -58,10 +59,9 @@ it("un bloqueante de codigo desconocido no deja sin salida: lista el motivo y co
   expect(
     screen.getAllByText(/no se encontro la Propuesta TO-BE/).length,
   ).toBeGreaterThan(0);
-  // Hay salida: el simulador sigue enlazado.
-  expect(
-    screen.getByRole("link", { name: /simulador/i }),
-  ).toHaveAttribute("href", "/simulador/" + "a".repeat(16));
+  // La salida (simulador, aprobacion) vive en el menu «Entrega» de la barra,
+  // que recibe la puerta cerrada y aun asi ofrece los enlaces (MenuEntrega.test).
+  expect(onPuerta).toHaveBeenLastCalledWith({ desbloqueado: false, bloqueantes: est.huecos });
   // El .gpm SI esta cerrado.
   expect(screen.queryByRole("link", { name: /\.gpm/i })).toBeNull();
 });
@@ -188,26 +188,6 @@ it("agrupa los huecos por severidad y rotula cada grupo con su cuenta", () => {
   ]);
 });
 
-it("el riel de entrega se mantiene accesible aunque la puerta siga cerrada", () => {
-  const est = {
-    ...estado,
-    huecos: [
-      {
-        nivel: "bloqueante",
-        codigo: "INS-01",
-        ubicacion: "",
-        mensaje: "falta el TO-BE",
-        propuesta: null,
-      },
-    ],
-  };
-  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
-
-  const riel = screen.getByRole("complementary", { name: /entrega/i });
-  expect(within(riel).getByRole("link", { name: /simulador/i })).toBeInTheDocument();
-  expect(within(riel).queryByRole("link", { name: /\.gpm/i })).toBeNull();
-});
-
 it("cada aviso de flujo es su propia tarjeta, no una viñeta de una lista", () => {
   const est = {
     ...estado,
@@ -230,15 +210,14 @@ it("al volver a la pantalla, lo ya reconocido cuenta como resuelto", () => {
     ...estado,
     reconocidos: [["META-01", "metadatos"]] as [string, string][],
   };
-  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+  const onPuerta = vi.fn();
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} onPuerta={onPuerta} />);
 
   expect(screen.getByText(/de 2 resueltos/)).toHaveTextContent(
     "1 de 2 resueltos",
   );
   // Y la puerta del .gpm deja de estar cerrada por ese hueco.
-  expect(
-    screen.getByRole("complementary", { name: /entrega/i }),
-  ).toHaveTextContent(/todo listo para entregar/i);
+  expect(onPuerta).toHaveBeenLastCalledWith({ desbloqueado: true, bloqueantes: [] });
 });
 
 /** Un expediente con `n` huecos de captura, para probar los dos modos. */
@@ -406,4 +385,27 @@ it("si el generador falla, avisa y sigue en modo manual", async () => {
     .mockResolvedValue({ estado: "error", motivo: "No se pudieron generar propuestas", propuestas: [] });
   render(<WizardHuecos estado={{ ...estado, propuestasPendientes: true } as any} onEstado={() => {}} />);
   expect(await screen.findByText(/No se pudieron generar propuestas/)).toBeInTheDocument();
+});
+
+it("avisa a la cabecera del estado de la puerta, y otra vez al reconocer un hueco", async () => {
+  // El semaforo vive en la barra superior y la lista de huecos aqui: el
+  // wizard es el unico que sabe que se reconocio, asi que lo reporta.
+  const { reconocer } = await import("@/lib/api");
+  const onPuerta = vi.fn();
+  const est = {
+    sid: "a".repeat(16), manifiesto: { pantallas: [], flujo: { tareas: [], conexiones: [] } }, estimacion: {},
+    huecos: [{ nivel: "falta_dato", codigo: "DIC-07", ubicacion: "p1::modalidad", mensaje: "el campo 'Modalidad' es select pero no se extrajo ninguna opción", propuesta: null }],
+    problemas: [], tieneVistas: false, reconocidos: [], adjuntos: [], propuestasPendientes: false,
+  };
+  // Reconocer no quita el hueco de la lista del servidor: solo lo marca.
+  vi.mocked(reconocer).mockResolvedValue({ huecos: est.huecos, reconocidos: [["DIC-07", "p1::modalidad"]] } as any);
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} onPuerta={onPuerta} />);
+
+  expect(onPuerta).toHaveBeenLastCalledWith({ desbloqueado: false, bloqueantes: est.huecos });
+
+  await userEvent.click(screen.getByRole("button", { name: /lo configuro a mano/i }));
+
+  await vi.waitFor(() =>
+    expect(onPuerta).toHaveBeenLastCalledWith({ desbloqueado: true, bloqueantes: [] }),
+  );
 });

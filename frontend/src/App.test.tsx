@@ -247,3 +247,43 @@ describe("pantallas públicas y superusuario (2026-09-25)", () => {
     expect(screen.queryByRole("link", { name: /cuentas/i })).not.toBeInTheDocument();
   });
 });
+
+describe("menú «Entrega» y contenido centrado (2026-10-16)", () => {
+  const SID = "e".repeat(16);
+  const expediente = {
+    sid: SID, manifiesto: { tramite: { nombre: "X" }, pantallas: [], flujo: { tareas: [], conexiones: [] } },
+    huecos: [{ nivel: "bloqueante", codigo: "EST-05", ubicacion: "p1::x", mensaje: "muy largo", propuesta: null }],
+    estimacion: {}, problemas: [], tieneVistas: false, reconocidos: [], adjuntos: [], propuestasPendientes: false,
+  };
+
+  it("en /revisar/:sid la barra superior trae el menú con el semáforo y ya no hay riel", async () => {
+    const { leerExpediente, leerGenerados, ErrorApi } = await import("@/lib/api");
+    vi.mocked(leerExpediente).mockResolvedValue(expediente as any);
+    const e = new (ErrorApi as any)("no"); e.status = 404;
+    vi.mocked(leerGenerados).mockRejectedValue(e);
+    window.history.pushState({}, "", `/revisar/${SID}`);
+    render(<App />);
+
+    const boton = await screen.findByRole("button", { name: /entrega.*1 por revisar/i });
+    // Esta en la barra superior (el <header> de h-16), no dentro del contenido.
+    expect(boton.closest("header")?.className).toMatch(/\bh-16\b/);
+    expect(screen.queryByRole("complementary", { name: /estado de la entrega/i })).not.toBeInTheDocument();
+    window.history.pushState({}, "", "/");
+  });
+
+  it("en /revisar/:sid/comparativa el menú sale como atajo, sin semáforo", async () => {
+    window.history.pushState({}, "", `/revisar/${SID}/comparativa`);
+    render(<App />);
+
+    const boton = await screen.findByRole("button", { name: /entrega/i });
+    expect(boton).not.toHaveAccessibleName(/listo|por revisar/);
+    window.history.pushState({}, "", "/");
+  });
+
+  it("el contenido tiene ancho máximo y queda centrado, con el blanco en las orillas", async () => {
+    render(<App />);
+    const main = await screen.findByRole("main");
+    expect(main.className).toMatch(/\bmx-auto\b/);
+    expect(main.className).toMatch(/\bmax-w-/);
+  });
+});

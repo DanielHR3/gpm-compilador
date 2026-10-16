@@ -1,7 +1,8 @@
 import { LogOut } from "lucide-react";
 
+import MenuEntrega from "@/components/MenuEntrega";
 import { Button } from "@/components/ui/button";
-import type { Usuario } from "@/lib/types";
+import type { Hueco, Usuario } from "@/lib/types";
 
 /**
  * Barra superior de la columna de contenido.
@@ -14,6 +15,10 @@ import type { Usuario } from "@/lib/types";
  * y dependencia, y «Salir» como acción discreta. El logo institucional cierra
  * la barra, separado por una línea: va aquí y no en la lateral porque sobre
  * superficie clara puede ir en sus colores.
+ *
+ * Con un expediente abierto, antes del usuario va el menú «Entrega»: el
+ * semáforo del `.gpm` y los destinos del trámite, a la vista en cualquier
+ * ancho de pantalla (ver `MenuEntrega`).
  */
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/).filter(Boolean);
@@ -24,16 +29,22 @@ export default function AppHeader({
   titulo,
   usuario,
   onSalir,
+  entrega,
 }: {
   titulo: string;
+  /** Expediente abierto; `puerta` es null en las pantallas que no la cargan. */
+  entrega?: { sid: string; puerta: { desbloqueado: boolean; bloqueantes: Hueco[] } | null } | null;
   /** Quien esta dentro; null cuando el servidor corre sin usuarios. */
   usuario?: Usuario | null;
   onSalir?: () => void;
 }) {
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-6">
-      <span className="font-heading text-lg font-bold tracking-tight text-primary">{titulo}</span>
+      {/* En un telefono el titulo compite con el menu «Entrega»: se corta con
+          puntos suspensivos antes que partirse en dos lineas. */}
+      <span className="min-w-0 truncate font-heading text-lg font-bold tracking-tight text-primary">{titulo}</span>
       <div className="flex items-center gap-5">
+        {entrega ? <MenuEntrega sid={entrega.sid} puerta={entrega.puerta} /> : null}
         {usuario ? (
           <div className="flex items-center gap-3">
             <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-primary/10 font-heading text-sm font-bold text-primary">

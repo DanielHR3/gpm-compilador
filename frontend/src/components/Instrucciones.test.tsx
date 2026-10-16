@@ -61,3 +61,17 @@ it("si localStorage revienta, la pantalla sigue de pie", async () => {
 
   vi.restoreAllMocks();
 });
+
+it("la caja ocupa toda la columna; en pantalla ancha el texto va a dos columnas", () => {
+  // Con tope de prosa la caja dejaba un hueco a su derecha bajo la tarjeta
+  // del tramite, que si ocupa la columna entera. Las lineas siguen cortas
+  // porque el texto se parte en columnas, no porque la caja sea angosta.
+  render(
+    <Instrucciones id="ancho" resumen="r">
+      <p>uno</p>
+    </Instrucciones>,
+  );
+  const caja = screen.getByRole("group", { name: /instrucciones de la pantalla/i });
+  expect(caja.className).not.toMatch(/max-w-prose/);
+  expect(caja.querySelector("div")?.className).toMatch(/lg:columns-2/);
+});
