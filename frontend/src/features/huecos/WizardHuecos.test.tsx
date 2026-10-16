@@ -463,3 +463,22 @@ it("si un reconocer falla a medias, «Dar por vistos» se detiene y lo dice", as
   expect(await screen.findByRole("button", { name: /dar por visto el aviso/i })).toBeInTheDocument();
   expect(screen.getByRole("alert")).toHaveTextContent(/FLU-03/);
 });
+
+it("un aviso ya reconocido sale de la lista en vez de quedarse con su «Entendido»", () => {
+  // El servidor conserva el hueco en `huecos` y lo marca en `reconocidos`;
+  // la lista pintaba los dos, asi que lo reconocido parecia pendiente y el
+  // boton «Dar por vistos» parecia no hacer nada.
+  const est = {
+    ...estado,
+    huecos: [
+      { nivel: "por_confirmar", codigo: "META-05", ubicacion: "metadatos", mensaje: "sin homoclave", propuesta: null },
+      { nivel: "por_confirmar", codigo: "META-03", ubicacion: "metadatos", mensaje: "sin costo declarado", propuesta: null },
+    ],
+    reconocidos: [["META-05", "metadatos"]] as [string, string][],
+  };
+  render(<WizardHuecos estado={est as any} onEstado={() => {}} />);
+
+  expect(screen.queryByText(/sin homoclave/)).toBeNull();
+  expect(screen.getAllByText(/sin costo declarado/).length).toBeGreaterThan(0);
+  expect(screen.getByText(/de 2 resueltos/)).toHaveTextContent("1 de 2 resueltos");
+});

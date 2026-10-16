@@ -105,10 +105,13 @@ export default function WizardHuecos({
     };
   }, [estado.sid, estado.propuestasPendientes]);
 
-  // La tarjeta resuelta se retiene un instante para que pueda salir animada;
-  // el conteo y la puerta del linter siguen mirando `huecos`, no esta lista.
-  const enPantalla = useListaConSalida(huecos, clave, MS_SALIDA);
+  // Lo reconocido sale de la lista: el servidor lo conserva en `huecos` y lo
+  // marca en `reconocidos`, y pintar los dos dejaba la tarjeta con su
+  // «Entendido» como si siguiera pendiente. La tarjeta resuelta se retiene un
+  // instante para que pueda salir animada; el conteo y la puerta del linter
+  // siguen mirando `huecos`, no esta lista.
   const pendientes = huecos.filter((h) => !reconocidos.has(clave(h)));
+  const enPantalla = useListaConSalida(pendientes, clave, MS_SALIDA);
   const resueltos = totalInicial - pendientes.length;
   const progreso =
     totalInicial === 0 ? 100 : (100 * resueltos) / totalInicial;
