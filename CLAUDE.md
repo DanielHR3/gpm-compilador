@@ -584,7 +584,7 @@ vive ahí; léela antes de tocar `diccionario._armar_autollenado` o la rama `api
   manifiesto sigue diciendo `date`. `EST-08` (bloqueante) atrapa un `.gpm` con `date`.
   Importado como 1110: la fecha llega al portal.
 
-### 12. Fase 3: prompt v2 y los cruces `GEN-02`/`GEN-03` (2026-09-25)
+### 12. Fase 3: prompts v2 y v3 y los cruces `GEN-02`/`GEN-03` (2026-09-25, 2026-10-16)
 
 Bitácora: `2026-09-25 - Pruebas de Simplificacion y la propuesta que salia a escala de juguete`.
 
@@ -625,6 +625,15 @@ Bitácora: `2026-09-25 - Pruebas de Simplificacion y la propuesta que salia a es
   hace ~4 llamadas por trámite y compite por la cuota gratuita del día. El 2026-09-25 se
   detuvo a los 3 trámites por eso. Todo lo del día lo escribió `gemini-3.5-flash-lite`:
   el techo de calidad hoy es el modelo, no el prompt.
+- **Desde el 2026-10-16, prompts v3** (`dicc-v3`, `tobe-v3`, `mejora-v3`). El ejemplo viaja
+  partido: `ejemplo("diccionario")` lleva la tabla de eliminación y las pantallas;
+  `ejemplo("tobe")`, la tabla y el diagrama compilable. La ronda de mejora va **sin**
+  `<<PLANTILLA>>` ni `<<EJEMPLO>>`: el borrador ya trae el formato y la escala, y «una mejora
+  que recorta no gana» sigue vigente. El Diccionario cierra con una comprobación de
+  `<<REQUISITOS>>` línea por línea (`GEN-01`) y el TO-BE con la del ciclo de corrección
+  (`GEN-02`). `prompt_fase3.PRESUPUESTO` fija un tope en caracteres por llamada y una prueba
+  lo vigila; subirlo exige una medida nueva en la bitácora de IA. **La calidad de v3 no se ha
+  medido**: falta `medir-ia --fase3` fuera del horario del equipo.
 
 ### 13. Comparativa de antes y después (2026-09-28)
 
