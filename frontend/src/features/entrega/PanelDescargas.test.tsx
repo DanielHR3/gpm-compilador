@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -127,7 +127,7 @@ it("si el archivo no se puede leer lo dice, no deja la ventana en blanco", async
   pintar();
 
   await userEvent.click(
-    screen.getByRole("button", { name: /vista previa de Manifiesto/i }),
+    screen.getByRole("button", { name: /vista previa de \.gpm \(pruebas\)/i }),
   );
 
   expect(await screen.findByRole("alert")).toHaveTextContent(/no se pudo/i);
@@ -241,4 +241,41 @@ it("si la comparativa falla, las observaciones salen igual y sin error a la vist
   expect(await screen.findByText(/Trámite de Prueba/)).toBeInTheDocument();
   expect(screen.queryByText(/comparativa de antes y después/i)).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("la vista previa del manifiesto se pinta desde lo que ya tiene la SPA, en tarjetas y sin YAML", async () => {
+  const pedir = vi.fn();
+  vi.stubGlobal("fetch", pedir);
+  pintar();
+
+  await userEvent.click(screen.getByRole("button", { name: /vista previa de Manifiesto/i }));
+
+  const dialogo = await screen.findByRole("dialog", { name: /vista previa de Manifiesto/i });
+  expect(within(dialogo).getByRole("article", { name: /Solicitud/ })).toBeInTheDocument();
+  expect(dialogo.querySelector("pre")).toBeNull();
+  expect(pedir).not.toHaveBeenCalled();
+});
+
+it("la vista previa de las observaciones se pinta con encabezados, no como texto crudo", async () => {
+  pintar();
+
+  await userEvent.click(screen.getByRole("button", { name: /vista previa de Observaciones/i }));
+
+  const dialogo = await screen.findByRole("dialog", { name: /vista previa de Observaciones/i });
+  expect(within(dialogo).getByRole("heading", { level: 1 })).toHaveTextContent(/Observaciones al expediente/);
+  expect(dialogo.querySelector("pre")).toBeNull();
+});
+
+it("la vista previa del .gpm resume formularios y tareas, con el JSON a un clic", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => ({
+    ok: true,
+    text: async () => JSON.stringify({ nombre: "Trámite de Prueba", Formularios: [{ id: "1", nombre: "Solicitud", Campos: [] }], Tareas: [], Conexiones: [], Acciones: [] }),
+  })));
+  pintar();
+
+  await userEvent.click(screen.getByRole("button", { name: /vista previa de \.gpm \(producción\)/i }));
+
+  const dialogo = await screen.findByRole("dialog", { name: /vista previa de \.gpm/i });
+  expect(await within(dialogo).findByRole("article", { name: /Formulario 1 · Solicitud/ })).toBeInTheDocument();
+  expect(within(dialogo).getByRole("button", { name: /ver el json/i })).toBeInTheDocument();
 });

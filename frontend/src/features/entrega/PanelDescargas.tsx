@@ -8,6 +8,9 @@ import { documentoDeObservaciones } from "@/features/huecos/observaciones";
 import type { EstadoExpediente, Hueco, MejoraTramite } from "@/lib/types";
 
 import { descargasDe, resumenDe, type ClaveDescarga, type Descarga } from "./descargas";
+import Markdown from "./previas/Markdown";
+import PreviaGpm from "./previas/PreviaGpm";
+import PreviaManifiesto from "./previas/PreviaManifiesto";
 
 /**
  * Seccion «Descarga»: lo que el analista se lleva del expediente.
@@ -45,17 +48,6 @@ function urlDe(clave: ClaveDescarga, sid: string): string {
   if (clave === "manifiesto") return urlManifiesto(sid);
   if (clave === "vistas") return `/vistas/${sid}`;
   return urlGpm(sid, clave === "gpm_pruebas" ? "pruebas" : "produccion");
-}
-
-/** Un `.gpm` viaja en una sola linea a proposito (la forma es byte a byte).
-    Leerlo asi es imposible, asi que en la vista previa se sangra — y se dice. */
-function comoSeLee(clave: ClaveDescarga, texto: string): string {
-  if (clave !== "gpm_produccion" && clave !== "gpm_pruebas") return texto;
-  try {
-    return JSON.stringify(JSON.parse(texto), null, 2);
-  } catch {
-    return texto;
-  }
 }
 
 function pesoDe(texto: string): string {
@@ -149,10 +141,16 @@ export default function PanelDescargas({
       setTexto(textoDeObservaciones());
       return;
     }
+    // El manifiesto se pinta desde lo que la SPA ya tiene (es lo mismo que
+    // sirve el servidor, actualizado en cada /resolver); no hay que pedirlo.
+    if (d.clave === "manifiesto") {
+      setTexto("");
+      return;
+    }
     try {
       const res = await fetch(urlDe(d.clave, sid));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setTexto(comoSeLee(d.clave, await res.text()));
+      setTexto(await res.text());
     } catch {
       setError("No se pudo leer el archivo. Puedes descargarlo de todos modos.");
     }
@@ -350,6 +348,7 @@ export default function PanelDescargas({
           descarga={viendo}
           texto={texto}
           error={error}
+          manifiesto={estado.manifiesto}
           onCerrar={cerrar}
         />
       ) : null}
@@ -357,18 +356,27 @@ export default function PanelDescargas({
   );
 }
 
+/**
+ * Cada archivo se enseña como lo leería una persona, no como lo guarda el
+ * disco: el `.gpm` en tarjetas con el JSON a un clic, el manifiesto con las
+ * mismas tarjetas que Propuestas, las observaciones con sus encabezados. El
+ * archivo que se descarga no cambia ni un byte.
+ */
 function VistaPrevia({
   descarga,
   texto,
   error,
+  manifiesto,
   onCerrar,
 }: {
   descarga: Descarga;
   texto: string | null;
   error: string | null;
+  manifiesto: Record<string, unknown>;
   onCerrar: () => void;
 }) {
   const esGpm = descarga.clave.startsWith("gpm");
+  const esManifiesto = descarga.clave === "manifiesto";
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4"
@@ -383,17 +391,14 @@ function VistaPrevia({
         onKeyDown={(e) => {
           if (e.key === "Escape") onCerrar();
         }}
-        className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-card shadow-2xl"
+        className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-card shadow-2xl"
       >
         <header className="flex items-start justify-between gap-4 border-b border-border p-4">
           <div>
             <h3 className="text-sm font-semibold">{descarga.titulo}</h3>
             <p className="text-xs text-muted-foreground">
               {descarga.formato}
-              {texto ? ` · ${pesoDe(texto)}` : null}
-              {esGpm && texto
-                ? " · mostrado con sangría para leerlo; el archivo va en una sola línea"
-                : null}
+              {texto && !esManifiesto ? ` · ${pesoDe(texto)}` : null}
             </p>
           </div>
           <Button
@@ -414,6 +419,12 @@ function VistaPrevia({
             </p>
           ) : texto === null ? (
             <p className="text-sm text-muted-foreground">Leyendo el archivo…</p>
+          ) : esManifiesto ? (
+            <PreviaManifiesto manifiesto={manifiesto} />
+          ) : esGpm ? (
+            <PreviaGpm texto={texto} />
+          ) : descarga.clave === "observaciones" ? (
+            <Markdown texto={texto} />
           ) : (
             <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-foreground">
               {texto}
