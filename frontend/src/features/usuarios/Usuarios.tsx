@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { aprobarUsuario, cambiarRol, desactivarUsuario, listarUsuarios } from "@/lib/api";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { aprobarUsuario, cambiarRol, crearUsuario, desactivarUsuario, listarUsuarios, type AltaUsuario } from "@/lib/api";
 import type { UsuarioAdmin } from "@/lib/types";
 import { cn } from "cn";
 
@@ -70,11 +72,15 @@ export default function Usuarios({ yo }: { yo: string }) {
 
   return (
     <section className="flex max-w-4xl flex-col gap-8 text-foreground">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Cuentas</h1>
-        <p className="text-sm text-muted-foreground">
-          Quién puede entrar al asistente. Solo se registran correos institucionales y cada cuenta nueva la apruebas tú.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight">Cuentas</h1>
+          <p className="text-sm text-muted-foreground">
+            Quién puede entrar al asistente. Solo se registran correos institucionales y cada cuenta nueva la apruebas tú.
+            Los superusuarios solo se crean desde aquí: es responsabilidad de la DGT.
+          </p>
+        </div>
+        <NuevaCuenta onCreada={cargar} />
       </header>
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
 
@@ -158,5 +164,85 @@ export default function Usuarios({ yo }: { yo: string }) {
         );
       })}
     </section>
+  );
+}
+
+
+/**
+ * Alta directa: la cuenta nace activa, con su rol, y entra de inmediato con
+ * una contraseña temporal que la persona cambia con «Olvidé mi contraseña».
+ * Es la única puerta para crear otro superusuario (regla de la DGT, 2026-10-16).
+ */
+function NuevaCuenta({ onCreada }: { onCreada: () => void }) {
+  const vacio: AltaUsuario = { correo: "", nombre: "", dependencia: "", contrasena: "", rol: "analista" };
+  const [abierto, setAbierto] = useState(false);
+  const [datos, setDatos] = useState<AltaUsuario>(vacio);
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+
+  const enviar = async (e: FormEvent) => {
+    e.preventDefault();
+    setGuardando(true);
+    setError(null);
+    try {
+      await crearUsuario({ ...datos, correo: datos.correo.trim(), nombre: datos.nombre.trim(), dependencia: datos.dependencia.trim() });
+      setAbierto(false);
+      setDatos(vacio);
+      onCreada();
+    } catch (err) {
+      // El servidor explica el motivo (correo fuera del dominio, ya existe…); se enseña tal cual.
+      const mensaje = (err as { mensaje?: unknown })?.mensaje;
+      setError(typeof mensaje === "string" && mensaje ? mensaje : "No se pudo dar de alta la cuenta. Inténtalo de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Dialog open={abierto} onOpenChange={(v) => { setAbierto(v); if (!v) setError(null); }}>
+      <Button type="button" size="sm" onClick={() => setAbierto(true)}>Nueva cuenta</Button>
+      <DialogContent aria-label="Nueva cuenta">
+        <form onSubmit={(e) => void enviar(e)} className="flex flex-col gap-4">
+          <DialogHeader>
+            <DialogTitle>Nueva cuenta</DialogTitle>
+            <DialogDescription>
+              Nace activa, sin pasar por aprobación. Comparte la contraseña temporal con la persona; la cambia con «Olvidé mi contraseña».
+            </DialogDescription>
+          </DialogHeader>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Correo institucional
+            <Input type="email" autoComplete="off" required value={datos.correo} onChange={(e) => setDatos({ ...datos, correo: e.target.value })} placeholder="nombre.apellido@hidalgo.gob.mx" />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Nombre
+            <Input required value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Dependencia
+            <Input required value={datos.dependencia} onChange={(e) => setDatos({ ...datos, dependencia: e.target.value })} placeholder="DGT, DSA…" />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Contraseña temporal
+            <Input type="password" autoComplete="new-password" required minLength={8} value={datos.contrasena} onChange={(e) => setDatos({ ...datos, contrasena: e.target.value })} />
+          </label>
+          <fieldset className="flex flex-col gap-1 text-sm">
+            <legend className="font-medium">Rol</legend>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="rol" value="analista" checked={datos.rol === "analista"} onChange={() => setDatos({ ...datos, rol: "analista" })} className="accent-primary" />
+              Analista: trabaja expedientes
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="rol" value="admin" checked={datos.rol === "admin"} onChange={() => setDatos({ ...datos, rol: "admin" })} className="accent-primary" />
+              Superusuario: además administra cuentas y ve quién hizo qué
+            </label>
+          </fieldset>
+          {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAbierto(false)}>Cancelar</Button>
+            <Button type="submit" disabled={guardando}>{guardando ? "Guardando…" : "Dar de alta"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

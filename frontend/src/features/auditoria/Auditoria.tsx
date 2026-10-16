@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Download, Search } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "cn";
 import { leerAuditoria, urlAuditoriaCsv, type FiltrosAuditoria } from "@/lib/api";
 import type { FilaAuditoria } from "@/lib/types";
 
-import { fechaCorta, redactarEvento } from "./lenguaje";
+import { agruparPorPersona, fechaCorta, redactarEvento, type Persona } from "./lenguaje";
 
 /**
  * «Quién hizo qué»: la bitácora de acciones para la auditoría interna de la
@@ -80,10 +80,12 @@ export default function Auditoria({ sidInicial = null }: { sidInicial?: string |
             <Search aria-hidden className="size-4" />
             Buscar
           </Button>
-          <Button variant="outline" size="sm" render={<a href={urlAuditoriaCsv(filtros)} download>Descargar CSV</a>}>
+          {/* Un enlace de verdad, no un Button con render: base-ui avisa cuando el
+              «botón» no es un <button>, y una descarga es un enlace. */}
+          <a href={urlAuditoriaCsv(filtros)} download className={buttonVariants({ variant: "outline", size: "sm" })}>
             <Download aria-hidden className="size-4" />
             Descargar CSV
-          </Button>
+          </a>
         </div>
       </form>
 
@@ -96,35 +98,85 @@ export default function Auditoria({ sidInicial = null }: { sidInicial?: string |
       ) : null}
 
       {filas && filas.length > 0 ? (
-        <ul aria-label="Eventos" className="flex flex-col gap-2">
-          {filas.map((f, i) => {
-            const ev = redactarEvento(f);
-            return (
-              <li key={`${f.fecha}-${i}`}>
-                <Card
-                  role="article"
-                  aria-label={`${fechaCorta(f.fecha)} · ${f.usuario}`}
-                  className={cn("py-3", ev.fallo && "border-l-4 border-l-destructive", ev.rechazo !== null && "border-l-4 border-l-amber-500")}
-                >
-                  <CardHeader className="gap-0.5 py-0">
-                    <CardTitle className="text-sm font-semibold leading-snug">{ev.frase}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
-                    <span className="text-foreground">{f.usuario}{f.dependencia ? ` · ${f.dependencia}` : ""}</span>
-                    <time dateTime={f.fecha}>{fechaCorta(f.fecha)}</time>
-                    {f.sid ? (
-                      <a href={`/revisar/${f.sid}`} className="font-mono text-primary underline underline-offset-2">
-                        {f.sid.slice(0, 8)}
-                      </a>
-                    ) : null}
-                    {f.ip ? <span className="font-mono">{f.ip}</span> : null}
-                  </CardContent>
-                </Card>
-              </li>
-            );
-          })}
+        <ul aria-label="Personas" className="grid gap-3 md:grid-cols-2">
+          {agruparPorPersona(filas).map((p) => (
+            <li key={p.usuario}>
+              <TarjetaPersona persona={p} />
+            </li>
+          ))}
         </ul>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Una persona, sus cuentas y el detalle plegado. Daniel pidió «por cards para
+ * que no se vea tanto trabajo»: la lista plana de eventos abrumaba; lo que se
+ * mira primero es quién, cuánto y si hubo errores.
+ */
+function TarjetaPersona({ persona: p }: { persona: Persona }) {
+  const n = p.eventos.length;
+  const plural = (k: number, uno: string, varios: string) => `${k} ${k === 1 ? uno : varios}`;
+  return (
+    <Card
+      role="article"
+      aria-label={p.usuario}
+      className={cn("h-full py-4", p.fallos > 0 && "border-l-4 border-l-destructive", p.fallos === 0 && p.rechazos > 0 && "border-l-4 border-l-amber-500")}
+    >
+      <CardHeader className="gap-1">
+        <CardTitle className="flex flex-wrap items-baseline gap-x-2 text-base">
+          <span className="truncate">{p.usuario}</span>
+          {p.dependencia ? <span className="text-xs font-normal text-muted-foreground">{p.dependencia}</span> : null}
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {plural(n, "acción", "acciones")}
+          {p.tramites > 0 ? ` · ${plural(p.tramites, "trámite", "trámites")}` : ""}
+          {" · última "}
+          <time dateTime={p.ultima}>{fechaCorta(p.ultima)}</time>
+        </p>
+        {p.rechazos > 0 || p.fallos > 0 ? (
+          <p className="flex flex-wrap gap-1.5 text-xs">
+            {p.fallos > 0 ? (
+              <span className="rounded-full bg-destructive/10 px-2 py-0.5 font-semibold text-destructive">
+                {plural(p.fallos, "fallo del servidor", "fallos del servidor")}
+              </span>
+            ) : null}
+            {p.rechazos > 0 ? (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
+                {plural(p.rechazos, "rechazada", "rechazadas")}
+              </span>
+            ) : null}
+          </p>
+        ) : null}
+      </CardHeader>
+      <CardContent>
+        <details className="group">
+          <summary className="cursor-pointer text-sm text-primary underline underline-offset-2">
+            {n === 1 ? "Ver la acción" : `Ver las ${n} acciones`}
+          </summary>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {p.eventos.map((f, i) => {
+              const ev = redactarEvento(f);
+              return (
+                <li
+                  key={`${f.fecha}-${i}`}
+                  className={cn("rounded-md bg-muted/40 px-2.5 py-1.5 text-xs", ev.fallo && "bg-destructive/10", ev.rechazo !== null && "bg-amber-50")}
+                >
+                  <p className="font-medium text-foreground">{ev.frase}</p>
+                  <p className="flex flex-wrap gap-x-3 text-muted-foreground">
+                    <time dateTime={f.fecha}>{fechaCorta(f.fecha)}</time>
+                    {f.sid ? (
+                      <a href={`/revisar/${f.sid}`} className="font-mono text-primary underline underline-offset-2">{f.sid.slice(0, 8)}</a>
+                    ) : null}
+                    {f.ip ? <span className="font-mono">{f.ip}</span> : null}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      </CardContent>
+    </Card>
   );
 }

@@ -92,6 +92,15 @@ class RegistroIn(BaseModel):
     contrasena: str
 
 
+class AltaIn(BaseModel):
+    """Cuerpo de `POST /api/v1/usuarios`: alta directa por el superusuario."""
+    correo: str
+    nombre: str
+    dependencia: str
+    contrasena: str
+    rol: str = "analista"
+
+
 class RecuperarIn(BaseModel):
     correo: str
 
@@ -279,6 +288,30 @@ def instalar(app: FastAPI, usuarios, secreto: str, correo=None,
     @app.get("/api/v1/usuarios")
     async def listar_usuarios():
         return {"usuarios": [_publico(u) for u in usuarios.usuarios()]}
+
+    @app.post("/api/v1/usuarios", status_code=201)
+    async def alta_usuario(cuerpo: AltaIn, request: Request):
+        """Alta directa, activa y con rol, por el superusuario (`_SOLO_ADMIN`).
+        Es la unica via para crear otro superusuario desde la pantalla: regla
+        de la DGT (2026-10-16). La contraseña es temporal; la persona la cambia
+        con «Olvidé mi contraseña»."""
+        c = correo_institucional(cuerpo.correo, dominio)
+        if c is None:
+            return JSONResponse(status_code=422, content={"error": f"solo se admiten correos @{dominio}"})
+        if len(cuerpo.contrasena) < MIN_CONTRASENA:
+            return JSONResponse(status_code=422, content={"error": f"la contraseña debe tener al menos {MIN_CONTRASENA} caracteres"})
+        if not cuerpo.nombre.strip() or not cuerpo.dependencia.strip():
+            return JSONResponse(status_code=422, content={"error": "hacen falta el nombre y la dependencia"})
+        if cuerpo.rol not in ROLES:
+            return JSONResponse(status_code=422, content={"error": f"rol desconocido; vale: {', '.join(ROLES)}"})
+        try:
+            u = usuarios.alta(c, cuerpo.nombre.strip(), cuerpo.dependencia.strip(), cuerpo.contrasena,
+                              rol=cuerpo.rol, estado="activo")
+        except ValueError:
+            return JSONResponse(status_code=409, content={"error": "ya existe una cuenta con ese correo"})
+        yo = usuario_de(request)
+        usuarios.auditar(yo.correo, yo.dependencia, "usuario.alta", None, f"{c}: {cuerpo.rol}", _ip(request))
+        return JSONResponse(status_code=201, content={"usuario": _publico(u)})
 
     def _admin(request: Request, correo_objetivo: str, accion: str, cambio):
         u = usuarios.por_correo(correo_objetivo)

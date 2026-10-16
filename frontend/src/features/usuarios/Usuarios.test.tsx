@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import Usuarios from "./Usuarios";
 
 vi.mock("@/lib/api", () => ({
-  listarUsuarios: vi.fn(), aprobarUsuario: vi.fn(), desactivarUsuario: vi.fn(), cambiarRol: vi.fn(),
+  listarUsuarios: vi.fn(), aprobarUsuario: vi.fn(), desactivarUsuario: vi.fn(), cambiarRol: vi.fn(), crearUsuario: vi.fn(),
 }));
 afterEach(() => vi.clearAllMocks());
 
@@ -40,4 +40,47 @@ it("aprobar una pendiente llama a la API y recarga", async () => {
   await userEvent.click(within(tarjeta).getByRole("button", { name: /aprobar/i }));
   expect(aprobarUsuario).toHaveBeenCalledWith("luis.vera@hidalgo.gob.mx");
   await waitFor(() => expect(listarUsuarios).toHaveBeenCalledTimes(2));
+});
+
+
+it("«Nueva cuenta» abre un modal y da de alta un superusuario de inmediato", async () => {
+  // Regla de la DGT (2026-10-16): los superusuarios se crean desde aqui, por
+  // el superusuario, sin pasar por el registro publico ni por «pendiente».
+  const { listarUsuarios, crearUsuario } = await import("@/lib/api");
+  vi.mocked(listarUsuarios).mockResolvedValue(lista as never);
+  vi.mocked(crearUsuario).mockResolvedValue({ usuario: { correo: "ana.lopez@hidalgo.gob.mx", nombre: "Ana López", dependencia: "DGT", rol: "admin", estado: "activo" } } as never);
+  render(<Usuarios yo={YO} />);
+  await screen.findByRole("article", { name: YO });
+
+  await userEvent.click(screen.getByRole("button", { name: /nueva cuenta/i }));
+  const modal = await screen.findByRole("dialog", { name: /nueva cuenta/i });
+  await userEvent.type(within(modal).getByRole("textbox", { name: /correo/i }), "ana.lopez@hidalgo.gob.mx");
+  await userEvent.type(within(modal).getByRole("textbox", { name: /nombre/i }), "Ana López");
+  await userEvent.type(within(modal).getByRole("textbox", { name: /dependencia/i }), "DGT");
+  await userEvent.type(within(modal).getByLabelText(/contraseña temporal/i), "Temporal-789");
+  await userEvent.click(within(modal).getByRole("radio", { name: /superusuario/i }));
+  await userEvent.click(within(modal).getByRole("button", { name: /dar de alta/i }));
+
+  await waitFor(() => expect(crearUsuario).toHaveBeenCalledWith({
+    correo: "ana.lopez@hidalgo.gob.mx", nombre: "Ana López", dependencia: "DGT", contrasena: "Temporal-789", rol: "admin",
+  }));
+  await waitFor(() => expect(listarUsuarios).toHaveBeenCalledTimes(2));         // recarga
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+});
+
+it("si el alta falla el modal lo dice y no se cierra", async () => {
+  const { listarUsuarios, crearUsuario } = await import("@/lib/api");
+  vi.mocked(listarUsuarios).mockResolvedValue(lista as never);
+  vi.mocked(crearUsuario).mockRejectedValue(Object.assign(new Error("ya existe"), { status: 409, mensaje: "ya existe una cuenta con ese correo" }));
+  render(<Usuarios yo={YO} />);
+  await screen.findByRole("article", { name: YO });
+  await userEvent.click(screen.getByRole("button", { name: /nueva cuenta/i }));
+  const modal = await screen.findByRole("dialog", { name: /nueva cuenta/i });
+  await userEvent.type(within(modal).getByRole("textbox", { name: /correo/i }), "luis.vera@hidalgo.gob.mx");
+  await userEvent.type(within(modal).getByRole("textbox", { name: /nombre/i }), "Luis");
+  await userEvent.type(within(modal).getByRole("textbox", { name: /dependencia/i }), "DSA");
+  await userEvent.type(within(modal).getByLabelText(/contraseña temporal/i), "Temporal-789");
+  await userEvent.click(within(modal).getByRole("button", { name: /dar de alta/i }));
+  expect(await within(modal).findByRole("alert")).toHaveTextContent(/ya existe/i);
+  expect(screen.getByRole("dialog", { name: /nueva cuenta/i })).toBeInTheDocument();
 });

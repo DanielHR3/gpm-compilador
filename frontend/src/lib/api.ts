@@ -626,6 +626,14 @@ export async function desactivarUsuario(correo: string): Promise<{ usuario: Usua
   return pedirJson(`/api/v1/usuarios/${encodeURIComponent(correo)}/desactivar`, { method: "POST" });
 }
 
+/** Alta directa por el superusuario: activa, con rol y contraseña temporal. */
+export type AltaUsuario = { correo: string; nombre: string; dependencia: string; contrasena: string; rol: "admin" | "analista" };
+export async function crearUsuario(datos: AltaUsuario): Promise<{ usuario: UsuarioAdmin }> {
+  return pedirJson("/api/v1/usuarios", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(datos),
+  });
+}
+
 export async function cambiarRol(correo: string, rol: "admin" | "analista"): Promise<{ usuario: UsuarioAdmin }> {
   return pedirJson(`/api/v1/usuarios/${encodeURIComponent(correo)}/rol`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rol }),

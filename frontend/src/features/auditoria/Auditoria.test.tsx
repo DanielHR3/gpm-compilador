@@ -22,22 +22,35 @@ const filas = [
     accion: "error.servidor", sid: null, detalle: "RuntimeError en GET /api/v1/x #abc123def456 (500)", ip: "10.0.0.1" },
 ];
 
-it("una tarjeta por evento, en castellano, con quién, qué, cuándo y desde dónde", async () => {
+it("una tarjeta por persona con sus cuentas, y el detalle plegado en castellano", async () => {
   const { leerAuditoria } = await import("@/lib/api");
   vi.mocked(leerAuditoria).mockResolvedValue({ filas } as never);
   render(<Auditoria />);
 
-  const lista = await screen.findByRole("list", { name: /eventos/i });
-  const tarjetas = within(lista).getAllByRole("article");
-  expect(tarjetas).toHaveLength(4);
-  expect(tarjetas[0]).toHaveTextContent(/Reconoció la inconsistencia DIC-07/);
-  expect(tarjetas[0]).toHaveTextContent("luis.vera@hidalgo.gob.mx");
-  expect(tarjetas[0]).toHaveTextContent("10.0.0.9");
-  expect(tarjetas[1]).toHaveTextContent(/Descargó el \.gpm de producción/);
-  expect(tarjetas[1]).toHaveTextContent(/rechaz/i);             // el (409) se dice, no se esconde
-  expect(tarjetas[2]).toHaveTextContent(/Entró al asistente/);
-  expect(tarjetas[3]).toHaveTextContent(/Fallo del servidor/);
-  expect(tarjetas[3]).toHaveTextContent("#abc123def456");
+  const personas = await screen.findByRole("list", { name: /personas/i });
+  const tarjetas = within(personas).getAllByRole("article");
+  // Luis, Daniel y el anonimo del fallo: tres tarjetas, no cuatro eventos sueltos.
+  expect(tarjetas.map((t) => t.getAttribute("aria-label"))).toEqual([
+    "luis.vera@hidalgo.gob.mx", "daniel.hernandezr@hidalgo.gob.mx", "anonimo",
+  ]);
+  const luis = tarjetas[0];
+  expect(luis).toHaveTextContent(/2 acciones/);
+  expect(luis).toHaveTextContent(/1 trámite/);
+  expect(luis).toHaveTextContent(/1 rechazada/);
+  expect(luis).toHaveTextContent("DSA");
+  // El detalle viene plegado y se abre.
+  expect(within(luis).getByText(/Reconoció la inconsistencia DIC-07/)).not.toBeVisible();
+  await userEvent.click(within(luis).getByText(/ver las 2 acciones/i));
+  const eventos = within(luis).getAllByRole("listitem");
+  expect(eventos[0]).toBeVisible();
+  expect(eventos[0]).toHaveTextContent(/Reconoció la inconsistencia DIC-07/);
+  expect(eventos[0]).toHaveTextContent("10.0.0.9");
+  expect(eventos[1]).toHaveTextContent(/Descargó el \.gpm de producción/);
+  expect(eventos[1]).toHaveTextContent(/rechaz/i);
+  // El fallo del servidor se ve desde fuera, con su numero.
+  expect(tarjetas[2]).toHaveTextContent(/1 fallo del servidor/);
+  await userEvent.click(within(tarjetas[2]).getByText(/ver la acción/i));
+  expect(tarjetas[2]).toHaveTextContent("#abc123def456");
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
 });
 

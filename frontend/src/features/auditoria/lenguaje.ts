@@ -22,6 +22,7 @@ const QUE: Record<string, (detalle: string) => string> = {
   "sesion.salir": () => "Salió del asistente",
   "sesion.fallo": () => "Intentó entrar con una contraseña incorrecta",
   "usuario.registro": () => "Registró una cuenta, pendiente de aprobación",
+  "usuario.alta": (d) => `Dio de alta la cuenta ${d}`.trim(),
   "usuario.aprobar": (d) => `Aprobó la cuenta ${d}`.trim(),
   "usuario.baja": (d) => `Desactivó la cuenta ${d}`.trim(),
   "usuario.rol": (d) => `Cambió el rol de ${d}`.trim(),
@@ -60,4 +61,34 @@ export function fechaCorta(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+export type Persona = {
+  usuario: string;
+  dependencia: string;
+  /** Del más reciente al más viejo, como llegan del servidor. */
+  eventos: FilaAuditoria[];
+  tramites: number;
+  rechazos: number;
+  fallos: number;
+  ultima: string;
+};
+
+/** Una entrada por persona, en el orden en que aparece su acción más reciente. */
+export function agruparPorPersona(filas: FilaAuditoria[]): Persona[] {
+  const por = new Map<string, Persona>();
+  for (const f of filas) {
+    let p = por.get(f.usuario);
+    if (!p) {
+      p = { usuario: f.usuario, dependencia: f.dependencia, eventos: [], tramites: 0, rechazos: 0, fallos: 0, ultima: f.fecha };
+      por.set(f.usuario, p);
+    }
+    p.eventos.push(f);
+    if (!p.dependencia && f.dependencia) p.dependencia = f.dependencia;
+    const ev = redactarEvento(f);
+    if (ev.fallo) p.fallos++;
+    else if (ev.rechazo !== null) p.rechazos++;
+  }
+  for (const p of por.values()) p.tramites = new Set(p.eventos.map((e) => e.sid).filter(Boolean)).size;
+  return [...por.values()];
 }

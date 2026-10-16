@@ -2028,3 +2028,39 @@ def test_un_analista_no_ve_cuentas_ni_registros_ni_cambia_roles(tmp_path):
     assert c.get("/api/v1/auditoria?formato=csv").status_code == 403
     assert c.post("/api/v1/usuarios/luis.vera@hidalgo.gob.mx/rol", json={"rol": "admin"}).status_code == 403
     assert c.post(f"/api/v1/usuarios/{_DANIEL[0]}/baja").status_code == 403
+
+
+# --- el superusuario da de alta cuentas, incluidas otras de superusuario (2026-10-16) ----
+
+def test_el_superusuario_da_de_alta_una_cuenta_activa_con_su_rol(tmp_path):
+    c, usuarios = _cli_con_analista(tmp_path)
+    _entrar(c)
+    r = c.post("/api/v1/usuarios", json={"correo": "ana.lopez@hidalgo.gob.mx", "nombre": "Ana López",
+                                        "dependencia": "DGT", "contrasena": "Temporal-789", "rol": "admin"})
+    assert r.status_code == 201
+    assert r.json()["usuario"] == {"correo": "ana.lopez@hidalgo.gob.mx", "nombre": "Ana López", "dependencia": "DGT",
+                                   "rol": "admin", "estado": "activo"}
+    # Entra de inmediato, sin pasar por «pendiente», y es superusuario.
+    u = usuarios.autenticar("ana.lopez@hidalgo.gob.mx", "Temporal-789")
+    assert u is not None and u.rol == "admin" and u.estado == "activo"
+    fila = usuarios.auditoria()[0]
+    assert fila["accion"] == "usuario.alta" and fila["usuario"] == _DANIEL[0] and "ana.lopez@hidalgo.gob.mx" in fila["detalle"] and "admin" in fila["detalle"]
+
+
+def test_el_alta_valida_correo_contrasena_rol_y_duplicados(tmp_path):
+    c, _ = _cli_con_analista(tmp_path)
+    _entrar(c)
+    base = {"correo": "ana.lopez@hidalgo.gob.mx", "nombre": "Ana", "dependencia": "DGT", "contrasena": "Temporal-789", "rol": "analista"}
+    assert c.post("/api/v1/usuarios", json={**base, "correo": "ana@gmail.com"}).status_code == 422
+    assert c.post("/api/v1/usuarios", json={**base, "contrasena": "corta"}).status_code == 422
+    assert c.post("/api/v1/usuarios", json={**base, "rol": "dios"}).status_code == 422
+    assert c.post("/api/v1/usuarios", json=base).status_code == 201
+    assert c.post("/api/v1/usuarios", json=base).status_code == 409
+
+
+def test_un_analista_no_da_de_alta_cuentas(tmp_path):
+    c, _ = _cli_con_analista(tmp_path)
+    _entrar(c, "luis.vera@hidalgo.gob.mx", "Otra-456")
+    r = c.post("/api/v1/usuarios", json={"correo": "ana.lopez@hidalgo.gob.mx", "nombre": "Ana", "dependencia": "DGT",
+                                        "contrasena": "Temporal-789", "rol": "admin"})
+    assert r.status_code == 403
