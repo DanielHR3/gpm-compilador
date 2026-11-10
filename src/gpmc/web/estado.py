@@ -133,3 +133,22 @@ def consultar(raiz: Path, ruts_id: str) -> "list[dict]":
             return [{"analista": "", "actualizado": max(fechas) if fechas else "",
                      "entregables": dict(l["entregables"])}]
     return []
+
+
+# Archivo de la sesion (claves de `sesiones.INSUMOS`) -> entregable del contrato.
+_ENTREGABLE_DE_INSUMO = {"as_is": "as-is", "to_be": "to-be", "diccionario": "diccionario"}
+
+
+def anotar_insumos(raiz: Path, carpeta: Path, ruts_id: str) -> None:
+    """Tras extraer: anota cada insumo que existe en la carpeta de la sesión. Sin
+    `ruts_id` no hace nada (el expediente no está ligado a Simplifica)."""
+    if not ruts_id:
+        return
+    from gpmc.web.sesiones import INSUMOS  # web/ es quien conoce los nombres de archivo
+    for clave, entregable in _ENTREGABLE_DE_INSUMO.items():
+        try:
+            existe = (Path(carpeta) / INSUMOS[clave]).exists()
+        except OSError:
+            existe = False
+        if existe:
+            anotar(raiz, ruts_id, entregable)

@@ -49,7 +49,7 @@ log = logging.getLogger("gpmc.web.api")
 from gpmc.extractores.docx import a_markdown
 from gpmc.extractores import pdf as ext_pdf
 from gpmc.web.clasificador import clasificar
-from gpmc.web import tablero
+from gpmc.web import estado, tablero
 from gpmc.web.sesiones import (
     CARPETA_ADJUNTOS,
     CARPETA_DOCUMENTOS,
@@ -376,6 +376,8 @@ def extraer_y_persistir(raiz: Path, sid: str, carpeta: Path):
                      res.huecos[0] if res.huecos else None)
         return None, (causa.mensaje if causa else "no se pudo extraer el manifiesto")
     guardar(res.manifiesto, carpeta / "manifiesto.yaml")
+    # Estado para Simplifica: primera fecha de cada insumo, por ruts_id.
+    estado.anotar_insumos(raiz, carpeta, res.manifiesto.tramite.ruts_id)
     # Los Hueco tipados se persisten como JSON para que GET /expedientes/{sid}
     # los reconstruya sin volver a correr el extractor.
     escribir_huecos(carpeta, res.huecos)
@@ -1132,6 +1134,9 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
             ]})
         base = re.sub(r"[^A-Za-z0-9._-]+", "-", m.tramite.nombre)[:60] or "tramite"
         nombre = f"{base}-test-ui.gpm" if modo == "pruebas" else f"{base}.gpm"
+        if modo != "pruebas":
+            # Paso la puerta del linter: este es el .gpm de produccion.
+            estado.anotar(raiz, m.tramite.ruts_id, "gpm")
         return Response(
             serializar(compilar(m, modo_pruebas=(modo == "pruebas"))),
             media_type="application/octet-stream",

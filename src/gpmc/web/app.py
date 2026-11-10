@@ -31,7 +31,7 @@ from gpmc.nucleo.formato import serializar
 from gpmc.nucleo.huecos import bloquean
 from gpmc.nucleo.manifiesto import cargar, guardar
 from gpmc.simulador.html import generar as generar_simulador
-from gpmc.web import plantillas
+from gpmc.web import estado, plantillas
 from gpmc.web.sesiones import (
     carpeta_de,
     manifiesto_de,
@@ -358,6 +358,7 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None,
                     status_code=409,
                     media_type="text/plain; charset=utf-8",
                 )
+            estado.anotar(raiz, m.tramite.ruts_id, "gpm")  # paso la puerta
             return Response(
                 serializar(compilar(m)),
                 media_type="application/octet-stream",
