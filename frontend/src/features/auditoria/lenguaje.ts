@@ -42,6 +42,7 @@ const QUE: Record<string, (detalle: string) => string> = {
   "comparativa.descartar": () => "Descartó un punto de mejora",
   "gpm.descargar": (d) => `Descargó el .gpm de ${d === "pruebas" ? "pruebas" : "producción"}`,
   "estado.consultar": (d) => `Simplifica consultó el estado del trámite con RUTS ${d}`,
+  "solicitud.recibir": (d) => `Simplifica envió el trámite con RUTS ${d}`,
   "error.servidor": (d) => `Fallo del servidor: ${d}`,
 };
 

@@ -42,6 +42,8 @@ _ABIERTAS = re.compile(r"^/api/v1/(sesion|capacidades|registro|recuperar|restabl
 # GET exacto de la lectura de estado para Simplifica: no pide sesion de
 # persona; su manejador (web/api_estado.py) valida el token de servicio.
 _ESTADO_SERVICIO = re.compile(r"^/api/v1/expedientes$")
+# POST exacto con el que Simplifica envia un tramite (web/api_solicitudes.py, token de envio).
+_ENVIO_SERVICIO = re.compile(r"^/api/v1/solicitudes\Z")
 _SOLO_ADMIN = re.compile(r"^/api/v1/(usuarios(/|$)|auditoria$)")
 _PROTEGIDAS = re.compile(
     r"^/(api/|simulador/|aprobacion/|historial$|vistas/|descargar/|descargar-plantilla|extraer$|resolver/|reconocer/)"
@@ -169,7 +171,8 @@ def instalar(app: FastAPI, usuarios, secreto: str, correo=None,
         if cuerpo:
             request.state.usuario = Sesion(cuerpo["sub"], cuerpo.get("nombre", ""), cuerpo.get("dependencia", ""),
                                            cuerpo.get("rol", "analista"))
-        servicio = request.method == "GET" and bool(_ESTADO_SERVICIO.match(ruta))
+        servicio = ((request.method == "GET" and bool(_ESTADO_SERVICIO.match(ruta)))
+                    or (request.method == "POST" and bool(_ENVIO_SERVICIO.match(ruta))))
         if servicio:
             # Nunca cuenta como persona, ni con un JWT valido en la cabecera.
             request.state.usuario = None
@@ -201,6 +204,9 @@ def instalar(app: FastAPI, usuarios, secreto: str, correo=None,
             except Exception:  # la auditoria nunca tapa el error original
                 log.exception("no se pudo anotar el error #%s en la auditoria", ident)
             raise
+        if servicio and getattr(request.state, "solicitud_recibida", None):
+            usuarios.auditar("servicio:simplifica", "", "solicitud.recibir", None,
+                             request.state.solicitud_recibida, _ip(request))
         if servicio and getattr(request.state, "servicio", False):
             usuarios.auditar("servicio:simplifica", "", "estado.consultar", None,
                              _ruts_para_auditoria(request) + (f" ({resp.status_code})" if resp.status_code >= 400 else ""), _ip(request))

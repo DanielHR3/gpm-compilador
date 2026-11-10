@@ -1,0 +1,140 @@
+"""Solicitudes desde Simplifica: «Enviar al Compilador» y campanita
+(spec 2026-11-10-solicitudes-desde-simplifica)."""
+from fastapi.testclient import TestClient
+
+from gpmc.web import solicitudes
+from gpmc.web.app import crear_app
+from tests.test_api import _ENT_OPENAI, _cli_usuarios, _entrar
+
+ENVIO, LECTURA = "envio-123", "lectura-456"
+ENT = {**_ENT_OPENAI, "GPMC_TOKEN_ENVIO": ENVIO, "GPMC_TOKEN_SERVICIO": LECTURA}
+URL = "/api/v1/solicitudes"
+B_ENVIO = {"Authorization": f"Bearer {ENVIO}"}
+FICHA = {"ruts_id": "4321", "nombre": "Licencia de funcionamiento", "dependencia": "Secretaría X",
+         "enviado_por": "luis", "ruts": {"costo": "$500", "tiempo_entrega": "5 días", "description": "Permite abrir"}}
+
+
+def _cli(tmp_path, entorno=ENT):
+    return TestClient(crear_app(almacen=tmp_path, entorno=entorno))
+
+
+# --- registro ---
+
+def test_registrar_y_leer_con_la_mas_reciente_primero(tmp_path, monkeypatch):
+    monkeypatch.setattr(solicitudes, "ahora", lambda: "2026-11-10T10:00:00")
+    solicitudes.registrar(tmp_path, {**FICHA, "ruts_id": "1"})
+    monkeypatch.setattr(solicitudes, "ahora", lambda: "2026-11-10T11:00:00")
+    solicitudes.registrar(tmp_path, FICHA)
+    lista = solicitudes.leer(tmp_path)
+    assert [s["ruts_id"] for s in lista] == ["4321", "1"]
+    assert lista[0]["nueva"] is True and lista[0]["recibida"] == "2026-11-10T11:00:00"
+
+
+def test_reenviar_actualiza_y_vuelve_a_marcar_nueva(tmp_path):
+    solicitudes.registrar(tmp_path, FICHA)
+    solicitudes.marcar_vista(tmp_path, "4321")
+    assert solicitudes.leer(tmp_path)[0]["nueva"] is False
+    solicitudes.registrar(tmp_path, {**FICHA, "nombre": "Licencia nueva"})
+    [s] = solicitudes.leer(tmp_path)
+    assert s["nueva"] is True and s["nombre"] == "Licencia nueva"
+
+
+def test_bytes_rotos_no_revientan_y_se_conservan(tmp_path):
+    (tmp_path / solicitudes.ARCHIVO).write_bytes(b"\xff\xfe\n")
+    assert solicitudes.leer(tmp_path) == []
+    assert solicitudes.registrar(tmp_path, FICHA) is True
+    assert b"\xff\xfe" in (tmp_path / solicitudes.ARCHIVO).read_bytes()
+
+
+def test_la_purga_no_toca_solicitudes(tmp_path):
+    import os
+    import time
+    from gpmc.web.sesiones import _purgar_sesiones
+    solicitudes.registrar(tmp_path, FICHA)
+    viejo = time.time() - 30 * 86400
+    os.utime(tmp_path / solicitudes.ARCHIVO, (viejo, viejo))
+    _purgar_sesiones(tmp_path)
+    assert (tmp_path / solicitudes.ARCHIVO).exists()
+
+
+def test_as_is_inicial_trae_frontmatter_y_titulo():
+    texto = solicitudes.as_is_inicial({**FICHA, "nombre": 'Licencia "rara"\nmal'})
+    assert texto.startswith('---\nruts_id: "4321"\ndependencia: "Secretaría X"\n---\n')
+    assert "# Análisis AS-IS — Licencia \"rara\" mal" in texto
+    from gpmc.extractores import metadatos
+    r = metadatos.extraer(texto)
+    assert r.tramite.ruts_id == "4321" and r.tramite.dependencia == "Secretaría X"
+
+
+# --- POST con token de envío ---
+
+def test_sin_variable_el_envio_no_existe_404(tmp_path):
+    r = _cli(tmp_path, {**_ENT_OPENAI, "GPMC_TOKEN_SERVICIO": LECTURA}).post(URL, json=FICHA, headers=B_ENVIO)
+    assert r.status_code == 404
+
+
+def test_token_malo_o_el_de_lectura_dan_401(tmp_path):
+    c = _cli(tmp_path)
+    for h in ({}, {"Authorization": f"Bearer {LECTURA}"}, {"Authorization": "Bearer x"}, {"Authorization": ENVIO}):
+        r = c.post(URL, json=FICHA, headers=h)
+        assert r.status_code == 401 and r.json() == {"error": "no autorizado"}, h
+    assert not (tmp_path / solicitudes.ARCHIVO).exists()
+
+
+def test_el_token_de_envio_no_lee_el_estado(tmp_path):
+    assert _cli(tmp_path).get("/api/v1/expedientes", params={"ruts_id": "4321"}, headers=B_ENVIO).status_code == 401
+
+
+def test_envio_valido_201_y_queda_registrado(tmp_path):
+    r = _cli(tmp_path).post(URL, json=FICHA, headers=B_ENVIO)
+    assert r.status_code == 201 and r.json() == {"ok": True}
+    [s] = solicitudes.leer(tmp_path)
+    assert s["nombre"] == "Licencia de funcionamiento" and s["ruts"]["costo"] == "$500"
+
+
+def test_envio_invalido_422(tmp_path):
+    c = _cli(tmp_path)
+    for malo in ({**FICHA, "ruts_id": "4321&x"}, {**FICHA, "ruts_id": ""}, {k: v for k, v in FICHA.items() if k != "nombre"},
+                 {**FICHA, "curp": "XXXX"}, {**FICHA, "ruts": {"otra": "x"}}, {**FICHA, "nombre": "   "}):
+        assert c.post(URL, json=malo, headers=B_ENVIO).status_code == 422, malo
+    assert not (tmp_path / solicitudes.ARCHIVO).exists()
+
+
+def test_textos_largos_se_recortan(tmp_path):
+    _cli(tmp_path).post(URL, json={**FICHA, "nombre": "x" * 900, "ruts": {"description": "d" * 5000}}, headers=B_ENVIO)
+    [s] = solicitudes.leer(tmp_path)
+    assert len(s["nombre"]) == 300 and len(s["ruts"]["description"]) == 2000
+
+
+# --- con cuentas de persona ---
+
+def test_persona_ve_la_campanita_marca_vista_y_baja_el_as_is(tmp_path):
+    c, usuarios = _cli_usuarios(tmp_path, entorno=ENT)
+    TestClient(c.app).post(URL, json=FICHA, headers=B_ENVIO)
+    _entrar(c)
+    r = c.get(URL)
+    assert r.status_code == 200 and r.json()["nuevas"] == 1
+    assert r.json()["solicitudes"][0]["ruts_id"] == "4321"
+    a = c.get(f"{URL}/4321/as-is")
+    assert a.status_code == 200 and 'ruts_id: "4321"' in a.text
+    assert "attachment" in a.headers["content-disposition"]
+    assert c.post(f"{URL}/4321/vista").status_code == 200
+    assert c.get(URL).json()["nuevas"] == 0
+    assert c.get(f"{URL}/9999/as-is").status_code == 404
+    acciones = [f["accion"] for f in usuarios.auditoria()]
+    assert "solicitud.recibir" in acciones
+    rec = [f for f in usuarios.auditoria() if f["accion"] == "solicitud.recibir"][0]
+    assert rec["usuario"] == "servicio:simplifica" and rec["detalle"] == "4321" and ENVIO not in str(usuarios.auditoria())
+
+
+def test_sin_sesion_no_se_lee_la_campanita_y_el_token_de_envio_tampoco_abre(tmp_path):
+    c, _ = _cli_usuarios(tmp_path, entorno=ENT)
+    assert c.get(URL).status_code == 401
+    assert c.get(URL, headers=B_ENVIO).status_code == 401
+    assert c.post(f"{URL}/4321/vista", headers=B_ENVIO).status_code == 401
+
+
+def test_una_persona_con_sesion_no_puede_enviar(tmp_path):
+    c, _ = _cli_usuarios(tmp_path, entorno=ENT)
+    _entrar(c)
+    assert c.post(URL, json=FICHA).status_code == 401

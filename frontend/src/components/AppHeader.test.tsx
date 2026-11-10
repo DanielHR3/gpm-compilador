@@ -22,3 +22,14 @@ it("con un expediente abierto lleva el menú «Entrega»; sin él, no", () => {
   rerender(<AppHeader titulo="Catálogos" />);
   expect(screen.queryByRole("button", { name: /entrega/i })).not.toBeInTheDocument();
 });
+
+it("con sesión lleva la campanita de Simplifica; sin sesión, no", async () => {
+  const api = await import("@/lib/api");
+  const { vi } = await import("vitest");
+  vi.spyOn(api, "leerSolicitudes").mockResolvedValue({ solicitudes: [], nuevas: 0 });
+  const usuario = { correo: "a@hidalgo.gob.mx", nombre: "Ana López", dependencia: "DGT", rol: "analista" } as never;
+  const { rerender } = render(<AppHeader titulo="Inicio" usuario={usuario} />);
+  expect(await screen.findByRole("button", { name: /solicitudes de simplifica/i })).toBeInTheDocument();
+  rerender(<AppHeader titulo="Inicio" />);
+  expect(screen.queryByRole("button", { name: /solicitudes de simplifica/i })).not.toBeInTheDocument();
+});
