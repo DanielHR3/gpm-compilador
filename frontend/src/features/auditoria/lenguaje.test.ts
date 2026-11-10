@@ -18,3 +18,7 @@ it("un código desconocido se enseña tal cual, no se esconde", () => {
 it("la consulta de Simplifica se lee como acción de servicio", () => {
   expect(redactarEvento(fila("estado.consultar", "4321"))).toEqual({ frase: "Simplifica consultó el estado del trámite con RUTS 4321", rechazo: null, fallo: false });
 });
+
+it("el envío de un trámite desde Simplifica se lee como acción de servicio", () => {
+  expect(redactarEvento(fila("solicitud.recibir", "4321")).frase).toBe("Simplifica envió el trámite con RUTS 4321");
+});

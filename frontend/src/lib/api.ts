@@ -726,3 +726,29 @@ export async function aceptarVerificados(sid: string): Promise<EstadoDocumentos>
 export function urlDescargaDocumentos(sid: string): string {
   return `${documentosDe(sid)}/descarga`;
 }
+
+/** Trámite que Luis envió desde Simplifica («Enviar al Compilador»). Spec 2026-11-10. */
+export interface Solicitud {
+  ruts_id: string;
+  nombre: string;
+  dependencia: string;
+  enviado_por: string;
+  ruts: { costo: string; tiempo_entrega: string; description: string };
+  recibida: string;
+  nueva: boolean;
+}
+
+/** `GET /api/v1/solicitudes` — la campanita. */
+export async function leerSolicitudes(): Promise<{ solicitudes: Solicitud[]; nuevas: number }> {
+  return pedirJson(`${BASE}/solicitudes`);
+}
+
+/** `POST /api/v1/solicitudes/{ruts_id}/vista`. */
+export async function marcarSolicitudVista(rutsId: string): Promise<void> {
+  await pedirJson(`${BASE}/solicitudes/${encodeURIComponent(rutsId)}/vista`, { method: "POST" });
+}
+
+/** AS-IS inicial con el frontmatter ya lleno (`ruts_id`, dependencia). */
+export function urlAsIsDeSolicitud(rutsId: string): string {
+  return `${BASE}/solicitudes/${encodeURIComponent(rutsId)}/as-is`;
+}

@@ -26,12 +26,14 @@ CLIENTE = Path(RAIZ) / "shared" / "compilador.py" if RAIZ else None
 pytestmark = pytest.mark.skipif(not (CLIENTE and CLIENTE.exists()),
                                 reason="sin SISTEMA3_RAIZ o sin shared/compilador.py")
 TOKEN = "tok-contrato"
+ENVIO = "envio-contrato"
 
 
 def _cliente_sistema3(monkeypatch, tc: TestClient):
     falso = types.ModuleType("flask")
     falso.current_app = types.SimpleNamespace(
-        config={"COMPILADOR_URL": "https://compilador.prueba", "COMPILADOR_TOKEN": TOKEN},
+        config={"COMPILADOR_URL": "https://compilador.prueba", "COMPILADOR_TOKEN": TOKEN,
+                "COMPILADOR_TOKEN_ENVIO": ENVIO},
         logger=logging.getLogger("sistema3.prueba"))
     monkeypatch.setitem(sys.modules, "flask", falso)
     spec = importlib.util.spec_from_file_location("sistema3_compilador", CLIENTE)
@@ -41,8 +43,11 @@ def _cliente_sistema3(monkeypatch, tc: TestClient):
     def urlopen(peticion, timeout=None):
         u = urlparse(peticion.full_url)
         assert u.scheme == "https" and TOKEN not in peticion.full_url
-        r = tc.get(u.path + "?" + u.query, headers=dict(peticion.header_items()))
-        if r.status_code != 200:
+        if peticion.get_method() == "POST":
+            r = tc.post(u.path, content=peticion.data, headers=dict(peticion.header_items()))
+        else:
+            r = tc.get(u.path + "?" + u.query, headers=dict(peticion.header_items()))
+        if r.status_code >= 400:  # como urlopen: cualquier 2xx es éxito
             raise OSError(f"HTTP {r.status_code}")
         return _Resp(r.content)
 
@@ -85,3 +90,16 @@ def test_sistema3_con_token_distinto_muestra_su_aviso_y_no_revienta(tmp_path, mo
     tc = TestClient(crear_app(almacen=tmp_path, entorno={**_ENT_OPENAI, "GPMC_TOKEN_SERVICIO": "otro"}))
     r = _cliente_sistema3(monkeypatch, tc).consultar("4321")
     assert r["error"] and r["etapa"] is None
+
+
+def test_sistema3_envia_la_ficha_y_llega_a_la_campanita(tmp_path, monkeypatch):
+    from gpmc.web import solicitudes
+    ent = {**_ENT_OPENAI, "GPMC_TOKEN_SERVICIO": TOKEN, "GPMC_TOKEN_ENVIO": ENVIO}
+    tc = TestClient(crear_app(almacen=tmp_path, entorno=ent))
+    cli = _cliente_sistema3(monkeypatch, tc)
+    tramite = {"ruts_id": "4321", "nombre_tramite": "Licencia", "institucion": "Secretaría X",
+               "costo": "$500", "tiempo_resolucion": "5 días", "descripcion": "Abre negocios"}
+    ok, mensaje = cli.enviar(tramite, "luis")
+    assert ok, mensaje
+    [s] = solicitudes.leer(tmp_path)
+    assert (s["ruts_id"], s["nombre"], s["enviado_por"], s["nueva"]) == ("4321", "Licencia", "luis", True)
