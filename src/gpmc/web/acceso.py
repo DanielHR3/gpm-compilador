@@ -39,6 +39,9 @@ MIN_CONTRASENA = 8
 # va protegido; el resto de GET es el shell de la SPA (catch-all).
 _ABIERTAS = re.compile(r"^/api/v1/(sesion|capacidades|registro|recuperar|restablecer)$")
 # Solo el superusuario (rol admin): cuentas pendientes, roles, bajas.
+# GET exacto de la lectura de estado para Simplifica: no pide sesion de
+# persona; su manejador (web/api_estado.py) valida el token de servicio.
+_ESTADO_SERVICIO = re.compile(r"^/api/v1/expedientes$")
 _SOLO_ADMIN = re.compile(r"^/api/v1/(usuarios(/|$)|auditoria$)")
 _PROTEGIDAS = re.compile(
     r"^/(api/|simulador/|aprobacion/|historial$|vistas/|descargar/|descargar-plantilla|extraer$|resolver/|reconocer/)"
@@ -125,6 +128,12 @@ def _token_de(request: Request) -> Optional[str]:
     return request.cookies.get(COOKIE)
 
 
+def _ruts_para_auditoria(request: Request) -> str:
+    """El ruts_id consultado, o «ruts_id invalido»: a la auditoria no entra texto libre."""
+    valor = request.query_params.get("ruts_id", "")
+    return valor if re.fullmatch(r"[A-Za-z0-9]{1,20}", valor) else "ruts_id invalido"
+
+
 def _ip(request: Request) -> Optional[str]:
     # Detrás de CloudFront/ALB la IP real viene en X-Forwarded-For.
     xff = request.headers.get("x-forwarded-for")
@@ -160,7 +169,12 @@ def instalar(app: FastAPI, usuarios, secreto: str, correo=None,
         if cuerpo:
             request.state.usuario = Sesion(cuerpo["sub"], cuerpo.get("nombre", ""), cuerpo.get("dependencia", ""),
                                            cuerpo.get("rol", "analista"))
-        if _PROTEGIDAS.match(ruta) and not _ABIERTAS.match(ruta) and request.state.usuario is None:
+        servicio = request.method == "GET" and bool(_ESTADO_SERVICIO.match(ruta))
+        if servicio:
+            # Nunca cuenta como persona, ni con un JWT valido en la cabecera.
+            request.state.usuario = None
+        if (_PROTEGIDAS.match(ruta) and not _ABIERTAS.match(ruta) and not servicio
+                and request.state.usuario is None):
             return JSONResponse(status_code=401, content={"error": "hace falta entrar"})
         if _SOLO_ADMIN.match(ruta) and request.state.usuario.rol != "admin":
             return JSONResponse(status_code=403, content={"error": "solo el superusuario puede administrar cuentas"})
@@ -187,6 +201,9 @@ def instalar(app: FastAPI, usuarios, secreto: str, correo=None,
             except Exception:  # la auditoria nunca tapa el error original
                 log.exception("no se pudo anotar el error #%s en la auditoria", ident)
             raise
+        if servicio and getattr(request.state, "servicio", False):
+            usuarios.auditar("servicio:simplifica", "", "estado.consultar", None,
+                             _ruts_para_auditoria(request) + (f" ({resp.status_code})" if resp.status_code >= 400 else ""), _ip(request))
         u = request.state.usuario
         if u is not None:
             for metodo, patron, accion in _ACCIONES:

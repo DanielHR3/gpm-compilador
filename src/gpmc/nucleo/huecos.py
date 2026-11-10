@@ -22,6 +22,14 @@ ORDEN_NIVEL = {nivel: i for i, nivel in enumerate(NIVELES)}
 # documento (tablero, borradores de la Fase 3) las deja fuera. Spec 2026-10-01.
 DE_PUBLICACION = ("META-07", "ACT-01")
 
+# Avisos que no hablan del tramite sino de su liga con otro sistema: hoy el
+# `ruts_id` que Simplifica usa para ver el estado. Salen en todo expediente
+# viejo, asi que tampoco se cuentan ni se reparten por documento.
+DE_ENLACE = ("META-RUTS",)
+
+# Lo que no se cuenta en el tablero ni se le cuelga a un borrador de la Fase 3.
+FUERA_DE_CONTEO = DE_PUBLICACION + DE_ENLACE
+
 
 @dataclass
 class Hueco:

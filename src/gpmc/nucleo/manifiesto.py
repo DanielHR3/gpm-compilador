@@ -34,6 +34,9 @@ class Tramite(BaseModel):
     homoclave: str = ""
     expediente: str = ""
     ruts: FichaRUTS = FichaRUTS()
+    # Llave comun con Simplifica (ID de la ficha de RUTS); al final para no mover
+    # el orden de serializacion. Vacio = el AS-IS no lo trae (hueco META-RUTS).
+    ruts_id: str = ""
 
 
 class Actor(BaseModel):

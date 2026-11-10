@@ -125,3 +125,50 @@ def test_una_ficha_con_la_dependencia_pendiente_no_cuenta():
     r = ext.extraer(_AS_IS_SIN_FRONTMATTER, diccionario=dicc)
     assert r.tramite.dependencia == "[por confirmar]"
     assert [h for h in r.huecos if h.codigo == "META-02"]
+
+
+# --- ruts_id: llave común con Simplifica (spec 2026-11-06-api-de-estado-para-simplifica) ---
+
+def _as_is_con(linea):
+    return f"""---
+dependencia: Secretaría X
+{linea}
+---
+# Análisis AS-IS — Trámite de prueba
+"""
+
+
+def _codigos(r):
+    return [h.codigo for h in r.huecos]
+
+
+def test_lee_ruts_id_del_frontmatter_con_y_sin_comillas():
+    for linea in ('ruts_id: "4321"', "ruts_id: 4321", "ruts_id: '4321'", "RUTS_ID: 4321"):
+        r = ext.extraer(_as_is_con(linea))
+        assert r.tramite.ruts_id == "4321", linea
+        assert "META-RUTS" not in _codigos(r), linea
+
+
+def test_ruts_id_ausente_da_hueco_meta_ruts_por_confirmar_y_no_bloquea():
+    r = ext.extraer(_AS_IS_MINIMO)
+    assert r.tramite is not None and r.tramite.ruts_id == ""
+    huecos = [h for h in r.huecos if h.codigo == "META-RUTS"]
+    assert len(huecos) == 1 and huecos[0].nivel == "por_confirmar"
+
+
+def test_ruts_id_que_no_es_alfanumerico_o_pasa_de_20_se_descarta_con_el_hueco():
+    for linea in ('ruts_id: "43 21"', 'ruts_id: "a/b"', "ruts_id: " + "1" * 21, 'ruts_id: ""'):
+        r = ext.extraer(_as_is_con(linea))
+        assert r.tramite.ruts_id == "", linea
+        assert "META-RUTS" in _codigos(r), linea
+
+
+def test_ruts_id_fuera_del_frontmatter_no_cuenta():
+    r = ext.extraer(_AS_IS_MINIMO + "\nruts_id: 4321\n")
+    assert r.tramite.ruts_id == "" and "META-RUTS" in _codigos(r)
+
+
+def test_ruts_id_vacio_no_toma_el_valor_de_la_linea_siguiente_ni_comillas_cruzadas():
+    texto = "---\ndependencia: Secretaría X\nruts_id:\n4321\n---\n# Análisis AS-IS — Trámite de prueba\n"
+    assert ext.extraer(texto).tramite.ruts_id == ""
+    assert ext.extraer(_as_is_con("ruts_id: '4321\"")).tramite.ruts_id == ""

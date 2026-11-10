@@ -78,3 +78,14 @@ def wiki() -> Path:
     if not WIKI.is_dir() or not legible(WIKI):
         pytest.skip("GPMC_WIKI no configurada o sin acceso")
     return WIKI
+
+
+@pytest.fixture(autouse=True)
+def _entorno_aislado():
+    """Cada prueba deja os.environ como lo encontró. `cargar_entorno()` de la CLI lee
+    ~/.config/gpmc/entorno de la máquina; si ese archivo trae GPMC_JWT_SECRETO y
+    GPMC_BD, sin esto se quedaban puestas y las pruebas web siguientes pedían sesión."""
+    antes = dict(os.environ)
+    yield
+    os.environ.clear()
+    os.environ.update(antes)

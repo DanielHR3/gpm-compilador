@@ -37,10 +37,15 @@ entorno() {
   [ -n "$ia" ] || { echo "No hay GPMC_IA_* en ~/.config/gpmc/entorno" >&2; exit 2; }
   local jwt; jwt=$(leer GPMC_JWT_SECRETO)
   [ -n "$jwt" ] || { jwt=$(openssl rand -hex 32); guardar GPMC_JWT_SECRETO "$jwt"; }
+  # Token de servicio para Simplifica (GET /api/v1/expedientes?ruts_id=…). Se genera
+  # una vez y no se imprime; Daniel lo pasa a Sistema-3.0 desde estado.env.
+  local tok; tok=$(leer GPMC_TOKEN_SERVICIO)
+  [ -n "$tok" ] || { tok=$(openssl rand -hex 32); guardar GPMC_TOKEN_SERVICIO "$tok"; }
   {
     echo "# Generado por scripts/desplegar.sh el $(date -u +%FT%TZ). No editar a mano: se regenera."
     echo "$ia"
     echo "GPMC_JWT_SECRETO=$jwt"
+    echo "GPMC_TOKEN_SERVICIO=$tok"
     echo "GPMC_BD=$(exige GPMC_BD)"
     echo "GPMC_DOMINIO_CORREO=$GPMC_DOMINIO_CORREO"
     for k in GPMC_SMTP_HOST GPMC_SMTP_PUERTO GPMC_SMTP_USUARIO GPMC_SMTP_CLAVE GPMC_SMTP_REMITENTE; do

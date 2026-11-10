@@ -537,3 +537,13 @@ describe("decisiones de publicación (spec 2026-10-01)", () => {
     expect(pistaDeCodigo("DOC-04")?.instruccion).not.toMatch(/en la plataforma/i);
   });
 });
+
+describe("aviso de liga con Simplifica", () => {
+  test("META-RUTS tiene título y frase legibles", () => {
+    expect(tituloDeCodigo("META-RUTS")).toBe("ID de RUTS para Simplifica");
+    expect(redactarHueco(hueco("META-RUTS", "no se encontro `ruts_id` en el frontmatter del AS-IS; sin el Simplifica no puede ver el estado de este expediente", "por_confirmar"))).toBe(
+      "El AS-IS no trae el ID de RUTS (ruts_id) en su encabezado. El trámite se compila igual, " +
+        "pero Simplifica no podrá mostrar en qué va este expediente.",
+    );
+  });
+});

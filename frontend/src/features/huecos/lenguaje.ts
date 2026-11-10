@@ -16,6 +16,7 @@ const TITULOS: Record<string, string> = {
   "META-05": "Homoclave",
   "META-06": "A quién va dirigido",
   "META-07": "Visibilidad en el portal",
+  "META-RUTS": "ID de RUTS para Simplifica",
   "ACT-01": "Grupo de usuarios de un responsable",
   "DIC-01": "Campo sin pantalla asignada",
   "DIC-04": "División en pantallas",
@@ -320,6 +321,11 @@ const REDACCIONES: Record<string, Redaccion> = {
     /no se encontro 'A quien va dirigido'/,
     "Ningún documento dice a quién va dirigido el trámite, así que quedará " +
       "abierto a personas físicas y morales por igual.",
+  ),
+  "META-RUTS": fijo(
+    /no se encontro `ruts_id`/,
+    "El AS-IS no trae el ID de RUTS (ruts_id) en su encabezado. El trámite se compila igual, " +
+      "pero Simplifica no podrá mostrar en qué va este expediente.",
   ),
   "META-07": fijo(
     /saldra oculto del portal del ciudadano/,

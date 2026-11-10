@@ -31,7 +31,7 @@ from gpmc.nucleo.formato import serializar
 from gpmc.nucleo.huecos import bloquean
 from gpmc.nucleo.manifiesto import cargar, guardar
 from gpmc.simulador.html import generar as generar_simulador
-from gpmc.web import plantillas
+from gpmc.web import estado, plantillas
 from gpmc.web.sesiones import (
     carpeta_de,
     manifiesto_de,
@@ -72,6 +72,7 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None,
     from gpmc.web.api_fase3 import crear_router_fase3
     from gpmc.web.api_comparativa import crear_router_comparativa
     from gpmc.web.api_documentos import crear_router_documentos
+    from gpmc.web.api_estado import crear_router_estado
     # Un solo proveedor para todos los routers: el inyectado (pruebas) o el del
     # entorno. `entorno` alimenta ademas el candado de la Fase 3; None = os.environ.
     _prov = proveedor if proveedor is not None else crear_proveedor()
@@ -79,6 +80,8 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None,
     app.include_router(crear_router_fase3(raiz, proveedor=_prov, entorno=entorno))
     app.include_router(crear_router_comparativa(raiz, proveedor=_prov, entorno=entorno))
     app.include_router(crear_router_documentos(raiz, proveedor=_prov, entorno=entorno))
+    # Lectura de estado para Simplifica, con su propio token de servicio.
+    app.include_router(crear_router_estado(raiz, entorno=entorno))
 
     # Sesion con JWT y bitacora de acciones (spec 2026-09-25). Inyectados en
     # pruebas; en el servidor salen del entorno: GPMC_JWT_SECRETO y GPMC_BD
@@ -358,6 +361,7 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None,
                     status_code=409,
                     media_type="text/plain; charset=utf-8",
                 )
+            estado.anotar_gpm(raiz, m.tramite.ruts_id)  # paso la puerta
             return Response(
                 serializar(compilar(m)),
                 media_type="application/octet-stream",

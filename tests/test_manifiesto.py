@@ -147,3 +147,19 @@ def test_clausula_no_admite_campo_extra():
     from gpmc.nucleo.manifiesto import Clausula
     with pytest.raises(ValidationError):
         Clausula(campo="x", igual="y", z=1)
+
+
+def test_tramite_acepta_ruts_id_y_por_omision_es_vacio(tmp_path):
+    assert Manifiesto.model_validate(MINIMO).tramite.ruts_id == ""
+    datos = {**MINIMO, "tramite": {**MINIMO["tramite"], "ruts_id": "4321"}}
+    m = Manifiesto.model_validate(datos)
+    assert m.tramite.ruts_id == "4321"
+    destino = tmp_path / "m.yaml"
+    guardar(m, destino)
+    assert "ruts_id" in destino.read_text(encoding="utf-8") and cargar(destino) == m
+
+
+def test_guardar_no_escribe_ruts_id_vacio(tmp_path):
+    destino = tmp_path / "m.yaml"
+    guardar(Manifiesto.model_validate(MINIMO), destino)
+    assert "ruts_id" not in destino.read_text(encoding="utf-8")

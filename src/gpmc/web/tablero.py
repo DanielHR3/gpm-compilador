@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 from gpmc.estimador import estimar
-from gpmc.nucleo.huecos import DE_PUBLICACION, Hueco
+from gpmc.nucleo.huecos import FUERA_DE_CONTEO, Hueco
 from gpmc.nucleo.integraciones import CATALOGOS, clave_de
 from gpmc.nucleo.manifiesto import Manifiesto
 from gpmc.planeacion.registro import clave
@@ -88,7 +88,7 @@ def resumir(m: Manifiesto, huecos: "list[Hueco]",
         # Sin las decisiones de publicacion: salen en todo tramite y, como
         # el tablero ordena por numero de tramites, taparian a los demas.
         "huecos": dict(Counter(h.codigo for h in huecos
-                               if h.codigo not in DE_PUBLICACION)),
+                               if h.codigo not in FUERA_DE_CONTEO)),
         "metricas": {
             "tareas": est.metricas.tareas, "bifurcaciones": est.metricas.bifurcaciones,
             "vistas": est.metricas.vistas, "campos": est.metricas.campos,
