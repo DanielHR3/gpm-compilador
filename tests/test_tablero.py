@@ -363,3 +363,11 @@ def test_resumir_no_cuenta_las_decisiones_de_publicacion():
               Hueco("por_confirmar", "ACT-01", "caja", "grupo"),
               Hueco("falta_dato", "DIC-08", "p1", "cond")]
     assert tablero.resumir(_manifiesto(), huecos, ahora=AHORA)["huecos"] == {"DIC-08": 1}
+
+
+def test_resumir_no_cuenta_el_aviso_de_liga_con_simplifica():
+    """META-RUTS sale en todo expediente sin ruts_id: encabezaría el tablero sin
+    decir nada del trámite (revisión final de la API de estado)."""
+    huecos = [Hueco("por_confirmar", "META-RUTS", "metadatos", "sin ruts_id"),
+              Hueco("falta_dato", "DIC-08", "p1", "cond")]
+    assert tablero.resumir(_manifiesto(), huecos, ahora=AHORA)["huecos"] == {"DIC-08": 1}

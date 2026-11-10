@@ -55,45 +55,54 @@ def _bien_formada(d) -> bool:
     return isinstance(e, dict) and all(isinstance(e.get(k), (str, type(None))) for k in ENTREGABLES)
 
 
-def leer(raiz: Path) -> "list[dict]":
-    """Todas las líneas válidas. Una corrupta se salta y se anota con su número."""
+def _cargar(raiz: Path) -> "tuple[list[dict], list[bytes]]":
+    """(lineas validas, lineas que no se pudieron leer, tal cual). Se lee en bytes:
+    un byte que no es UTF-8 no puede tumbar la API ni la extraccion, y la linea
+    rota se conserva al reescribir porque este archivo es el unico registro de
+    las primeras fechas (la purga ya se llevo la evidencia)."""
     ruta = Path(raiz) / ARCHIVO
     try:
         if not ruta.exists():
-            return []
-        crudo = ruta.read_text(encoding="utf-8")
+            return [], []
+        crudo = ruta.read_bytes()
     except OSError:
         log.exception("estado.jsonl: no se pudo leer el registro")
-        return []
-    salida = []
-    for n, cruda in enumerate(crudo.splitlines(), 1):
-        if not cruda.strip():
+        return [], []
+    validas, rotas = [], []
+    for n, linea in enumerate(crudo.split(b"\n"), 1):
+        if not linea.strip():
             continue
         try:
-            d = json.loads(cruda)
-        except json.JSONDecodeError:
+            d = json.loads(linea.decode("utf-8"))
+        except ValueError:  # JSONDecodeError y UnicodeDecodeError
             log.warning("estado.jsonl: linea %d ilegible, se salta", n)
+            rotas.append(linea)
             continue
         if not _bien_formada(d):
             log.warning("estado.jsonl: linea %d con forma inesperada, se salta", n)
+            rotas.append(linea)
             continue
-        salida.append({"ruts_id": d["ruts_id"],
-                       "entregables": {k: d["entregables"].get(k) for k in ENTREGABLES}})
-    return salida
+        validas.append({"ruts_id": d["ruts_id"],
+                        "entregables": {k: d["entregables"].get(k) for k in ENTREGABLES}})
+    return validas, rotas
 
 
-def _escribir(raiz: Path, lineas: "list[dict]") -> bool:
-    """Reescribe el archivo entero de forma atómica (temporal + os.replace). Nunca
-    propaga un error: es un registro lateral y su fallo no debe tumbar la extracción
-    ni la descarga."""
+def leer(raiz: Path) -> "list[dict]":
+    """Todas las lineas validas. Una corrupta se salta y se anota con su numero."""
+    return _cargar(raiz)[0]
+
+
+def _escribir(raiz: Path, lineas: "list[dict]", rotas: "list[bytes]" = ()) -> bool:
+    """Reescribe el archivo entero de forma atomica (temporal + os.replace). Las
+    lineas rotas van al final tal cual. Nunca propaga un error: es un registro
+    lateral y su fallo no debe tumbar la extraccion ni la descarga."""
     destino = Path(raiz) / ARCHIVO
     temporal = Path(raiz) / (ARCHIVO + ".tmp")
     try:
-        temporal.write_text(
-            "".join(json.dumps(l, ensure_ascii=False) + "\n"
-                    for l in sorted(lineas, key=lambda l: l["ruts_id"])),
-            encoding="utf-8",
-        )
+        temporal.write_bytes(
+            b"".join(json.dumps(l, ensure_ascii=False).encode("utf-8") + b"\n"
+                     for l in sorted(lineas, key=lambda l: l["ruts_id"]))
+            + b"".join(r + b"\n" for r in rotas))
         os.replace(temporal, destino)
         return True
     except OSError:
@@ -111,7 +120,7 @@ def anotar(raiz: Path, ruts_id: str, entregable: str, cuando: Optional[str] = No
     if not _valido(ruts_id) or entregable not in ENTREGABLES:
         return False
     with _CANDADO:
-        lineas = leer(raiz)
+        lineas, rotas = _cargar(raiz)
         linea = next((l for l in lineas if l["ruts_id"] == ruts_id), None)
         if linea is None:
             linea = {"ruts_id": ruts_id, "entregables": {k: None for k in ENTREGABLES}}
@@ -119,7 +128,7 @@ def anotar(raiz: Path, ruts_id: str, entregable: str, cuando: Optional[str] = No
         if linea["entregables"][entregable] is not None:
             return True
         linea["entregables"][entregable] = cuando or hoy()
-        return _escribir(raiz, lineas)
+        return _escribir(raiz, lineas, rotas)
 
 
 def consultar(raiz: Path, ruts_id: str) -> "list[dict]":
@@ -145,10 +154,19 @@ def anotar_insumos(raiz: Path, carpeta: Path, ruts_id: str) -> None:
     if not ruts_id:
         return
     from gpmc.web.sesiones import INSUMOS  # web/ es quien conoce los nombres de archivo
-    for clave, entregable in _ENTREGABLE_DE_INSUMO.items():
-        try:
-            existe = (Path(carpeta) / INSUMOS[clave]).exists()
-        except OSError:
-            existe = False
-        if existe:
-            anotar(raiz, ruts_id, entregable)
+    try:
+        for clave, entregable in _ENTREGABLE_DE_INSUMO.items():
+            if (Path(carpeta) / INSUMOS[clave]).exists():
+                anotar(raiz, ruts_id, entregable)
+    except Exception:  # registro lateral: nunca tumba la extraccion
+        log.exception("estado.jsonl: no se pudieron anotar los insumos de %s", ruts_id)
+
+
+def anotar_gpm(raiz: Path, ruts_id: str) -> None:
+    """Tras una descarga de produccion que paso la puerta. Nunca lanza."""
+    if not ruts_id:
+        return
+    try:
+        anotar(raiz, ruts_id, "gpm")
+    except Exception:  # registro lateral: nunca tumba la descarga
+        log.exception("estado.jsonl: no se pudo anotar el gpm de %s", ruts_id)

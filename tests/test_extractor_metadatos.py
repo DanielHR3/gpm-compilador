@@ -166,3 +166,9 @@ def test_ruts_id_que_no_es_alfanumerico_o_pasa_de_20_se_descarta_con_el_hueco():
 def test_ruts_id_fuera_del_frontmatter_no_cuenta():
     r = ext.extraer(_AS_IS_MINIMO + "\nruts_id: 4321\n")
     assert r.tramite.ruts_id == "" and "META-RUTS" in _codigos(r)
+
+
+def test_ruts_id_vacio_no_toma_el_valor_de_la_linea_siguiente_ni_comillas_cruzadas():
+    texto = "---\ndependencia: Secretaría X\nruts_id:\n4321\n---\n# Análisis AS-IS — Trámite de prueba\n"
+    assert ext.extraer(texto).tramite.ruts_id == ""
+    assert ext.extraer(_as_is_con("ruts_id: '4321\"")).tramite.ruts_id == ""

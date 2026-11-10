@@ -23,7 +23,7 @@ from gpmc.agentes.proveedor import ErrorDeProveedor, ErrorDeRed, RespuestaInvali
 from gpmc.agentes.verificar_fase3 import verificar_cruzado
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.extractores.expediente import extraer_expediente
-from gpmc.nucleo.huecos import DE_PUBLICACION, Hueco, HuecoOut, bloquean
+from gpmc.nucleo.huecos import FUERA_DE_CONTEO, Hueco, HuecoOut, bloquean
 
 log = logging.getLogger("gpmc.agentes.fase3")
 
@@ -230,7 +230,7 @@ def _por_documento(huecos: list) -> dict:
     for h in huecos:
         # Las decisiones de publicacion no son de ningun borrador: se toman
         # despues, en la revision del expediente.
-        if h.codigo in DE_PUBLICACION:
+        if h.codigo in FUERA_DE_CONTEO:
             continue
         salida[atribuir(h)].append(h)
     return salida

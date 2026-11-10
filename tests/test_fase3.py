@@ -859,3 +859,12 @@ def test_las_decisiones_de_publicacion_no_se_le_cuelgan_a_ningun_borrador():
     reparto = _por_documento(huecos)
     assert [h.codigo for h in reparto["diccionario"]] == ["DIC-02"]
     assert [h.codigo for h in reparto["tobe"]] == ["FLU-01"]
+
+
+def test_el_aviso_de_liga_con_simplifica_no_se_le_cuelga_a_ningun_borrador():
+    """META-RUTS es del frontmatter del AS-IS, no del Diccionario ni del TO-BE."""
+    from gpmc.agentes.fase3 import _por_documento
+    from gpmc.nucleo.huecos import Hueco
+    reparto = _por_documento([Hueco("por_confirmar", "META-RUTS", "metadatos", "sin ruts_id"),
+                              Hueco("falta_dato", "DIC-02", "p1", "catalogo")])
+    assert [h.codigo for h in reparto["diccionario"]] == ["DIC-02"] and reparto["tobe"] == []

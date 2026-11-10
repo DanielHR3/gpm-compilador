@@ -220,3 +220,13 @@ describe("puntos de mejora del agente", () => {
     );
   });
 });
+
+describe("aviso de liga con Simplifica", () => {
+  test("META-RUTS es interno: no va en el documento para la dependencia", () => {
+    const doc = documentoDeObservaciones(estado([
+      hueco("META-RUTS", "metadatos", "no se encontro `ruts_id` en el frontmatter del AS-IS; sin el Simplifica no puede ver el estado de este expediente", "por_confirmar"),
+    ]));
+    expect(doc).not.toContain("META-RUTS");
+    expect(doc).not.toContain("ruts_id");
+  });
+});

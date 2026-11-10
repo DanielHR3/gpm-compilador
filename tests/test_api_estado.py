@@ -130,3 +130,21 @@ def test_la_auditoria_solo_lleva_codigo_si_se_rechazo_y_no_guarda_texto_libre(tm
     c.get(URL, params={"ruts_id": "<script>"}, headers=BEARER)
     detalles = sorted(f["detalle"] for f in usuarios.auditoria() if f["accion"] == "estado.consultar")
     assert detalles == ["4321", "ruts_id invalido (422)"]
+
+
+def test_registro_con_bytes_invalidos_no_tumba_api_ni_subida_ni_descarga(tmp_path):
+    (tmp_path / estado.ARCHIVO).write_bytes(b'\xff\xfe\n')
+    c = _cli(tmp_path)
+    assert c.get(URL, params={"ruts_id": "4321"}, headers=BEARER).status_code == 200
+    sid = _subir(c)
+    assert c.get(f"{URL}/{sid}/gpm").status_code == 200
+
+
+def test_si_el_registro_falla_la_subida_y_la_descarga_siguen(tmp_path, monkeypatch):
+    def revienta(*a, **k):
+        raise RuntimeError("registro roto")
+    monkeypatch.setattr(estado, "anotar", revienta)
+    c = _cli(tmp_path)
+    sid = _subir(c)
+    assert c.get(f"{URL}/{sid}/gpm").status_code == 200
+    assert c.get(f"/descargar/{sid}/gpm").status_code == 200

@@ -1136,7 +1136,7 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
         nombre = f"{base}-test-ui.gpm" if modo == "pruebas" else f"{base}.gpm"
         if modo != "pruebas":
             # Paso la puerta del linter: este es el .gpm de produccion.
-            estado.anotar(raiz, m.tramite.ruts_id, "gpm")
+            estado.anotar_gpm(raiz, m.tramite.ruts_id)
         return Response(
             serializar(compilar(m, modo_pruebas=(modo == "pruebas"))),
             media_type="application/octet-stream",

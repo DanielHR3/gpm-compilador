@@ -98,3 +98,23 @@ def test_anotar_sin_fecha_usa_hoy(tmp_path, monkeypatch):
     monkeypatch.setattr(estado, "hoy", lambda: "2030-01-02")
     estado.anotar(tmp_path, "4321", "to-be")
     assert estado.consultar(tmp_path, "4321")[0]["entregables"]["to-be"] == "2030-01-02"
+
+
+# --- revisión final ---
+
+def test_bytes_que_no_son_utf8_no_revientan_y_se_conservan(tmp_path):
+    (tmp_path / estado.ARCHIVO).write_bytes(b'\xff\xfe basura\n')
+    assert estado.leer(tmp_path) == [] and estado.consultar(tmp_path, "4321") == []
+    assert estado.anotar(tmp_path, "4321", "as-is", "2026-11-10") is True
+    assert estado.consultar(tmp_path, "4321")[0]["entregables"]["as-is"] == "2026-11-10"
+    assert b'\xff\xfe basura' in (tmp_path / estado.ARCHIVO).read_bytes()
+
+
+def test_una_linea_rota_no_se_borra_al_anotar_otra(tmp_path):
+    estado.anotar(tmp_path, "8", "as-is", "2026-11-01")
+    ruta = tmp_path / estado.ARCHIVO
+    roto = ruta.read_text(encoding="utf-8").strip()[:-5]
+    ruta.write_text(roto + "\n", encoding="utf-8")
+    estado.anotar(tmp_path, "9", "gpm", "2026-11-02")
+    assert roto in ruta.read_text(encoding="utf-8")
+    assert estado.consultar(tmp_path, "9")[0]["entregables"]["gpm"] == "2026-11-02"

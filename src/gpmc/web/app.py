@@ -361,7 +361,7 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None,
                     status_code=409,
                     media_type="text/plain; charset=utf-8",
                 )
-            estado.anotar(raiz, m.tramite.ruts_id, "gpm")  # paso la puerta
+            estado.anotar_gpm(raiz, m.tramite.ruts_id)  # paso la puerta
             return Response(
                 serializar(compilar(m)),
                 media_type="application/octet-stream",

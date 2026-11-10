@@ -54,6 +54,9 @@ const RESPONSABLE: Record<string, Responsable> = {
   "META-07": "plataforma", "ACT-01": "plataforma",
 };
 
+/** Avisos que no van en el documento para la dependencia. */
+const INTERNOS = new Set(["META-RUTS"]);
+
 const TITULO_SECCION: Record<Responsable, string> = {
   diccionario: "Lo que hay que corregir en el Diccionario de Datos",
   to_be: "Lo que hay que corregir en la Propuesta TO-BE",
@@ -121,7 +124,8 @@ export function documentoDeObservaciones(
   mejoras: MejoraTramite[] = [],
 ): string {
   const m = estado.manifiesto;
-  const pendientes = estado.huecos;
+  // La liga con Simplifica (META-RUTS) es asunto del equipo, no de la dependencia.
+  const pendientes = estado.huecos.filter((h) => !INTERNOS.has(h.codigo));
 
   const grupos: Record<Responsable | "otros", Hueco[]> = {
     diccionario: [], to_be: [], plataforma: [], otros: [],

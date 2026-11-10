@@ -17,7 +17,7 @@ _HOMOCLAVE = re.compile(r"\*\*Homoclave:?\*\*[:\s]*`?([A-Za-z0-9/\-]+)`?", re.I)
 _DEPENDENCIA = re.compile(r"^dependencia:\s*(.+?)\s*$", re.M | re.I)
 # Solo alfanumerico de 1 a 20: Simplifica arma la consulta con este valor y un
 # valor raro nunca debe llegar al registro de estado.
-_RUTS_ID = re.compile(r"""^ruts_id:\s*["']?([A-Za-z0-9]{1,20})["']?\s*$""", re.M | re.I)
+_RUTS_ID = re.compile(r"""^ruts_id:[ \t]*(["']?)([A-Za-z0-9]{1,20})\1[ \t]*$""", re.M | re.I)
 # La fila de la Ficha tecnica («| Dependencia responsable | X |»), que el equipo
 # escribe en el AS-IS y el generador de la Fase 3 en el Diccionario. Sin esto,
 # un AS-IS sin frontmatter bloqueaba el .gpm (META-02) con el dato a la vista.
@@ -109,7 +109,7 @@ def extraer(as_is: str, to_be: str = "", nombre_carpeta: str = "",
     if fm:
         mr = _RUTS_ID.search(fm.group(1))
         if mr:
-            ruts_id = mr.group(1)
+            ruts_id = mr.group(2)
     if not ruts_id:
         # No bloquea: el expediente se compila igual, solo que Simplifica no
         # puede ver su estado (no hay emparejado por nombre, decision de Daniel).
