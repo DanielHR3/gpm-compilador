@@ -102,8 +102,8 @@ def test_todos_los_huecos_son_del_tipo_Hueco():
 
 
 @pytest.mark.parametrize("expediente", [
-    "anita/Alta de Avisos de Testamento",
-    "elesvan/Constancia de No Infracción Vehicular Ambiental",
+    "ANITA/Dirección General del Archivo General de Notarías (Secretaría de Gobierno)/Alta de Avisos de Testamento",
+    "ELESVAN/SEMARNATH/Constancia de No Infracción Vehicular Ambiental",
 ])
 def test_parsea_diccionarios_reales(expediente):
     ruta = WIKI / expediente / "Diccionario de Datos.md"

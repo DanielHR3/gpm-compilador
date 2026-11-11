@@ -199,10 +199,18 @@ def sembrar_desde_wiki(reg: Registro, raiz: Path) -> int:
     Las fechas salen del frontmatter, que mide cuando se guardo un archivo, no
     cuando empezo el trabajo: por eso quedan marcadas con origen 'wiki' y se
     distinguen de lo medido en vivo.
+
+    Acepta las dos formas del wiki: `ANALISTA/Trámite` y, desde el 2026-11-11,
+    `ANALISTA/Dependencia/Trámite`. Un expediente es la carpeta que trae algún
+    entregable propio; la de la dependencia no trae ninguno y se brinca. El
+    analista es siempre la primera carpeta bajo la raíz.
     """
     raiz = Path(raiz)
     sembrados = 0
-    for carpeta in sorted(p for p in raiz.glob("*/*") if p.is_dir()):
+    candidatas = [p for p in [*raiz.glob("*/*"), *raiz.glob("*/*/*")] if p.is_dir()]
+    for carpeta in sorted(candidatas):
+        if not any(list(carpeta.glob(pat)) for pats in ARCHIVOS_DE_ENTREGABLE.values() for pat in pats):
+            continue
         fechas = []
         for md in carpeta.glob("*.md"):
             m = _FRONTMATTER.search(md.read_text(encoding="utf-8", errors="ignore"))
@@ -211,7 +219,7 @@ def sembrar_desde_wiki(reg: Registro, raiz: Path) -> int:
         if not fechas:
             continue
         reg.iniciar(
-            carpeta.name, analista=carpeta.parent.name,
+            carpeta.name, analista=carpeta.relative_to(raiz).parts[0],
             cuando=min(fechas), origen="wiki",
         )
         e = reg.buscar(carpeta.name)

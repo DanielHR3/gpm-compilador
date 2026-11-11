@@ -31,8 +31,12 @@ WIKI = _ruta("GPMC_WIKI")
 
 def legible(ruta) -> bool:
     """macOS puede negar el acceso a ~/Documents y ~/Desktop (TCC) aunque el
-    archivo exista: exists() devuelve True y la lectura revienta."""
+    archivo exista: exists() devuelve True y la lectura revienta. Una carpeta
+    es legible si se puede listar (abrirla como archivo siempre fallaba)."""
     try:
+        if Path(ruta).is_dir():
+            next(iter(os.scandir(ruta)), None)
+            return True
         with open(ruta, "rb") as f:
             f.read(1)
         return True
