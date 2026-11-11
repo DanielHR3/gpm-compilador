@@ -2120,7 +2120,7 @@ def test_el_servidor_propone_en_modo_compacto_con_una_llamada(tmp_path):
     sid = _proponer(c).json()["sid"]
     g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
     assert g["estado"] == "listo" and prov.llamadas == 1
-    assert g["diccionario"]["version_prompt"] == "compacta-v1"
+    assert g["diccionario"]["version_prompt"] == "compacta-v2"
     assert "compacta" not in g                      # el JSON crudo no viaja a la SPA
     # La mejora bajo pedido usa el diseño guardado; aquí no hay nada que cerrar.
     assert c.post(f"/api/v1/expedientes/{sid}/generados/mejorar").status_code == 202

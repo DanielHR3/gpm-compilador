@@ -102,7 +102,7 @@ def test_el_contexto_lleva_catalogo_recortado_requisitos_numerados_y_as_is_sin_p
     assert "<<CATALOGO>>" in ctx and "@@curp" in ctx
     assert "#1 identificación oficial vigente" in ctx and "#2 comprobante de domicilio" in ctx
     assert "<<DATOS>>" in ctx and "<<PLANTILLA>>" not in ctx and "<<EJEMPLO>>" not in ctx
-    assert len(cp.INSTRUCCION) < 4200                                # ~1,000 tokens; hoy son ~3,400 en dos llamadas
+    assert len(cp.INSTRUCCION) < 6000                                # ~1,400 tokens con el ejemplo; antes ~3,400 en dos llamadas, más plantilla y ejemplo
 
 
 # --- Generación: una llamada, caché por huella del AS-IS y mejora corta ------------
@@ -127,11 +127,11 @@ def test_generar_compacta_es_una_sola_llamada_y_deja_los_dos_documentos(tmp_path
     from gpmc.agentes.bitacora import leer
     g, prov = _gen(tmp_path, [RESPUESTA])
     assert g.estado == "listo" and prov.llamadas == 1
-    assert g.diccionario.version_prompt == "compacta-v1" == g.tobe.version_prompt
+    assert g.diccionario.version_prompt == "compacta-v2" == g.tobe.version_prompt
     assert "### Pantalla 1 — CIUDADANO — Solicitud" in g.diccionario.texto and "```mermaid" in g.tobe.texto
     assert len(g.diccionario.vista) == 4 and g.compacta
     assert "<<PLANTILLA>>" not in prov.ultimo_contexto and "<<CATALOGO>>" in prov.ultimo_contexto
-    assert [(f["documento"], f["version_prompt"]) for f in leer(tmp_path)] == [("compacta", "compacta-v1")]
+    assert [(f["documento"], f["version_prompt"]) for f in leer(tmp_path)] == [("compacta", "compacta-v2")]
 
 
 def test_el_mismo_as_is_no_vuelve_a_llamar(tmp_path):
@@ -186,3 +186,60 @@ def test_la_mejora_compacta_no_gasta_en_lo_que_el_modelo_no_puede_cerrar(tmp_pat
     prov = ProveedorFalso([])
     g2 = mejorar(ASIS, g.model_dump(mode="json"), prov, tmp_path, "a" * 16, catalogo=CAT)
     assert prov.llamadas == 0 and g2.estado == "listo" and g2.tobe.ronda == 1
+
+
+# --- Reparaciones sin IA (medición real del 2026-11-11 con norte70) ------------------
+# El modelo dejó pantallas vacías, ramas con campos que no existían y texto de
+# la instrucción copiado tal cual. Arreglarlo aquí no cuesta tokens.
+
+def _codigos(a):
+    m, huecos = extraer_borradores(ASIS, a.diccionario, a.tobe)
+    return m, {h.codigo for h in huecos}
+
+
+def test_una_pantalla_vacia_conserva_su_lugar_en_el_flujo():
+    resp = {**RESPUESTA, "pantallas": [
+        RESPUESTA["pantallas"][0], {"actor": "Funcionario", "nombre": "Búsqueda del certificado", "campos": []},
+        RESPUESTA["pantallas"][3]], "flujo": ["1>2", "2>3"]}
+    a = _armar(resp)
+    m, _ = _codigos(a)
+    assert [p.nombre for p in m.pantallas] == ["Solicitud", "Búsqueda del certificado", "Emisión"]
+    assert any("Búsqueda del certificado" in x and "sin campos" in x for x in a.avisos)
+
+
+def test_una_rama_con_un_campo_que_no_existe_lo_crea_en_la_pantalla_de_origen():
+    resp = {**RESPUESTA, "pantallas": [
+        RESPUESTA["pantallas"][0], {"actor": "Funcionario", "nombre": "Revisión", "campos": ["@@observaciones"]},
+        RESPUESTA["pantallas"][2], RESPUESTA["pantallas"][3]],
+        "flujo": ["1>2", "2>4?Documentación completa=Sí", "2>3?Documentación completa=No", "3>2"]}
+    a = _armar(resp)
+    m, codigos = _codigos(a)
+    campos = {c.nombre: c for c in m.pantallas[1].campos}
+    assert "documentacion_completa" in campos
+    assert not codigos & {"MMD-04", "FLU-01", "GEN-03"} and "FLU-03" in codigos
+    assert any("Documentación completa" in x for x in a.avisos)
+
+
+def test_una_sola_rama_y_un_paso_directo_son_las_dos_salidas_de_la_decision():
+    resp = {**RESPUESTA, "flujo": ["1>2", "2>3?Dictamen=Rechazado", "2>4", "3>2"]}
+    m, codigos = _codigos(_armar(resp))
+    assert "FLU-03" in codigos and not codigos & {"FLU-01", "GEN-03"}
+    assert sum(1 for c in m.flujo.conexiones if c.cuando is not None) == 2
+
+
+def test_el_texto_de_la_instruccion_copiado_no_llega_al_diccionario():
+    resp = {**RESPUESTA, "pantallas": [{"actor": "Funcionario", "nombre": "Revisión", "campos": [
+        "¿Documentación completa?|Booleano|Sí|No|Valores|Descripción", "Folio|Texto|Sí o No|Límite||"]}], "flujo": []}
+    d = _armar(resp).diccionario
+    assert "Valores" not in d.split("| --- |")[-1] and "Descripción `@@" not in d and "| Límite |" not in d
+
+
+def test_un_campo_repetido_en_otra_pantalla_no_se_declara_dos_veces():
+    resp = {**RESPUESTA, "pantallas": [
+        RESPUESTA["pantallas"][0],
+        {"actor": "Funcionario", "nombre": "Revisión", "campos": ["@@curp", "@@observaciones"]},
+        {"actor": "Funcionario", "nombre": "Emisión", "campos": ["@@observaciones", "@@curp"]}], "flujo": ["1>2", "2>3"]}
+    a = _armar(resp)
+    m, codigos = _codigos(a)
+    assert "DIC-09" not in codigos and len(m.pantallas) == 3
+    assert a.diccionario.count("`@@curp`") == 1 and a.diccionario.count("`@@observaciones`") == 1

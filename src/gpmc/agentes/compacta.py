@@ -25,7 +25,7 @@ from gpmc.agentes import catalogo as cat
 from gpmc.agentes import prompt_fase3 as pr
 from gpmc.agentes.proveedor import RespuestaInvalida
 
-VERSION_PROMPT = "compacta-v1"
+VERSION_PROMPT = "compacta-v2"
 VERSION_PROMPT_MEJORA = "compacta-mejora-v1"
 
 ESQUEMA = {
@@ -72,10 +72,24 @@ Forma de la respuesta:
   es uno de los suyos (o Sí / No). Todas las ramas que salen de una pantalla usan el MISMO campo.
   Si el AS-IS habla de observaciones, solventar o corregir, modela el ciclo: revisión → rama de
   rechazo → pantalla de corrección del ciudadano → de vuelta a la revisión.
+  Cada pantalla que decide tiene al menos DOS ramas (una por valor) y ningún paso directo.
+- Toda pantalla lleva al menos un campo. La primera del ciudadano captura sus datos de
+  identificación y contacto (búscalos en <<CATALOGO>>) además de los requisitos. Un dato se
+  captura UNA vez: no repitas el mismo campo en otra pantalla.
 - "problema": una o dos frases con lo que hoy hace lento o costoso el trámite.
 - "eliminaciones": "Elemento del AS-IS|Sí o No (se elimina)|Fundamento", uno por requisito o paso.
 - "impacto", "riesgos", "pendientes": frases cortas. En "pendientes" va lo que el AS-IS no dice
   y habría que confirmar con la dependencia; no lo inventes.
+
+Ejemplo de la FORMA (otro trámite; no copies su contenido):
+{"pantallas":[{"actor":"Ciudadano","nombre":"Solicitud","campos":["@@curp","@@correo_electronico","#1","#2","Motivo de la solicitud|Área de texto|Sí|300 caracteres||"]},
+{"actor":"Funcionario","nombre":"Revisión","campos":["Dictamen|Lista desplegable|Sí||Procede · Con observaciones|","@@observaciones"]},
+{"actor":"Ciudadano","nombre":"Corrección","campos":["Respuesta a las observaciones|Área de texto|Sí|500 caracteres||"]},
+{"actor":"Funcionario","nombre":"Emisión","campos":["Constancia firmada|Archivo|Sí|||"]}],
+"flujo":["1>2","2>4?Dictamen=Procede","2>3?Dictamen=Con observaciones","3>2"],
+"problema":"Dos visitas para entregar papeles que ya tiene el gobierno.",
+"eliminaciones":["Copia de la CURP|Sí|Se consulta en línea","Identificación oficial|No|Acredita la identidad"],
+"impacto":["Una visita menos"],"riesgos":["Depende de la consulta en línea"],"pendientes":["Confirmar el costo"]}
 """
 
 INSTRUCCION_MEJORA = """Corrige tu diseño anterior de un trámite. <<ANTERIOR>> es el JSON que
@@ -189,11 +203,16 @@ def armar(r: Respuesta, catalogo: dict, as_is: str, tramite: Optional[str] = Non
     reqs = requisitos(as_is)
     avisos, usados = [], set(catalogo["campos"])
     pantallas_md, por_pantalla = [], []            # por_pantalla[i] = [_Campo]
+    ya = set()                                     # `@@id` y `#n` ya colocados: un dato se captura una vez
 
     for p in r.pantallas:
         filas, campos = [], []
         for crudo in p.campos:
             c = crudo.strip()
+            if c.startswith(("@@", "#")):
+                if _plano(c) in ya:
+                    continue                       # el mismo dato mostrado de nuevo (DIC-09)
+                ya.add(_plano(c))
             if c.startswith("@@"):
                 cid = c[2:].strip()
                 if cid in catalogo["campos"]:
@@ -224,27 +243,50 @@ def armar(r: Respuesta, catalogo: dict, as_is: str, tramite: Optional[str] = Non
             etiqueta, tipo, oblig, limite, valores, desc = partes[:6]
             if not etiqueta:
                 continue
+            # El modelo a veces copia la forma de la instrucción tal cual.
+            limite, valores, desc = ("" if _plano(x) in _RELLENO else x for x in (limite, valores, desc))
             t = _plano(tipo)
             t = t if t in _COMPONENTE else ("lista desplegable" if valores else "texto")
+            if t == "booleano":
+                limite = ""
             cid = _slug(etiqueta, usados)
             lista = [v.strip() for v in re.split(r"·|;", valores) if v.strip()] if t == "lista desplegable" else []
-            filas.append([etiqueta, _TIPO[t], _COMPONENTE[t], "Sí" if _si(oblig) else "No", "",
-                          limite or ("Valores definidos" if lista else ""),
-                          " · ".join(lista) or "N/A", f"{desc} `@@{cid}`".strip()])
+            filas.append(_fila_nueva(etiqueta, t, _si(oblig), lista, desc, cid, limite))
             campos.append(_Campo(cid, etiqueta, lista, t == "booleano"))
-        if filas:
-            pantallas_md.append((p.actor.strip() or "Funcionario", p.nombre.strip() or "Pantalla", filas))
-            por_pantalla.append(campos)
+        titulo = p.nombre.strip() or "Pantalla"
+        if not filas:
+            # Nunca se salta: el flujo cita las pantallas por número.
+            cid = _slug("tarea concluida", usados)
+            filas.append(_fila_nueva("Tarea concluida", "booleano", True, [], f"Confirma: {titulo}.", cid))
+            campos.append(_Campo(cid, "Tarea concluida", [], True))
+            avisos.append(f"La pantalla «{titulo}» llegó sin campos: se le puso una confirmación; complétala.")
+        pantallas_md.append((p.actor.strip() or "Funcionario", titulo, filas))
+        por_pantalla.append(campos)
 
+    # El diagrama va primero: puede agregar al Diccionario el campo de una rama.
+    diagrama, tabla = _diagrama(r.flujo, pantallas_md, por_pantalla, avisos, usados)
     diccionario = cat.diccionario_markdown(nombre, pantallas_md)
-    diagrama, tabla = _diagrama(r.flujo, pantallas_md, por_pantalla, avisos)
     return Armado(diccionario, _tobe(nombre, r, diagrama, tabla, avisos), avisos)
+
+
+_RELLENO = {"limite", "valores", "descripcion", "si o no", "si o no (obligatorio)", "etiqueta", "tipo"}
+
+
+def _fila_nueva(etiqueta: str, t: str, obligatorio: bool, lista: list, desc: str, cid: str, limite: str = "") -> list:
+    return [etiqueta, _TIPO[t], _COMPONENTE[t], "Sí" if obligatorio else "No", "",
+            limite or ("Valores definidos" if lista else ""), " · ".join(lista) or "N/A",
+            f"{desc} `@@{cid}`".strip()]
 
 
 _ARISTA = re.compile(r"^\s*(\d+)\s*>\s*(\d+)\s*(?:\?\s*(.+?)\s*=\s*(.+?)\s*)?$")
 
 
-def _diagrama(flujo: list, pantallas: list, por_pantalla: list, avisos: list):
+def _es_si_no(v: str) -> bool:
+    return _plano(v) in ("si", "no")
+
+
+def _diagrama(flujo: list, pantallas: list, por_pantalla: list, avisos: list, usados: Optional[set] = None):
+    usados = usados if usados is not None else set()
     n = len(pantallas)
     clase = lambda actor: re.sub(r"[^a-z0-9]+", "_", _plano(actor)).strip("_") or "actor"
     directas, ramas = {}, {}                       # origen -> [destino] ; origen -> [(campo, valor, destino)]
@@ -265,6 +307,42 @@ def _diagrama(flujo: list, pantallas: list, por_pantalla: list, avisos: list):
         clave = _plano(ref.lstrip("@"))
         todos = por_pantalla[origen - 1] + [c for cs in por_pantalla for c in cs]
         return next((c for c in todos if clave in (c.cid, _plano(c.etiqueta))), None)
+
+    # --- Reparaciones sin IA: cada decisión queda con UN campo que existe y dos salidas ---
+    for de in sorted(ramas):
+        titulo = pantallas[de - 1][1]
+        ref_campo = ramas[de][0][0]
+        mias = [r for r in ramas[de] if _plano(r[0].lstrip("@")) == _plano(ref_campo.lstrip("@"))]
+        if len(mias) < len(ramas[de]):
+            avisos.append(f"«{titulo}» decidía con más de un campo: se conservó «{ref_campo}»; revisa sus ramas.")
+        campo = campo_de(de, ref_campo)
+        if campo is None:
+            valores = list(dict.fromkeys(v for _, v, _ in mias))
+            booleano = all(_es_si_no(v) for v in valores)
+            if not booleano and len(valores) == 1 and directas.get(de):
+                valores.append("Otro caso")
+            etiqueta = ref_campo.lstrip("@").replace("_", " ").strip()
+            etiqueta = etiqueta[:1].upper() + etiqueta[1:]
+            cid = _slug(etiqueta, usados)
+            campo = _Campo(cid, etiqueta, [] if booleano else valores, booleano)
+            pantallas[de - 1][2].append(_fila_nueva(etiqueta, "booleano" if booleano else "lista desplegable",
+                                                    True, campo.valores, "Decide el siguiente paso.", cid))
+            por_pantalla[de - 1].append(campo)
+            avisos.append(f"La rama de «{titulo}» decidía con «{etiqueta}», que no estaba en la pantalla: "
+                          f"se agregó como campo; confirma sus valores.")
+        # Un paso directo junto a una rama es la otra salida de la misma decisión.
+        usadas = {_plano(v) for _, v, _ in mias}
+        libres = (["Sí", "No"] if campo.booleano else campo.valores)
+        libres = [v for v in libres if _plano(v) not in usadas]
+        for a in directas.pop(de, []):
+            if libres:
+                mias.append((ref_campo, libres.pop(0), a))
+            else:
+                avisos.append(f"«{titulo}» tenía un paso directo a «{pantallas[a-1][1]}» además de sus ramas: "
+                              f"no se pudo ubicar; revísalo.")
+        if campo.booleano:
+            mias = [(c, "Sí" if _plano(v) == "si" else "No", a) for c, v, a in mias]
+        ramas[de] = [(campo.cid, v, a) for _, v, a in mias]
 
     lineas = ["flowchart TD"]
     for cl in dict.fromkeys(clase(a) for a, _, _ in pantallas):
