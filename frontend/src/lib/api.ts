@@ -745,6 +745,9 @@ export interface Solicitud {
   ruts: { costo: string; tiempo_entrega: string; description: string };
   recibida: string;
   nueva: boolean;
+  /** En palabras: «Por iniciar», «AS-IS cargado», «TO-BE listo»… (seguimiento por `ruts_id`). */
+  etapa?: string;
+  entregables?: Record<string, string | null>;
 }
 
 /** `GET /api/v1/solicitudes` — la campanita. */

@@ -181,3 +181,61 @@ def test_el_envio_con_ficha_estructurada_queda_registrado(tmp_path):
     r = c.post(URL, json=_CON_FICHA, headers=B_ENVIO)
     assert r.status_code == 201
     assert solicitudes.buscar(tmp_path, FICHA["ruts_id"])["etapas"] == _CON_FICHA["etapas"]
+
+
+# --- Seguimiento: el trámite enviado se vuelve expediente ligado (Luis Vera, 2026-11-11) ---
+# «Solo vi la notificación, no vi ningún seguimiento de ese trámite.» Su AS-IS no trae
+# `ruts_id`, así que el expediente nunca quedaba ligado al trámite que mandó Simplifica.
+
+def test_con_ruts_pone_el_id_sin_tocar_lo_demas():
+    assert solicitudes.con_ruts("# Análisis AS-IS — X\n", "4321").startswith('---\nruts_id: "4321"\n---\n# Análisis AS-IS — X')
+    con = solicitudes.con_ruts("---\ntipo: expediente\ndependencia: Y\n---\n# AS-IS\n", "4321")
+    assert con.startswith('---\nruts_id: "4321"\ntipo: expediente\ndependencia: Y\n---\n# AS-IS')
+    ya = "---\nruts_id: \"99\"\n---\n# AS-IS\n"
+    assert solicitudes.con_ruts(ya, "4321") == ya                 # el que escribió el analista manda
+
+
+def test_la_campanita_dice_en_que_etapa_va_cada_tramite(tmp_path):
+    c, _ = _cli_usuarios(tmp_path, entorno=ENT)
+    TestClient(c.app).post(URL, json=FICHA, headers=B_ENVIO)
+    _entrar(c)
+    [s] = c.get(URL).json()["solicitudes"]
+    assert s["etapa"] == "Por iniciar" and s["entregables"]["as-is"] is None
+
+
+def test_proponer_desde_la_solicitud_liga_el_expediente_y_avanza_la_etapa(tmp_path):
+    c, _ = _cli_usuarios(tmp_path, entorno=ENT)
+    TestClient(c.app).post(URL, json=FICHA, headers=B_ENVIO)
+    _entrar(c)
+    r = c.post("/api/v1/expedientes/proponer", data={"ruts_id": "4321"},
+               files={"as_is": ("as-is.md", "# Análisis AS-IS — Licencia\n".encode(), "text/markdown")})
+    assert r.status_code in (200, 202)
+    sid = r.json()["sid"]
+    assert (tmp_path / sid / "Análisis AS-IS.md").read_text(encoding="utf-8").startswith('---\nruts_id: "4321"')
+    [s] = c.get(URL).json()["solicitudes"]
+    assert s["etapa"] == "AS-IS cargado" and s["entregables"]["as-is"] and not s["nueva"]
+    # Lo mismo ve Simplifica por su API de estado.
+    e = TestClient(c.app).get("/api/v1/expedientes?ruts_id=4321", headers={"Authorization": f"Bearer {LECTURA}"})
+    assert e.json()["expedientes"][0]["entregables"]["as-is"]
+
+
+def test_un_ruts_id_invalido_al_proponer_da_422(tmp_path):
+    c, _ = _cli_usuarios(tmp_path, entorno=ENT)
+    _entrar(c)
+    r = c.post("/api/v1/expedientes/proponer", data={"ruts_id": "../../x"},
+               files={"as_is": ("as-is.md", b"# AS-IS\n", "text/markdown")})
+    assert r.status_code == 422
+
+
+def test_al_resolver_el_tobe_la_etapa_avanza_sin_esperar_al_diccionario(tmp_path):
+    from tests.test_fase3 import _TOBE_OK
+    c, _ = _cli_usuarios(tmp_path, entorno=ENT)
+    TestClient(c.app).post(URL, json=FICHA, headers=B_ENVIO)
+    _entrar(c)
+    sid = c.post("/api/v1/expedientes/proponer", data={"ruts_id": "4321"},
+                 files={"as_is": ("as-is.md", "# Análisis AS-IS — Licencia\n".encode(), "text/markdown")}).json()["sid"]
+    r = c.post(f"/api/v1/expedientes/{sid}/generados/tobe/subir",
+               files={"archivo": ("tobe.md", _TOBE_OK.encode(), "text/markdown")})
+    assert r.status_code == 200, r.text
+    [s] = c.get(URL).json()["solicitudes"]
+    assert s["etapa"] == "TO-BE listo" and s["entregables"]["diccionario"] is None

@@ -136,3 +136,30 @@ it("la zona de documentos de apoyo tambien abre el selector y acepta arrastrar",
   fireEvent.drop(zona, { dataTransfer: { files: [new File(["a"], "a.png"), new File(["b"], "b.pdf")] } });
   expect(await screen.findByText("2 documentos de apoyo")).toBeInTheDocument();
 });
+
+// Seguimiento (2026-11-11): si se llegó desde la campanita, el expediente nace ligado al trámite.
+it("con un trámite elegido en la campanita lo dice y manda su ID de RUTS", async () => {
+  const { proponerExpediente } = await import("@/lib/api");
+  sessionStorage.setItem("gpmc.tramite-ligado", JSON.stringify({ ruts_id: "4321", nombre: "Licencia" }));
+  vi.mocked(proponerExpediente).mockResolvedValue({ sid: "a".repeat(16), estado: "generando" });
+  render(<CargaAsIs onPropuesta={() => {}} />);
+  expect(screen.getByText(/Licencia/)).toBeInTheDocument();
+  expect(screen.getByText(/RUTS 4321/)).toBeInTheDocument();
+  await userEvent.upload(screen.getByLabelText("Análisis AS-IS"), new File(["# x"], "as-is.md", { type: "text/markdown" }));
+  await userEvent.click(screen.getByRole("button", { name: /generar|proponer|redactar/i }));
+  const fd = vi.mocked(proponerExpediente).mock.calls.at(-1)![0] as FormData;
+  expect(fd.get("ruts_id")).toBe("4321");
+  expect(sessionStorage.getItem("gpmc.tramite-ligado")).toBeNull();
+});
+
+it("«Quitar» desliga el trámite y ya no se manda el ID", async () => {
+  const { proponerExpediente } = await import("@/lib/api");
+  sessionStorage.setItem("gpmc.tramite-ligado", JSON.stringify({ ruts_id: "4321", nombre: "Licencia" }));
+  vi.mocked(proponerExpediente).mockResolvedValue({ sid: "a".repeat(16), estado: "generando" });
+  render(<CargaAsIs onPropuesta={() => {}} />);
+  await userEvent.click(screen.getByRole("button", { name: /quitar/i }));
+  expect(screen.queryByText(/RUTS 4321/)).not.toBeInTheDocument();
+  await userEvent.upload(screen.getByLabelText("Análisis AS-IS"), new File(["# x"], "as-is.md", { type: "text/markdown" }));
+  await userEvent.click(screen.getByRole("button", { name: /generar|proponer|redactar/i }));
+  expect((vi.mocked(proponerExpediente).mock.calls.at(-1)![0] as FormData).get("ruts_id")).toBeNull();
+});

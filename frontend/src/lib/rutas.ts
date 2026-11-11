@@ -79,9 +79,10 @@ export function migas(pantalla: Pantalla, camino: Camino | null): Tramo[] {
   const inicio: Tramo = { etiqueta: "Inicio", href: "/" };
   const tramoCamino: Tramo[] = camino ? [{ etiqueta: NOMBRE_CAMINO[camino] }] : [];
   if (pantalla === "carga") return [inicio, ...tramoCamino];
-  if (pantalla === "diccionario")
-    return [inicio, { etiqueta: NOMBRE_CAMINO.as_is }, { etiqueta: "Diccionario (1 de 2)" }];
+  // Método del equipo de reingeniería: primero la Propuesta TO-BE, después el Diccionario.
   if (pantalla === "tobe")
-    return [inicio, { etiqueta: NOMBRE_CAMINO.as_is }, { etiqueta: "TO-BE (2 de 2)" }];
+    return [inicio, { etiqueta: NOMBRE_CAMINO.as_is }, { etiqueta: "TO-BE (1 de 2)" }];
+  if (pantalla === "diccionario")
+    return [inicio, { etiqueta: NOMBRE_CAMINO.as_is }, { etiqueta: "Diccionario (2 de 2)" }];
   return [inicio, ...tramoCamino, { etiqueta: "Revisión" }];
 }

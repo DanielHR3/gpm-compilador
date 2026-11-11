@@ -54,29 +54,32 @@ it("sin licencia muestra el motivo y las dos zonas de carga", async () => {
   expect(screen.getByRole("navigation", { name: /migas de pan/i })).not.toHaveTextContent(/de 2/);
 });
 
-it("primero el Diccionario (1 de 2), despues el TO-BE (2 de 2)", async () => {
+// Método de reingeniería del equipo (Luis Vera, 2026-11-11): primero la Propuesta TO-BE; el
+// Diccionario de Datos sale del TO-BE ya validado.
+it("primero el TO-BE (1 de 2), despues el Diccionario (2 de 2)", async () => {
   const { leerGenerados, decidirDocumento } = await import("@/lib/api");
   vi.mocked(leerGenerados).mockResolvedValue(listo);
   vi.mocked(decidirDocumento).mockResolvedValueOnce({ tipo: "generados", generados: {
-    ...listo, diccionario: { ...conVista, decision: "aceptada" }, insumos: { diccionario: true, tobe: false } } });
+    ...listo, tobe: { ...listo.tobe, decision: "aceptada" }, insumos: { diccionario: false, tobe: true } } });
   render(<Propuestas sid={SID} onListo={() => {}} />);
   // Mientras no llega la respuesta, las migas no prometen un paso.
   expect(screen.getByRole("navigation", { name: /migas de pan/i })).not.toHaveTextContent(/de 2/);
-  expect(await screen.findByText("Diccionario (1 de 2)")).toBeInTheDocument();
+  expect(await screen.findByText("TO-BE (1 de 2)")).toBeInTheDocument();
   expect(documentos()).toHaveLength(1);
-  expect(screen.getByRole("article", { name: /^diccionario de datos$/i })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /aceptar tal cual/i }));
-  expect(await screen.findByText("TO-BE (2 de 2)")).toBeInTheDocument();
   expect(screen.getByRole("article", { name: /^propuesta to-be$/i })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /aceptar tal cual/i }));
+  expect(decidirDocumento).toHaveBeenCalledWith(SID, "tobe", "aceptada", undefined);
+  expect(await screen.findByText("Diccionario (2 de 2)")).toBeInTheDocument();
+  expect(screen.getByRole("article", { name: /^diccionario de datos$/i })).toBeInTheDocument();
   expect(documentos()).toHaveLength(1);
 });
 
-it("al recargar con el Diccionario ya subido, abre en el TO-BE", async () => {
+it("al recargar con el TO-BE ya resuelto, abre en el Diccionario", async () => {
   const { leerGenerados } = await import("@/lib/api");
   vi.mocked(leerGenerados).mockResolvedValue({ ...listo,
-    diccionario: { ...conVista, decision: "declinada" }, insumos: { diccionario: true, tobe: false } });
+    tobe: { ...listo.tobe, decision: "declinada" }, insumos: { diccionario: false, tobe: true } });
   render(<Propuestas sid={SID} onListo={() => {}} />);
-  expect(await screen.findByText("TO-BE (2 de 2)")).toBeInTheDocument();
+  expect(await screen.findByText("Diccionario (2 de 2)")).toBeInTheDocument();
 });
 
 it("cuando la decision devuelve el expediente, entra al wizard por onListo", async () => {
@@ -190,6 +193,6 @@ it("sin pendientes no ofrece la mejora", async () => {
   vi.mocked(leerGenerados).mockReset();
   vi.mocked(leerGenerados).mockResolvedValue(listo);
   render(<Propuestas sid={SID} onListo={() => {}} />);
-  expect(await screen.findByText("Diccionario (1 de 2)")).toBeInTheDocument();
+  expect(await screen.findByText("TO-BE (1 de 2)")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /mejorar con ia/i })).not.toBeInTheDocument();
 });

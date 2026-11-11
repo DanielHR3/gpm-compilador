@@ -39,3 +39,20 @@ it("si el servidor no tiene la ruta o falla, la campanita no estorba", async () 
   const { container } = render(<Campanita />);
   await waitFor(() => expect(container).toBeEmptyDOMElement());
 });
+
+// Seguimiento (Luis Vera, 2026-11-11): la campanita dice en qué etapa va cada trámite y deja
+// empezar su expediente ya ligado al ID de RUTS.
+it("dice la etapa de cada trámite y «Empezar expediente» lo deja ligado", async () => {
+  sessionStorage.clear();
+  vi.spyOn(api, "leerSolicitudes").mockResolvedValue({ nuevas: 1, solicitudes: [
+    { ...solicitud("4321", true), etapa: "Por iniciar" }, { ...solicitud("1", false), etapa: "TO-BE listo" }] });
+  render(<Campanita />);
+  await userEvent.click(await screen.findByRole("button", { name: /solicitudes de simplifica/i }));
+  expect(await screen.findByText("Por iniciar")).toBeInTheDocument();
+  expect(screen.getByText("TO-BE listo")).toBeInTheDocument();
+  const empezar = screen.getAllByRole("link", { name: /empezar expediente|continuar expediente/i });
+  expect(empezar[0]).toHaveAttribute("href", "/desde-as-is");
+  empezar[0].addEventListener("click", (e) => e.preventDefault());
+  await userEvent.click(empezar[0]);
+  expect(JSON.parse(sessionStorage.getItem("gpmc.tramite-ligado") ?? "{}")).toEqual({ ruts_id: "4321", nombre: "Trámite 4321" });
+});

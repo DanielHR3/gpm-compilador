@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -27,6 +27,7 @@ from gpmc.agentes.fase3 import (Documento, Generados, extraer_borradores, genera
 from gpmc.agentes.proveedor import NingunProveedor
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.extractores.expediente import SinPermiso
+from gpmc.web import estado, solicitudes
 from gpmc.web.api import a_texto, extraer_y_persistir, lanzar_propuestas_dic08
 from gpmc.web.sesiones import (
     CARPETA_ADJUNTOS, INSUMOS, _MAX_SUBIDA, _purgar_sesiones, carpeta_de,
@@ -157,9 +158,14 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         tareas: BackgroundTasks,
         as_is: UploadFile = File(None),
         adjuntos: List[UploadFile] = File(None),
+        ruts_id: Optional[str] = Form(None),
     ):
         if as_is is None or not as_is.filename:
             return JSONResponse(status_code=422, content={"error": "hace falta el Análisis AS-IS"})
+        # Expediente empezado desde un trámite que mandó Simplifica (campanita): queda ligado.
+        ruts_id = (ruts_id or "").strip() or None
+        if ruts_id is not None and not estado.RUTS_VALIDO.match(ruts_id):
+            return JSONResponse(status_code=422, content={"error": "el ID de RUTS no es válido"})
         _purgar_sesiones(raiz)
         sid = secrets.token_hex(8)
         request.state.sid = sid          # la auditoria lo lee al salir
@@ -177,7 +183,15 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
             shutil.rmtree(carpeta, ignore_errors=True)
             return JSONResponse(status_code=422, content={
                 "error": "no se pudo leer el documento", "archivos": [f"{as_is.filename}: {e}"]})
+        if ruts_id is not None:
+            texto = solicitudes.con_ruts(texto.decode("utf-8", errors="replace"), ruts_id).encode("utf-8")
         (carpeta / INSUMOS["as_is"]).write_bytes(texto)
+        if ruts_id is not None:
+            # El que quedó en el AS-IS (si el analista ya traía otro, ese manda).
+            ligado = ext_meta.extraer(texto.decode("utf-8", errors="replace")).tramite
+            ligado = getattr(ligado, "ruts_id", "") or ruts_id
+            estado.anotar(raiz, ligado, "as-is")
+            solicitudes.marcar_vista(raiz, ruts_id)
         for adjunto in (adjuntos or []):
             if adjunto is None or not adjunto.filename:
                 continue
@@ -282,6 +296,17 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         # arrancan las propuestas de visibilidad (spec, Parte 1, paso 6).
         return lanzar_propuestas_dic08(raiz, proveedor, sid, carpeta, tareas, est)
 
+    def _anotar_hito(carpeta: Path, documento: str) -> None:
+        """El seguimiento por `ruts_id` avanza en cuanto un documento queda resuelto, sin esperar
+        al otro (método del equipo: el TO-BE se valida antes de que exista el Diccionario)."""
+        try:
+            as_is = (carpeta / INSUMOS["as_is"]).read_text(encoding="utf-8", errors="replace")
+            ruts = getattr(ext_meta.extraer(as_is).tramite, "ruts_id", "")
+        except OSError:
+            ruts = ""
+        if ruts:
+            estado.anotar(raiz, ruts, {"tobe": "to-be", "diccionario": "diccionario"}[documento])
+
     def _documento_valido(documento: str):
         if documento not in CLAVE_INSUMO:
             return JSONResponse(status_code=422, content={"error": "documento debe ser diccionario o tobe"})
@@ -307,6 +332,7 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         if cuerpo.decision != "declinada":
             texto = cuerpo.texto_final if cuerpo.decision == "corregida" else doc["texto"]
             (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).write_text(texto, encoding="utf-8")
+            _anotar_hito(carpeta, documento)
         doc["decision"] = cuerpo.decision
         escribir_generados(carpeta, d)
         _anotar_decision(sid, documento, cuerpo.decision, doc["version_prompt"])
@@ -340,6 +366,7 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
             return JSONResponse(status_code=422, content={
                 "error": "no se pudo leer el documento", "archivos": [f"{archivo.filename}: {e}"]})
         (carpeta / INSUMOS[CLAVE_INSUMO[documento]]).write_bytes(texto)
+        _anotar_hito(carpeta, documento)
         # Se relee despues del `await`: una decision sobre el otro documento
         # pudo llegar mientras se recibia el archivo, y escribir el `d` de
         # antes la revertia a `pendiente`.

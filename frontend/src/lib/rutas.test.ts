@@ -32,8 +32,8 @@ describe("migas", () => {
   it("dice el camino y el paso", () => {
     expect(etiquetas(migas("carga", "carpeta"))).toEqual(["Inicio", "Expediente completo"]);
     expect(etiquetas(migas("carga", "as_is"))).toEqual(["Inicio", "Solo AS-IS"]);
-    expect(etiquetas(migas("diccionario", "as_is"))).toEqual(["Inicio", "Solo AS-IS", "Diccionario (1 de 2)"]);
-    expect(etiquetas(migas("tobe", "as_is"))).toEqual(["Inicio", "Solo AS-IS", "TO-BE (2 de 2)"]);
+    expect(etiquetas(migas("diccionario", "as_is"))).toEqual(["Inicio", "Solo AS-IS", "Diccionario (2 de 2)"]);
+    expect(etiquetas(migas("tobe", "as_is"))).toEqual(["Inicio", "Solo AS-IS", "TO-BE (1 de 2)"]);
     expect(etiquetas(migas("revision", "carpeta"))).toEqual(["Inicio", "Expediente completo", "Revisión"]);
     expect(etiquetas(migas("revision", null))).toEqual(["Inicio", "Revisión"]);
   });
