@@ -151,21 +151,22 @@ def test_una_respuesta_invalida_no_se_guarda_en_la_cache(tmp_path):
     assert prov.llamadas == 1
 
 
-_MALA = {**RESPUESTA, "flujo": ["1>2", "2>4?Dictamen=Aprobado", "2>3?Dictamen=Devuelto", "3>2"]}
+# Sin ciclo de corrección: el AS-IS habla de solventar y el flujo va en fila (GEN-02).
+_MALA = {**RESPUESTA, "flujo": ["1>2", "2>3", "3>4"]}
 
 
 def test_la_mejora_compacta_no_reenvia_el_as_is_y_se_queda_si_cierra_huecos(tmp_path):
     from gpmc.agentes.fase3 import mejorar
     from gpmc.agentes.proveedor import ProveedorFalso
     g, _ = _gen(tmp_path, [_MALA])
-    assert any(h.codigo in ("GEN-03", "FLU-01") for h in g.tobe.huecos)
+    assert any(h.codigo == "GEN-02" for h in g.tobe.huecos)
     prov = ProveedorFalso([json.dumps(RESPUESTA)])
     g2 = mejorar(ASIS, g.model_dump(mode="json"), prov, tmp_path, "a" * 16, catalogo=CAT)
     assert prov.llamadas == 1 and g2.estado == "listo"
     assert "<<ANTERIOR>>" in prov.ultimo_contexto and "<<HUECOS>>" in prov.ultimo_contexto
     assert "<<DATOS>>" not in prov.ultimo_contexto
     assert g2.tobe.ronda == 2 and g2.tobe.version_prompt == "compacta-mejora-v1"
-    assert not any(h.codigo in ("GEN-03", "FLU-01") for h in g2.tobe.huecos)
+    assert not any(h.codigo == "GEN-02" for h in g2.tobe.huecos)
 
 
 def test_una_mejora_compacta_que_empeora_o_falla_conserva_la_primera(tmp_path):
@@ -243,3 +244,23 @@ def test_un_campo_repetido_en_otra_pantalla_no_se_declara_dos_veces():
     m, codigos = _codigos(a)
     assert "DIC-09" not in codigos and len(m.pantallas) == 3
     assert a.diccionario.count("`@@curp`") == 1 and a.diccionario.count("`@@observaciones`") == 1
+
+
+# Segunda medición real (compacta-v2): el modelo escribió «2>3?Campo|No» y usó
+# en una rama un valor que no había puesto en la lista de su propio campo.
+
+def test_la_rama_se_lee_tambien_con_barra_o_dos_puntos():
+    for sep in ("|", ":", " = "):
+        resp = {**RESPUESTA, "flujo": ["1>2", f"2>4?Dictamen{sep}Aprobado", f"2>3?Dictamen{sep}Rechazado", "3>2"]}
+        _, codigos = _codigos(_armar(resp))
+        assert "FLU-03" in codigos and not codigos & {"FLU-01", "GEN-03"}, sep
+
+
+def test_un_valor_de_rama_que_falta_en_la_lista_del_campo_propio_se_agrega():
+    resp = {**RESPUESTA, "flujo": ["1>2", "2>4?Dictamen=Aprobado", "2>3?Dictamen=Rechazado",
+                                   "2>4?Dictamen=Improcedente", "3>2"]}
+    a = _armar(resp)
+    m, codigos = _codigos(a)
+    dictamen = next(c for p in m.pantallas for c in p.campos if c.nombre == "dictamen")
+    assert len(dictamen.catalogo) == 3 and not codigos & {"FLU-01", "GEN-03"}
+    assert any("Improcedente" in x for x in a.avisos)

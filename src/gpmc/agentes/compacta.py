@@ -189,6 +189,7 @@ class _Campo:
     etiqueta: str
     valores: list
     booleano: bool
+    fila: Optional[list] = None      # solo los campos propios: su lista se puede completar
 
 
 @dataclass
@@ -252,7 +253,7 @@ def armar(r: Respuesta, catalogo: dict, as_is: str, tramite: Optional[str] = Non
             cid = _slug(etiqueta, usados)
             lista = [v.strip() for v in re.split(r"·|;", valores) if v.strip()] if t == "lista desplegable" else []
             filas.append(_fila_nueva(etiqueta, t, _si(oblig), lista, desc, cid, limite))
-            campos.append(_Campo(cid, etiqueta, lista, t == "booleano"))
+            campos.append(_Campo(cid, etiqueta, lista, t == "booleano", filas[-1] if lista else None))
         titulo = p.nombre.strip() or "Pantalla"
         if not filas:
             # Nunca se salta: el flujo cita las pantallas por número.
@@ -278,7 +279,8 @@ def _fila_nueva(etiqueta: str, t: str, obligatorio: bool, lista: list, desc: str
             f"{desc} `@@{cid}`".strip()]
 
 
-_ARISTA = re.compile(r"^\s*(\d+)\s*>\s*(\d+)\s*(?:\?\s*(.+?)\s*=\s*(.+?)\s*)?$")
+# «2>3?Campo=Valor»; el modelo también escribe «Campo|Valor» y «Campo: Valor».
+_ARISTA = re.compile(r"^\s*(\d+)\s*>\s*(\d+)\s*(?:\?\s*(.+?)\s*(?:==?|\||:)\s*(.+?)\s*)?$")
 
 
 def _es_si_no(v: str) -> bool:
@@ -330,6 +332,13 @@ def _diagrama(flujo: list, pantallas: list, por_pantalla: list, avisos: list, us
             por_pantalla[de - 1].append(campo)
             avisos.append(f"La rama de «{titulo}» decidía con «{etiqueta}», que no estaba en la pantalla: "
                           f"se agregó como campo; confirma sus valores.")
+        # Un valor de rama que el modelo olvidó poner en la lista de su propio campo.
+        if campo.fila is not None:
+            for _, v, _ in mias:
+                if _plano(v) not in {_plano(x) for x in campo.valores}:
+                    campo.valores.append(v)
+                    campo.fila[6] = " · ".join(campo.valores)
+                    avisos.append(f"«{campo.etiqueta}» no traía el valor «{v}» que usa una rama: se agregó a su lista.")
         # Un paso directo junto a una rama es la otra salida de la misma decisión.
         usadas = {_plano(v) for _, v, _ in mias}
         libres = (["Sí", "No"] if campo.booleano else campo.valores)

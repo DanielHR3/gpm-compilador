@@ -1,6 +1,6 @@
 # Fase 3 compacta: catálogo de campos aprobados y respuesta en JSON
 
-Fecha: 2026-11-11 · Pidió: Daniel («reducelo lo más que se pueda») · Estado: aprobado el enfoque, en implementación.
+Fecha: 2026-11-11 · Pidió: Daniel («reducelo lo más que se pueda») · Estado: implementado (`compacta-v2`) y medido con norte70 el 2026-11-11; ver «Resultado» al final.
 
 ## Problema
 
@@ -79,3 +79,39 @@ El modelo **decide**; el Compilador **escribe**.
 3. Prompt compacto y `generar()` en una llamada; caché por huella.
 4. Mejora bajo pedido en formato compacto.
 5. Medición en producción con `saldo`: una corrida real antes/después.
+
+## Resultado (2026-11-11, medido con norte70 por diferencia de saldo)
+
+| | Tokens reales |
+|---|---|
+| Propuesta completa (una llamada) | **8,216 – 8,226** |
+| Mejora bajo pedido | 2,845 – 4,070 |
+| El mismo AS-IS otra vez | 0 (caché de 7 días) |
+
+Antes: ~40 mil por corrida (dos llamadas más la mejora automática); ~22 mil tras `85ffcf9`.
+
+Cambios respecto al diseño de arriba:
+
+- **Formato:** todo son listas de cadenas — campo `@@id` · `#n` (requisito n del AS-IS) ·
+  `Etiqueta|Tipo|Sí/No|Límite|Valores|Descripción`; flujo `1>2` y `2>3?Campo=Valor` (también se
+  lee `Campo|Valor` y `Campo: Valor`, que es como lo escribió el modelo).
+- **Sin `GEN-04`:** un `@@id` que no está en el catálogo queda como campo de texto por confirmar y se
+  avisa en «Pendientes del expediente» del TO-BE.
+- **Catálogo:** 206 campos; al modelo viajan hasta 120 (universales, los de la misma dependencia y
+  los que comparten palabras con el AS-IS). Dejando fuera el Diccionario del trámite evaluado, el
+  catálogo cubre 34 % de los campos de un trámite nuevo y la recuperación trae 93 % de esos con
+  ~1,350 tokens.
+- **Reparaciones sin IA** en el armado: pantalla vacía (se conserva con una confirmación), campo de
+  rama que no existe (se crea en su pantalla), paso directo junto a una rama (es la otra salida),
+  valor de rama que falta en la lista del campo propio, campo repetido en otra pantalla, relleno
+  copiado de la instrucción.
+- **La mejora** no reenvía el AS-IS y no se pide por huecos `META-*`.
+
+Límites conocidos:
+
+- El modelo de la licencia diseña a menor escala que el equipo (13–23 campos contra ~73 en
+  Reposición) y a veces se equivoca en el sentido de una rama: la propuesta es un punto de partida
+  que el equipo revisa, igual que antes.
+- `requisitos_del_as_is` parte mal las listas largas con comas y punto y coma (Autorregulación:
+  9 `GEN-01`); es anterior a este cambio.
+- La mejora no cerró `GEN-02` ni `FLU-01` en las dos corridas reales.
