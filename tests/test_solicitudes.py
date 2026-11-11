@@ -138,3 +138,46 @@ def test_una_persona_con_sesion_no_puede_enviar(tmp_path):
     c, _ = _cli_usuarios(tmp_path, entorno=ENT)
     _entrar(c)
     assert c.post(URL, json=FICHA).status_code == 401
+
+
+# --- Ficha estructurada de Simplifica: requisitos y etapas (M-110, 2026-11-11) -------------
+
+_CON_FICHA = {**FICHA, "requisitos": [
+    {"nombre": "CURP", "emisor": "RENAPO (Secretaría de Gobernación)", "tratamiento": "Consultar en línea en vez de pedirlo"},
+    {"nombre": "Comprobante de pago", "emisor": "La propia dependencia", "tratamiento": "Conservar"},
+    {"nombre": "Formato SUA - IMSS (original)"}],
+    "etapas": ["Recepción de documentos", "Revisión", "Entrega"]}
+
+
+def test_la_ficha_acepta_requisitos_y_etapas_y_sin_ellos_sigue_valiendo():
+    f = solicitudes.limpiar(_CON_FICHA)
+    assert [r["nombre"] for r in f["requisitos"]] == ["CURP", "Comprobante de pago", "Formato SUA - IMSS (original)"]
+    assert f["requisitos"][2] == {"nombre": "Formato SUA - IMSS (original)", "emisor": "", "tratamiento": ""}
+    assert f["etapas"] == ["Recepción de documentos", "Revisión", "Entrega"]
+    viejo = solicitudes.limpiar(FICHA)                       # el contrato anterior no cambia
+    assert viejo["requisitos"] == [] and viejo["etapas"] == []
+
+
+def test_requisitos_o_etapas_mal_formados_invalidan_la_ficha():
+    for malo in ({"requisitos": "CURP"}, {"requisitos": [{"nombre": "x", "curp_real": "y"}]}, {"requisitos": ["CURP"]},
+                 {"requisitos": [{"emisor": "sin nombre"}]}, {"etapas": [{"n": 1}]}, {"etapas": "uno"},
+                 {"requisitos": [{"nombre": "x"}] * 200}):
+        assert solicitudes.limpiar({**FICHA, **malo}) is None, malo
+
+
+def test_el_as_is_inicial_trae_los_requisitos_como_los_lee_el_compilador():
+    from gpmc.extractores.as_is import requisitos_del_as_is
+    texto = solicitudes.as_is_inicial(solicitudes.limpiar(_CON_FICHA))
+    assert requisitos_del_as_is(texto) == ["CURP", "Comprobante de pago", "Formato SUA, IMSS"]
+    assert "RENAPO" in texto and "Consultar en línea en vez de pedirlo" in texto
+    assert "1. Recepción de documentos" in texto and "3. Entrega" in texto
+    assert texto.startswith('---\nruts_id: "')
+    sin = solicitudes.as_is_inicial(solicitudes.limpiar(FICHA))
+    assert "Requisitos" not in sin and requisitos_del_as_is(sin) == []
+
+
+def test_el_envio_con_ficha_estructurada_queda_registrado(tmp_path):
+    c = _cli(tmp_path)
+    r = c.post(URL, json=_CON_FICHA, headers=B_ENVIO)
+    assert r.status_code == 201
+    assert solicitudes.buscar(tmp_path, FICHA["ruts_id"])["etapas"] == _CON_FICHA["etapas"]

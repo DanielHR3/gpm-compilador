@@ -9,6 +9,7 @@ Spec: docs/superpowers/specs/2026-11-10-solicitudes-desde-simplifica-design.md
 import json
 import logging
 import os
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,6 +24,11 @@ CAMPOS = ("nombre", "dependencia", "enviado_por")
 CAMPOS_RUTS = ("costo", "tiempo_entrega", "description")
 LARGO = 300
 LARGO_DESCRIPCION = 2000
+# Ficha estructurada (M-110 de Simplifica, 2026-11-11): los requisitos del trámite con quién los
+# emite y qué hacer con ellos, y sus etapas en orden. Opcionales: el contrato anterior sigue valiendo.
+CAMPOS_REQUISITO = ("nombre", "emisor", "tratamiento")
+MAX_REQUISITOS = 80
+MAX_ETAPAS = 60
 
 _CANDADO = threading.Lock()
 
@@ -43,7 +49,14 @@ def _texto(valor, largo: int) -> str:
 
 def limpiar(cuerpo) -> Optional[dict]:
     """La ficha validada y recortada, o None si no cumple el contrato (claves de más, ruts_id inválido o sin nombre)."""
-    if not isinstance(cuerpo, dict) or set(cuerpo) - {"ruts_id", "ruts", *CAMPOS}:
+    if not isinstance(cuerpo, dict) or set(cuerpo) - {"ruts_id", "ruts", "requisitos", "etapas", *CAMPOS}:
+        return None
+    requisitos, etapas = cuerpo.get("requisitos") or [], cuerpo.get("etapas") or []
+    if (not isinstance(requisitos, list) or len(requisitos) > MAX_REQUISITOS
+            or not all(isinstance(r, dict) and not set(r) - set(CAMPOS_REQUISITO) and _texto(r.get("nombre"), LARGO)
+                       for r in requisitos)):
+        return None
+    if not isinstance(etapas, list) or len(etapas) > MAX_ETAPAS or not all(isinstance(e, str) for e in etapas):
         return None
     ruts_id = cuerpo.get("ruts_id")
     if not isinstance(ruts_id, str) or not RUTS_VALIDO.match(ruts_id):
@@ -52,7 +65,9 @@ def limpiar(cuerpo) -> Optional[dict]:
     if not isinstance(ruts, dict) or set(ruts) - set(CAMPOS_RUTS):
         return None
     ficha = {"ruts_id": ruts_id, **{c: _texto(cuerpo.get(c), LARGO) for c in CAMPOS},
-             "ruts": {c: _texto(ruts.get(c), LARGO_DESCRIPCION if c == "description" else LARGO) for c in CAMPOS_RUTS}}
+             "ruts": {c: _texto(ruts.get(c), LARGO_DESCRIPCION if c == "description" else LARGO) for c in CAMPOS_RUTS},
+             "requisitos": [{c: _texto(r.get(c), LARGO) for c in CAMPOS_REQUISITO} for r in requisitos],
+             "etapas": [e for e in (_texto(e, LARGO) for e in etapas) if e]}
     if not ficha["nombre"] or not ficha["dependencia"]:
         return None
     return ficha
@@ -152,5 +167,18 @@ def as_is_inicial(ficha: dict) -> str:
         "", "## Ficha de RUTS", "",
         f"**Tiempo de respuesta:** {r.get('tiempo_entrega') or '[por confirmar]'}",
         f"**Costo:** {r.get('costo') or '[por confirmar]'}",
-        "", r.get("description") or "", "", "## Descripción del flujo actual", "", "", ]
+        "", r.get("description") or "", ""]
+    requisitos = ficha.get("requisitos") or []
+    if requisitos:
+        # En la forma que lee `extractores.as_is.requisitos_del_as_is`: lista anidada, y la nota
+        # después de la raya. El nombre no puede llevar raya ni paréntesis propios.
+        partes += ["- **Requisitos:**"]
+        for q in requisitos:
+            nombre = re.sub(r"\s+[—–-]\s+", ", ", re.sub(r"\s*\([^()]*\)", "", q["nombre"])).strip()
+            nota = "; ".join(x for x in (f"lo emite {q['emisor']}" if q.get("emisor") else "", q.get("tratamiento") or "") if x)
+            partes.append(f"  - {nombre}" + (f" — {nota}" if nota else ""))
+        partes.append("")
+    partes += ["## Descripción del flujo actual", ""]
+    partes += [f"{n}. {e}" for n, e in enumerate(ficha.get("etapas") or [], 1)]
+    partes += ["", ""]
     return "\n".join(partes)
