@@ -13,7 +13,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ValidationError
 
-from gpmc.agentes.bitacora import Interaccion, registrar
+from gpmc.agentes.bitacora import Interaccion, copiar_consumo, registrar
 from gpmc.agentes.contexto import ContextoLote, contexto_dic08, partir_lote
 from gpmc.agentes.prompt import (ESQUEMA_DIC08, INSTRUCCION_DIC08, VERSION_PROMPT,
                                  hash_instruccion, serializar_datos)
@@ -113,7 +113,7 @@ def _procesar_parte(m: Manifiesto, parte: ContextoLote, proveedor, raiz: Path, s
         registrar(raiz, it)
         raise
     it.modelo, it.respuesta = resp.modelo, resp.texto
-    it.tokens_entrada, it.tokens_salida, it.duracion_ms = resp.tokens_entrada, resp.tokens_salida, resp.duracion_ms
+    copiar_consumo(it, resp)
     try:
         cuerpo = _parsear(resp.texto)
     except RespuestaInvalida:

@@ -16,7 +16,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel
 
-from gpmc.agentes.bitacora import Interaccion, registrar
+from gpmc.agentes.bitacora import Interaccion, copiar_consumo, registrar
 from gpmc.agentes.dic08 import ESPERAS_REINTENTO
 from gpmc.agentes import prompt_fase3 as pr
 from gpmc.agentes.proveedor import ErrorDeProveedor, ErrorDeRed, RespuestaInvalida
@@ -208,7 +208,7 @@ def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
             if not isinstance(e, ErrorDeRed) or intento == len(esperas) - 1:
                 raise
     it.modelo, it.respuesta = resp.modelo, resp.texto
-    it.tokens_entrada, it.tokens_salida, it.duracion_ms = resp.tokens_entrada, resp.tokens_salida, resp.duracion_ms
+    copiar_consumo(it, resp)
     segundos = f" en {resp.duracion_ms / 1000:.0f} s" if resp.duracion_ms else ""
     avisar((f"Mejora del {_DOC_CORTO[documento]} recibida" if ronda > 1
             else f"{_DOC_CORTO[documento]} recibido") + f" de {resp.modelo}{segundos}")

@@ -124,17 +124,24 @@ class ProveedorNorte70:
         except _ErrorHttp as e:
             raise clasificar_error(e)
         texto = _sin_cerca(str(r.get("bot_response") or ""))
-        try:
-            json.loads(texto)
-        except ValueError:
-            raise RespuestaInvalida("no es JSON")
-        # La plataforma no separa entrada y salida, asi que la bitacora queda
-        # sin esos dos campos. El saldo se conserva para medir el consumo por
-        # diferencia entre llamadas.
+        # La plataforma no separa entrada y salida. El saldo (`remainingUses`)
+        # llega en cada respuesta y el consumo real de la llamada sale por
+        # diferencia con el anterior. Se actualiza ANTES de validar el JSON: una
+        # respuesta invalida tambien gasta licencia y el siguiente consumo debe
+        # medirse desde el saldo verdadero.
         saldo = r.get("remainingUses")
         self.consumo_ultima = (self.saldo - saldo
                                if isinstance(saldo, int) and self.saldo is not None else None)
         if isinstance(saldo, int):
             self.saldo = saldo
+        try:
+            json.loads(texto)
+        except ValueError:
+            raise RespuestaInvalida("no es JSON")
+        # Sin saldo anterior (primera llamada tras reiniciar el servicio) se
+        # estima a 4 caracteres por token y queda marcado como estimado.
+        estimado = self.consumo_ultima is None
+        total = (len(cuerpo["user_query"]) + len(texto)) // 4 if estimado else self.consumo_ultima
         return Respuesta(texto=texto, tokens_entrada=None, tokens_salida=None,
+                         tokens_total=total, tokens_estimados=estimado, saldo=self.saldo,
                          modelo=self._modelo, duracion_ms=int((time.monotonic() - t0) * 1000))

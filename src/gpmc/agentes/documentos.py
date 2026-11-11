@@ -14,7 +14,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from gpmc.agentes import prompt_documentos as prompt
-from gpmc.agentes.bitacora import Interaccion, registrar
+from gpmc.agentes.bitacora import Interaccion, copiar_consumo, registrar
 from gpmc.agentes.dic08 import ESPERAS_REINTENTO
 from gpmc.agentes.proveedor import ErrorDeProveedor, ErrorDeRed, RespuestaInvalida
 from gpmc.agentes.verificar_documentos import verificar
@@ -95,8 +95,7 @@ def _analizar(as_is, to_be, m, proveedor, raiz, sid, avisar, usuario) -> Analisi
         registrar(raiz, it)
         return _a_mano(as_is, m, MOTIVO_RED, it.alertas)
     it.modelo, it.respuesta = resp.modelo, resp.texto
-    it.tokens_entrada, it.tokens_salida, it.duracion_ms = (
-        resp.tokens_entrada, resp.tokens_salida, resp.duracion_ms)
+    copiar_consumo(it, resp)
 
     try:
         items = _parsear(resp.texto)

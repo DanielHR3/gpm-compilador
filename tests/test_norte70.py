@@ -160,3 +160,29 @@ def test_real_contra_la_plataforma():
                     {"type": "object", "properties": {"suma": {"type": "integer"}},
                      "required": ["suma"]})
     assert json.loads(r.texto)["suma"] == 5
+
+
+# --- Ahorro de tokens (2026-11-11): el consumo de norte70 queda en la bitácora --------
+# La licencia (500 mil tokens) iba en 70 % y la bitácora decía 0: norte70 no
+# separa entrada y salida. El saldo sí llega en cada respuesta.
+
+def test_la_respuesta_trae_el_consumo_real_y_el_saldo(plataforma):
+    plataforma.consultas = [_ok("{}", 1000), _ok("{}", 760)]
+    p = crear_proveedor(entorno=plataforma.entorno)
+    r1 = p.completar("i" * 400, "c" * 400, {})
+    assert r1.tokens_estimados and r1.tokens_total and r1.tokens_total > 0 and r1.saldo == 1000
+    r2 = p.completar("i", "c", {})
+    assert r2.tokens_total == 240 and not r2.tokens_estimados and r2.saldo == 760
+
+
+def test_el_consumo_llega_a_la_bitacora(plataforma, tmp_path):
+    from gpmc.agentes import fase3
+    from gpmc.agentes.bitacora import leer
+    plataforma.consultas = [_ok(json.dumps({"diccionario": "# D"}), 1000),
+                            _ok(json.dumps({"tobe": "# T"}), 700)]
+    p = crear_proveedor(entorno=plataforma.entorno)
+    fase3.generar("# Análisis AS-IS — X\n", p, tmp_path, "z" * 16)
+    filas = leer(tmp_path)
+    assert [f["saldo"] for f in filas] == [1000, 700]
+    assert filas[1]["tokens_total"] == 300 and filas[1]["tokens_estimados"] is False
+    assert filas[0]["tokens_estimados"] is True
