@@ -269,6 +269,10 @@ _RE_VISIBLE = re.compile(
     r"(?P<val>.+)$",
     re.I,
 )
+# La condición sola en su columna, como la escribe el equipo: «"¿Tiene Observaciones?" = Sí».
+# La columna ya es «Condición de Visibilidad»: no hace falta «Visible solo si» (fábrica, 2026-11-11).
+_RE_VISIBLE_SOLA = re.compile(
+    r"^\s*(?P<ref>\"[^\"]+\"|`?@@\w+`?)\s*(?P<op>≠|!=|=)\s*(?P<val>.+)$")
 _ETIQUETA_CLAVE = re.compile(r"[¿?¡!.:\"`]")
 
 
@@ -295,7 +299,7 @@ def _parsear_condicion_visible(texto: str, indice: "Optional[dict]" = None):
     tb = _babel(t)
     if "∈" in t or "{" in t or "salvo cuando" in tb or "no aplica cuando" in tb:
         return None
-    m = _RE_VISIBLE.search(t)
+    m = _RE_VISIBLE.search(t) or _RE_VISIBLE_SOLA.match(t)
     if not m:
         return None
     val = re.split(r"\s*[,(]", m["val"].strip(), maxsplit=1)[0].strip().strip('"').strip()

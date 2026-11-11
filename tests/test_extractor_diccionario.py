@@ -1378,3 +1378,26 @@ def test_un_valor_con_o_que_no_es_opcion_sigue_siendo_dic08():
     r = extraer(_VIS_O)
     assert _campo(r, "pago_en_linea").condicion_visible is None
     assert any(h.codigo == "DIC-08" and "pago_en_linea" in h.ubicacion for h in r.huecos)
+
+
+# Fábrica, 2026-11-11 («Alta de Avisos de Testamento»: campos sin dependencias entre respuestas).
+# El equipo escribe la condición sola en su columna, sin «Visible solo si»: se ignoraba en silencio.
+_VIS_SOLA = _VIS.replace('Visible y obligatorio solo si "¿Es Persona Moral?" = No', '"¿Es Persona Moral?" = No') \
+                .replace('Visible solo si "Tipo de Solicitante" = Persona moral', '"Tipo de Solicitante" = Persona moral') \
+                .replace('Visible solo cuando `@@es_persona_moral` = Sí', '`@@es_persona_moral` = Sí') \
+                .replace('Visible solo si "Tipo de Solicitante" ≠ Persona física', '"Tipo de Solicitante" ≠ Persona física')
+
+
+def test_la_condicion_escrita_sola_en_su_columna_tambien_se_lee():
+    r = extraer(_VIS_SOLA)
+    assert (_campo(r, "curp_solicitante").condicion_visible.campo, _campo(r, "curp_solicitante").condicion_visible.igual) == ("es_persona_moral", "no")
+    assert _campo(r, "nombre_representante").condicion_visible.igual == "persona_moral"
+    assert _campo(r, "razon_social").condicion_visible.igual == "si"
+    assert _campo(r, "pdf_escrito").condicion_visible.operador == "!="
+    assert _campo(r, "tipo_solicitante").condicion_visible is None          # «Siempre visible» sigue sin condición
+
+
+def test_una_condicion_sola_que_no_resuelve_se_avisa_en_vez_de_callarse():
+    r = extraer(_VIS_SOLA.replace('"¿Es Persona Moral?" = No', '"Campo que no existe" = No'))
+    assert _campo(r, "curp_solicitante").condicion_visible is None
+    assert any(h.codigo == "DIC-08" and "curp_solicitante" in h.ubicacion for h in r.huecos)
