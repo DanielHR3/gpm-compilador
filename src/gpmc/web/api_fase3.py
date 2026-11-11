@@ -10,6 +10,7 @@ corregida) o en `/subir`; y cuando los dos documentos estan resueltos se corre
 el extractor de siempre.
 """
 import logging
+import os
 import secrets
 import shutil
 from datetime import datetime, timedelta, timezone
@@ -126,6 +127,12 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
             return "No hay un proveedor de IA configurado en el servidor."
         return puede_generar(entorno)
 
+    def _modo() -> str:
+        """`compacta` por omision (spec 2026-11-11): una llamada en JSON corto.
+        `GPMC_FASE3_MODO=documentos` vuelve al camino anterior, de respaldo."""
+        e = os.environ if entorno is None else entorno
+        return "documentos" if e.get("GPMC_FASE3_MODO") == "documentos" else "compacta"
+
     def generar_en_segundo_plano(sid: str, usuario: str = "anonimo") -> None:
         """Corre tras responder 202. `generar` nunca propaga; aqui solo se
         persiste lo que devuelva."""
@@ -133,7 +140,8 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         if carpeta is None:
             return
         as_is = (carpeta / INSUMOS["as_is"]).read_text(encoding="utf-8", errors="replace")
-        g = generar(as_is, proveedor, raiz, sid, avisar=anotador_de_pasos(carpeta), usuario=usuario)
+        g = generar(as_is, proveedor, raiz, sid, avisar=anotador_de_pasos(carpeta), usuario=usuario,
+                    modo=_modo())
         log.info("fase3 sid=%s estado=%s", sid, g.estado)
         d = g.model_dump(mode="json")
         # Los pasos ya estan en disco con su hora real; solo si faltaran (una

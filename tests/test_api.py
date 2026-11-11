@@ -1218,8 +1218,9 @@ def _sin_esperas_de_reintento(monkeypatch):
     monkeypatch.setattr(dic08, "ESPERAS_REINTENTO", (0.0, 0.0))
 
 
-_ENT_OPENAI = {"GPMC_IA_PROVEEDOR": "openai", "GPMC_IA_LLAVE": "k"}
-_ENT_GEMINI = {"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k"}
+# Las pruebas de este bloque guionan Diccionario y TO-BE por separado: modo «documentos».
+_ENT_OPENAI = {"GPMC_IA_PROVEEDOR": "openai", "GPMC_IA_LLAVE": "k", "GPMC_FASE3_MODO": "documentos"}
+_ENT_GEMINI = {"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k", "GPMC_FASE3_MODO": "documentos"}
 _ASIS_F3 = ("# Análisis AS-IS — Constancia de Prueba\n\n"
             "- **Requisitos:** identificación oficial vigente\n")
 
@@ -1500,7 +1501,7 @@ def test_una_sesion_sin_vista_la_calcula_al_leer(tmp_path):
 
 # --- Modo de pruebas (2026-09-24) -------------------------------------------------------------
 
-_ENT_PRUEBAS = {"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k", "GPMC_FASE3_PRUEBAS": "1"}
+_ENT_PRUEBAS = {"GPMC_IA_PROVEEDOR": "gemini", "GPMC_IA_LLAVE": "k", "GPMC_FASE3_PRUEBAS": "1", "GPMC_FASE3_MODO": "documentos"}
 
 
 def test_capacidades_avisan_el_modo_de_pruebas(tmp_path):
@@ -2105,3 +2106,23 @@ def test_mejorar_sin_sesion_da_404_y_sin_licencia_409(tmp_path):
     assert c.post("/api/v1/expedientes/0123456789abcdef/generados/mejorar").status_code == 404
     sid = _proponer(c).json()["sid"]
     assert c.post(f"/api/v1/expedientes/{sid}/generados/mejorar").status_code == 409
+
+
+# --- Fase 3 compacta por omisión en el servidor (2026-11-11) -------------------------
+
+def test_el_servidor_propone_en_modo_compacto_con_una_llamada(tmp_path):
+    import json as _json
+    from tests.test_compacta import RESPUESTA
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json.dumps(RESPUESTA)])
+    c = TestClient(crear_app(almacen=tmp_path, proveedor=prov,
+                             entorno={"GPMC_IA_PROVEEDOR": "openai", "GPMC_IA_LLAVE": "k"}))
+    sid = _proponer(c).json()["sid"]
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert g["estado"] == "listo" and prov.llamadas == 1
+    assert g["diccionario"]["version_prompt"] == "compacta-v1"
+    assert "compacta" not in g                      # el JSON crudo no viaja a la SPA
+    # La mejora bajo pedido usa el diseño guardado; aquí no hay nada que cerrar.
+    assert c.post(f"/api/v1/expedientes/{sid}/generados/mejorar").status_code == 202
+    assert prov.llamadas == 1
+    assert c.get(f"/api/v1/expedientes/{sid}/generados").json()["estado"] == "listo"

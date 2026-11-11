@@ -4,6 +4,16 @@ campos:
     etiqueta: Número de Folio
     tipo: String
     tramites: 17
+    dependencias:
+    - Alta de Avisos de Testamento
+    - COINHI
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección General del Archivo General de Notarías
+    - Escuelas de Fútbol
+    - Instituto Hidalguense de las Mujeres
+    - Instituto Hidalguense del Deporte
+    - La Ciudad de las Mujeres
+    - SEMARNATH
     celdas:
       Nombre del Campo: Número de Folio
       Tipo de Dato: String
@@ -15,6 +25,16 @@ campos:
     etiqueta: ¿Corregir datos autocompletados?
     tipo: Boolean
     tramites: 16
+    dependencias:
+    - COINHI
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - Instituto Hidalguense de las Mujeres
+    - Instituto Hidalguense del Deporte
+    - La Ciudad de las Mujeres
+    - Oficialía Mayor
+    - SEMARNATH
     celdas:
       Nombre del Campo: ¿Corregir datos autocompletados?
       Tipo de Dato: Boolean
@@ -27,6 +47,15 @@ campos:
     etiqueta: Estatus del Trámite
     tipo: Select
     tramites: 15
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - ICATHI
+    - Instituto Hidalguense de las Mujeres
+    - Instituto Hidalguense del Deporte
+    - La Ciudad de las Mujeres
+    - SEMARNATH
     celdas:
       Nombre del Campo: Estatus del Trámite
       Tipo de Dato: Select
@@ -39,6 +68,15 @@ campos:
     etiqueta: Modalidad de Pago
     tipo: Select
     tramites: 13
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - ICATHI
+    - Instituto Hidalguense del Deporte
+    - Publicación en el Periódico Oficial
+    - SEMARNATH
     celdas:
       Nombre del Campo: Modalidad de Pago
       Tipo de Dato: Select
@@ -51,6 +89,15 @@ campos:
     etiqueta: ¿Pago Validado?
     tipo: Boolean
     tramites: 12
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - ICATHI
+    - Instituto Hidalguense del Deporte
+    - Publicación en el Periódico Oficial
+    - SEMARNATH
     celdas:
       Nombre del Campo: ¿Pago Validado?
       Tipo de Dato: Boolean
@@ -62,6 +109,13 @@ campos:
     etiqueta: Campos con Error
     tipo: Multiselect
     tramites: 9
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    - SEMARNATH
     celdas:
       Nombre del Campo: Campos con Error
       Tipo de Dato: Multiselect
@@ -74,6 +128,12 @@ campos:
     etiqueta: Vista de solo lectura (Usuario → Periódico Oficial)
     tipo: Texto
     tramites: 9
+    dependencias:
+    - COINHI
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Vista de solo lectura (Usuario → Periódico Oficial)
       Componente Sugerido: Campos de solo lectura + visor de archivos
@@ -83,6 +143,11 @@ campos:
     etiqueta: 'Documento: Comprobante de Pago'
     tipo: String
     tramites: 7
+    dependencias:
+    - Escuelas de Fútbol
+    - ICATHI
+    - Instituto Hidalguense del Deporte
+    - SEMARNATH
     celdas:
       Nombre del Campo: 'Documento: Comprobante de Pago'
       Tipo de Dato: String
@@ -94,6 +159,11 @@ campos:
     etiqueta: 'Documento: Comprobante de Pago'
     tipo: String
     tramites: 6
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: 'Documento: Comprobante de Pago'
       Tipo de Dato: String
@@ -105,6 +175,11 @@ campos:
     etiqueta: Observaciones
     tipo: String
     tramites: 6
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - ICATHI
+    - Publicación en el Periódico Oficial
+    - SEMARNATH
     celdas:
       Nombre del Campo: Observaciones
       Tipo de Dato: String
@@ -116,6 +191,10 @@ campos:
     etiqueta: Teléfono de Contacto
     tipo: String
     tramites: 6
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    - SEMARNATH
     celdas:
       Nombre del Campo: Teléfono de Contacto
       Tipo de Dato: String
@@ -127,6 +206,11 @@ campos:
     etiqueta: ¿Tiene Observaciones?
     tipo: Boolean
     tramites: 6
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: ¿Tiene Observaciones?
       Tipo de Dato: Boolean
@@ -138,6 +222,12 @@ campos:
     etiqueta: Vista de solo lectura (Notario → Área)
     tipo: Texto
     tramites: 6
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Vista de solo lectura (Notario → Área)
       Componente Sugerido: Campos de solo lectura
@@ -147,6 +237,10 @@ campos:
     etiqueta: CURP de la Usuaria
     tipo: String
     tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Instituto Hidalguense de las Mujeres
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: CURP de la Usuaria
       Tipo de Dato: String
@@ -158,6 +252,9 @@ campos:
     etiqueta: Depende Económicamente de
     tipo: Select
     tramites: 5
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Depende Económicamente de
       Tipo de Dato: Select
@@ -170,6 +267,9 @@ campos:
     etiqueta: 'Documento: Acta de Nacimiento del Alumno'
     tipo: String
     tramites: 5
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Documento: Acta de Nacimiento del Alumno'
       Tipo de Dato: String
@@ -181,6 +281,9 @@ campos:
     etiqueta: 'Documento: Certificado Médico de Aptitud'
     tipo: String
     tramites: 5
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Documento: Certificado Médico de Aptitud'
       Tipo de Dato: String
@@ -192,6 +295,10 @@ campos:
     etiqueta: Fecha de cita
     tipo: Date
     tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Fecha de cita
       Tipo de Dato: Date
@@ -203,6 +310,10 @@ campos:
     etiqueta: Fecha de Nacimiento
     tipo: Date
     tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Instituto Hidalguense de las Mujeres
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Fecha de Nacimiento
       Tipo de Dato: Date
@@ -214,6 +325,9 @@ campos:
     etiqueta: Lugar de la Cita
     tipo: String
     tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Lugar de la Cita
       Tipo de Dato: String
@@ -225,6 +339,10 @@ campos:
     etiqueta: Nombre(s)
     tipo: String
     tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Instituto Hidalguense de las Mujeres
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Nombre(s)
       Tipo de Dato: String
@@ -236,6 +354,12 @@ campos:
     etiqueta: Vista de solo lectura (Área → Notario)
     tipo: Texto
     tramites: 5
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Vista de solo lectura (Área → Notario)
       Componente Sugerido: Texto de solo lectura
@@ -246,6 +370,9 @@ campos:
     etiqueta: Acepto el Aviso de Privacidad y Consentimiento de Datos Personales
     tipo: Boolean
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Acepto el Aviso de Privacidad y Consentimiento de Datos Personales
       Tipo de Dato: Boolean
@@ -257,6 +384,10 @@ campos:
     etiqueta: Acepto el Aviso de Privacidad
     tipo: Boolean
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - ICATHI
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Acepto el Aviso de Privacidad
       Tipo de Dato: Boolean
@@ -268,6 +399,9 @@ campos:
     etiqueta: Apellido Materno
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Apellido Materno
       Tipo de Dato: String
@@ -279,6 +413,9 @@ campos:
     etiqueta: Apellido materno
     tipo: String
     tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Apellido materno
       Tipo de Dato: String
@@ -290,6 +427,9 @@ campos:
     etiqueta: Apellido Paterno
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Apellido Paterno
       Tipo de Dato: String
@@ -301,6 +441,9 @@ campos:
     etiqueta: Apellido paterno
     tipo: String
     tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Apellido paterno
       Tipo de Dato: String
@@ -312,6 +455,9 @@ campos:
     etiqueta: Celular
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Celular
       Tipo de Dato: String
@@ -323,6 +469,9 @@ campos:
     etiqueta: Correo Electrónico
     tipo: String
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Correo Electrónico
       Tipo de Dato: String
@@ -334,6 +483,9 @@ campos:
     etiqueta: Correo de contacto
     tipo: String
     tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Correo de contacto
       Tipo de Dato: String
@@ -345,6 +497,9 @@ campos:
     etiqueta: CURP
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: CURP
       Tipo de Dato: String
@@ -356,6 +511,9 @@ campos:
     etiqueta: 'Contacto de Emergencia: Dirección'
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Contacto de Emergencia: Dirección'
       Tipo de Dato: String
@@ -367,6 +525,9 @@ campos:
     etiqueta: 'Documento: Credencial Digital'
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Documento: Credencial Digital'
       Tipo de Dato: String
@@ -378,6 +539,9 @@ campos:
     etiqueta: 'Documento: Formato de Pago F7'
     tipo: String
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: 'Documento: Formato de Pago F7'
       Tipo de Dato: String
@@ -389,6 +553,9 @@ campos:
     etiqueta: 'Documento: Fotografía'
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Documento: Fotografía'
       Tipo de Dato: String
@@ -400,6 +567,9 @@ campos:
     etiqueta: 'Documento: PDF con Firmas Autógrafas'
     tipo: String
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: 'Documento: PDF con Firmas Autógrafas'
       Tipo de Dato: String
@@ -411,6 +581,9 @@ campos:
     etiqueta: 'Documento: Word Editable'
     tipo: String
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: 'Documento: Word Editable'
       Tipo de Dato: String
@@ -422,6 +595,8 @@ campos:
     etiqueta: 'Documento: Tarjeta de Circulación'
     tipo: String
     tramites: 4
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: 'Documento: Tarjeta de Circulación'
       Tipo de Dato: String
@@ -433,6 +608,9 @@ campos:
     etiqueta: ¿Documentación Correcta?
     tipo: Boolean
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: ¿Documentación Correcta?
       Tipo de Dato: Boolean
@@ -444,6 +622,9 @@ campos:
     etiqueta: Edad
     tipo: Int
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Edad
       Tipo de Dato: Int
@@ -455,6 +636,9 @@ campos:
     etiqueta: E-mail
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: E-mail
       Tipo de Dato: String
@@ -466,6 +650,9 @@ campos:
     etiqueta: Estatura
     tipo: Float
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Estatura
       Tipo de Dato: Float
@@ -477,6 +664,9 @@ campos:
     etiqueta: Fecha de Inscripción
     tipo: Date
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Fecha de Inscripción
       Tipo de Dato: Date
@@ -488,6 +678,9 @@ campos:
     etiqueta: Fecha de Nacimiento
     tipo: Date
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Fecha de Nacimiento
       Tipo de Dato: Date
@@ -499,6 +692,9 @@ campos:
     etiqueta: Vigencia de la Credencial
     tipo: Date
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Vigencia de la Credencial
       Tipo de Dato: Date
@@ -510,6 +706,9 @@ campos:
     etiqueta: Hora de cita
     tipo: Time
     tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Hora de cita
       Tipo de Dato: Time
@@ -521,6 +720,9 @@ campos:
     etiqueta: Liga de la Publicación
     tipo: String
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Liga de la Publicación
       Tipo de Dato: String
@@ -532,6 +734,9 @@ campos:
     etiqueta: Motivo de canalización
     tipo: String
     tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Motivo de canalización
       Tipo de Dato: String
@@ -543,6 +748,9 @@ campos:
     etiqueta: Motivo de solicitud
     tipo: String
     tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Motivo de solicitud
       Tipo de Dato: String
@@ -554,6 +762,9 @@ campos:
     etiqueta: Nombre(s)
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Nombre(s)
       Tipo de Dato: String
@@ -565,6 +776,9 @@ campos:
     etiqueta: 'Contacto de Emergencia: Nombre Completo'
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Contacto de Emergencia: Nombre Completo'
       Tipo de Dato: String
@@ -576,6 +790,11 @@ campos:
     etiqueta: Nombre del Funcionario que Firma
     tipo: String
     tramites: 4
+    dependencias:
+    - Alta de Avisos de Testamento
+    - COINHI
+    - Dirección General del Archivo General de Notarías
+    - SEMARNATH
     celdas:
       Nombre del Campo: Nombre del Funcionario que Firma
       Tipo de Dato: String
@@ -587,6 +806,8 @@ campos:
     etiqueta: Número de Placa
     tipo: String
     tramites: 4
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Número de Placa
       Tipo de Dato: String
@@ -598,6 +819,9 @@ campos:
     etiqueta: Observaciones
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Observaciones
       Tipo de Dato: String
@@ -609,6 +833,9 @@ campos:
     etiqueta: Pago en Línea
     tipo: Boolean
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Pago en Línea
       Tipo de Dato: Boolean
@@ -620,6 +847,9 @@ campos:
     etiqueta: 'Contacto de Emergencia: Parentesco'
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Contacto de Emergencia: Parentesco'
       Tipo de Dato: String
@@ -631,6 +861,9 @@ campos:
     etiqueta: Peso
     tipo: Float
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Peso
       Tipo de Dato: Float
@@ -642,6 +875,11 @@ campos:
     etiqueta: Referencia de Pago (Línea de Captura)
     tipo: String
     tramites: 4
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - SEMARNATH
     celdas:
       Nombre del Campo: Referencia de Pago (Línea de Captura)
       Tipo de Dato: String
@@ -653,6 +891,9 @@ campos:
     etiqueta: Sexo
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Sexo
       Tipo de Dato: String
@@ -664,6 +905,9 @@ campos:
     etiqueta: Teléfono de Contacto
     tipo: String
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Teléfono de Contacto
       Tipo de Dato: String
@@ -675,6 +919,9 @@ campos:
     etiqueta: Teléfono
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Teléfono
       Tipo de Dato: String
@@ -686,6 +933,9 @@ campos:
     etiqueta: 'Contacto de Emergencia: Teléfonos'
     tipo: String
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Contacto de Emergencia: Teléfonos'
       Tipo de Dato: String
@@ -697,6 +947,9 @@ campos:
     etiqueta: Tipo de Documento
     tipo: Select
     tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Tipo de Documento
       Tipo de Dato: Select
@@ -709,6 +962,9 @@ campos:
     etiqueta: Tipo de Sangre
     tipo: Select
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Tipo de Sangre
       Tipo de Dato: Select
@@ -721,6 +977,9 @@ campos:
     etiqueta: Traslado en Caso de Emergencia
     tipo: Select
     tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Traslado en Caso de Emergencia
       Tipo de Dato: Select
@@ -733,6 +992,9 @@ campos:
     etiqueta: Vista de solo lectura (Periódico Oficial → Usuario)
     tipo: Texto
     tramites: 4
+    dependencias:
+    - COINHI
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Vista de solo lectura (Periódico Oficial → Usuario)
       Componente Sugerido: Campos de solo lectura
@@ -742,6 +1004,10 @@ campos:
     etiqueta: Manifiesto de Solicitud
     tipo: Boolean
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - ICATHI
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Manifiesto de Solicitud
       Tipo de Dato: Boolean
@@ -753,6 +1019,9 @@ campos:
     etiqueta: Autoriza y Firma
     tipo: Boolean
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Autoriza y Firma
       Tipo de Dato: Boolean
@@ -764,6 +1033,9 @@ campos:
     etiqueta: Autoriza y Firma
     tipo: Boolean
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Autoriza y Firma
       Tipo de Dato: Boolean
@@ -775,6 +1047,9 @@ campos:
     etiqueta: Calle
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Calle
       Tipo de Dato: String
@@ -786,6 +1061,9 @@ campos:
     etiqueta: Calle
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Calle
       Tipo de Dato: String
@@ -797,6 +1075,9 @@ campos:
     etiqueta: Resumen de Cotización
     tipo: Texto
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Resumen de Cotización
       Componente Sugerido: Campos de solo lectura
@@ -806,6 +1087,9 @@ campos:
     etiqueta: Celular
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Celular
       Tipo de Dato: String
@@ -817,6 +1101,9 @@ campos:
     etiqueta: Código Postal
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Código Postal
       Tipo de Dato: String
@@ -828,6 +1115,9 @@ campos:
     etiqueta: Código Postal
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Código Postal
       Tipo de Dato: String
@@ -839,6 +1129,9 @@ campos:
     etiqueta: Colonia
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Colonia
       Tipo de Dato: String
@@ -850,6 +1143,9 @@ campos:
     etiqueta: Colonia
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Colonia
       Tipo de Dato: String
@@ -861,6 +1157,9 @@ campos:
     etiqueta: CURP
     tipo: String
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: CURP
       Tipo de Dato: String
@@ -872,6 +1171,8 @@ campos:
     etiqueta: CURP del Propietario
     tipo: String
     tramites: 3
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: CURP del Propietario
       Tipo de Dato: String
@@ -883,6 +1184,9 @@ campos:
     etiqueta: ¿Cumple con la Normatividad?
     tipo: Boolean
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: ¿Cumple con la Normatividad?
       Tipo de Dato: Boolean
@@ -894,6 +1198,8 @@ campos:
     etiqueta: Carnet digital
     tipo: String
     tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Carnet digital
       Tipo de Dato: String
@@ -905,6 +1211,9 @@ campos:
     etiqueta: 'Documento: CURP'
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Documento: CURP'
       Tipo de Dato: String
@@ -916,6 +1225,9 @@ campos:
     etiqueta: 'Documento: Versión Editada al Formato del PO'
     tipo: String
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: 'Documento: Versión Editada al Formato del PO'
       Tipo de Dato: String
@@ -927,6 +1239,10 @@ campos:
     etiqueta: 'Documento: Formato de Pago Generado'
     tipo: String
     tramites: 3
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - ICATHI
     celdas:
       Nombre del Campo: 'Documento: Formato de Pago Generado'
       Tipo de Dato: String
@@ -938,6 +1254,9 @@ campos:
     etiqueta: Identificación oficial
     tipo: String
     tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Identificación oficial
       Tipo de Dato: String
@@ -949,6 +1268,9 @@ campos:
     etiqueta: 'Documento: Identificación Oficial'
     tipo: String
     tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - SEMARNATH
     celdas:
       Nombre del Campo: 'Documento: Identificación Oficial'
       Tipo de Dato: String
@@ -960,6 +1282,8 @@ campos:
     etiqueta: Oficio de canalización
     tipo: String
     tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Oficio de canalización
       Tipo de Dato: String
@@ -971,6 +1295,9 @@ campos:
     etiqueta: 'Documento: Oficio de Improcedencia'
     tipo: String
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: 'Documento: Oficio de Improcedencia'
       Tipo de Dato: String
@@ -982,6 +1309,10 @@ campos:
     etiqueta: 'Documento: Oficio de Solicitud de Publicación'
     tipo: String
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: 'Documento: Oficio de Solicitud de Publicación'
       Tipo de Dato: String
@@ -993,6 +1324,9 @@ campos:
     etiqueta: 'Documento: Referencia de Pago'
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Documento: Referencia de Pago'
       Tipo de Dato: String
@@ -1004,6 +1338,9 @@ campos:
     etiqueta: Documento con Observación
     tipo: Select
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Documento con Observación
       Tipo de Dato: Select
@@ -1016,6 +1353,9 @@ campos:
     etiqueta: ¿Domicilio del Alumno Igual al del Padre/Tutor?
     tipo: Boolean
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: ¿Domicilio del Alumno Igual al del Padre/Tutor?
       Tipo de Dato: Boolean
@@ -1027,6 +1367,9 @@ campos:
     etiqueta: ¿Edad dentro del rango 4-17 años?
     tipo: Boolean
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: ¿Edad dentro del rango 4-17 años?
       Tipo de Dato: Boolean
@@ -1038,6 +1381,9 @@ campos:
     etiqueta: E-mail
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: E-mail
       Tipo de Dato: String
@@ -1049,6 +1395,8 @@ campos:
     etiqueta: Es competencia del CJMH
     tipo: Boolean
     tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Es competencia del CJMH
       Tipo de Dato: Boolean
@@ -1061,6 +1409,8 @@ campos:
     etiqueta: ¿Es Persona Moral?
     tipo: Boolean
     tramites: 3
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: ¿Es Persona Moral?
       Tipo de Dato: Boolean
@@ -1072,6 +1422,9 @@ campos:
     etiqueta: Estado
     tipo: Select
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Estado
       Tipo de Dato: Select
@@ -1084,6 +1437,9 @@ campos:
     etiqueta: Estado Civil
     tipo: Select
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Estado Civil
       Tipo de Dato: Select
@@ -1096,6 +1452,9 @@ campos:
     etiqueta: Estado
     tipo: Select
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Estado
       Tipo de Dato: Select
@@ -1108,6 +1467,9 @@ campos:
     etiqueta: Fecha de Publicación
     tipo: Date
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Fecha de Publicación
       Tipo de Dato: Date
@@ -1119,6 +1481,9 @@ campos:
     etiqueta: Folio de Referencia
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Folio de Referencia
       Tipo de Dato: String
@@ -1130,6 +1495,8 @@ campos:
     etiqueta: Institución de destino
     tipo: String
     tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Institución de destino
       Tipo de Dato: String
@@ -1141,6 +1508,8 @@ campos:
     etiqueta: Modalidad de entrevista
     tipo: Select
     tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Modalidad de entrevista
       Tipo de Dato: Select
@@ -1153,6 +1522,9 @@ campos:
     etiqueta: Monto a Pagar
     tipo: Float
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Monto a Pagar
       Tipo de Dato: Float
@@ -1164,6 +1536,9 @@ campos:
     etiqueta: Motivo de Improcedencia
     tipo: String
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Motivo de Improcedencia
       Tipo de Dato: String
@@ -1175,6 +1550,9 @@ campos:
     etiqueta: Municipio
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Municipio
       Tipo de Dato: String
@@ -1186,6 +1564,9 @@ campos:
     etiqueta: Municipio
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Municipio
       Tipo de Dato: String
@@ -1197,6 +1578,8 @@ campos:
     etiqueta: Nombre del Firmante
     tipo: String
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Nombre del Firmante
       Tipo de Dato: String
@@ -1208,6 +1591,8 @@ campos:
     etiqueta: Nombre del Propietario o Persona Moral
     tipo: String
     tramites: 3
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Nombre del Propietario o Persona Moral
       Tipo de Dato: String
@@ -1219,6 +1604,9 @@ campos:
     etiqueta: Nombre del Padre o Tutor
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Nombre del Padre o Tutor
       Tipo de Dato: String
@@ -1230,6 +1618,9 @@ campos:
     etiqueta: Número Exterior
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Número Exterior
       Tipo de Dato: String
@@ -1241,6 +1632,9 @@ campos:
     etiqueta: Número Exterior
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Número Exterior
       Tipo de Dato: String
@@ -1252,6 +1646,9 @@ campos:
     etiqueta: Número Interior
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Número Interior
       Tipo de Dato: String
@@ -1263,6 +1660,9 @@ campos:
     etiqueta: Número Interior
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Número Interior
       Tipo de Dato: String
@@ -1274,6 +1674,9 @@ campos:
     etiqueta: Número de Veces a Publicar
     tipo: Select
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Número de Veces a Publicar
       Tipo de Dato: Select
@@ -1286,6 +1689,9 @@ campos:
     etiqueta: RFC
     tipo: String
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: RFC
       Tipo de Dato: String
@@ -1297,6 +1703,9 @@ campos:
     etiqueta: RFC del Municipio
     tipo: String
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: RFC del Municipio
       Tipo de Dato: String
@@ -1308,6 +1717,9 @@ campos:
     etiqueta: Teléfono
     tipo: String
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Teléfono
       Tipo de Dato: String
@@ -1319,6 +1731,10 @@ campos:
     etiqueta: Vista de solo lectura (Notario → Funcionario)
     tipo: Texto
     tramites: 3
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Vista de solo lectura (Notario → Funcionario)
       Componente Sugerido: Visor de archivo
@@ -1328,6 +1744,10 @@ campos:
     etiqueta: Vista de solo lectura (Ciudadano → Oficina)
     tipo: Texto
     tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Vista de solo lectura (Ciudadano → Oficina)
       Componente Sugerido: Campos de solo lectura + visor de archivos
@@ -1337,6 +1757,9 @@ campos:
     etiqueta: Vista de observaciones (Oficina → Ciudadano)
     tipo: Texto
     tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Vista de observaciones (Oficina → Ciudadano)
       Componente Sugerido: Campos de solo lectura
@@ -1346,6 +1769,10 @@ campos:
     etiqueta: Vista de solo lectura (Sistema → Área)
     tipo: Texto
     tramites: 3
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Instituto Hidalguense de las Mujeres
     celdas:
       Nombre del Campo: Vista de solo lectura (Sistema → Área)
       Componente Sugerido: Visor de documento generado
@@ -1355,6 +1782,9 @@ campos:
     etiqueta: Archivo CSV para RENAT
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Archivo CSV para RENAT
       Tipo de Dato: String
@@ -1366,6 +1796,8 @@ campos:
     etiqueta: Asistió a entrevista
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Asistió a entrevista
       Tipo de Dato: Boolean
@@ -1378,6 +1810,9 @@ campos:
     etiqueta: Autoriza y Firma
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Autoriza y Firma
       Tipo de Dato: Boolean
@@ -1389,6 +1824,9 @@ campos:
     etiqueta: Autoriza, Firma Digitalmente y Sella
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - COINHI
+    - SEMARNATH
     celdas:
       Nombre del Campo: Autoriza, Firma Digitalmente y Sella
       Tipo de Dato: Boolean
@@ -1400,6 +1838,9 @@ campos:
     etiqueta: Autoriza y Firma
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Autoriza y Firma
       Tipo de Dato: Boolean
@@ -1411,6 +1852,8 @@ campos:
     etiqueta: Campo corregido
     tipo: String
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Campo corregido
       Tipo de Dato: String
@@ -1422,6 +1865,9 @@ campos:
     etiqueta: Cargo del Funcionario Firmante
     tipo: String
     tramites: 2
+    dependencias:
+    - COINHI
+    - SEMARNATH
     celdas:
       Nombre del Campo: Cargo del Funcionario Firmante
       Tipo de Dato: String
@@ -1433,6 +1879,9 @@ campos:
     etiqueta: Cita Presencial para Entrega del Original
     tipo: N/A (objeto fecha/hora)
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Cita Presencial para Entrega del Original
       Tipo de Dato: N/A (objeto fecha/hora)
@@ -1444,6 +1893,9 @@ campos:
     etiqueta: Comprobante Válido
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Instituto Hidalguense del Deporte
+    - SEMARNATH
     celdas:
       Nombre del Campo: Comprobante Válido
       Tipo de Dato: Boolean
@@ -1455,6 +1907,8 @@ campos:
     etiqueta: Correo Electrónico
     tipo: String
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Correo Electrónico
       Tipo de Dato: String
@@ -1466,6 +1920,9 @@ campos:
     etiqueta: Dependencia
     tipo: Select
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Dependencia
       Tipo de Dato: Select
@@ -1478,6 +1935,9 @@ campos:
     etiqueta: Dependencia de Procedencia
     tipo: Select
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Dependencia de Procedencia
       Tipo de Dato: Select
@@ -1495,6 +1955,9 @@ campos:
     etiqueta: Dirección Completa
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Dirección Completa
       Tipo de Dato: String
@@ -1506,6 +1969,9 @@ campos:
     etiqueta: Disposiciones de Contenido Irrevocable
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Disposiciones de Contenido Irrevocable
       Tipo de Dato: Boolean
@@ -1517,6 +1983,8 @@ campos:
     etiqueta: 'Documento: Acta Constitutiva'
     tipo: String
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: 'Documento: Acta Constitutiva'
       Tipo de Dato: String
@@ -1528,6 +1996,8 @@ campos:
     etiqueta: 'Documento: Comprobante de Domicilio'
     tipo: String
     tramites: 2
+    dependencias:
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Documento: Comprobante de Domicilio'
       Tipo de Dato: String
@@ -1539,6 +2009,9 @@ campos:
     etiqueta: 'Documento: Lista de Asistencia'
     tipo: String
     tramites: 2
+    dependencias:
+    - La Ciudad de las Mujeres
+    - Oficialía Mayor
     celdas:
       Nombre del Campo: 'Documento: Lista de Asistencia'
       Tipo de Dato: String
@@ -1550,6 +2023,8 @@ campos:
     etiqueta: 'Documento: PDF con Firmas Autógrafas Corregido'
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: 'Documento: PDF con Firmas Autógrafas Corregido'
       Tipo de Dato: String
@@ -1561,6 +2036,8 @@ campos:
     etiqueta: 'Documento: Poder Notarial'
     tipo: String
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: 'Documento: Poder Notarial'
       Tipo de Dato: String
@@ -1572,6 +2049,9 @@ campos:
     etiqueta: 'Documento: Validación de Contraloría'
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: 'Documento: Validación de Contraloría'
       Tipo de Dato: String
@@ -1583,6 +2063,8 @@ campos:
     etiqueta: 'Documento: Word Editable Corregido'
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: 'Documento: Word Editable Corregido'
       Tipo de Dato: String
@@ -1594,6 +2076,9 @@ campos:
     etiqueta: ¿Documentación Conforme?
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - ICATHI
+    - SEMARNATH
     celdas:
       Nombre del Campo: ¿Documentación Conforme?
       Tipo de Dato: Boolean
@@ -1605,6 +2090,9 @@ campos:
     etiqueta: Documentos corregidos
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Documentos corregidos
       Tipo de Dato: String
@@ -1616,6 +2104,9 @@ campos:
     etiqueta: ¿Entregó el Documento Original en la Cita?
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: ¿Entregó el Documento Original en la Cita?
       Tipo de Dato: Boolean
@@ -1627,6 +2118,9 @@ campos:
     etiqueta: ¿Es Competencia del PO?
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: ¿Es Competencia del PO?
       Tipo de Dato: Boolean
@@ -1638,6 +2132,8 @@ campos:
     etiqueta: Estatus del folio
     tipo: Select
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Estatus del folio
       Tipo de Dato: Select
@@ -1650,6 +2146,8 @@ campos:
     etiqueta: Expediente iniciado
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Expediente iniciado
       Tipo de Dato: Boolean
@@ -1661,6 +2159,8 @@ campos:
     etiqueta: Fecha de cierre
     tipo: Date
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Fecha de cierre
       Tipo de Dato: Date
@@ -1672,6 +2172,8 @@ campos:
     etiqueta: Firma del oficio
     tipo: String
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Firma del oficio
       Tipo de Dato: String
@@ -1683,6 +2185,9 @@ campos:
     etiqueta: Número de Folio RENAT
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Número de Folio RENAT
       Tipo de Dato: String
@@ -1694,6 +2199,9 @@ campos:
     etiqueta: ¿Fuera del Plazo Legal?
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: ¿Fuera del Plazo Legal?
       Tipo de Dato: Boolean
@@ -1705,6 +2213,9 @@ campos:
     etiqueta: Fuera del Plazo Legal Sugerido
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Fuera del Plazo Legal Sugerido
       Tipo de Dato: Boolean
@@ -1716,6 +2227,9 @@ campos:
     etiqueta: ¿Importación validada en RENAT?
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: ¿Importación validada en RENAT?
       Tipo de Dato: Boolean
@@ -1727,6 +2241,9 @@ campos:
     etiqueta: Fecha de la Escritura (Otorgamiento)
     tipo: Date
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Fecha de la Escritura (Otorgamiento)
       Tipo de Dato: Date
@@ -1738,6 +2255,9 @@ campos:
     etiqueta: Lugar de Otorgamiento
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Lugar de Otorgamiento
       Tipo de Dato: String
@@ -1749,6 +2269,9 @@ campos:
     etiqueta: Número de Escritura
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Número de Escritura
       Tipo de Dato: String
@@ -1760,6 +2283,9 @@ campos:
     etiqueta: Volumen, Tomo o Libro
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Volumen, Tomo o Libro
       Tipo de Dato: String
@@ -1771,6 +2297,9 @@ campos:
     etiqueta: Nombre de la Madre
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Nombre de la Madre
       Tipo de Dato: String
@@ -1782,6 +2311,8 @@ campos:
     etiqueta: Marca (editable)
     tipo: String
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Marca (editable)
       Tipo de Dato: String
@@ -1794,6 +2325,8 @@ campos:
     etiqueta: Marca del Vehículo
     tipo: String
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Marca del Vehículo
       Tipo de Dato: String
@@ -1805,6 +2338,8 @@ campos:
     etiqueta: Modelo (Año) (editable)
     tipo: Int
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Modelo (Año) (editable)
       Tipo de Dato: Int
@@ -1817,6 +2352,9 @@ campos:
     etiqueta: Resumen de Cotización
     tipo: Float
     tramites: 2
+    dependencias:
+    - ICATHI
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Resumen de Cotización
       Tipo de Dato: Float
@@ -1827,6 +2365,9 @@ campos:
     etiqueta: Monto a Pagar
     tipo: Float
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Monto a Pagar
       Tipo de Dato: Float
@@ -1838,6 +2379,9 @@ campos:
     etiqueta: Motor de pago en línea
     tipo: Texto
     tramites: 2
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: Motor de pago en línea
       Componente Sugerido: Botón de pago (motor de pago GPM)
@@ -1847,6 +2391,9 @@ campos:
     etiqueta: Municipio
     tipo: Select
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Municipio
       Tipo de Dato: Select
@@ -1860,6 +2407,8 @@ campos:
     etiqueta: Narrativa de orientación
     tipo: String
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Narrativa de orientación
       Tipo de Dato: String
@@ -1871,6 +2420,9 @@ campos:
     etiqueta: Nombre Completo
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Nombre Completo
       Tipo de Dato: String
@@ -1882,6 +2434,8 @@ campos:
     etiqueta: Nombre del Documento a Publicar
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Nombre del Documento a Publicar
       Tipo de Dato: String
@@ -1893,6 +2447,9 @@ campos:
     etiqueta: Nombre de la Institución
     tipo: String
     tramites: 2
+    dependencias:
+    - COINHI
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Nombre de la Institución
       Tipo de Dato: String
@@ -1904,6 +2461,9 @@ campos:
     etiqueta: Nombre(s) del Responsable, Apellido paterno, Apellido materno
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
     celdas:
       Nombre del Campo: Nombre(s) del Responsable, Apellido paterno, Apellido materno
       Tipo de Dato: String
@@ -1915,6 +2475,8 @@ campos:
     etiqueta: Nota de cotejo
     tipo: String
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Nota de cotejo
       Tipo de Dato: String
@@ -1926,6 +2488,9 @@ campos:
     etiqueta: Adscripción o Municipio del Notario
     tipo: Select
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Adscripción o Municipio del Notario
       Tipo de Dato: Select
@@ -1939,6 +2504,9 @@ campos:
     etiqueta: Nombre del Notario
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Nombre del Notario
       Tipo de Dato: String
@@ -1950,6 +2518,9 @@ campos:
     etiqueta: Número de Notaría
     tipo: Int
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Número de Notaría
       Tipo de Dato: Int
@@ -1961,6 +2532,9 @@ campos:
     etiqueta: Tipo de Notario
     tipo: Select
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Tipo de Notario
       Tipo de Dato: Select
@@ -1973,6 +2547,9 @@ campos:
     etiqueta: Notario Verificado en Portal de Transparencia
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Notario Verificado en Portal de Transparencia
       Tipo de Dato: Boolean
@@ -1984,6 +2561,8 @@ campos:
     etiqueta: Número de expediente
     tipo: String
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Número de expediente
       Tipo de Dato: String
@@ -1995,6 +2574,8 @@ campos:
     etiqueta: Número de Placa (referencia)
     tipo: String
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Número de Placa (referencia)
       Tipo de Dato: String
@@ -2007,6 +2588,9 @@ campos:
     etiqueta: Nombre del Padre
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Nombre del Padre
       Tipo de Dato: String
@@ -2018,6 +2602,9 @@ campos:
     etiqueta: Pago en Línea Confirmado
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Pago en Línea Confirmado
       Tipo de Dato: Boolean
@@ -2029,6 +2616,9 @@ campos:
     etiqueta: Trámite a Realizar
     tipo: Select
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Trámite a Realizar
       Tipo de Dato: Select
@@ -2041,6 +2631,8 @@ campos:
     etiqueta: Registro SIGDE confirmado
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
     celdas:
       Nombre del Campo: Registro SIGDE confirmado
       Tipo de Dato: Boolean
@@ -2053,6 +2645,9 @@ campos:
     etiqueta: RFC de la Dependencia
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: RFC de la Dependencia
       Tipo de Dato: String
@@ -2064,6 +2659,8 @@ campos:
     etiqueta: Submarca (editable)
     tipo: String
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Submarca (editable)
       Tipo de Dato: String
@@ -2076,6 +2673,8 @@ campos:
     etiqueta: Submarca del Vehículo
     tipo: String
     tramites: 2
+    dependencias:
+    - SEMARNATH
     celdas:
       Nombre del Campo: Submarca del Vehículo
       Tipo de Dato: String
@@ -2087,6 +2686,9 @@ campos:
     etiqueta: CURP
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: CURP
       Tipo de Dato: String
@@ -2098,6 +2700,9 @@ campos:
     etiqueta: Estado Civil
     tipo: Select
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Estado Civil
       Tipo de Dato: Select
@@ -2110,6 +2715,9 @@ campos:
     etiqueta: Fecha de Nacimiento
     tipo: Date
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Fecha de Nacimiento
       Tipo de Dato: Date
@@ -2121,6 +2729,9 @@ campos:
     etiqueta: Lugar de Nacimiento
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Lugar de Nacimiento
       Tipo de Dato: String
@@ -2132,6 +2743,9 @@ campos:
     etiqueta: Nacionalidad
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Nacionalidad
       Tipo de Dato: String
@@ -2143,6 +2757,9 @@ campos:
     etiqueta: Nombre Completo del Testador
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Nombre Completo del Testador
       Tipo de Dato: String
@@ -2154,6 +2771,9 @@ campos:
     etiqueta: Texto de las Observaciones
     tipo: String
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Texto de las Observaciones
       Tipo de Dato: String
@@ -2165,6 +2785,9 @@ campos:
     etiqueta: Tipo de Testamento
     tipo: Select
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Tipo de Testamento
       Tipo de Dato: Select
@@ -2177,6 +2800,9 @@ campos:
     etiqueta: Tipo de Trámite para Efectos de Cobro
     tipo: Select
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Tipo de Trámite para Efectos de Cobro
       Tipo de Dato: Select
@@ -2189,6 +2815,9 @@ campos:
     etiqueta: Título del Documento
     tipo: String
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
     celdas:
       Nombre del Campo: Título del Documento
       Tipo de Dato: String
@@ -2200,6 +2829,9 @@ campos:
     etiqueta: 'Traslado de Emergencia: Especifique'
     tipo: String
     tramites: 2
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
     celdas:
       Nombre del Campo: 'Traslado de Emergencia: Especifique'
       Tipo de Dato: String
@@ -2211,6 +2843,8 @@ campos:
     etiqueta: Resumen de Cotización
     tipo: Texto
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Resumen de Cotización
       Componente Sugerido: Campos de solo lectura
@@ -2220,6 +2854,8 @@ campos:
     etiqueta: Vista de solo lectura (Periódico Oficial → Dirección/CGJ)
     tipo: Texto
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Vista de solo lectura (Periódico Oficial → Dirección/CGJ)
       Componente Sugerido: Campos de solo lectura + visor de archivos
@@ -2229,6 +2865,8 @@ campos:
     etiqueta: Vista de solo lectura (Sistema → Usuario)
     tipo: Texto
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Vista de solo lectura (Sistema → Usuario)
       Componente Sugerido: Texto de solo lectura
@@ -2238,6 +2876,9 @@ campos:
     etiqueta: ¿Presentado Fuera del Plazo Legal?
     tipo: Boolean
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: ¿Presentado Fuera del Plazo Legal?
       Tipo de Dato: Boolean
@@ -2249,6 +2890,9 @@ campos:
     etiqueta: Vista de solo lectura (Sistema → Notario)
     tipo: Texto
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Vista de solo lectura (Sistema → Notario)
       Componente Sugerido: Texto de solo lectura
@@ -2258,6 +2902,9 @@ campos:
     etiqueta: Vista de solo lectura (Sistema → Área)
     tipo: Texto
     tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
     celdas:
       Nombre del Campo: Vista de solo lectura (Sistema → Área)
       Componente Sugerido: Texto de solo lectura
@@ -2267,6 +2914,8 @@ campos:
     etiqueta: Vista de solo lectura (Periódico Oficial → Dirección/CGJ)
     tipo: Texto
     tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
     celdas:
       Nombre del Campo: Vista de solo lectura (Periódico Oficial → Dirección/CGJ)
       Componente Sugerido: Campos de solo lectura

@@ -71,16 +71,27 @@ def _filas(texto: str):
             yield m.group(1), fila
 
 
-def construir(wiki: Path, minimo: int = MINIMO_TRAMITES) -> dict:
+def _dependencia(diccionario: Path) -> str:
+    """La carpeta de la dependencia (`ANALISTA/Dependencia/Trámite/…`), sin el
+    paréntesis de la Secretaría: «COINHI (Secretaría de…)» -> «COINHI»."""
+    return re.sub(r"\s*\(.*?\)\s*", " ", diccionario.parent.parent.name).strip()
+
+
+def construir(wiki: Path, minimo: int = MINIMO_TRAMITES, excluir: Optional[Path] = None) -> dict:
     """Recorre `Diccionario de Datos.md` bajo `wiki` y devuelve el catálogo.
-    De cada columna se queda el valor más repetido entre los trámites."""
+    De cada columna se queda el valor más repetido entre los trámites.
+    `excluir` deja fuera un Diccionario (para medir sin hacer trampa)."""
     vistos = collections.defaultdict(list)          # id -> [fila por trámite]
+    deps = collections.defaultdict(set)             # id -> dependencias que lo usan
     for d in sorted(Path(wiki).rglob("Diccionario de Datos.md")):
+        if excluir is not None and d == excluir:
+            continue
         del_tramite = {}
         for cid, fila in _filas(d.read_text(encoding="utf-8", errors="ignore")):
             del_tramite.setdefault(cid, fila)
         for cid, fila in del_tramite.items():
             vistos[cid].append(fila)
+            deps[cid].add(_dependencia(d))
     campos = {}
     for cid, filas in vistos.items():
         if len(filas) < minimo:
@@ -91,7 +102,7 @@ def construir(wiki: Path, minimo: int = MINIMO_TRAMITES) -> dict:
             if valores:
                 celdas[col] = valores.most_common(1)[0][0]
         campos[cid] = {"etiqueta": celdas["Nombre del Campo"], "tipo": celdas.get("Tipo de Dato", "Texto"),
-                       "tramites": len(filas), "celdas": celdas}
+                       "tramites": len(filas), "dependencias": sorted(deps[cid]), "celdas": celdas}
     orden = sorted(campos, key=lambda c: (-campos[c]["tramites"], c))
     return {"version": 1, "campos": {c: campos[c] for c in orden}}
 
@@ -137,15 +148,21 @@ def diccionario_markdown(tramite: str, pantallas: list) -> str:
     return "\n".join(partes)
 
 
+def _decide(tipo: str) -> str:
+    """El tipo solo le importa al modelo cuando el campo puede decidir una rama."""
+    t = _plano(tipo)
+    return " · lista" if ("select" in t or "lista" in t or "radio" in t) else (" · sí/no" if "bool" in t else "")
+
+
 def para_el_modelo(catalogo: dict) -> str:
     """Una línea por campo, lo mínimo para que el modelo lo reconozca."""
-    return "\n".join(f"@@{cid} · {c['etiqueta']} · {c['tipo']}" for cid, c in catalogo["campos"].items())
+    return "\n".join(f"@@{cid} · {c['etiqueta']}{_decide(c['tipo'])}" for cid, c in catalogo["campos"].items())
 
 
 # --- Recuperación: solo lo que toca al trámite (idea de ARGUS, Jiang et al. 2025) ---
 # Léxica y local a propósito: sin embeddings ni red, y reproducible en pruebas.
 UNIVERSAL = 8            # campos presentes en tantos trámites viajan siempre
-MAXIMO = 60
+MAXIMO = 120          # medido 2026-11-11 dejando fuera el trámite evaluado: ver la spec
 _VACIAS = {"para", "como", "este", "esta", "tipo", "dato", "datos", "numero", "nombre", "fecha",
            "documento", "campo", "campos", "sobre", "desde", "hasta", "entre", "tramite"}
 
@@ -158,11 +175,15 @@ def relevantes(catalogo: dict, as_is: str, maximo: int = MAXIMO) -> dict:
     """El subconjunto del catálogo que vale la pena enseñarle al modelo para
     este AS-IS: los universales y los que comparten palabras con el texto."""
     texto = _palabras(as_is)
+    plano = _plano(as_is)
     puntuados = []
     for cid, c in catalogo["campos"].items():
         propias = _palabras(c["etiqueta"]) | _palabras(cid.replace("_", " "))
         toca = len(propias & texto) / len(propias) if propias else 0.0
-        if c["tramites"] >= UNIVERSAL or toca >= 0.5:
-            puntuados.append((-(c["tramites"] >= UNIVERSAL), -toca, -c["tramites"], cid))
+        # Los campos se repiten sobre todo dentro de una misma dependencia.
+        de_casa = any(len(d) >= 4 and _plano(d) in plano for d in c.get("dependencias", []))
+        universal = c["tramites"] >= UNIVERSAL
+        if universal or de_casa or toca >= 0.5:
+            puntuados.append((-universal, -de_casa, -toca, -c["tramites"], cid))
     elegidos = [cid for *_, cid in sorted(puntuados)[:maximo]]
     return {"version": catalogo.get("version"), "campos": {c: catalogo["campos"][c] for c in elegidos}}

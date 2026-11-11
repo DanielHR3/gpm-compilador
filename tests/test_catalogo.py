@@ -81,3 +81,20 @@ def test_la_recuperacion_respeta_el_tope():
     c = {"version": 1, "campos": {f"c{i}": {"etiqueta": "Folio", "tipo": "Texto", "tramites": 20 - i}
                                   for i in range(10)}}
     assert list(cat.relevantes(c, "folio", maximo=3)["campos"]) == ["c0", "c1", "c2"]
+
+
+def test_los_campos_de_la_misma_dependencia_viajan_aunque_no_coincidan_palabras():
+    c = {"version": 1, "campos": {
+        "motivo_canalizacion": {"etiqueta": "Motivo de canalización", "tipo": "Texto", "tramites": 4,
+                                "dependencias": ["La Ciudad de las Mujeres"]},
+        "numero_placa": {"etiqueta": "Número de placa", "tipo": "Texto", "tramites": 4, "dependencias": ["SEMARNATH"]}}}
+    r = cat.relevantes(c, "dependencia: La Ciudad de las Mujeres\n\nLa usuaria solicita atención psicológica.")
+    assert list(r["campos"]) == ["motivo_canalizacion"]
+
+
+def test_el_tipo_solo_viaja_si_el_campo_puede_decidir_una_rama():
+    c = {"campos": {"curp": {"etiqueta": "CURP", "tipo": "String", "tramites": 9},
+                    "estatus": {"etiqueta": "Estatus", "tipo": "Select", "tramites": 5},
+                    "pago_validado": {"etiqueta": "¿Pago validado?", "tipo": "Boolean", "tramites": 5}}}
+    assert cat.para_el_modelo(c).splitlines() == ["@@curp · CURP", "@@estatus · Estatus · lista",
+                                                  "@@pago_validado · ¿Pago validado? · sí/no"]
