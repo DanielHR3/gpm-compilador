@@ -62,6 +62,10 @@ src/gpmc/
 ├── estimador.py          seis metricas de complejidad + sugerencia de nivel (escala no calibrada)
 ├── web/
 │   ├── app.py            asistente de 5 pasos (FastAPI)
+│   ├── estado.py         estado.jsonl: primera fecha de cada entregable por ruts_id (para Simplifica)
+│   ├── api_estado.py     GET /api/v1/expedientes?ruts_id=… con token de servicio (solo lectura)
+│   ├── solicitudes.py    solicitudes.jsonl: trámites que envía Simplifica (la campanita)
+│   ├── api_solicitudes.py POST /api/v1/solicitudes (token de envío) y su lectura para personas
 │   └── plantillas.py     HTML/CSS embebido, cero dependencias de frontend
 └── cli.py                las 9 ordenes (abajo)
 ```
@@ -782,3 +786,44 @@ Aprobado por Daniel el 2026-10-01, incluido el cambio a la sección 13.
   a 3 métricas comparables. **Varía entre corridas** (2 o 4 visitas en el mismo trámite): por
   eso la evidencia va a la vista. Sigue abierto qué cuenta como requisito y como paso: en
   Reposición el «después» de requisitos incluye el archivo que sube el funcionario.
+
+### 16. Liga con Simplifica: estado por `ruts_id` y campanita (2026-11-10)
+
+Specs: `docs/superpowers/specs/2026-11-06-api-de-estado-para-simplifica-design.md` y
+`2026-11-10-solicitudes-desde-simplifica-design.md`. En Simplifica es M-108 (módulo de Reingeniería).
+
+- **Llave común: el ID de RUTS.** `extractores/metadatos` lee `ruts_id` del frontmatter del AS-IS
+  (alfanumérico 1–20, comillas iguales o ninguna, sin cruzar de línea) → `Tramite.ruts_id`. Si falta,
+  hueco `META-RUTS` (`por_confirmar`, no bloquea). **No hay emparejado por nombre** (decisión de
+  Daniel): sin `ruts_id`, Simplifica ve el trámite «Por iniciar».
+- **`huecos.FUERA_DE_CONTEO`** = `DE_PUBLICACION` + `DE_ENLACE` (`META-RUTS`): no cuentan en el
+  tablero ni se cuelgan a un borrador de la Fase 3; la SPA no lo pone en el documento para la
+  dependencia (`observaciones.ts`, `INTERNOS`).
+- **`estado.jsonl`** (`web/estado.py`): una línea por `ruts_id` con la **primera** fecha de cada
+  entregable (`as-is`, `to-be`, `diccionario` al extraer; `gpm` solo al descargar el de producción con
+  la puerta abierta; `bpmn`, `aprobacion` y `publicado` siempre `null` por ahora). Se lee en bytes
+  (un byte no UTF-8 no tumba nada), las líneas rotas se conservan al reescribir, escritura atómica
+  con candado, `_purgar_sesiones` no lo toca. `anotar_insumos`/`anotar_gpm` nunca lanzan.
+- **`GET /api/v1/expedientes?ruts_id=`** (`web/api_estado.py`): token `GPMC_TOKEN_SERVICIO`, leído
+  en cada petición; sin variable → 404; token mal o sin `Bearer` → siempre el mismo 401;
+  `ruts_id` inválido → 422. Contrato fijado por `shared/compilador.py` de Sistema-3.0: siete claves
+  en `entregables`, `analista` vacío. El middleware descarta cualquier sesión de persona en esa ruta.
+- **Campanita** (`web/solicitudes.py`, `web/api_solicitudes.py`, `frontend/src/components/Campanita.tsx`):
+  `POST /api/v1/solicitudes` con **otro** token, `GPMC_TOKEN_ENVIO` (el de lectura no envía y el de
+  envío no lee). Ficha validada y recortada (claves de más → 422). `solicitudes.jsonl`, mismo patrón
+  que `estado.jsonl`. Las personas con sesión leen `GET /api/v1/solicitudes`, marcan
+  `POST …/{ruts_id}/vista` y bajan `GET …/{ruts_id}/as-is` (AS-IS inicial con `ruts_id` y dependencia
+  en el frontmatter, que `metadatos` lee de vuelta). La SPA consulta cada minuto y, si falla, no
+  muestra nada.
+- **Auditoría:** `servicio:simplifica` · `estado.consultar` (detalle: el `ruts_id` o «ruts_id
+  invalido», código solo si ≥400) y `solicitud.recibir`. Ningún token va a la auditoría, al log ni
+  a la URL.
+- **Prueba de contrato** `tests/test_contrato_sistema3.py` (se salta sin `SISTEMA3_RAIZ`): carga el
+  `shared/compilador.py` real de Sistema-3.0 con un `flask` de reemplazo y desvía su `urlopen` al
+  TestClient; prueba la etapa calculada y que `enviar()` llega a la campanita.
+- **`tests/conftest.py::_entorno_aislado`**: cada prueba restaura `os.environ`. Sin eso,
+  `cargar_entorno()` de la CLI filtraba `~/.config/gpmc/entorno` (con `GPMC_JWT_SECRETO`/`GPMC_BD`)
+  y 18 pruebas web pedían sesión según el orden de la corrida.
+- **Nombre del proyecto:** «Telar» está propuesto pero en espera de que se indique el nombre; no
+  se cambia ningún texto visible hasta entonces.
+

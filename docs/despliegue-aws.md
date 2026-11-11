@@ -48,6 +48,41 @@ Nada se despliega con la suite en rojo. El backend corre como servicio `gpmc` de
 variables de IA se copian de `~/.config/gpmc/entorno` de quien despliega, **sin**
 `GPMC_FASE3_PRUEBAS`: en AWS rige el candado de licencia.
 
+### Tokens de servicio para Simplifica (2026-11-10)
+
+`desplegar.sh entorno` genera una vez y conserva en `estado.env` dos tokens, sin imprimirlos:
+
+| Variable | Abre | Lo usa Simplifica como |
+|---|---|---|
+| `GPMC_TOKEN_SERVICIO` | solo `GET /api/v1/expedientes?ruts_id=` (lectura de estado) | `COMPILADOR_TOKEN` |
+| `GPMC_TOKEN_ENVIO` | solo `POST /api/v1/solicitudes` («Enviar al Compilador») | `COMPILADOR_TOKEN_ENVIO` |
+
+Se pasan a Simplifica leyéndolos de `estado.env` en la misma línea de comando, nunca por chat ni git:
+
+```
+cd ~/Desktop/Projects/Sistema-3.0 && COMPILADOR_URL=https://compilador-gpm.commit-lab.pro \
+  COMPILADOR_TOKEN=$(/usr/bin/grep ^GPMC_TOKEN_SERVICIO= ~/Desktop/Projects/gpm-compilador/scripts/aws/estado.env | cut -d= -f2-) \
+  COMPILADOR_TOKEN_ENVIO=$(/usr/bin/grep ^GPMC_TOKEN_ENVIO= ~/Desktop/Projects/gpm-compilador/scripts/aws/estado.env | cut -d= -f2-) \
+  SISTEMA3_NOMBRE=sistema3-sandbox scripts/desplegar.sh entorno
+```
+
+Rotar: borrar la línea de `estado.env`, `desplegar.sh entorno` y repetir el comando de arriba.
+CloudFront reenvía `Authorization` en `/api/*` (verificado: 200 con token, 401 sin él).
+
+### SSH con IP dinámica
+
+El grupo de seguridad solo deja SSH desde la IP registrada. Si `desplegar.sh` se queda en
+«Operation timed out» al escribir el entorno, la IP cambió: agregar la nueva (no quita las viejas):
+
+```
+SG=$(/usr/bin/grep ^SG_BACKEND= scripts/aws/estado.env | cut -d= -f2)
+aws ec2 authorize-security-group-ingress --group-id "$SG" \
+  --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$(curl -s https://checkip.amazonaws.com)/32,Description=despliegue}]"
+```
+
+Usar `/usr/bin/grep`: en la terminal de Claude Code `grep` puede estar redirigido. Conviene quitar
+de vez en cuando las reglas de IPs viejas.
+
 ## Primer arranque
 
 ```
