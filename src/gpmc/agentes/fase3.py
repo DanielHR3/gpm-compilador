@@ -5,6 +5,7 @@ declina por documento. Este modulo no escribe en la sesion: devuelve un
 `Generados` y la API lo persiste. El verificador es el extractor de siempre
 mas tres cruces deterministas (`verificar_fase3`): nadie opina, se mide.
 """
+import hashlib
 import json
 import logging
 import os
@@ -72,6 +73,9 @@ class Generados(BaseModel):
     # Lo que el agente fue haciendo, en palabras y en orden (2026-09-25): la
     # SPA lo pinta mientras espera. Viaja con el resultado para no perderse.
     pasos: list = []
+    # Fase 3 compacta: el JSON corto del modelo del que se armaron los dos
+    # documentos. Con él la mejora no reenvía el AS-IS. No viaja a la SPA.
+    compacta: Optional[str] = None
 
 
 def _sin_aviso(_: str) -> None:
@@ -171,17 +175,19 @@ _ALERTA = {ErrorDeRed: "error_de_red", ErrorDeProveedor: "error_de_proveedor",
            RespuestaInvalida: "respuesta_invalida"}
 
 
-_NOMBRE_DOC = {"diccionario": "el Diccionario de Datos", "tobe": "la Propuesta TO-BE"}
-_DOC_CORTO = {"diccionario": "Diccionario", "tobe": "TO-BE"}
+_NOMBRE_DOC = {"diccionario": "el Diccionario de Datos", "tobe": "la Propuesta TO-BE",
+               "compacta": "el diseño del trámite"}
+_DOC_CORTO = {"diccionario": "Diccionario", "tobe": "TO-BE", "compacta": "diseño"}
 
 
 def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
            instruccion: str, version: str, contexto: str, avisar=_sin_aviso,
-           usuario: str = "anonimo") -> str:
+           usuario: str = "anonimo", esquema: Optional[dict] = None, validar=None) -> str:
     """Una llamada al modelo —hasta tres intentos, SOLO ante ErrorDeRed, mismo
     criterio que dic08— con UNA linea en la bitacora por intento: cada peticion
     puede cobrarse, y la Licencia AI pide registrar cada interaccion. Devuelve el
-    texto del documento (el unico campo del esquema)."""
+    texto del documento (el unico campo del esquema). Con `esquema` y `validar`
+    (Fase 3 compacta) devuelve el JSON crudo, ya validado."""
     def linea() -> Interaccion:
         return Interaccion(sid=sid, proveedor=proveedor.nombre, modelo="", version_prompt=version, usuario=usuario,
                            solicitud={"n_caracteres": len(contexto)},
@@ -198,7 +204,7 @@ def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
             time.sleep(espera)
         it = linea()
         try:
-            resp = proveedor.completar(instruccion, contexto, pr.esquema_de(documento))
+            resp = proveedor.completar(instruccion, contexto, esquema or pr.esquema_de(documento))
             break
         except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as e:
             # RespuestaInvalida la lanza tambien el proveedor mismo (OpenAI con
@@ -213,11 +219,15 @@ def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
     avisar((f"Mejora del {_DOC_CORTO[documento]} recibida" if ronda > 1
             else f"{_DOC_CORTO[documento]} recibido") + f" de {resp.modelo}{segundos}")
     try:
-        cuerpo = json.loads(resp.texto)
-        texto = cuerpo[documento]
-        if not isinstance(texto, str):
-            raise TypeError("no es texto")
-    except (TypeError, ValueError, KeyError) as e:
+        if validar is not None:
+            validar(resp.texto)
+            texto = resp.texto
+        else:
+            cuerpo = json.loads(resp.texto)
+            texto = cuerpo[documento]
+            if not isinstance(texto, str):
+                raise TypeError("no es texto")
+    except (TypeError, ValueError, KeyError, RespuestaInvalida) as e:
         it.estado, it.alertas = "error", ["respuesta_invalida"]
         registrar(raiz, it)
         raise RespuestaInvalida(str(e))
@@ -242,13 +252,18 @@ def _nombre(as_is: str) -> Optional[str]:
 
 
 def generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool = False,
-            avisar=None, usuario: str = "anonimo") -> Generados:
+            avisar=None, usuario: str = "anonimo", modo: str = "documentos",
+            catalogo: Optional[dict] = None) -> Generados:
     """AS-IS -> Generados. Por omision, dos llamadas (Diccionario y TO-BE): la
     ronda de mejora se pide aparte con `mejorar()` (ahorro de tokens,
     2026-11-11). Nunca propaga: cualquier fallo es `estado: error`
     con el tipo de la excepcion en el motivo (y en el log con traza).
     `avisar(mensaje)` recibe cada paso en cuanto ocurre; los pasos tambien
-    vuelven en `Generados.pasos`."""
+    vuelven en `Generados.pasos`.
+
+    `modo="compacta"` (el que usa el servidor por omision, spec 2026-11-11):
+    UNA llamada que devuelve un JSON corto y el Compilador arma los documentos
+    con el catalogo de campos aprobados; el mismo AS-IS no se vuelve a pedir."""
     pasos = []
 
     def _avisar(mensaje: str) -> None:
@@ -257,7 +272,10 @@ def generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool = False,
             avisar(mensaje)
 
     try:
-        g = _generar(as_is, proveedor, raiz, sid, mejorar, _avisar, usuario)
+        if modo == "compacta":
+            g = _generar_compacta(as_is, proveedor, raiz, sid, _avisar, usuario, catalogo)
+        else:
+            g = _generar(as_is, proveedor, raiz, sid, mejorar, _avisar, usuario)
     except Exception as exc:  # ErrorDeRed, RespuestaInvalida, o un defecto nuestro
         log.error("fase3 sid=%s fallo: %s", sid, type(exc).__name__, exc_info=exc)
         _avisar(f"Falló la generación ({type(exc).__name__})")
@@ -296,7 +314,7 @@ def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool, avisar=
 
 
 def mejorar(as_is: str, d: dict, proveedor, raiz: Path, sid: str, avisar=None,
-            usuario: str = "anonimo") -> Generados:
+            usuario: str = "anonimo", catalogo: Optional[dict] = None) -> Generados:
     """La ronda de mejora bajo pedido, sobre una propuesta ya generada (`d`, el
     `generados.json` de la sesion). No repite la ronda 1: vuelve a medir sus
     huecos en local y solo llama por el documento que tenga bloqueantes. Nunca
@@ -309,6 +327,10 @@ def mejorar(as_is: str, d: dict, proveedor, raiz: Path, sid: str, avisar=None,
             avisar(mensaje)
 
     try:
+        if d.get("compacta"):
+            g = _mejorar_compacta(as_is, d, proveedor, raiz, sid, _avisar, usuario, catalogo)
+            g.pasos = pasos
+            return g
         elegido = {c: (d[c]["texto"], d[c].get("ronda", 1), d[c].get("version_prompt", ""))
                    for c in ("diccionario", "tobe")}
         m_1, huecos = extraer_borradores(as_is, elegido["diccionario"][0], elegido["tobe"][0])
@@ -335,6 +357,109 @@ def _armar(as_is: str, elegido: dict, huecos: list, m_final, avisar=_sin_aviso) 
            f"{n_pend} pendiente{'s' if n_pend != 1 else ''} por resolver")
     return Generados(estado="listo", nombre=_nombre(as_is),
                      diccionario=docs["diccionario"], tobe=docs["tobe"])
+
+
+# --- Fase 3 compacta -----------------------------------------------------------------
+
+CARPETA_CACHE = "cache-fase3"
+DIAS_CACHE = 7          # lo generado no debe sobrevivir mucho a la sesion que lo pidio
+
+
+def _ruta_cache(raiz: Path, as_is: str, catalogo: dict) -> Path:
+    from gpmc.agentes import compacta as cp
+    huella = hashlib.sha256("\x1f".join([
+        cp.VERSION_PROMPT, cp.INSTRUCCION, cp.contexto(as_is, catalogo)]).encode("utf-8")).hexdigest()[:32]
+    return Path(raiz) / CARPETA_CACHE / f"{huella}.json"
+
+
+def _guardar_cache(ruta: Path, texto: str) -> None:
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    limite = time.time() - DIAS_CACHE * 86400
+    for viejo in ruta.parent.glob("*.json"):
+        try:
+            if viejo.stat().st_mtime < limite:
+                viejo.unlink()
+        except OSError:
+            pass
+    ruta.write_text(texto, encoding="utf-8")
+
+
+def _catalogo(catalogo: Optional[dict]) -> dict:
+    from gpmc.agentes import catalogo as cat
+    return catalogo if catalogo is not None else cat.cargar()
+
+
+def _de_compacta(as_is: str, texto: str, catalogo: dict, ronda: int, version: str, avisar):
+    """JSON del modelo -> (Generados, manifiesto, huecos)."""
+    from gpmc.agentes import compacta as cp
+    a = cp.armar(cp.leer(texto), catalogo, as_is, _nombre(as_is))
+    m, huecos = extraer_borradores(as_is, a.diccionario, a.tobe)
+    elegido = {"diccionario": (a.diccionario, ronda, version), "tobe": (a.tobe, ronda, version)}
+    g = _armar(as_is, elegido, huecos, m, avisar)
+    g.compacta = texto
+    return g, m, huecos
+
+
+def _generar_compacta(as_is: str, proveedor, raiz: Path, sid: str, avisar, usuario: str,
+                      catalogo: Optional[dict]) -> Generados:
+    from gpmc.agentes import compacta as cp
+    catalogo = _catalogo(catalogo)
+    n_req = len(cp.requisitos(as_is))
+    avisar(f"Leyendo el AS-IS: {n_req} requisitos encontrados" if n_req
+           else "Leyendo el AS-IS: no trae lista de requisitos")
+    ruta = _ruta_cache(raiz, as_is, catalogo)
+    try:
+        vigente = ruta.exists() and ruta.stat().st_mtime >= time.time() - DIAS_CACHE * 86400
+        texto = ruta.read_text(encoding="utf-8") if vigente else None
+        if texto is not None:
+            cp.leer(texto)
+    except (OSError, RespuestaInvalida):
+        texto = None
+    if texto is not None:
+        avisar("Este AS-IS ya se había analizado: se reutiliza el diseño (sin consumo de IA)")
+    else:
+        texto = _pedir(proveedor, raiz, sid, "compacta", 1, cp.INSTRUCCION, cp.VERSION_PROMPT,
+                       cp.contexto(as_is, catalogo), avisar, usuario, esquema=cp.ESQUEMA, validar=cp.leer)
+        _guardar_cache(ruta, texto)
+    g, _, _ = _de_compacta(as_is, texto, catalogo, 1, cp.VERSION_PROMPT, avisar)
+    return g
+
+
+def _peso(m, huecos: list) -> tuple:
+    b = bloquean(huecos)
+    return (m is None, sum(1 for h in b if h.nivel == "bloqueante"), sum(1 for h in b if h.nivel == "falta_dato"))
+
+
+def _mejorar_compacta(as_is: str, d: dict, proveedor, raiz: Path, sid: str, avisar, usuario: str,
+                      catalogo: Optional[dict]) -> Generados:
+    """Una llamada corta: el diseño anterior y los huecos, sin el AS-IS. Se
+    conserva la mejora solo si no empeora ni recorta el trámite."""
+    from gpmc.agentes import compacta as cp
+    catalogo = _catalogo(catalogo)
+    actual = Generados(**{k: v for k, v in d.items() if k in Generados.model_fields})
+    m_1, huecos_1 = extraer_borradores(as_is, d["diccionario"]["texto"], d["tobe"]["texto"])
+    # Los META-* son datos que faltan en el AS-IS (dependencia, tiempo de
+    # respuesta): el modelo no puede cerrarlos y pedirlo sería gastar en vano.
+    pendientes = [str(h) for h in bloquean(huecos_1)
+                  if h.codigo not in FUERA_DE_CONTEO and not h.codigo.startswith("META-")]
+    if not pendientes:
+        avisar("No hay pendientes que la mejora pueda cerrar")
+        return actual
+    avisar(f"Se pide la mejora por {len(pendientes)} pendiente{'s' if len(pendientes) != 1 else ''}")
+    try:
+        texto = _pedir(proveedor, raiz, sid, "compacta", 2, cp.INSTRUCCION_MEJORA, cp.VERSION_PROMPT_MEJORA,
+                       cp.contexto_mejora(as_is, catalogo, d["compacta"], pendientes), avisar, usuario,
+                       esquema=cp.ESQUEMA, validar=cp.leer)
+        g, m_2, huecos_2 = _de_compacta(as_is, texto, catalogo, 2, cp.VERSION_PROMPT_MEJORA, _sin_aviso)
+    except (ErrorDeRed, ErrorDeProveedor, RespuestaInvalida) as exc:
+        avisar(f"La mejora falló ({type(exc).__name__}); se conserva la propuesta")
+        return actual
+    campos = lambda m: 0 if m is None else sum(len(p.campos) for p in m.pantallas)
+    if _peso(m_2, huecos_2) <= _peso(m_1, huecos_1) and campos(m_2) >= 0.8 * campos(m_1):
+        avisar(f"Se conserva la mejora: {_resumen_flujo(m_2)}, {len(bloquean(huecos_2))} pendientes")
+        return g
+    avisar("La mejora no ayudó o recortaba el trámite; se conserva la propuesta")
+    return actual
 
 
 def _cuenta(manifiesto, huecos: list, clave: str) -> tuple:

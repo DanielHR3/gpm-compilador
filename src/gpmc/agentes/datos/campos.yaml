@@ -1,0 +1,2923 @@
+version: 1
+campos:
+  numero_folio:
+    etiqueta: Número de Folio
+    tipo: String
+    tramites: 17
+    dependencias:
+    - Alta de Avisos de Testamento
+    - COINHI
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección General del Archivo General de Notarías
+    - Escuelas de Fútbol
+    - Instituto Hidalguense de las Mujeres
+    - Instituto Hidalguense del Deporte
+    - La Ciudad de las Mujeres
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Número de Folio
+      Tipo de Dato: String
+      Componente Sugerido: Texto de solo lectura (auto-generado)
+      Obligatorio: No (auto)
+      Límite / Especificaciones: Numérico consecutivo
+      Descripción: '[Solo lectura] Campo . **Agregado 2026-08-19** (mismo motivo que  — el campo ya se usaba en las notificaciones de la Sección 3 y en el Documento 1, pero nunca se había definido como captura). Identificador que el sistema asigna al enviar la solicitud completa; da trazabilidad de estatus en línea.'
+  corregir_datos_renapo:
+    etiqueta: ¿Corregir datos autocompletados?
+    tipo: Boolean
+    tramites: 16
+    dependencias:
+    - COINHI
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - Instituto Hidalguense de las Mujeres
+    - Instituto Hidalguense del Deporte
+    - La Ciudad de las Mujeres
+    - Oficialía Mayor
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: ¿Corregir datos autocompletados?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / enlace "Corregir" junto al campo de solo lectura
+      Obligatorio: 'No'
+      Límite / Especificaciones: Sí / No
+      Catálogo de Valores: Sí · No
+      Descripción: '[Captura] Campo . Habilita edición manual si RENAPO no responde o el dato no coincide (regla fija 8).'
+  estatus_tramite:
+    etiqueta: Estatus del Trámite
+    tipo: Select
+    tramites: 15
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - ICATHI
+    - Instituto Hidalguense de las Mujeres
+    - Instituto Hidalguense del Deporte
+    - La Ciudad de las Mujeres
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Estatus del Trámite
+      Tipo de Dato: Select
+      Componente Sugerido: Etiqueta / badge de estatus (solo lectura)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Recibida · En revisión documental · En corrección · Pendiente de pago · Pago validado · Concluida
+      Descripción: '[Solo lectura] Campo . Catálogo literal de la Propuesta TO-BE (§ Cambios concretos #9). Cada cambio dispara una notificación (Sección 3).'
+  modalidad_pago:
+    etiqueta: Modalidad de Pago
+    tipo: Select
+    tramites: 13
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - ICATHI
+    - Instituto Hidalguense del Deporte
+    - Publicación en el Periódico Oficial
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Modalidad de Pago
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable / radio
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: En línea · Banco o transferencia
+      Descripción: '[Captura] Campo . Gobierna el gateway Gateway_Modalidad del .bpmn. Regla fija del wiki: ninguna modalidad es presencial; la diferencia es el medio de pago y quién valida (sistema vs. funcionario).'
+  pago_validado:
+    etiqueta: ¿Pago Validado?
+    tipo: Boolean
+    tramites: 12
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - ICATHI
+    - Instituto Hidalguense del Deporte
+    - Publicación en el Periódico Oficial
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: ¿Pago Validado?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . La Oficina coteja el comprobante contra la referencia cargada — sin conciliación bancaria automática (mismo nombre de variable que en el `.bpmn` TO-BE).'
+  campos_con_error:
+    etiqueta: Campos con Error
+    tipo: Multiselect
+    tramites: 9
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Campos con Error
+      Tipo de Dato: Multiselect
+      Componente Sugerido: Mensaje de validación en línea (campos resaltados)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Lista dinámica de campos del formulario
+      Catálogo de Valores: N/A (dinámico)
+      Descripción: '[Solo lectura] Campo . Corresponde a Gateway_Completo del .bpmn: bloquea el envío en la misma sesión si faltan campos obligatorios o el formato es inválido. Es una validación de completitud/formato, no de veracidad del contenido — ver nota bajo el encabezado de esta pantalla. Se muestra solo si la validación de formato detecta errores al enviar.'
+  vista_expediente:
+    etiqueta: Vista de solo lectura (Usuario → Periódico Oficial)
+    tipo: Texto
+    tramites: 9
+    dependencias:
+    - COINHI
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Usuario → Periódico Oficial)
+      Componente Sugerido: Campos de solo lectura + visor de archivos
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Expediente digital completo: datos del alumno, del tutor, categoría/horario, contacto de emergencia y los 4 documentos cargados.'
+  doc_comprobante_pago:
+    etiqueta: 'Documento: Comprobante de Pago'
+    tipo: String
+    tramites: 7
+    dependencias:
+    - Escuelas de Fútbol
+    - ICATHI
+    - Instituto Hidalguense del Deporte
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: 'Documento: Comprobante de Pago'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF/imagen
+      Descripción: '[Captura] Campo . Voucher/ficha/constancia de transferencia que el ciudadano paga fuera del sistema con la referencia cargada, y sube aquí.'
+  comprobante_pago:
+    etiqueta: 'Documento: Comprobante de Pago'
+    tipo: String
+    tramites: 6
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: 'Documento: Comprobante de Pago'
+      Tipo de Dato: String
+      Componente Sugerido: Cargador de archivo (uploader)
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF/JPG · máx. 5 MB
+      Descripción: '[Captura] Campo . Voucher, ficha de depósito o comprobante de transferencia. El Notario paga usando @@referencia_pago (mostrada arriba) fuera del sistema (banco o transferencia) y sube este archivo — regla fija del wiki: esta modalidad nunca requiere presencia física, solo cambia el medio de pago y quién valida.'
+  observaciones:
+    etiqueta: Observaciones
+    tipo: String
+    tramites: 6
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - ICATHI
+    - Publicación en el Periódico Oficial
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Observaciones
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 1000 caracteres
+      Descripción: '[Captura] Campo . Sustituye al oficio de devolución físico de los 3 AS-IS.'
+  telefono_contacto:
+    etiqueta: Teléfono de Contacto
+    tipo: String
+    tramites: 6
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Teléfono de Contacto
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input, solo numérico)
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 10 dígitos
+      Descripción: '[Captura] Campo . Teléfono del solicitante, para seguimiento del trámite.'
+  tiene_observaciones:
+    etiqueta: ¿Tiene Observaciones?
+    tipo: Boolean
+    tramites: 6
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: ¿Tiene Observaciones?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Gobierna un gateway nuevo del .bpmn: Sí regresa la solicitud al Notario (Pantalla 1) para que corrija cualquier dato — no solo la fecha — antes de continuar; No avanza a que el Sistema calcule @@monto_pago. Único ciclo de observaciones/corrección que queda en el trámite — el que hacía la Dirección General al final se eliminó por completo (2026-07-20).'
+  vista_solicitud:
+    etiqueta: Vista de solo lectura (Notario → Área)
+    tipo: Texto
+    tramites: 6
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Notario → Área)
+      Componente Sugerido: Campos de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra todos los datos del Formato de Aviso de Testamento capturado en la Pantalla 1 — testador, instrumento (incluida @@instrumento_fecha_otorgamiento) y notario — para que el funcionario revise la solicitud completa antes de que el Sistema calcule el monto a pagar, no solo la fecha de otorgamiento. Se muestra al abrir la tarea.'
+  curp_usuaria:
+    etiqueta: CURP de la Usuaria
+    tipo: String
+    tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Instituto Hidalguense de las Mujeres
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: CURP de la Usuaria
+      Tipo de Dato: String
+      Componente Sugerido: Texto / RENAPO
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 18 caracteres
+      Descripción: . Captura. Consulta RENAPO; si no responde, se habilita corrección manual.
+  depende_economicamente_de:
+    etiqueta: Depende Económicamente de
+    tipo: Select
+    tramites: 5
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Depende Económicamente de
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Padre · Madre · Ambos · Otro
+      Descripción: '[Captura] Campo . Catálogo literal del Formato de Inscripción.'
+  doc_acta_nacimiento:
+    etiqueta: 'Documento: Acta de Nacimiento del Alumno'
+    tipo: String
+    tramites: 5
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Documento: Acta de Nacimiento del Alumno'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF/imagen
+      Descripción: '[Captura] Campo . Confirmado con la dependencia: es del alumno, no del tutor ("es por categoría") — la Oficina la usa en la Pantalla 5 para confirmar el rango de edad 4-17 años.'
+  doc_certificado_medico:
+    etiqueta: 'Documento: Certificado Médico de Aptitud'
+    tipo: String
+    tramites: 5
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Documento: Certificado Médico de Aptitud'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF/imagen, expedido dentro del mes calendario anterior a la fecha de inscripción
+      Descripción: '[Captura] Campo . Confirmado del alumno, no del tutor. **Confirmado 2026-08-19:** vigencia de 1 mes (pendiente cerrado, ver Pendientes). Posible duplicidad con Peso/Estatura de la Pantalla 3 (Fricción 4 del AS-IS) — **confirmado 2026-08-19:** se deja la captura en ambos lugares intencionalmente (pendiente cerrado, ver Pendientes).'
+  fecha_cita:
+    etiqueta: Fecha de cita
+    tipo: Date
+    tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Fecha de cita
+      Tipo de Dato: Date
+      Componente Sugerido: Cita GPM
+      Obligatorio: No (auto)
+      Límite / Especificaciones: DD/MM/AAAA
+      Descripción: '[Captura] Campo . Cumple el art. 15 de la Ley del POEH. Quién define los horarios disponibles y si hay máximo de citas por día queda sin confirmar — ver Propuesta TO-BE § Pendientes del expediente. El componente Cita captura fecha y hora en un solo campo.'
+  fecha_nacimiento_usuaria:
+    etiqueta: Fecha de Nacimiento
+    tipo: Date
+    tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Instituto Hidalguense de las Mujeres
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Fecha de Nacimiento
+      Tipo de Dato: Date
+      Componente Sugerido: Fecha autocompletada
+      Obligatorio: Sí
+      Límite / Especificaciones: DD/MM/AAAA
+      Descripción: . RENAPO o contingencia.
+  lugar_cita:
+    etiqueta: Lugar de la Cita
+    tipo: String
+    tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Lugar de la Cita
+      Tipo de Dato: String
+      Componente Sugerido: Texto de solo lectura
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: . Solo lectura.
+  nombre_usuaria:
+    etiqueta: Nombre(s)
+    tipo: String
+    tramites: 5
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Instituto Hidalguense de las Mujeres
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Nombre(s)
+      Tipo de Dato: String
+      Componente Sugerido: Texto autocompletado
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: . Autocompletado por RENAPO o capturado en contingencia.
+  vista_referencia_pago:
+    etiqueta: Vista de solo lectura (Área → Notario)
+    tipo: Texto
+    tramites: 5
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Área → Notario)
+      Componente Sugerido: Texto de solo lectura
+      Obligatorio: 'No'
+      Límite / Especificaciones: Alfanumérico
+      Descripción: '[Solo lectura] Campo . Muestra la @@referencia_pago que el funcionario del Área cargó en la Pantalla 5 — GPM no la genera, solo la muestra tal como el funcionario la registró.'
+  acepta_consentimiento_datos:
+    etiqueta: Acepto el Aviso de Privacidad y Consentimiento de Datos Personales
+    tipo: Boolean
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Acepto el Aviso de Privacidad y Consentimiento de Datos Personales
+      Tipo de Dato: Boolean
+      Componente Sugerido: Casilla de aceptación
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Cita literal del Formato de Inscripción (Ley General de Protección de Datos Personales, arts. 2 fracc. VI/VII y 7). Modelado como aceptación digital simple (regla fija 15) — es un consentimiento de datos personales sin efectos de responsabilidad civil/legal, no una carta responsiva; el Formato original sí lleva firma autógrafa, pero ninguna fuente indica que tenga efectos de responsabilidad más allá del consentimiento de datos (ver Pendientes si se requiere firma autógrafa en su lugar).'
+  acepta_privacidad:
+    etiqueta: Acepto el Aviso de Privacidad
+    tipo: Boolean
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - ICATHI
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Acepto el Aviso de Privacidad
+      Tipo de Dato: Boolean
+      Componente Sugerido: Casilla de aceptación
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Texto tomado de la hoja "Aviso de privacidad" del catálogo (Dirección del PO, Ley de Transparencia y Ley de Protección de Datos Personales).'
+  apellido_materno_alumno:
+    etiqueta: Apellido Materno
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Apellido Materno
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input) autorellenable
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 50 caracteres
+      Descripción: '[Solo lectura, autocompletado por RENAPO] Campo .'
+  apellido_materno_usuaria:
+    etiqueta: Apellido materno
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Apellido materno
+      Tipo de Dato: String
+      Componente Sugerido: Texto autocompletado
+      Obligatorio: 'No'
+      Límite / Especificaciones: máx. 60 caracteres
+      Descripción: . Autocompletado por RENAPO o capturado en contingencia.
+  apellido_paterno_alumno:
+    etiqueta: Apellido Paterno
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Apellido Paterno
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input) autorellenable
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 50 caracteres
+      Descripción: '[Solo lectura, autocompletado por RENAPO] Campo .'
+  apellido_paterno_usuaria:
+    etiqueta: Apellido paterno
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Apellido paterno
+      Tipo de Dato: String
+      Componente Sugerido: Texto autocompletado
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 60 caracteres
+      Descripción: . Autocompletado por RENAPO o capturado en contingencia.
+  celular_alumno:
+    etiqueta: Celular
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Celular
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: 'No'
+      Límite / Especificaciones: exactamente 10 dígitos
+      Descripción: '[Captura] Campo .'
+  correo:
+    etiqueta: Correo Electrónico
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Correo Electrónico
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres, formato de correo
+      Descripción: '[Captura] Campo . Aplica a las 3 procedencias.'
+  correo_contacto:
+    etiqueta: Correo de contacto
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Correo de contacto
+      Tipo de Dato: String
+      Componente Sugerido: Correo
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: . Captura; no exigir correo si el contacto seguro es telefónico.
+  curp_alumno:
+    etiqueta: CURP
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: CURP
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 18 caracteres, patrón CURP
+      Descripción: '[Captura] Campo . Dispara la consulta a RENAPO (regla fija 12) — resuelve la Fricción 8 del AS-IS ("sin validación de identidad contra un padrón oficial").'
+  direccion_contacto_emergencia:
+    etiqueta: 'Contacto de Emergencia: Dirección'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Contacto de Emergencia: Dirección'
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo .'
+  doc_credencial_digital:
+    etiqueta: 'Documento: Credencial Digital'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Documento: Credencial Digital'
+      Tipo de Dato: String
+      Componente Sugerido: Generación automática de documento (plantilla)
+      Obligatorio: 'No'
+      Límite / Especificaciones: PDF con código QR
+      Descripción: '[Solo lectura] Campo . Generado automáticamente por GPM con los datos ya capturados (Pantallas 1-3) — válida para el control de acceso a las clases. Sustituye la credencial física que el borrador anterior de la Propuesta TO-BE contemplaba (retirada 2026-07-22).'
+  doc_f7:
+    etiqueta: 'Documento: Formato de Pago F7'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: 'Documento: Formato de Pago F7'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: N/A · PDF, máx. 5 MB
+      Descripción: '[Captura] Campo . El funcionario genera el F7 en el portal e-SIT de Hacienda FUERA de GPM (GPM no se integra con e-SIT — regla fija 1) y lo sube aquí para que el usuario lo descargue en la Pantalla 5. Sustituye la entrega por WhatsApp/correo/físico del AS-IS. Nota importante: a futuro puede buscarse API con e-SIT.'
+  doc_fotografia:
+    etiqueta: 'Documento: Fotografía'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Documento: Fotografía'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: JPG/PNG
+      Descripción: '[Captura] Campo . Sustituye el recuadro físico "FOTO" del Formato de Inscripción.'
+  doc_publicar_pdf:
+    etiqueta: 'Documento: PDF con Firmas Autógrafas'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: 'Documento: PDF con Firmas Autógrafas'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: N/A · PDF
+      Descripción: '[Captura] Campo . Documento a publicar digitalizado con las firmas autógrafas del juzgado. GPM valida solo presencia y formato del archivo, nunca su autenticidad (regla fija 8) — el cotejo es tarea humana de la revisión integral. Sustituye la entrega física del original (impedimento del art. 15 Ley POEH documentado en la Propuesta TO-BE).'
+  doc_publicar_word:
+    etiqueta: 'Documento: Word Editable'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: 'Documento: Word Editable'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: N/A · DOC/DOCX, máx. 100 MB (no se acepta RTF)
+      Descripción: '[Captura] Campo . Versión editable requerida para que el Periódico Oficial reformatee el documento a planas del PO.'
+  doc_tarjeta_circulacion:
+    etiqueta: 'Documento: Tarjeta de Circulación'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: 'Documento: Tarjeta de Circulación'
+      Tipo de Dato: String
+      Componente Sugerido: Cargador de archivo (uploader)
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF/JPG · máx. 5 MB
+      Descripción: '[Captura] Campo . Requisito documentado en el AS-IS.'
+  documentacion_correcta:
+    etiqueta: ¿Documentación Correcta?
+    tipo: Boolean
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: ¿Documentación Correcta?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Sí → Sistema turna a Pantalla 6 (cotización y pago); No → captura Observaciones y el Sistema notifica al ciudadano (`Task_NotificaObservaciones`).'
+  edad_alumno:
+    etiqueta: Edad
+    tipo: Int
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Edad
+      Tipo de Dato: Int
+      Componente Sugerido: Texto de solo lectura (calculado)
+      Obligatorio: 'No'
+      Límite / Especificaciones: 0-120 años
+      Descripción: '[Solo lectura, calculado] Campo . Se muestra una vez que la consulta a RENAPO responde. El sistema la calcula desde la fecha de nacimiento — usada por la Oficina en la revisión documental (Pantalla 5) para confirmar el rango 4-17 años.'
+  email_alumno:
+    etiqueta: E-mail
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: E-mail
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: 'No'
+      Límite / Especificaciones: máx. 100 caracteres, formato de correo
+      Descripción: '[Captura] Campo .'
+  estatura:
+    etiqueta: Estatura
+    tipo: Float
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Estatura
+      Tipo de Dato: Float
+      Componente Sugerido: Campo numérico (m)
+      Obligatorio: Sí
+      Límite / Especificaciones: 0.80-2.20 m
+      Descripción: '[Captura] Campo . Misma nota de posible duplicidad que Peso.'
+  fecha_inscripcion:
+    etiqueta: Fecha de Inscripción
+    tipo: Date
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Fecha de Inscripción
+      Tipo de Dato: Date
+      Componente Sugerido: Selector de fecha (auto, fecha del día)
+      Obligatorio: 'No'
+      Límite / Especificaciones: DD/MM/AAAA
+      Descripción: '[Solo lectura] Campo . **Agregado 2026-08-19** (campo que el usuario había empezado a insertar, sin terminar, al inicio de la Pantalla 1 — se completa y se ubica aquí, en el momento real de envío de la solicitud). Fecha en la que el sistema recibe la solicitud completa.'
+  fecha_nacimiento_alumno:
+    etiqueta: Fecha de Nacimiento
+    tipo: Date
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Fecha de Nacimiento
+      Tipo de Dato: Date
+      Componente Sugerido: Selector de fecha autorellenable
+      Obligatorio: Sí
+      Límite / Especificaciones: DD/MM/AAAA
+      Descripción: '[Solo lectura, autocompletado por RENAPO] Campo .'
+  fecha_vigencia_credencial:
+    etiqueta: Vigencia de la Credencial
+    tipo: Date
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Vigencia de la Credencial
+      Tipo de Dato: Date
+      Componente Sugerido: Texto de solo lectura (calculado)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Fecha de emisión + 10 meses
+      Descripción: '[Solo lectura, calculado] Campo . Confirmado con la dependencia: 10 meses. **Confirmado 2026-08-19** (pendiente cerrado, respuesta breve "mismo mecanismo"): se interpreta como el mismo mecanismo de la emisión inicial (Pantalla 5 → Pantalla 10) — al vencer, se repite el ciclo de inscripción/revisión documental/pago para generar una nueva credencial; ninguna fuente describe un flujo de renovación abreviado distinto. Si esta interpretación no es la correcta, ajustar.'
+  hora_cita:
+    etiqueta: Hora de cita
+    tipo: Time
+    tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Hora de cita
+      Tipo de Dato: Time
+      Componente Sugerido: Cita GPM
+      Obligatorio: No (auto)
+      Límite / Especificaciones: HH:MM
+      Descripción: . Solo lectura.
+  liga_publicacion:
+    etiqueta: Liga de la Publicación
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Liga de la Publicación
+      Tipo de Dato: String
+      Componente Sugerido: Enlace / botón de consulta
+      Obligatorio: 'No'
+      Límite / Especificaciones: URL del portal del PO
+      Descripción: '[Solo lectura] Campo . Liga directa al ejemplar publicado en https://periodico.hidalgo.gob.mx/ para consulta e impresión con plena validez jurídica.'
+  motivo_canalizacion:
+    etiqueta: Motivo de canalización
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Motivo de canalización
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 1000 caracteres
+      Descripción: . Captura.
+  motivo_solicitud:
+    etiqueta: Motivo de solicitud
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Motivo de solicitud
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 1000 caracteres
+      Descripción: . Captura; evitar narraciones duplicadas.
+  nombre_alumno:
+    etiqueta: Nombre(s)
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Nombre(s)
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input) autorellenable
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Solo lectura, autocompletado por RENAPO] Campo .'
+  nombre_contacto_emergencia:
+    etiqueta: 'Contacto de Emergencia: Nombre Completo'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Contacto de Emergencia: Nombre Completo'
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Literal del bloque "En caso de emergencia comunicarse con" del Formato de Inscripción.'
+  nombre_funcionario_firma:
+    etiqueta: Nombre del Funcionario que Firma
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Alta de Avisos de Testamento
+    - COINHI
+    - Dirección General del Archivo General de Notarías
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Nombre del Funcionario que Firma
+      Tipo de Dato: String
+      Componente Sugerido: Texto de solo lectura (auto, dato de sesión)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Dato de sesión, no editable
+      Descripción: '[Solo lectura] Campo . Tomado de la sesión del funcionario autenticado del Área de Avisos de Testamento.'
+  numero_placa:
+    etiqueta: Número de Placa
+    tipo: String
+    tramites: 4
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Número de Placa
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: 7 caracteres alfanuméricos
+      Descripción: '[Captura] Campo . Placa del vehículo para el cual se solicita la constancia; es el dato con el que la Dirección hará la búsqueda de sanciones.'
+  observaciones_documentales:
+    etiqueta: Observaciones
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Observaciones
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 500 caracteres
+      Descripción: '[Captura] Campo . El Sistema la notifica al ciudadano y lo regresa a la Pantalla 4.'
+  pago_en_linea:
+    etiqueta: Pago en Línea
+    tipo: Boolean
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Pago en Línea
+      Tipo de Dato: Boolean
+      Componente Sugerido: Botón de pago (motor de pago GPM)
+      Obligatorio: Condicional
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . El sistema valida el pago automáticamente y avanza el flujo sin intervención humana. Pendiente confirmar que el motor de pago de GPM (AD6) esté habilitado para derechos estatales — ver Pendientes de la Propuesta TO-BE.'
+  parentesco_contacto_emergencia:
+    etiqueta: 'Contacto de Emergencia: Parentesco'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Contacto de Emergencia: Parentesco'
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input) o lista desplegable
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 50 caracteres
+      Descripción: '[Captura] Campo .'
+  peso:
+    etiqueta: Peso
+    tipo: Float
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Peso
+      Tipo de Dato: Float
+      Componente Sugerido: Campo numérico (kg)
+      Obligatorio: Sí
+      Límite / Especificaciones: 10-150 kg
+      Descripción: '[Captura] Campo . Literal del Formato de Inscripción. Posible duplicidad con el Certificado Médico (Fricción 4 del AS-IS, sin resolver — ver Pendientes).'
+  referencia_pago:
+    etiqueta: Referencia de Pago (Línea de Captura)
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Referencia de Pago (Línea de Captura)
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: Alfanumérico
+      Descripción: '[Captura] Campo . El funcionario transcribe la referencia/línea de captura del formato que acaba de subir, para que GPM pueda mostrarla en texto y notificar al Notario (N1) sin que este tenga que abrir el PDF. Reemplaza el campo `[Solo lectura, generado]` que este Diccionario tenía antes del 2026-07-23.'
+  sexo_alumno:
+    etiqueta: Sexo
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Sexo
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto autorellenable (F/M)
+      Obligatorio: Sí
+      Límite / Especificaciones: F / M
+      Descripción: '[Solo lectura, autocompletado por RENAPO] Campo . Literal del Formato de Inscripción ("Sexo F/M").'
+  telefono:
+    etiqueta: Teléfono de Contacto
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Teléfono de Contacto
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 10 dígitos
+      Descripción: '[Captura] Campo . Dato de contacto de la Orden de Trabajo del AS-IS, ahora capturado una sola vez en digital.'
+  telefono_alumno:
+    etiqueta: Teléfono
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Teléfono
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: 'No'
+      Límite / Especificaciones: exactamente 10 dígitos
+      Descripción: '[Captura] Campo .'
+  telefonos_contacto_emergencia:
+    etiqueta: 'Contacto de Emergencia: Teléfonos'
+    tipo: String
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Contacto de Emergencia: Teléfonos'
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 10 dígitos, puede repetirse para 2° número
+      Descripción: '[Captura] Campo .'
+  tipo_documento:
+    etiqueta: Tipo de Documento
+    tipo: Select
+    tramites: 4
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Tipo de Documento
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Acuerdo · Aviso notarial · Bando de policía · Circular · Convenios · Convocatoria · Decreto · Edicto · Fe de erratas · Informes · Ley · Manuales · Reglamento · Presupuesto de egresos · Regla de operación · Otro
+      Descripción: '[Captura] Campo . Catálogo tomado de la Orden de Trabajo del AS-IS — pendiente confirmar el catálogo definitivo con la dependencia (ver sección Pendientes).'
+  tipo_sangre:
+    etiqueta: Tipo de Sangre
+    tipo: Select
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Tipo de Sangre
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: O+ · O- · A+ · A- · B+ · B- · AB+ · AB-
+      Descripción: '[Captura] Campo . Catálogo estándar de tipos sanguíneos — la fuente no lo enumera explícito, se usa el catálogo médico estándar (ver Pendientes si el IHD usa una nomenclatura distinta).'
+  traslado_emergencia:
+    etiqueta: Traslado en Caso de Emergencia
+    tipo: Select
+    tramites: 4
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Traslado en Caso de Emergencia
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable / radio
+      Obligatorio: Sí
+      Límite / Especificaciones: IMSS / ISSSTE / Otro
+      Catálogo de Valores: IMSS · ISSSTE · Otro
+      Descripción: '[Captura] Campo . Checkbox literal del Formato de Inscripción.'
+  vista_observaciones:
+    etiqueta: Vista de solo lectura (Periódico Oficial → Usuario)
+    tipo: Texto
+    tramites: 4
+    dependencias:
+    - COINHI
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Periódico Oficial → Usuario)
+      Componente Sugerido: Campos de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra  capturadas en la Pantalla 2 para que el usuario sepa exactamente qué corregir. Se muestra solo cuando el trámite está en estatus «En corrección».'
+  acepta_manifiesto:
+    etiqueta: Manifiesto de Solicitud
+    tipo: Boolean
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - ICATHI
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Manifiesto de Solicitud
+      Tipo de Dato: Boolean
+      Componente Sugerido: Casilla de aceptación
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Texto tomado de la hoja "Manifiesto de solicitud" del catálogo — responsabiliza al solicitante por la veracidad de lo adjuntado (regla fija 8). El texto real incluye "me comprometo a realizar la cita electrónica para hacer entrega de los documentos originales"'
+  autoriza_firma_fiel:
+    etiqueta: Autoriza y Firma
+    tipo: Boolean
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Autoriza y Firma
+      Tipo de Dato: Boolean
+      Componente Sugerido: Documento Firmado (Firma Electrónica Avanzada)
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Autorizar y firmar se registran como un solo evento (una tarea BPMN, un campo). La FIEL ya existe en el AS-IS para la edición final — aquí queda dentro de GPM.'
+  autoriza_firma_improcedencia:
+    etiqueta: Autoriza y Firma
+    tipo: Boolean
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Autoriza y Firma
+      Tipo de Dato: Boolean
+      Componente Sugerido: Documento Firmado (Firma Electrónica Avanzada)
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . En el AS-IS de Municipios este oficio se firmaba de forma autógrafa — aquí se firma con Digital (cambio real frente al AS-IS).'
+  calle_alumno:
+    etiqueta: Calle
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Calle
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Captura] Campo .'
+  calle_tutor:
+    etiqueta: Calle
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Calle
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Captura] Campo .'
+  categoria_horario:
+    etiqueta: Resumen de Cotización
+    tipo: Texto
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Resumen de Cotización
+      Componente Sugerido: Campos de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Muestra  y  elegidos (Pantalla 3).'
+  celular_tutor:
+    etiqueta: Celular
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Celular
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 10 dígitos
+      Descripción: '[Captura] Campo . Necesario para notificaciones (Sección 3).'
+  codigo_postal_alumno:
+    etiqueta: Código Postal
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Código Postal
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: exactamente 5 dígitos
+      Descripción: '[Captura] Campo .'
+  codigo_postal_tutor:
+    etiqueta: Código Postal
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Código Postal
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 5 dígitos
+      Descripción: '[Captura] Campo .'
+  colonia_alumno:
+    etiqueta: Colonia
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Colonia
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Captura] Campo .'
+  colonia_tutor:
+    etiqueta: Colonia
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Colonia
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Captura] Campo .'
+  curp:
+    etiqueta: CURP
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: CURP
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 18 caracteres, patrón CURP
+      Descripción: '[Captura] Campo  del solicitante o responsable (persona física, incluso cuando la procedencia es institucional). El sistema lo usa para consultar RENAPO y autocompletar nombre/apellidos (regla fija 12). Es el primer campo del formulario.'
+  curp_propietario:
+    etiqueta: CURP del Propietario
+    tipo: String
+    tramites: 3
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: CURP del Propietario
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input, validación de formato CURP)
+      Obligatorio: Condicional
+      Límite / Especificaciones: 18 caracteres alfanuméricos
+      Descripción: '[Captura] Campo . Dispara la consulta a RENAPO que autocompleta "Nombre del Propietario o Persona Moral". Persona moral no tiene CURP — este campo no aplica en esa rama.'
+  dictamen_cgj:
+    etiqueta: ¿Cumple con la Normatividad?
+    tipo: Boolean
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: ¿Cumple con la Normatividad?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Atribución legal de la CGJ, conservada de los 3 AS-IS. Si No, regresa a Edición (Pantalla 7) con observaciones internas.'
+  doc_carnet_digital:
+    etiqueta: Carnet digital
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Carnet digital
+      Tipo de Dato: String
+      Componente Sugerido: PDF con QR
+      Obligatorio: No (auto)
+      Límite / Especificaciones: PDF
+      Descripción: . Generado o recuperado; se integra al expediente.
+  doc_curp:
+    etiqueta: 'Documento: CURP'
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Documento: CURP'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF/imagen
+      Descripción: '[Captura] Campo . Copia del documento oficial de CURP, además del campo de texto ya capturado en la Pantalla 1 () — el Formato de Inscripción exige ambos. Se sube una copia del documento.'
+  doc_editado:
+    etiqueta: 'Documento: Versión Editada al Formato del PO'
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: 'Documento: Versión Editada al Formato del PO'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: N/A · PDF
+      Descripción: '[Captura] Campo . Documento reformateado a planas/márgenes del PO.'
+  doc_formato_pago:
+    etiqueta: 'Documento: Formato de Pago Generado'
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - ICATHI
+    celdas:
+      Nombre del Campo: 'Documento: Formato de Pago Generado'
+      Tipo de Dato: String
+      Componente Sugerido: Cargador de archivo (uploader)
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF · máx. 5 MB
+      Descripción: '[Captura] Campo . El funcionario sube el formato de pago (línea de captura) que generó en su propio sistema de pago, fuera de GPM — GPM no se integra con ese sistema, solo recibe el resultado ya generado.'
+  doc_identificacion:
+    etiqueta: Identificación oficial
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Identificación oficial
+      Tipo de Dato: String
+      Componente Sugerido: Carga de archivo
+      Obligatorio: 'No'
+      Límite / Especificaciones: PDF/JPG; tamaño por definir
+      Descripción: '[Captura] Campo . Vigente; el original se presenta en el cotejo (Pantalla 4).'
+  doc_identificacion_oficial:
+    etiqueta: 'Documento: Identificación Oficial'
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: 'Documento: Identificación Oficial'
+      Tipo de Dato: String
+      Componente Sugerido: Cargador de archivo (uploader)
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF/JPG · máx. 5 MB
+      Descripción: '[Captura] Campo . Corresponde al nodo `U2`. Único requisito documental confirmado por la dependencia (2026-07-28) — se coteja de nuevo presencialmente en la Pantalla 10 si el caso es competencia del CJMH.'
+  doc_oficio_canalizacion:
+    etiqueta: Oficio de canalización
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Oficio de canalización
+      Tipo de Dato: String
+      Componente Sugerido: PDF generado
+      Obligatorio: No (auto)
+      Límite / Especificaciones: PDF
+      Descripción: . Documento generado con destino, motivo, folio y firma.
+  doc_oficio_improcedencia:
+    etiqueta: 'Documento: Oficio de Improcedencia'
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: 'Documento: Oficio de Improcedencia'
+      Tipo de Dato: String
+      Componente Sugerido: Generación automática de documento (plantilla)
+      Obligatorio: Sí
+      Límite / Especificaciones: N/A · PDF
+      Descripción: '[Captura] Campo . Generado a partir de , pendiente de firma.'
+  doc_oficio_solicitud:
+    etiqueta: 'Documento: Oficio de Solicitud de Publicación'
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: 'Documento: Oficio de Solicitud de Publicación'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: N/A · PDF
+      Descripción: '[Captura] Campo . Obligatorio para los 16 tipos de documento. Nota de la fuente: "en caso de Edicto, es el mismo documento" que el PDF a publicar — no se duplica la carga en ese caso.'
+  doc_referencia_pago:
+    etiqueta: 'Documento: Referencia de Pago'
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Documento: Referencia de Pago'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF
+      Descripción: '[Captura] Campo . Generada fuera de GPM (Access, Opción A) o dentro de GPM (Opción B) con  ya calculado, y cargada aquí.'
+  documento_con_observacion:
+    etiqueta: Documento con Observación
+    tipo: Select
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Documento con Observación
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable (multi)
+      Obligatorio: Condicional
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Fotografía · Acta de Nacimiento · CURP · Certificado Médico · Datos del Alumno · Datos del Tutor
+      Descripción: '[Captura] Campo . Indica qué documento/bloque específico debe corregir el ciudadano — evita que reenvíe todo el expediente.'
+  domicilio_alumno_igual_tutor:
+    etiqueta: ¿Domicilio del Alumno Igual al del Padre/Tutor?
+    tipo: Boolean
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: ¿Domicilio del Alumno Igual al del Padre/Tutor?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí/No
+      Descripción: '[Captura] Campo . Confirmado por [[1. REINGENIERIA/wiki/fuentes/2026-08-14 - Escuelas de Fútbol y Complejo Revolución - Catálogo de Valores (XLSX)]] (hoja "Condiciones", bloque "Domicilio (Datos del padre o tutor)"). Sí → reutiliza ... (Pantalla 2), sin volver a capturarlos; No → muestra los campos de domicilio propios del alumno debajo. **La fuente reubica esta pregunta en el bloque del tutor; aquí se coloca en la Pantalla 3 (alumno) porque el domicilio del tutor ya se capturó antes (Pantalla 2) — mismo objetivo de evitar captura duplicada (regla fija 7), adaptado al orden de pantallas ya existente. Confirmado 2026-08-19 (pendiente cerrado): la lógica implementada (Sí = domicilios iguales → oculta los campos del alumno) es correcta.**'
+  edad_en_rango:
+    etiqueta: ¿Edad dentro del rango 4-17 años?
+    tipo: Boolean
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: ¿Edad dentro del rango 4-17 años?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No (referencia)
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Verificación de  (Pantalla 1) contra el acta de nacimiento cargada — confirmado con la dependencia que no hay compuerta de rechazo automático por edad, la Oficina la confirma aquí dentro de la revisión que ya existe (regla fija 7).'
+  email_tutor:
+    etiqueta: E-mail
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: E-mail
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres, formato de correo
+      Descripción: '[Captura] Campo . Necesario para notificaciones (Sección 3).'
+  es_competencia_cjmh:
+    etiqueta: Es competencia del CJMH
+    tipo: Boolean
+    tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Es competencia del CJMH
+      Tipo de Dato: Boolean
+      Componente Sugerido: Radio Sí/No
+      Obligatorio: Condicional
+      Límite / Especificaciones: Sí / No
+      Catálogo de Valores: Sí · No
+      Descripción: . Captura posterior a entrevista; No abre canalización.
+  es_persona_moral:
+    etiqueta: ¿Es Persona Moral?
+    tipo: Boolean
+    tramites: 3
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: ¿Es Persona Moral?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Determina si se solicita el poder notarial (documentado en el AS-IS) y si se captura CURP para autocompletar el nombre vía RENAPO (regla fija 12) — persona moral no tiene CURP, así que este campo también gobierna el comportamiento del campo "Nombre del Propietario o Persona Moral", más abajo.'
+  estado_alumno:
+    etiqueta: Estado
+    tipo: Select
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Estado
+      Tipo de Dato: Select
+      Componente Sugerido: Campo de texto (input) o lista desplegable de Estados de México
+      Obligatorio: Condicional
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Aguascalientes · Baja California · Baja California Sur · Campeche · Chiapas · Chihuahua · Ciudad de México · Coahuila · Colima · Durango · Guanajuato · Guerrero · Hidalgo · Jalisco · México · Michoacán · Morelos · Nayarit · Nuevo León · Oaxaca · Puebla · Querétaro · Quintana Roo · San Luis Potosí · Sinaloa · Sonora · Tabasco · Tamaulipas · Tlaxcala · Veracruz · Yucatán · Zacatecas
+      Descripción: '[Captura] Campo . **Corregido 2026-08-19:** mismo criterio que  (Pantalla 2) — ya no es fijo, editable con Hidalgo preseleccionado. Hidalgo aparece preseleccionado.'
+  estado_civil_tutor:
+    etiqueta: Estado Civil
+    tipo: Select
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Estado Civil
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Soltero(a) · Unión Libre · Casado(a) · Separado(a) · Viudo(a) · Divorciado(a) · Otro
+      Descripción: '[Captura] Campo . Catálogo literal del Formato de Inscripción.'
+  estado_tutor:
+    etiqueta: Estado
+    tipo: Select
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Estado
+      Tipo de Dato: Select
+      Componente Sugerido: Campo de texto (input) o lista desplegable de Estados de México
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Aguascalientes · Baja California · Baja California Sur · Campeche · Chiapas · Chihuahua · Ciudad de México · Coahuila · Colima · Durango · Guanajuato · Guerrero · Hidalgo · Jalisco · México · Michoacán · Morelos · Nayarit · Nuevo León · Oaxaca · Puebla · Querétaro · Quintana Roo · San Luis Potosí · Sinaloa · Sonora · Tabasco · Tamaulipas · Tlaxcala · Veracruz · Yucatán · Zacatecas
+      Descripción: '[Captura] Campo . el IHD sí acepta tutores con domicilio fuera de Hidalgo — deja de ser un campo fijo de solo lectura; Hidalgo queda preseleccionado por ser el caso más común, pero es editable. Hidalgo aparece preseleccionado.'
+  fecha_publicacion:
+    etiqueta: Fecha de Publicación
+    tipo: Date
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Fecha de Publicación
+      Tipo de Dato: Date
+      Componente Sugerido: Texto de solo lectura (auto)
+      Obligatorio: 'No'
+      Límite / Especificaciones: DD/MM/AAAA
+      Descripción: '[Solo lectura] Campo . Capturada por el sistema al difundirse la edición — cierra el folio (dato que el AS-IS capturaba a mano en Google Drive).'
+  folio_referencia:
+    etiqueta: Folio de Referencia
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Folio de Referencia
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: Formato interno de Access o de GPM según opción
+      Descripción: '[Captura] Campo .'
+  institucion_canalizacion:
+    etiqueta: Institución de destino
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Institución de destino
+      Tipo de Dato: String
+      Componente Sugerido: Texto
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 200 caracteres
+      Descripción: . Captura libre según el caso.
+  modalidad_entrevista:
+    etiqueta: Modalidad de entrevista
+    tipo: Select
+    tramites: 3
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Modalidad de entrevista
+      Tipo de Dato: Select
+      Componente Sugerido: Radio
+      Obligatorio: Sí
+      Límite / Especificaciones: Un valor
+      Catálogo de Valores: Presencial · Llamada
+      Descripción: . Captura. El PDF dice llamada, no videollamada.
+  monto_uma:
+    etiqueta: Monto a Pagar
+    tipo: Float
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Monto a Pagar
+      Tipo de Dato: Float
+      Componente Sugerido: Campo de solo lectura (calculado)
+      Obligatorio: 'No'
+      Límite / Especificaciones: × valor UMA vigente
+      Descripción: '[Solo lectura, calculado] Campo . El AS-IS capturaba este cálculo a mano en Access; aquí lo calcula el Sistema a partir del valor UMA vigente. **Confirmado 2026-08-19** (pendiente cerrado): no es necesario fijar ni documentar un valor de UMA en pesos como ejemplo — el cálculo siempre usa el valor vigente al momento del pago. Monto en pesos mexicanos (MXN).'
+  motivo_improcedencia:
+    etiqueta: Motivo de Improcedencia
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Motivo de Improcedencia
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 500 caracteres
+      Descripción: '[Captura] Campo . Se traslada literalmente al Oficio de Improcedencia (Pantalla 4).'
+  municipio_alumno:
+    etiqueta: Municipio
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Municipio
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input) autorellenable
+      Obligatorio: Condicional
+      Límite / Especificaciones: 84 municipios
+      Descripción: '[Solo lectura, autocompletado por Código Postal] Campo .'
+  municipio_tutor:
+    etiqueta: Municipio
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Municipio
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input) autorellenable
+      Obligatorio: Sí
+      Límite / Especificaciones: 84 municipios
+      Descripción: '[Solo lectura, autocompletado por Código Postal] Campo .'
+  nombre_firmante:
+    etiqueta: Nombre del Firmante
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Nombre del Firmante
+      Tipo de Dato: String
+      Componente Sugerido: Texto de solo lectura (auto, dato de sesión)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Dato de sesión, no editable
+      Descripción: '[Solo lectura] Campo . Tomado de la sesión del funcionario autenticado.'
+  nombre_propietario:
+    etiqueta: Nombre del Propietario o Persona Moral
+    tipo: String
+    tramites: 3
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Nombre del Propietario o Persona Moral
+      Tipo de Dato: String
+      Componente Sugerido: 'Persona física: texto de solo lectura (auto, vía RENAPO). Persona moral: campo de texto (input)'
+      Obligatorio: Sí
+      Límite / Especificaciones: 100 caracteres
+      Descripción: 'Campo . **Persona física** ( = No): [Solo lectura, autocompletado por RENAPO] a partir de  — el ciudadano ya no lo teclea; corrección manual únicamente vía  si RENAPO no responde o el dato no corresponde. **Persona moral** ( = Sí): [Captura] razón social, sin cambio frente al diseño anterior — no existe CURP para una persona moral, así que esta rama conserva la captura manual tal como la documenta el formato de solicitud del AS-IS. Campo único (no separado en nombre/apellidos): así lo captura el formato de solicitud fuente del AS-IS.'
+  nombre_tutor:
+    etiqueta: Nombre del Padre o Tutor
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Nombre del Padre o Tutor
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Etiqueta literal del Formato de Inscripción ("Nombre del Padre o Tutor") — no se separa en Nombre/Apellidos porque así lo captura el formato original como un solo campo de responsable.'
+  num_ext_alumno:
+    etiqueta: Número Exterior
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Número Exterior
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 10 caracteres
+      Descripción: '[Captura] Campo .'
+  num_ext_tutor:
+    etiqueta: Número Exterior
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Número Exterior
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 10 caracteres
+      Descripción: '[Captura] Campo .'
+  num_int_alumno:
+    etiqueta: Número Interior
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Número Interior
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: 'No'
+      Límite / Especificaciones: máx. 10 caracteres
+      Descripción: '[Captura] Campo .'
+  num_int_tutor:
+    etiqueta: Número Interior
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Número Interior
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: 'No'
+      Límite / Especificaciones: máx. 10 caracteres
+      Descripción: '[Captura] Campo .'
+  numero_veces:
+    etiqueta: Número de Veces a Publicar
+    tipo: Select
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Número de Veces a Publicar
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable
+      Obligatorio: Condicional
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: 1 (4 UMA) · 2 (8 UMA) · 3 (12 UMA)
+      Descripción: '[Captura] Campo . Determina la tarifa según el art. 27 fracción I de la Ley Estatal de Derechos. El monto exacto lo registra el Periódico Oficial en la cotización.'
+  rfc:
+    etiqueta: RFC
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: RFC
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: 12-13 caracteres, patrón RFC
+      Descripción: '[Captura] Campo . Mismo campo conceptual que Avisos Judiciales — aquí condicionado explícitamente a la procedencia Público en general.'
+  rfc_municipio:
+    etiqueta: RFC del Municipio
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: RFC del Municipio
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: exactamente 12 caracteres (persona moral)
+      Descripción: '[Captura] Campo .'
+  telefono_tutor:
+    etiqueta: Teléfono
+    tipo: String
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Teléfono
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: 'No'
+      Límite / Especificaciones: exactamente 10 dígitos
+      Descripción: '[Captura] Campo .'
+  vista_comprobante:
+    etiqueta: Vista de solo lectura (Notario → Funcionario)
+    tipo: Texto
+    tramites: 3
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Notario → Funcionario)
+      Componente Sugerido: Visor de archivo
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra el @@comprobante_pago subido en la Pantalla 6. Se muestra al abrir la tarea.'
+  vista_comprobante_pago:
+    etiqueta: Vista de solo lectura (Ciudadano → Oficina)
+    tipo: Texto
+    tramites: 3
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Ciudadano → Oficina)
+      Componente Sugerido: Campos de solo lectura + visor de archivos
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra  y  para la verificación.'
+  vista_observaciones_doc:
+    etiqueta: Vista de observaciones (Oficina → Ciudadano)
+    tipo: Texto
+    tramites: 3
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Vista de observaciones (Oficina → Ciudadano)
+      Componente Sugerido: Campos de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Se muestra solo cuando el estatus del trámite es «En corrección». Muestra  capturadas por la Oficina (Pantalla 5) al reabrir esta misma pantalla — mismo folio, sin visita presencial (regla fija 7).'
+  vista_oficio:
+    etiqueta: Vista de solo lectura (Sistema → Área)
+    tipo: Texto
+    tramites: 3
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    - Instituto Hidalguense de las Mujeres
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Sistema → Área)
+      Componente Sugerido: Visor de documento generado
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra el oficio de contestación que el Sistema generó automáticamente, para revisión visual antes de firmar. Se muestra al abrir la tarea.'
+  archivo_csv_renat:
+    etiqueta: Archivo CSV para RENAT
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Archivo CSV para RENAT
+      Tipo de Dato: String
+      Componente Sugerido: Documento generado por plantilla (descarga automática)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Codificación sin acentos/Ñ/puntos; fechas AAAA-MM-DD; 33 columnas
+      Descripción: '[Solo lectura, generado] Campo . GPM transforma automáticamente los campos ya capturados de testador/instrumento/notario (Pantalla 1) al formato exacto que la plantilla "Excel Avisos" del Manual exige. **Actualizado 2026-08-07** (confirmado por el usuario, a partir de la plantilla "EXCEL AVISOS" del Manual): la plantilla real tiene 33 columnas, no 5 — ver el desglose completo columna por columna justo debajo de esta tabla. Disponible tras el registro del aviso; ambas rutas de pago convergen aquí.'
+  asistio_entrevista:
+    etiqueta: Asistió a entrevista
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Asistió a entrevista
+      Tipo de Dato: Boolean
+      Componente Sugerido: Radio Sí/No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Catálogo de Valores: Sí · No
+      Descripción: . Captura; No concluye como no atendida.
+  autoriza_firma:
+    etiqueta: Autoriza y Firma
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Autoriza y Firma
+      Tipo de Dato: Boolean
+      Componente Sugerido: Documento Firmado (Firma Electrónica Avanzada)
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Sustituye sello y firma físicos por Firma Electrónica Avanzada — a cargo del Área de Avisos de Testamento. Ya no hay cotejo ni ciclo de observaciones previo a este paso (Dirección General y su revisión se eliminaron del flujo, 2026-07-20, confirmado con el usuario) — la única revisión de la solicitud ya ocurrió en la Pantalla 2, antes del pago. Firma Electrónica Avanzada.'
+  autoriza_firma_digital_sello:
+    etiqueta: Autoriza, Firma Digitalmente y Sella
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - COINHI
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Autoriza, Firma Digitalmente y Sella
+      Tipo de Dato: Boolean
+      Componente Sugerido: Documento firmado (firma digital + sello del Director — no Firma Electrónica Avanzada)
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Corresponde al nodo `C9`. Firma digital simple o sello — regla fija 15 actualizada 2026-08-07. Autorizar, firmar y sellar se registran como un solo evento.'
+  autoriza_firma_fea:
+    etiqueta: Autoriza y Firma
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Autoriza y Firma
+      Tipo de Dato: Boolean
+      Componente Sugerido: Documento Firmado (Firma Electrónica Avanzada)
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Una tarea BPMN, un campo: fusiona "autorizar" y "firmar" en un solo campo. Al confirmarlo, el Sistema publica en el portal, captura la fecha de publicación y notifica al usuario con la liga de consulta (N6, Pantalla 5). La firma es Firma Electrónica Avanzada (FEA).'
+  campo_corregido:
+    etiqueta: Campo corregido
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Campo corregido
+      Tipo de Dato: String
+      Componente Sugerido: Campo editable resaltado
+      Obligatorio: Condicional
+      Límite / Especificaciones: Según campo
+      Descripción: . Captura; corrige únicamente el dato observado en el mismo folio.
+  cargo_funcionario_firma:
+    etiqueta: Cargo del Funcionario Firmante
+    tipo: String
+    tramites: 2
+    dependencias:
+    - COINHI
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Cargo del Funcionario Firmante
+      Tipo de Dato: String
+      Componente Sugerido: Texto de solo lectura (auto, dato de sesión)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Dato de sesión, no editable
+      Descripción: '[Solo lectura] Campo . Tomado del perfil del funcionario.'
+  cita_presencial:
+    etiqueta: Cita Presencial para Entrega del Original
+    tipo: N/A (objeto fecha/hora)
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Cita Presencial para Entrega del Original
+      Tipo de Dato: N/A (objeto fecha/hora)
+      Componente Sugerido: Cita (calendario de agendamiento)
+      Obligatorio: Sí
+      Límite / Especificaciones: Según días/horario de atención configurados; bloquea fechas/horas ya ocupadas
+      Descripción: '[Captura] Campo . Cumple el art. 15 de la Ley del POEH para las 3 modalidades. Las citas inician a las 9:20 am hasta las 16:40pm y se dan las citas cada 20 minutos'
+  comprobante_valido:
+    etiqueta: Comprobante Válido
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Instituto Hidalguense del Deporte
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Comprobante Válido
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Validación manual — no hay conciliación bancaria automática. Al validarse, el sistema confirma el servicio en el Expediente Digital (Pantalla 9).'
+  correo_electronico:
+    etiqueta: Correo Electrónico
+    tipo: String
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Correo Electrónico
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input, validación de formato correo)
+      Obligatorio: Sí
+      Límite / Especificaciones: 100 caracteres · usuario@dominio.com
+      Descripción: '[Captura] Campo . Correo del solicitante, usado para notificaciones.'
+  dependencia:
+    etiqueta: Dependencia
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Dependencia
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable
+      Obligatorio: Condicional
+      Límite / Especificaciones: 26 valores
+      Catálogo de Valores: Secretaría de Gobierno · Secretaría del Despacho de la Persona Titular del Poder Ejecutivo · Secretaría de Hacienda · Secretaría de Bienestar e Inclusión Social · Secretaría de Infraestructura Pública y Desarrollo Urbano Sostenible · Secretaría de Desarrollo Económico · Secretaría de Medio Ambiente y Recursos Naturales · Secretaría de Agricultura y Desarrollo Rural · Secretaría de Turismo · Secretaría de Contraloría · Secretaría de Educación Pública · Secretaría de Salud · Secretaría de Seguridad Pública · Secretaría del Trabajo y Previsión Social · Secretaría de Movilidad y Transporte · Secretaría de Cultura · Unidad de Planeación y Prospectiva · Oficialía Mayor · Centro de Justicia para Mujeres del Estado de Hidalgo · Ciudad de las Mujeres · Comisión de Agua y Alcantarillado de Sistemas Intermunicipales · DIF Estatal · Procuraduría General De Justicia · Tribunal Superior de Justicia · Congreso del Estado de Hidalgo · OTRO, ESPECIFIQUE
+      Descripción: '[Captura] Campo .'
+  dependencia_procedencia:
+    etiqueta: Dependencia de Procedencia
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Dependencia de Procedencia
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable (búsqueda)
+      Obligatorio: Condicional
+      Límite / Especificaciones: 119 valores
+      Catálogo de Valores: Despacho Secretaría de Gobierno · Despacho Secretaría del Despacho de la Persona Titular del Poder Ejecutivo · Despacho Secretaría de Hacienda · Despacho Secretaría de Bienestar e Inclusión Social · Despacho Secretaría de Infraestructura Pública y Desarrollo Urbano Sostenible · Despacho Secretaría de Desarrollo Económico · Despacho Secretaría de Medio Ambiente y Recursos Naturales · Despacho Secretaría de Agricultura y Desarrollo Rural · Despacho Secretaría de Turismo · Despacho Secretaría de Contraloría · Despacho Secretaría de Educación Pública · Despacho Secretaría de Salud · Despacho Secretaría de Seguridad Pública · Despacho Secretaría del Trabajo y Previsión Social · Despacho Secretaría de Movilidad y Transporte · Despacho Secretaría de Cultura · Despacho Unidad de Planeación y Prospectiva · Despacho Oficialía Mayor · Despacho Procuraduría General de Justicia · Despacho Tribunal Superior de Justicia · Despacho Congreso del Estado de Hidalgo · Centro de Justicia
+        para Mujeres del Estado de Hidalgo · CISE · Ciudad de las Mujeres · Comisión de Búsqueda de Personas del Estado de Hidalgo · Consejo Estatal de Población · Coordinación General Jurídica · Dirección General del Mando Coordinado · Instituto de la Defensoría Pública del Estado de Hidalgo · Instituto de la Función Registral · Instituto Hidalguense para el Desarrollo Municipal · Secretaría Ejecutiva del Sistema Estatal de Protección Integral de los Derechos de Niñas, Niños y Adolescentes del Estado de Hidalgo · Secretariado Ejecutivo del Consejo Estatal de Seguridad Pública · Subsecretaría de Gobernación · Instituto de Financiamiento para el Estado de Hidalgo · Instituto Catastral del Estado de Hidalgo · Instituto Hidalguense de la Juventud · Comisión Estatal de Vivienda · Comisión Estatal de Agua y Alcantarillado · Comisión de Agua y Alcantarillado de Sistemas Intermunicipales · Comisión de Agua y Alcantarillado del Sistema Valle del Mezquital · Instituto de Vivienda, Desarrollo Urbano
+        y Asentamientos Humanos · Instituto Hidalguense de la Infraestructura Física Educativa · Centro Estatal de Maquinaria para el Desarrollo · Corporación Internacional Hidalgo · Instituto Hidalguense de Competitividad Empresarial · Corporación de Fomento de Infraestructura Industrial · Agencia de Desarrollo Valle de Plata · Comisión Estatal de Fomento y Ahorro de Energía · Consejo Estatal de Ecología · Procuraduría Estatal de Protección al Ambiente · Consejo de Administración del Parque Nacional el Chico · Consejo Hidalguense del Café · Operadora de Eventos del Estado de Hidalgo · Administradora del Teatro de la Ciudad San Francisco y Parque David Ben Gurión · Dirección de Asuntos Jurídicos · Órgano Interno de Control · Dirección General de Auditoria Gubernamental · Dirección General de Órganos de Control y Vigilancia · Dirección General de Inspección y Vigilancia de Obras y Acciones · Dirección General de Responsabilidades y Situación Patrimonial · Dirección General de Padrones y Procedimientos
+        de Contratación · Dirección General de Vinculación y Contraloría Social · Dirección General de Políticas de Transparencia · Dirección General de Administración · Instituto Hidalguense de Educación · Instituto Hidalguense de Educación para Adultos · Universidad Politécnica de Tulancingo · Universidad Politécnica de Pachuca · Universidad Politécnica de Francisco I. Madero · Universidad Politécnica de Huejutla · Universidad Politécnica Metropolitana de Hidalgo · Universidad Tecnológica de Tula-Tepeji · Universidad Tecnológica Tulancingo · Universidad Tecnológica de la Huasteca Hidalguense · Universidad Tecnológica del Valle del Mezquital · Universidad Tecnológica de la Sierra Hidalguense · Universidad Tecnológica de la Zona Metropolitana del Valle de México · Instituto Tecnológico Superior de Huichapan · Instituto Tecnológico Superior del Occidente del Estado de Hidalgo · Instituto Tecnológico Superior del Oriente del Estado de Hidalgo · Universidad Intercultural del Estado de Hidalgo
+        · Colegio de Bachilleres del Estado de Hidalgo · Bachillerato del Estado de Hidalgo · Colegio de Estudios Científicos y Tecnológicos del Estado de Hidalgo · Colegio de Educación Profesional Técnica del Estado de Hidalgo · Colegio del Estado de Hidalgo · Instituto Hidalguense de Financiamiento a la Educación Superior · Instituto Hidalguense del Deporte · Universidad Tecnológica Minera de Zimapán · Universidad Politécnica de la Energía · Universidad Tecnológica de Mineral de la Reforma · Radio y Televisión de Hidalgo · Centro Estatal de Lenguas y Culturas Indígenas · Servicios de Salud de Hidalgo · Régimen Estatal de Protección Social en Salud del Estado de Hidalgo · Policía Industrial Bancaria del Estado de Hidalgo · Centro Estatal de Prevención Social de la Violencia, la Delincuencia y Participación Ciudadana de Hidalgo · Instituto de Capacitación para el Trabajo del Estado de Hidalgo · Procuraduría Estatal de la Defensa Del Trabajo · Sistema de Transporte Convencional de Hidalgo
+        · Sistema Integrado de Transporte Masivo de Hidalgo · Escuela de Música del Estado de Hidalgo · Consejo Estatal para la Cultura y las Artes de Hidalgo · Dirección General de Vinculación Ciudadana y Concertación · Coordinación General de Normatividad · Coordinación General de Planeación para el Desarrollo Regional y Metropolitana · Coordinación General de Evaluación Estratégica · Dirección General de Compras Públicas · Dirección General de Recursos Materiales y Servicios · Dirección General de Desarrollo de Personal y Profesionalización · Dirección General de Patrimonio Inmobiliario · Archivo General del Estado · Sistema de Autopistas, Servicios Conexos y Auxiliares del Estado de Hidalgo · Procuraduría Fiscal · Instituto para la Atención de las y los Adultos Mayores del Estado de Hidalgo · Comisión Estatal para el Desarrollo Sostenible de los Pueblos Indígenas · Tribunal Electoral del Estado de Hidalgo · OTRO, ESPECIFIQUE
+      Descripción: '[Captura] Campo . Nivel más granular que  — ambos catálogos vienen ya separados en la fuente, no se colapsan en un único campo porque representan 2 niveles jerárquicos distintos.'
+  direccion:
+    etiqueta: Dirección Completa
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Dirección Completa
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 200 caracteres
+      Descripción: '[Captura] Campo . Aplica a las 3 procedencias.'
+  disposiciones_irrevocables:
+    etiqueta: Disposiciones de Contenido Irrevocable
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Disposiciones de Contenido Irrevocable
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: 'No'
+      Límite / Especificaciones: Sí-No
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento. Valor predeterminado: No.'
+  doc_acta_constitutiva:
+    etiqueta: 'Documento: Acta Constitutiva'
+    tipo: String
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: 'Documento: Acta Constitutiva'
+      Tipo de Dato: String
+      Componente Sugerido: Cargador de archivo (uploader)
+      Obligatorio: Condicional
+      Límite / Especificaciones: PDF · máx. 5 MB
+      Descripción: '[Captura] Campo . **Agregado 2026-08-19** (observación de SEMARNAT sobre el Diccionario de Datos): requisito faltante para persona moral, junto al Poder Notarial.'
+  doc_comprobante_domicilio:
+    etiqueta: 'Documento: Comprobante de Domicilio'
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Documento: Comprobante de Domicilio'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Sí
+      Límite / Especificaciones: PDF/imagen
+      Descripción: '[Captura] Campo . Requisito propio de este trámite, no presente en el formato de Escuelas de Fútbol. Ninguna fuente confirma si debe ser de Hidalgo (ver Pendientes).'
+  doc_lista_asistencia:
+    etiqueta: 'Documento: Lista de Asistencia'
+    tipo: String
+    tramites: 2
+    dependencias:
+    - La Ciudad de las Mujeres
+    - Oficialía Mayor
+    celdas:
+      Nombre del Campo: 'Documento: Lista de Asistencia'
+      Tipo de Dato: String
+      Componente Sugerido: Cargador de archivo (uploader)
+      Obligatorio: Condicional
+      Límite / Especificaciones: PDF/JPG · máx. 5 MB
+      Descripción: '[Captura] Campo . Corresponde a "Lista de asistencias y fotografías" del diagrama Bizagi — sube directo al Expediente Digital, sustituye la Base de Datos paralela de la Recepcionista del SAMAMJ.'
+  doc_pdf_corregido:
+    etiqueta: 'Documento: PDF con Firmas Autógrafas Corregido'
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: 'Documento: PDF con Firmas Autógrafas Corregido'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo (reemplaza el anterior)
+      Obligatorio: Sí
+      Límite / Especificaciones: N/A · PDF
+      Descripción: '[Captura] Campo . Mismo dato que  de la Pantalla 1 (no se duplica — reingeniería de datos): el usuario reemplaza el archivo observado en el mismo folio, sin empezar de cero.'
+  doc_poder_notarial:
+    etiqueta: 'Documento: Poder Notarial'
+    tipo: String
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: 'Documento: Poder Notarial'
+      Tipo de Dato: String
+      Componente Sugerido: Cargador de archivo (uploader)
+      Obligatorio: Condicional
+      Límite / Especificaciones: PDF · máx. 5 MB
+      Descripción: '[Captura] Campo . Requisito documentado en el AS-IS para persona moral.'
+  doc_validacion_contraloria:
+    etiqueta: 'Documento: Validación de Contraloría'
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: 'Documento: Validación de Contraloría'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo
+      Obligatorio: Condicional
+      Límite / Especificaciones: N/A · PDF, máx. 1 MB
+      Descripción: '[Captura] Campo . Único documento condicionado por tipo, no por procedencia.'
+  doc_word_corregido:
+    etiqueta: 'Documento: Word Editable Corregido'
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: 'Documento: Word Editable Corregido'
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo (reemplaza el anterior)
+      Obligatorio: Sí
+      Límite / Especificaciones: N/A · DOC/DOCX
+      Descripción: '[Captura] Campo . Mismo dato que  de la Pantalla 1, reemplazado en el mismo folio.'
+  documentacion_conforme:
+    etiqueta: ¿Documentación Conforme?
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - ICATHI
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: ¿Documentación Conforme?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Sí → Sistema calcula el monto (Pantalla 3); No → captura Observaciones.'
+  documentos_corregidos:
+    etiqueta: Documentos corregidos
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Documentos corregidos
+      Tipo de Dato: String
+      Componente Sugerido: Adjuntar archivo (reemplaza el anterior)
+      Obligatorio: Sí
+      Límite / Especificaciones: Según el documento observado
+      Descripción: '[Captura] Campo . Mismos campos de la Pantalla 1 (, , o el documento condicional observado) — no se duplican, se reemplazan en el mismo folio.'
+  entrego_original_cita:
+    etiqueta: ¿Entregó el Documento Original en la Cita?
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: ¿Entregó el Documento Original en la Cita?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Confirma la entrega física del original; insumo del cotejo contra  de la Pantalla 1.'
+  es_competencia:
+    etiqueta: ¿Es Competencia del PO?
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: ¿Es Competencia del PO?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Gobierna la ruta: No → Oficio de Improcedencia (Pantalla 4), sin que el usuario tenga que presentarse a la cita; Sí → el usuario acude a la cita y continúa a la Revisión Integral (Pantalla 5).'
+  estatus_folio:
+    etiqueta: Estatus del folio
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Estatus del folio
+      Tipo de Dato: Select
+      Componente Sugerido: Etiqueta de estado
+      Obligatorio: No (auto)
+      Límite / Especificaciones: Un valor
+      Catálogo de Valores: Recibida · En valoración · Cita agendada · No atendida · Canalizada · En atención · En seguimiento · Concluida
+      Descripción: . Solo lectura; consultable por folio.
+  expediente_iniciado:
+    etiqueta: Expediente iniciado
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Expediente iniciado
+      Tipo de Dato: Boolean
+      Componente Sugerido: Consulta / radio
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: . Captura o consulta. Determina recuperación de expediente previo.
+  fecha_cierre:
+    etiqueta: Fecha de cierre
+    tipo: Date
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Fecha de cierre
+      Tipo de Dato: Date
+      Componente Sugerido: Fecha automática
+      Obligatorio: Condicional
+      Límite / Especificaciones: DD/MM/AAAA
+      Descripción: . Solo lectura; cierre final según diagrama.
+  firma_canalizacion:
+    etiqueta: Firma del oficio
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Firma del oficio
+      Tipo de Dato: String
+      Componente Sugerido: Firma digital simple / sello
+      Obligatorio: Sí
+      Límite / Especificaciones: Identidad de funcionario
+      Descripción: . Captura institucional; genera oficio.
+  folio_renat:
+    etiqueta: Número de Folio RENAT
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Número de Folio RENAT
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 20 caracteres
+      Descripción: '[Captura] Campo . Folio o acuse que RENAT asigna al aviso, transcrito por el funcionario tras validar la importación.'
+  fuera_plazo_legal:
+    etiqueta: ¿Fuera del Plazo Legal?
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: ¿Fuera del Plazo Legal?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . El funcionario confirma o corrige @@fuera_plazo_legal_sugerido antes de que el Sistema calcule @@monto_pago — aplica el principio de que GPM valida completitud/formato, nunca veracidad del contenido (mismo criterio que el resto del expediente). Determina si @@monto_pago (Pantalla 3) incluye la multa de 30 UMA (Art. 107). Mecanismo con el que el funcionario verifica la fecha real de otorgamiento, más allá de releer el mismo dato autodeclarado por el Notario, queda pendiente de confirmar — ver sección Pendientes.'
+  fuera_plazo_legal_sugerido:
+    etiqueta: Fuera del Plazo Legal Sugerido
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Fuera del Plazo Legal Sugerido
+      Tipo de Dato: Boolean
+      Componente Sugerido: Texto de solo lectura (auto-generado)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Solo lectura, generado] Campo . Cálculo automático inicial que hace el Sistema comparando @@instrumento_fecha_otorgamiento (Pantalla 1) contra la fecha de captura — más de 5 días hábiles = Sí (Art. 107, Ley del Notariado para el Estado de Hidalgo). Se muestra como referencia; no se usa directo para calcular @@monto_pago, el funcionario debe confirmarlo o corregirlo en el campo siguiente.'
+  importacion_validada:
+    etiqueta: ¿Importación validada en RENAT?
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: ¿Importación validada en RENAT?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Resultado que el funcionario registra en GPM tras subir el archivo y validar el alta FUERA de GPM — GPM no puede integrarse directamente con RENAT. Nota importante: a futuro puede buscarse una conexión vía API con SEGOB.'
+  instrumento_fecha_otorgamiento:
+    etiqueta: Fecha de la Escritura (Otorgamiento)
+    tipo: Date
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Fecha de la Escritura (Otorgamiento)
+      Tipo de Dato: Date
+      Componente Sugerido: Selector de fecha (calendario)
+      Obligatorio: Sí
+      Límite / Especificaciones: Fecha válida, no futura
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento; segunda de las 3 columnas de fecha reformateadas dos veces en el AS-IS. Gobierna el cálculo de la multa por presentación fuera del plazo de 5 días hábiles.'
+  instrumento_lugar_otorgamiento:
+    etiqueta: Lugar de Otorgamiento
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Lugar de Otorgamiento
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  instrumento_num_escritura:
+    etiqueta: Número de Escritura
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Número de Escritura
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input, numérico)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 20 caracteres
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  instrumento_volumen:
+    etiqueta: Volumen, Tomo o Libro
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Volumen, Tomo o Libro
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 30 caracteres
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  madre_nombre:
+    etiqueta: Nombre de la Madre
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Nombre de la Madre
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: 'No'
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento. Incluye nombre(s), apellido paterno y apellido materno.'
+  marca:
+    etiqueta: Marca (editable)
+    tipo: String
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Marca (editable)
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: 50 caracteres
+      Catálogo de Valores: Toyota, Nissan, Honda, Hyundai, Kia, Ford, Chevrolet, Tesla, BYD, JAC, MG, Changan, ARRA, BMW, Audi, Mercedes-Benz, Volvo, Porsche, Alfa Romeo, Mini, Lexus, Otra (editable)
+      Descripción: '[Captura] Campo .'
+  marca_vehiculo:
+    etiqueta: Marca del Vehículo
+    tipo: String
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Marca del Vehículo
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: 40 caracteres
+      Descripción: '[Captura] Campo . **Corregido 2026-08-19** (observación de SEMARNAT sobre el Diccionario de Datos): se separa del campo combinado "Marca y Submarca del Vehículo" para que la Pantalla 2 pueda mostrar marca y submarca de forma independiente.'
+  modelo:
+    etiqueta: Modelo (Año) (editable)
+    tipo: Int
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Modelo (Año) (editable)
+      Tipo de Dato: Int
+      Componente Sugerido: Campo de texto (input, solo numérico)
+      Obligatorio: Sí
+      Límite / Especificaciones: 4 dígitos
+      Catálogo de Valores: 2024, 2025, 2026) y retroactivos (generalmente desde 2016 en adelante), siempre que el modelo específico figure en el listado publicado por la SEDEMA.
+      Descripción: '[Captura] Campo .'
+  monto_inscripcion:
+    etiqueta: Resumen de Cotización
+    tipo: Float
+    tramites: 2
+    dependencias:
+    - ICATHI
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Resumen de Cotización
+      Tipo de Dato: Float
+      Componente Sugerido: Campos de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Muestra , el curso y el plantel elegidos.'
+  monto_pago:
+    etiqueta: Monto a Pagar
+    tipo: Float
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Monto a Pagar
+      Tipo de Dato: Float
+      Componente Sugerido: Texto de solo lectura (auto-generado)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Moneda MXN
+      Descripción: '[Solo lectura, generado] Campo . Se calcula a partir de @@tipo_tramite_pago (Pantalla 1): Ordinario $534.00 o Simplificado $381.00 (Art. 26 Fracción III de la Ley Estatal de Derechos, según el RUTS), más 30 UMA (Unidad de Medida y Actualización vigente) de multa si @@fuera_plazo_legal = Sí — valor ya confirmado por el funcionario en la Pantalla 2, no un autocálculo de esta pantalla. Aplica a ambas modalidades de pago — se muestra antes de elegir cómo pagar. Se calcula y se muestra al abrir la pantalla, en cuanto se completa la Pantalla 1.'
+  motor_pago_en_linea:
+    etiqueta: Motor de pago en línea
+    tipo: Texto
+    tramites: 2
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: Motor de pago en línea
+      Componente Sugerido: Botón de pago (motor de pago GPM)
+      Obligatorio: Condicional
+      Descripción: '[Captura] Campo . Disponible solo cuando la Opción B está implementada. Un solo renglón, sin desglosar campos de tarjeta/CVC — la pasarela de pago externa los captura fuera de GPM (regla fija 6).'
+  municipio:
+    etiqueta: Municipio
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Municipio
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable
+      Obligatorio: Condicional
+      Límite / Especificaciones: 84 valores
+      Catálogo de Valores: Acatlán · Acaxochitlán · Actopan · Agua Blanca de Iturbide · Ajacuba · Alfajayucan · Almoloya · Apan · El Arenal · Atitalaquia · Atlapexco · Atotonilco de Tula · Atotonilco el Grande · Calnali · Cardonal · Cuautepec de Hinojosa · Chapantongo · Chapulhuacán · Chilcuautla · Eloxochitlán · Emiliano Zapata · Epazoyucan · Francisco I. Madero · Huasca de Ocampo · Huautla · Huazalingo · Huehuetla · Huejutla de Reyes · Huichapan · Ixmiquilpan · Jacala de Ledezma · Jaltocán · Juárez Hidalgo · Lolotla · Metepec · San Agustín Metzquititlán · Metztitlán · Mineral del Chico · Mineral del Monte · La Misión · Mixquiahuala de Juárez · Molango de Escamilla · Nicolás Flores · Nopala de Villagrán · Omitlán de Juárez · San Felipe Orizatlán · Pacula · Pachuca de Soto · Pisaflores · Progreso de Obregón · Mineral de la Reforma · San Agustín Tlaxiaca · San Bartolo Tutotepec · San Salvador · Santiago de Anaya · Santiago Tulantepec de Lugo Guerrero · Singuilucan · Tasquillo · Tecozautla
+        · Tenango de Doria · Tepeapulco · Tepehuacán de Guerrero · Tepeji del Río de Ocampo · Tepetitlán · Tetepango · Villa de Tezontepec · Tezontepec de Aldama · Tianguistengo · Tizayuca · Tlahuelilpan · Tlahuiltepa · Tlanalapa · Tlanchinol · Tlaxcoapan · Tolcayuca · Tula de Allende · Tulancingo de Bravo · Xochiatipan · Xochicoatlán · Yahualica · Zacualtipán de Ángeles · Zapotlán de Juárez · Zempoala · Zimapán
+      Descripción: '[Captura] Campo .'
+  narrativa_orientacion:
+    etiqueta: Narrativa de orientación
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Narrativa de orientación
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 2000 caracteres
+      Descripción: . Captura; se carga a la ventanilla y al expediente digital.
+  nombre:
+    etiqueta: Nombre Completo
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Nombre Completo
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input) Autorellenable
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Solo lectura, autocompletado por RENAPO] Campo .'
+  nombre_documento:
+    etiqueta: Nombre del Documento a Publicar
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Nombre del Documento a Publicar
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Identifica el documento en todo el trámite y en la publicación.'
+  nombre_institucion:
+    etiqueta: Nombre de la Institución
+    tipo: String
+    tramites: 2
+    dependencias:
+    - COINHI
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Nombre de la Institución
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Corresponde al nodo `U4`. El texto original del diagrama dice solo "solicitud" — se interpreta como el nombre/razón social de la institución; ver Nota de trazabilidad y Pendientes.'
+  nombre_responsable:
+    etiqueta: Nombre(s) del Responsable, Apellido paterno, Apellido materno
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - La Ciudad de las Mujeres
+    celdas:
+      Nombre del Campo: Nombre(s) del Responsable, Apellido paterno, Apellido materno
+      Tipo de Dato: String
+      Componente Sugerido: Texto de solo lectura (auto, vía RENAPO)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Solo lectura, autocompletado por RENAPO] Campos ,  y . a partir del CURP — corrección manual únicamente vía "¿Corregir datos autocompletados?" si RENAPO no responde o el dato no corresponde.'
+  nota_cotejo:
+    etiqueta: Nota de cotejo
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Nota de cotejo
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto
+      Obligatorio: 'No'
+      Límite / Especificaciones: máx. 500 caracteres
+      Descripción: . Captura; documenta alternativa o motivo de pendiente.
+  notario_municipio:
+    etiqueta: Adscripción o Municipio del Notario
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Adscripción o Municipio del Notario
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable (dropdown, catálogo de municipios de Hidalgo)
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Acatlán · Acaxochitlán · Actopan · Agua Blanca de Iturbide · Ajacuba · Alfajayucan · Almoloya · Apan · El Arenal · Atitalaquia · Atlapexco · Atotonilco de Tula · Atotonilco el Grande · Calnali · Cardonal · Cuautepec de Hinojosa · Chapantongo · Chapulhuacán · Chilcuautla · Eloxochitlán · Emiliano Zapata · Epazoyucan · Francisco I. Madero · Huasca de Ocampo · Huautla · Huazalingo · Huehuetla · Huejutla de Reyes · Huichapan · Ixmiquilpan · Jacala de Ledezma · Jaltocán · Juárez Hidalgo · Lolotla · Metepec · San Agustín Metzquititlán · Metztitlán · Mineral del Chico · Mineral del Monte · La Misión · Mixquiahuala de Juárez · Molango de Escamilla · Nicolás Flores · Nopala de Villagrán · Omitlán de Juárez · San Felipe Orizatlán · Pacula · Pachuca de Soto · Pisaflores · Progreso de Obregón · Mineral de la Reforma · San Agustín Tlaxiaca · San Bartolo Tutotepec · San Salvador · Santiago de Anaya · Santiago Tulantepec de Lugo Guerrero · Singuilucan · Tasquillo · Tecozautla
+        · Tenango de Doria · Tepeapulco · Tepehuacán de Guerrero · Tepeji del Río de Ocampo · Tepetitlán · Tetepango · Villa de Tezontepec · Tezontepec de Aldama · Tianguistengo · Tizayuca · Tlahuelilpan · Tlahuiltepa · Tlanalapa · Tlanchinol · Tlaxcoapan · Tolcayuca · Tula de Allende · Tulancingo de Bravo · Xochiatipan · Xochicoatlán · Yahualica · Zacualtipán de Ángeles · Zapotlán de Juárez · Zempoala · Zimapán
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento; corresponde a la columna "MUNICIPIO Lnu..." (nombre en texto) que el AS-IS reconstruye manualmente en el paso de elaboración de oficios.'
+  notario_nombre:
+    etiqueta: Nombre del Notario
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Nombre del Notario
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Bloque "Datos del Notario" del Formato de Aviso de Testamento.'
+  notario_numero_notaria:
+    etiqueta: Número de Notaría
+    tipo: Int
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Número de Notaría
+      Tipo de Dato: Int
+      Componente Sugerido: Campo numérico (input number)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 3 dígitos
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  notario_tipo:
+    etiqueta: Tipo de Notario
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Tipo de Notario
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable (dropdown)
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Titular · Suplente · Asociado · Provisional · Adjunto · Sustituto · Otro · Adscrito
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  notario_verificado:
+    etiqueta: Notario Verificado en Portal de Transparencia
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Notario Verificado en Portal de Transparencia
+      Tipo de Dato: Boolean
+      Componente Sugerido: Switch / radio Sí-No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Captura] Campo . Resultado que el funcionario del Área de Avisos de Testamento registra en GPM tras consultar manualmente el portal de transparencia (FUERA de GPM) para confirmar que el Notario está registrado y vigente — GPM no puede integrarse directamente con el portal. Confirmado con la dependencia (2026-07-20) como el mecanismo real de verificación de identidad del Notario. Antes la hacía la Dirección General; ahora la hace directamente esta área (Dirección General eliminada del flujo, 2026-07-20).'
+  numero_expediente:
+    etiqueta: Número de expediente
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Número de expediente
+      Tipo de Dato: String
+      Componente Sugerido: Texto solo lectura
+      Obligatorio: No (auto)
+      Límite / Especificaciones: Asignado o recuperado
+      Descripción: . Solo lectura; nuevo si no existía, reutilizado si ya inició.
+  numero_placa_ref:
+    etiqueta: Número de Placa (referencia)
+    tipo: String
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Número de Placa (referencia)
+      Tipo de Dato: String
+      Componente Sugerido: Texto de solo lectura (referencia)
+      Obligatorio: 'No'
+      Límite / Especificaciones: 7 caracteres a
+      Catálogo de Valores: PEA-4521 *(ilustrativo, referencia de Pantalla 1)*
+      Descripción: Ver Pantalla 1
+  padre_nombre:
+    etiqueta: Nombre del Padre
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Nombre del Padre
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: 'No'
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento. Incluye nombre(s), apellido paterno y apellido materno.'
+  pago_linea_confirmado:
+    etiqueta: Pago en Línea Confirmado
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Pago en Línea Confirmado
+      Tipo de Dato: Boolean
+      Componente Sugerido: Texto de solo lectura (auto, respuesta de pasarela)
+      Obligatorio: 'No'
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Solo lectura] Campo . Validado automáticamente por el sistema — sin revisión manual. Pendiente: confirmar si e-SIT ya soporta pago en línea integrable a GPM. Se muestra tras completar el pago.'
+  procedencia:
+    etiqueta: Trámite a Realizar
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Trámite a Realizar
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos.
+      Catálogo de Valores: Dependencia u organismo · Municipio · Público en general
+      Descripción: '[Captura] Campo . vuelve a capturarse después del CURP y de RENAPO — condiciona el resto de esta pantalla y la Pantalla 7.'
+  registro_sigde_confirmado:
+    etiqueta: Registro SIGDE confirmado
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Centro de Justicia para Mujeres del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Registro SIGDE confirmado
+      Tipo de Dato: Boolean
+      Componente Sugerido: Radio Sí/No
+      Obligatorio: Sí
+      Límite / Especificaciones: Sí / No
+      Catálogo de Valores: Sí · No
+      Descripción: . Captura; confirma registro manual paralelo.
+  rfc_dependencia:
+    etiqueta: RFC de la Dependencia
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: RFC de la Dependencia
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: 12-13 caracteres, patrón RFC
+      Descripción: '[Captura] Campo . Nota de la fuente: "para el caso de notarías es el RFC del Notario"'
+  submarca:
+    etiqueta: Submarca (editable)
+    tipo: String
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Submarca (editable)
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: 50 caracteres
+      Catálogo de Valores: \
+      Descripción: '[Captura] Campo .'
+  submarca_vehiculo:
+    etiqueta: Submarca del Vehículo
+    tipo: String
+    tramites: 2
+    dependencias:
+    - SEMARNATH
+    celdas:
+      Nombre del Campo: Submarca del Vehículo
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: 40 caracteres
+      Descripción: '[Captura] Campo . **Corregido 2026-08-19** (observación de SEMARNAT sobre el Diccionario de Datos): se separa del campo combinado "Marca y Submarca del Vehículo" — ver .'
+  testador_curp:
+    etiqueta: CURP
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: CURP
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input, validación de formato CURP)
+      Obligatorio: Sí
+      Límite / Especificaciones: exactamente 18 caracteres alfanuméricos
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  testador_estado_civil:
+    etiqueta: Estado Civil
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Estado Civil
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable (dropdown)
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Soltero · Casado · Divorciado · Viudo · Unión Libre
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  testador_fecha_nacimiento:
+    etiqueta: Fecha de Nacimiento
+    tipo: Date
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Fecha de Nacimiento
+      Tipo de Dato: Date
+      Componente Sugerido: Selector de fecha (calendario)
+      Obligatorio: Sí
+      Límite / Especificaciones: Fecha válida, no futura
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento; una de las 3 columnas de fecha que el AS-IS reformatea manualmente dos veces.'
+  testador_lugar_nacimiento:
+    etiqueta: Lugar de Nacimiento
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Lugar de Nacimiento
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  testador_nacionalidad:
+    etiqueta: Nacionalidad
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Nacionalidad
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 50 caracteres
+      Descripción: '[Captura] Campo . Formato de Aviso de Testamento.'
+  testador_nombre:
+    etiqueta: Nombre Completo del Testador
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Nombre Completo del Testador
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input) Autorellenable
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Del bloque "Datos del Testador" del Formato de Aviso de Testamento. Incluye nombre(s), apellido paterno y apellido materno.'
+  texto_observaciones:
+    etiqueta: Texto de las Observaciones
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Texto de las Observaciones
+      Tipo de Dato: String
+      Componente Sugerido: Área de texto (textarea)
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 300 caracteres
+      Descripción: '[Captura] Campo . Detalle de qué debe corregir el Notario en su solicitud.'
+  tipo_testamento:
+    etiqueta: Tipo de Testamento
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Tipo de Testamento
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable (dropdown)
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Público abierto · Público Cerrado · Público simplificado
+      Descripción: '[Captura] Campo . Bloque "Datos del Instrumento" del Formato de Aviso de Testamento.'
+  tipo_tramite_pago:
+    etiqueta: Tipo de Trámite para Efectos de Cobro
+    tipo: Select
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Tipo de Trámite para Efectos de Cobro
+      Tipo de Dato: Select
+      Componente Sugerido: Lista desplegable (dropdown)
+      Obligatorio: Sí
+      Límite / Especificaciones: Valores definidos
+      Catálogo de Valores: Ordinario · Simplificado
+      Descripción: '[Captura] Campo . Del Costo documentado en el RUTS (Ordinario $534.00 / Simplificado $381.00, Art. 26 Fracción III incisos a y b). El Formato de Aviso de Testamento reproducido en el Manual no incluye este campo — se agrega por inferencia, porque algo debe determinar cuál de los 2 montos aplica, pero ninguna fuente explica el criterio real (tipo de testamento, plazo, u otro factor). Ver Pendientes. Gobierna @@monto_pago en la Pantalla 3. Determina el monto para efectos de cobro.'
+  titulo_documento:
+    etiqueta: Título del Documento
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    - Publicación en el Periódico Oficial
+    celdas:
+      Nombre del Campo: Título del Documento
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Sí
+      Límite / Especificaciones: máx. 150 caracteres
+      Descripción: '[Captura] Campo . Identifica el documento en todo el trámite y en la publicación.'
+  traslado_emerg_especifique:
+    etiqueta: 'Traslado de Emergencia: Especifique'
+    tipo: String
+    tramites: 2
+    dependencias:
+    - Escuelas de Fútbol
+    - Instituto Hidalguense del Deporte
+    celdas:
+      Nombre del Campo: 'Traslado de Emergencia: Especifique'
+      Tipo de Dato: String
+      Componente Sugerido: Campo de texto (input)
+      Obligatorio: Condicional
+      Límite / Especificaciones: máx. 100 caracteres
+      Descripción: '[Captura] Campo . Confirmado por [[1. REINGENIERIA/wiki/fuentes/2026-08-14 - Escuelas de Fútbol y Complejo Revolución - Catálogo de Valores (XLSX)]] (hoja "solicitar translado a": "Otro (Especifique)").'
+  vista_cotizacion:
+    etiqueta: Resumen de Cotización
+    tipo: Texto
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Resumen de Cotización
+      Componente Sugerido: Campos de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra  y, según ,  o .'
+  vista_edicion_publicada:
+    etiqueta: Vista de solo lectura (Periódico Oficial → Dirección/CGJ)
+    tipo: Texto
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Periódico Oficial → Dirección/CGJ)
+      Componente Sugerido: Campos de solo lectura + visor de archivos
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Documento editado ya insertado en la edición del PO, con el expediente completo del folio.'
+  vista_folio_cita:
+    etiqueta: Vista de solo lectura (Sistema → Usuario)
+    tipo: Texto
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Sistema → Usuario)
+      Componente Sugerido: Texto de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra el Número de Folio (Pantalla 1) para que el usuario sepa a qué expediente corresponde la cita.'
+  vista_fuera_plazo:
+    etiqueta: ¿Presentado Fuera del Plazo Legal?
+    tipo: Boolean
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: ¿Presentado Fuera del Plazo Legal?
+      Tipo de Dato: Boolean
+      Componente Sugerido: Texto de solo lectura
+      Obligatorio: 'No'
+      Límite / Especificaciones: Sí / No
+      Descripción: '[Solo lectura] Campo . Valor confirmado por el funcionario del Área de Avisos de Testamento en la Pantalla 2, antes de que el Sistema calculara @@monto_pago — se muestra aquí solo para que el Notario entienda por qué su monto incluye o no la multa de 30 UMA (Art. 107, Ley del Notariado para el Estado de Hidalgo). Ya no se autogenera en esta pantalla. Valor ya confirmado por el funcionario. Se calcula y se muestra al abrir la pantalla, en cuanto se completa la Pantalla 1.'
+  vista_monto:
+    etiqueta: Vista de solo lectura (Sistema → Notario)
+    tipo: Texto
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Sistema → Notario)
+      Componente Sugerido: Texto de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra @@monto_pago (Pantalla 3) para que el Notario lo pague en la pasarela — sin volver a capturarlo.'
+  vista_monto_area:
+    etiqueta: Vista de solo lectura (Sistema → Área)
+    tipo: Texto
+    tramites: 2
+    dependencias:
+    - Alta de Avisos de Testamento
+    - Dirección General del Archivo General de Notarías
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Sistema → Área)
+      Componente Sugerido: Texto de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Muestra @@monto_pago (Pantalla 3) para que el funcionario sepa qué monto generar en su sistema de pago (e-SIT u otro), fuera de GPM.'
+  vista_motivo:
+    etiqueta: Vista de solo lectura (Periódico Oficial → Dirección/CGJ)
+    tipo: Texto
+    tramites: 2
+    dependencias:
+    - Dirección del Periódico Oficial del Estado de Hidalgo
+    celdas:
+      Nombre del Campo: Vista de solo lectura (Periódico Oficial → Dirección/CGJ)
+      Componente Sugerido: Campos de solo lectura
+      Obligatorio: 'No'
+      Descripción: '[Solo lectura] Campo . Se muestra al abrir la tarea. Muestra  capturado en la Pantalla 3.'
