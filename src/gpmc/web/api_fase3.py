@@ -22,7 +22,7 @@ from pydantic import BaseModel
 
 from gpmc.agentes.bitacora import Interaccion, registrar
 from gpmc.agentes.fase3 import (Documento, Generados, extraer_borradores, generar,
-                                modo_pruebas, puede_generar, vista_de)
+                                mejorar, modo_pruebas, puede_generar, vista_de)
 from gpmc.agentes.proveedor import NingunProveedor
 from gpmc.extractores import metadatos as ext_meta
 from gpmc.extractores.expediente import SinPermiso
@@ -219,6 +219,40 @@ def crear_router_fase3(raiz: Path, proveedor, entorno: Optional[dict] = None) ->
         if d is None:
             return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
         return _salida(carpeta, d)
+
+    def mejorar_en_segundo_plano(sid: str, d: dict, usuario: str = "anonimo") -> None:
+        """La ronda de mejora bajo pedido. `mejorar` nunca propaga; los pasos
+        ya los fue escribiendo el anotador."""
+        carpeta = carpeta_de(raiz, sid)
+        if carpeta is None:
+            return
+        as_is = (carpeta / INSUMOS["as_is"]).read_text(encoding="utf-8", errors="replace")
+        g = mejorar(as_is, d, proveedor, raiz, sid, avisar=anotador_de_pasos(carpeta), usuario=usuario)
+        log.info("fase3 sid=%s mejora estado=%s", sid, g.estado)
+        nuevo = g.model_dump(mode="json")
+        nuevo["pasos"] = (generados_de(carpeta) or {}).get("pasos") or []
+        escribir_generados(carpeta, nuevo)
+
+    @r.post("/expedientes/{sid}/generados/mejorar")
+    async def mejorar_generados(sid: str, request: Request, tareas: BackgroundTasks):
+        """Ahorro de tokens (2026-11-11): la ronda de mejora ya no corre sola al
+        proponer; se pide aquí, antes de decidir cualquiera de los dos documentos."""
+        carpeta = carpeta_de(raiz, sid)
+        d = generados_vigentes(carpeta)
+        if d is None:
+            return JSONResponse(status_code=404, content={"error": "sesión no encontrada"})
+        motivo = _motivo_para_no_generar()
+        if motivo:
+            return JSONResponse(status_code=409, content={"error": motivo})
+        if d["estado"] != "listo" or any((d.get(doc) or {}).get("decision") != "pendiente"
+                                         for doc in CLAVE_INSUMO):
+            return JSONResponse(status_code=409, content={
+                "error": "solo se mejora una propuesta lista y sin decisiones"})
+        escribir_generados(carpeta, {**d, "estado": "generando", "iniciado": _ahora()})
+        request.state.sid = sid
+        quien = getattr(request.state, "usuario", None)
+        tareas.add_task(mejorar_en_segundo_plano, sid, d, quien.correo if quien else "anonimo")
+        return JSONResponse(status_code=202, content={"sid": sid, "estado": "generando"})
 
     def _anotar_decision(sid: str, documento: str, decision: str, version: str) -> None:
         registrar(raiz, Interaccion(

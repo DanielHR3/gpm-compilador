@@ -2064,3 +2064,44 @@ def test_un_analista_no_da_de_alta_cuentas(tmp_path):
     r = c.post("/api/v1/usuarios", json={"correo": "ana.lopez@hidalgo.gob.mx", "nombre": "Ana", "dependencia": "DGT",
                                         "contrasena": "Temporal-789", "rol": "admin"})
     assert r.status_code == 403
+
+
+# --- Ahorro de tokens (2026-11-11): la mejora de la Fase 3 bajo pedido ---------------
+
+def test_proponer_hace_solo_dos_llamadas(tmp_path):
+    from tests.test_fase3 import _DICC_ROTO, _TOBE_OK, _json
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK)])
+    c = TestClient(crear_app(almacen=tmp_path, proveedor=prov, entorno=_ENT_OPENAI))
+    sid = _proponer(c).json()["sid"]
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert g["estado"] == "listo" and prov.llamadas == 2
+    assert g["diccionario"]["ronda"] == 1
+
+
+def test_mejorar_bajo_pedido_corre_la_ronda_2_y_se_lee(tmp_path):
+    from tests.test_fase3 import _DICC_OK, _DICC_ROTO, _TOBE_OK, _json
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK),
+                           _json("diccionario", _DICC_OK)])
+    c = TestClient(crear_app(almacen=tmp_path, proveedor=prov, entorno=_ENT_OPENAI))
+    sid = _proponer(c).json()["sid"]
+    r = c.post(f"/api/v1/expedientes/{sid}/generados/mejorar")
+    assert r.status_code == 202 and r.json()["estado"] == "generando"
+    g = c.get(f"/api/v1/expedientes/{sid}/generados").json()
+    assert g["estado"] == "listo" and prov.llamadas == 3
+    assert g["diccionario"]["ronda"] == 2 and g["diccionario"]["texto"] == _DICC_OK
+    assert g["tobe"]["ronda"] == 1
+
+
+def test_mejorar_con_una_decision_tomada_da_409(tmp_path):
+    c, sid = _sesion_lista(tmp_path)
+    _decidir(c, sid, "diccionario", "aceptada")
+    assert c.post(f"/api/v1/expedientes/{sid}/generados/mejorar").status_code == 409
+
+
+def test_mejorar_sin_sesion_da_404_y_sin_licencia_409(tmp_path):
+    c = _cli_fase3(tmp_path, [], entorno=_ENT_GEMINI)
+    assert c.post("/api/v1/expedientes/0123456789abcdef/generados/mejorar").status_code == 404
+    sid = _proponer(c).json()["sid"]
+    assert c.post(f"/api/v1/expedientes/{sid}/generados/mejorar").status_code == 409
