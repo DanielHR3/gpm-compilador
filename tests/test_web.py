@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from gpmc.web.app import crear_app
 
 
-EXPEDIENTE = WIKI / "anita" / "Alta de Avisos de Testamento"
+EXPEDIENTE = WIKI / "ANITA" / "Dirección del Periódico Oficial del Estado de Hidalgo (Secretaría de Gobierno)" / "Publicación de Avisos Judiciales en el Periódico Oficial"
 
 
 @pytest.fixture
@@ -133,7 +133,7 @@ def test_descargar_el_gpm_de_una_sesion(cliente):
     assert g.status_code == 200
     assert g.headers["content-type"].startswith("application/")
     datos = json.loads(g.content)
-    assert datos["nombre"] == "Alta de Avisos de Testamento"
+    assert datos["nombre"] == "Publicación de Avisos Judiciales en el Periódico Oficial"
     assert datos["Sections"] == []
 
 

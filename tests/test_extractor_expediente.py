@@ -15,9 +15,9 @@ from gpmc.nucleo.manifiesto import Pantalla
 
 
 EXPEDIENTES = [
-    "anita/Alta de Avisos de Testamento",
-    "elesvan/Constancia de No Infracción Vehicular Ambiental",
-    "elesvan/Vinculación con Organismos Internacionales",
+    "ANITA/Dirección General del Archivo General de Notarías (Secretaría de Gobierno)/Copias Certificadas de Escrituras Resguardadas en el Archivo General de Notarías",
+    "ELESVAN/SEMARNATH/Constancia de No Infracción Vehicular Ambiental",
+    "ELESVAN/COINHI (Secretaría de Desarrollo Económico)/Vinculación con Organismos Internacionales",
 ]
 
 

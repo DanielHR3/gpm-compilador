@@ -132,3 +132,32 @@ def test_la_capacidad_usa_la_misma_regla_de_completitud_que_la_proyeccion(reg):
     assert c.cerrados == 2
     assert c.completos == 1
     assert c.mediana_dias == 12, "el parcial de 0 dias no debe hundir la mediana"
+
+
+def _expediente(carpeta, creado="2026-10-01", actualizado="2026-10-09", con_tobe=True):
+    carpeta.mkdir(parents=True)
+    (carpeta / "Análisis AS-IS.md").write_text(
+        f"---\ncreado: {creado}\nactualizado: {actualizado}\n---\n# AS-IS\n", encoding="utf-8")
+    if con_tobe:
+        (carpeta / "Propuesta TO-BE.md").write_text("# TO-BE\n", encoding="utf-8")
+
+
+def test_sembrar_lee_la_forma_analista_tramite(tmp_path):
+    _expediente(tmp_path / "wiki" / "ANITA" / "Trámite A")
+    r = Registro(tmp_path / "t.yaml")
+    assert sembrar_desde_wiki(r, tmp_path / "wiki") == 1
+    e = r.buscar("Trámite A")
+    assert e.analista == "ANITA" and "as-is" in e.hitos and "to-be" in e.hitos
+
+
+def test_sembrar_lee_la_forma_analista_dependencia_tramite(tmp_path):
+    """Wiki de Luis del 2026-11-11: el trámite cuelga de su dependencia. La
+    dependencia no es un expediente (no trae entregables) y el analista sigue
+    siendo la primera carpeta."""
+    _expediente(tmp_path / "wiki" / "ELESVAN" / "SEMARNATH" / "Trámite B")
+    _expediente(tmp_path / "wiki" / "ELESVAN" / "SEMARNATH" / "Trámite C", con_tobe=False)
+    r = Registro(tmp_path / "t.yaml")
+    assert sembrar_desde_wiki(r, tmp_path / "wiki") == 2
+    assert {e.nombre for e in r.todos()} == {"Trámite B", "Trámite C"}
+    assert all(e.analista == "ELESVAN" for e in r.todos())
+    assert "to-be" not in r.buscar("Trámite C").hitos

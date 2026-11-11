@@ -170,8 +170,8 @@ def test_una_nota_no_reclama_carril():
 
 
 @pytest.mark.parametrize("expediente", [
-    "elesvan/Constancia de No Infracción Vehicular Ambiental",
-    "anita/Alta de Avisos de Testamento",
+    "ELESVAN/SEMARNATH/Constancia de No Infracción Vehicular Ambiental",
+    "ANITA/Dirección General del Archivo General de Notarías (Secretaría de Gobierno)/Alta de Avisos de Testamento",
 ])
 def test_parsea_diagramas_reales_del_wiki(expediente):
     ruta = WIKI / expediente / "Propuesta TO-BE.md"
