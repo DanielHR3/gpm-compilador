@@ -906,3 +906,51 @@ def test_si_la_mejora_bajo_pedido_falla_se_conserva_la_propuesta(tmp_path):
     g2 = mejorar(_ASIS_INLINE, g.model_dump(mode="json"), ProveedorFalso([]), tmp_path, "o" * 16)
     assert g2.estado == "listo"
     assert g2.diccionario.texto == _DICC_ROTO and g2.diccionario.ronda == 1
+
+
+# --- Ahorro de tokens (2026-11-11): el AS-IS viaja sin lo que no se usa ----------
+
+_ASIS_WIKI = """---
+tipo: expediente
+tramite: "[[1. REINGENIERIA/wiki/entidades/Constancia]]"
+creado: 2026-10-09
+---
+
+# Análisis AS-IS — Constancia
+
+## Ficha técnica
+- Dependencia: [[SEMARNATH|Secretaría de Medio Ambiente]]
+- **Requisitos:** identificación oficial vigente
+
+## Estado actual (según fuentes)
+Paso 1: el ciudadano acude a ventanilla ([[Manual de operación]]).
+
+## Cobertura de la entrevista
+Se entrevistó a tres personas durante dos horas.
+
+## Pendientes / dudas sin resolver
+- ¿Cuánto tarda el dictamen?
+
+## Fuentes
+- [[raw/Manual de operación.pdf]]
+"""
+
+
+def test_el_as_is_viaja_sin_frontmatter_cobertura_ni_sintaxis_de_enlaces():
+    import gpmc.agentes.prompt_fase3 as pr
+    t = pr.recortar_as_is(_ASIS_WIKI)
+    assert not t.startswith("---") and "creado:" not in t
+    assert "Cobertura de la entrevista" not in t and "tres personas" not in t
+    assert "[[" not in t and "Secretaría de Medio Ambiente" in t and "Manual de operación" in t
+    for seccion in ("Ficha técnica", "Estado actual", "Pendientes / dudas", "Fuentes"):
+        assert seccion in t
+    assert "Fuentes" not in pr.recortar_as_is(_ASIS_WIKI, quitar_fuentes=True)
+    assert len(t) < len(_ASIS_WIKI)
+
+
+def test_el_diccionario_no_recibe_fuentes_y_el_tobe_si():
+    import gpmc.agentes.prompt_fase3 as pr
+    assert "## Fuentes" not in pr.contexto_dicc(_ASIS_WIKI).split("<<DATOS>>")[1]
+    assert "## Fuentes" in pr.contexto_tobe(_ASIS_WIKI, "# Dicc").split("<<DATOS>>")[1]
+    # Los requisitos se siguen leyendo del AS-IS completo.
+    assert "<<REQUISITOS>>" in pr.contexto_dicc(_ASIS_WIKI)

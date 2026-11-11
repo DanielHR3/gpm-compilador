@@ -284,22 +284,44 @@ def _requisitos(as_is: str) -> list:
     return [_bloque("REQUISITOS", "\n".join(f"- {r}" for r in reqs))] if reqs else []
 
 
+_FRONTMATTER = re.compile(r"\A---\s*\n.*?\n---\s*\n", re.S)
+_ENLACE_WIKI = re.compile(r"\[\[([^\]|]*?)(?:\|([^\]]*))?\]\]")
+_SECCION = re.compile(r"\n(?=##\s)")
+# Secciones del AS-IS de la wiki que no alimentan ningun documento generado.
+_SIN_USO = ("cobertura de la entrevista",)
+
+
+def recortar_as_is(as_is: str, quitar_fuentes: bool = False) -> str:
+    """El AS-IS como viaja al modelo (ahorro de tokens, 2026-11-11): sin el
+    frontmatter de Obsidian, sin «Cobertura de la entrevista» y con los enlaces
+    `[[ruta|texto]]` reducidos a su texto. «Fuentes» solo se quita donde no se
+    usa (el Diccionario): la Propuesta TO-BE trae su propia seccion de fuentes.
+    Los requisitos se leen siempre del AS-IS completo (`_requisitos`)."""
+    t = _FRONTMATTER.sub("", as_is, count=1)
+    t = _ENLACE_WIKI.sub(lambda m: (m.group(2) or m.group(1).rsplit("/", 1)[-1]).strip(), t)
+    quitar = _SIN_USO + (("fuentes",) if quitar_fuentes else ())
+    partes = _SECCION.split(t)
+    quedan = [p for p in partes
+              if not any(re.match(rf"##\s*(\d+\.?\s*)?{re.escape(q)}\b", p.strip(), re.I) for q in quitar)]
+    return "\n".join(quedan).strip() + "\n"
+
+
 def contexto_dicc(as_is: str) -> str:
     return "\n\n".join([_bloque("PLANTILLA", plantilla("diccionario")),
                         _bloque("EJEMPLO", ejemplo("diccionario")),
-                        _bloque("DATOS", as_is)] + _requisitos(as_is))
+                        _bloque("DATOS", recortar_as_is(as_is, quitar_fuentes=True))] + _requisitos(as_is))
 
 
 def contexto_tobe(as_is: str, diccionario: str) -> str:
     return "\n\n".join([_bloque("PLANTILLA", plantilla("tobe")), _bloque("EJEMPLO", ejemplo("tobe")),
-                        _bloque("DATOS", as_is), _bloque("DICCIONARIO", diccionario)])
+                        _bloque("DATOS", recortar_as_is(as_is)), _bloque("DICCIONARIO", diccionario)])
 
 
 def contexto_mejora(as_is: str, borrador: str, huecos: list, clave: str,
                     diccionario: Optional[str] = None) -> str:
     # Sin plantilla ni ejemplo: el borrador que se corrige ya trae el formato y
     # la escala, y reenviarlos costaba ~4,000 tokens por ronda (2026-10-16).
-    partes = [_bloque("DATOS", as_is)]
+    partes = [_bloque("DATOS", recortar_as_is(as_is, quitar_fuentes=clave == "diccionario"))]
     if clave == "diccionario":
         partes += _requisitos(as_is)
     if diccionario is not None:
