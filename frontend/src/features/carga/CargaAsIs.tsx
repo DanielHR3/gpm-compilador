@@ -7,6 +7,7 @@ import { cn } from "cn";
 import AvisoModoPruebas, { useModoPruebas } from "@/components/AvisoModoPruebas";
 import { Button } from "@/components/ui/button";
 import { ErrorApi, proponerExpediente } from "@/lib/api";
+import { leerTramiteLigado, quitarTramiteLigado } from "@/lib/tramiteLigado";
 
 import ErrorDeCarga, { comoErrorDeCarga } from "./ErrorDeCarga";
 
@@ -22,6 +23,8 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
   const pruebas = useModoPruebas();
   const [sobre, setSobre] = useState(false);
   const [sobreApoyo, setSobreApoyo] = useState(false);
+  // Trámite elegido en la campanita («Empezar expediente»): el expediente nace ligado a él.
+  const [ligado, setLigado] = useState(leerTramiteLigado);
 
   const alSoltar = (e: DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
@@ -38,7 +41,9 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
       const fd = new FormData();
       fd.append("as_is", asIs);
       apoyo.forEach((a) => fd.append("adjuntos", a));
+      if (ligado) fd.append("ruts_id", ligado.ruts_id);
       const { sid } = await proponerExpediente(fd);
+      quitarTramiteLigado();
       onPropuesta(sid);
     } catch (e) {
       setError(comoErrorDeCarga(e));
@@ -52,12 +57,25 @@ export default function CargaAsIs({ onPropuesta }: { onPropuesta: (sid: string) 
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">Sube el Análisis AS-IS</h1>
         <p className="text-sm text-muted-foreground">
-          El compilador redacta un borrador del Diccionario de Datos y de la Propuesta TO-BE a
-          partir del AS-IS. Después los revisas uno por uno y decides si se usan. Suele tardar de dos a cinco minutos.
+          El compilador redacta un borrador de la Propuesta TO-BE y del Diccionario de Datos a
+          partir del AS-IS. Después los revisas uno por uno, primero el TO-BE, y decides si se usan. Suele tardar de dos a cinco minutos.
         </p>
       </header>
 
       {pruebas ? <AvisoModoPruebas /> : null}
+
+      {ligado ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card p-3 text-sm">
+          <p>
+            Este expediente quedará ligado al trámite que envió Simplifica:{" "}
+            <strong>{ligado.nombre || "sin nombre"}</strong> · RUTS {ligado.ruts_id}
+          </p>
+          <Button type="button" size="sm" variant="outline"
+                  onClick={() => { quitarTramiteLigado(); setLigado(null); }}>
+            Quitar
+          </Button>
+        </div>
+      ) : null}
 
       {/* Toda la zona es el control, como en la carga de carpeta: la caja
           punteada invita a hacer clic en cualquier parte, y antes solo

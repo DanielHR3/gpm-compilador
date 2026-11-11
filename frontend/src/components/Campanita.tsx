@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "cn";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { leerSolicitudes, marcarSolicitudVista, type Solicitud, urlAsIsDeSolicitud } from "@/lib/api";
+import { guardarTramiteLigado } from "@/lib/tramiteLigado";
 
 /**
  * Campanita de la barra superior: trámites que Reingeniería envió desde Simplifica
@@ -70,8 +71,16 @@ export default function Campanita() {
               <p className="text-muted-foreground">
                 RUTS {s.ruts_id} · {s.dependencia}{s.enviado_por ? ` · enviado por ${s.enviado_por}` : ""}
               </p>
-              <p className="text-muted-foreground">{fecha(s.recibida)}</p>
-              <div className="flex gap-3">
+              <p className="text-muted-foreground">
+                {fecha(s.recibida)}
+                {s.etapa ? <> · <span className="font-semibold text-foreground">{s.etapa}</span></> : null}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {/* El expediente nace ligado a este trámite aunque el AS-IS no traiga su ID de RUTS. */}
+                <a className={enlace} href="/desde-as-is"
+                   onClick={() => guardarTramiteLigado({ ruts_id: s.ruts_id, nombre: s.nombre })}>
+                  {!s.etapa || s.etapa === "Por iniciar" ? "Empezar expediente" : "Continuar expediente"}
+                </a>
                 <a className={enlace} href={urlAsIsDeSolicitud(s.ruts_id)}>Descargar AS-IS</a>
                 {s.nueva ? (
                   <button
