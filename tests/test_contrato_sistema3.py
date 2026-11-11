@@ -103,3 +103,24 @@ def test_sistema3_envia_la_ficha_y_llega_a_la_campanita(tmp_path, monkeypatch):
     assert ok, mensaje
     [s] = solicitudes.leer(tmp_path)
     assert (s["ruts_id"], s["nombre"], s["enviado_por"], s["nueva"]) == ("4321", "Licencia", "luis", True)
+
+
+def test_sistema3_envia_requisitos_y_etapas_y_el_as_is_inicial_los_trae(tmp_path, monkeypatch):
+    """M-110 de Simplifica: la ficha estructurada llega y el expediente arranca con requisitos exactos."""
+    from gpmc.extractores.as_is import requisitos_del_as_is
+    from gpmc.web import solicitudes
+    ent = {**_ENT_OPENAI, "GPMC_TOKEN_SERVICIO": TOKEN, "GPMC_TOKEN_ENVIO": ENVIO}
+    tc = TestClient(crear_app(almacen=tmp_path, entorno=ent))
+    cli = _cliente_sistema3(monkeypatch, tc)
+    tramite = {"ruts_id": "4321", "nombre_tramite": "Licencia", "institucion": "Secretaría X",
+               "costo": "$500", "tiempo_resolucion": "5 días", "descripcion": "Abre negocios"}
+    ficha = {"requisitos": [{"nombre": "CURP", "emisor": "RENAPO (Secretaría de Gobernación)",
+                             "tratamiento": "Consultar en línea en vez de pedirlo"},
+                            {"nombre": "Carta poder", "emisor": "", "tratamiento": ""}],
+             "etapas": ["Recepción", "Revisión"]}
+    ok, mensaje = cli.enviar(tramite, "luis", ficha)
+    assert ok, mensaje
+    [s] = solicitudes.leer(tmp_path)
+    texto = solicitudes.as_is_inicial(s)
+    assert requisitos_del_as_is(texto) == ["CURP", "Carta poder"]
+    assert "RENAPO" in texto and "1. Recepción" in texto and 'ruts_id: "4321"' in texto
