@@ -591,3 +591,19 @@ def test_las_decisiones_de_publicacion_no_cierran_la_descarga(tmp_path):
     })
     r = extraer_expediente(carpeta)
     assert not [h for h in bloquean(r.huecos) if h.codigo in ("META-07", "ACT-01")]
+
+
+def test_un_diagrama_con_dos_tareas_iniciales_no_revienta(tmp_path):
+    """Wiki del 2026-11-11, «Obtención del Registro como Generador de Residuos»:
+    dos tareas salían del Inicio, el flujo ramificado marcaba dos iniciales y el
+    Manifiesto lanzaba ValueError (500 en POST /expedientes). Ahora no ramifica,
+    sale el flujo lineal y queda un hueco que lo dice."""
+    tobe = _TOBE_RAMA.replace(
+        "    T1 --> G{", "    Inicio --> T3\n    T1 --> G{")
+    carpeta = _expediente(tmp_path, **{
+        "5.-Diccionario de Datos.md": _DICC_RAMA, "3.-Propuesta TO-BE.md": tobe,
+    })
+    r = extraer_expediente(carpeta)
+    assert r.manifiesto is not None
+    assert sum(1 for t in r.manifiesto.flujo.tareas if t.inicial) == 1
+    assert "FLU-01" in _cod(r)

@@ -200,7 +200,10 @@ def _flujo_ramificado(rm, pantallas, overrides=None):
             terminal=(n.id in sale_if or n.id not in sale),
             pantallas=[p.id],
         ))
-    if not any(t.inicial for t in tareas) or not any(t.terminal for t in tareas):
+    # La plataforma arranca en UNA tarea: con dos que salen del Inicio (o sin
+    # flecha de entrada) el Manifiesto lanzaba ValueError y el asistente daba 500.
+    # Se cae al flujo lineal, que reporta FLU-01 si el diagrama tenía compuertas.
+    if sum(1 for t in tareas if t.inicial) != 1 or not any(t.terminal for t in tareas):
         return None
 
     parejas = [(n.id, mapa[n.id].nombre) for n in nodos_tarea]
