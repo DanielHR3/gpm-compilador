@@ -210,6 +210,14 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
         m_nuevo = m.model_copy(deep=True)
         m_nuevo.flujo.tareas = [tarea_test]
         m_nuevo.flujo.conexiones = []
+        # Que nadie lo confunda con el entregable (fábrica, 2026-11-11): lo dice el nombre del
+        # proceso y su descripción, que es lo primero que se ve al importarlo.
+        m_nuevo.tramite.nombre = f"PRUEBA DE VISTAS - {m.tramite.nombre}"
+        m_nuevo.tramite.ruts.description = (
+            "ARCHIVO DE PRUEBA DE VISTAS: no es el trámite a implementar. Trae todas las pantallas en "
+            "una sola tarea, sin flujo, sin condiciones entre tareas, sin roles y sin generación de "
+            "documentos, solo para revisar el diseño de cada vista. El trámite completo es el archivo "
+            "de producción.")
         m = m_nuevo
 
     if not proceso_id:
