@@ -69,6 +69,16 @@ def _mapear_nodos_a_pantallas(nodos_tarea, pantallas):
     return mapa
 
 
+def _marcar_visualizacion(tareas, pantallas) -> None:
+    """Una pantalla donde todos los campos son de solo lectura se recorre en modo Visualización
+    (observación de la fábrica, 2026-11-11): nadie captura nada ahí, solo consulta."""
+    solo_lectura = {p.id for p in pantallas if p.campos and all(c.solo_lectura for c in p.campos)}
+    for t in tareas:
+        for paso in t.pantallas:
+            if paso.id in solo_lectura:
+                paso.modo = "visualizacion"
+
+
 def _colapsar_mmd03(huecos):
     """Reduce los MMD-03 de un diagrama a un solo hueco que no bloquea.
 
@@ -191,12 +201,18 @@ def _flujo_ramificado(rm, pantallas, overrides=None):
     sale_if = {a.de for a in rm.aristas if a.a in ids_if}
     entra = {a.a for a in utiles}
     sale = {a.de for a in utiles}
+    # Sin nodo Inicio y con la corrección de vuelta a la captura, la primera tarea recibe una
+    # flecha y ninguna quedaría como inicial (fábrica, 2026-11-11: el flujo salía lineal). En un
+    # diagrama así, la inicial es la primera tarea que el equipo dibujó.
+    iniciales = {n.id for n in nodos_tarea if n.id in entra_if or n.id not in entra}
+    if not iniciales and not entra_if and nodos_tarea:
+        iniciales = {nodos_tarea[0].id}
     tareas = []
     for n in nodos_tarea:
         p = mapa[n.id]
         tareas.append(Tarea(
             id=n.id, nombre=(p.nombre or n.texto)[:_CAP_NOMBRE], actor=p.actor,
-            inicial=(n.id in entra_if or n.id not in entra),
+            inicial=(n.id in iniciales),
             terminal=(n.id in sale_if or n.id not in sale),
             pantallas=[p.id],
         ))
@@ -566,6 +582,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     r.huecos += huecos_doc
     # Sin Evento en una tarea el PDF nunca se produce: se cuelga de la
     # primera tarea que ya tiene todos sus datos, y se reporta para confirmar.
+    _marcar_visualizacion(tareas, pantallas)
     flujo = Flujo(tareas=tareas, conexiones=conexiones)
     r.huecos += ext_docs.atar_a_tareas(acciones_doc, flujo, pantallas)
 

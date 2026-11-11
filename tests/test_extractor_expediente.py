@@ -607,3 +607,43 @@ def test_un_diagrama_con_dos_tareas_iniciales_no_revienta(tmp_path):
     assert r.manifiesto is not None
     assert sum(1 for t in r.manifiesto.flujo.tareas if t.inicial) == 1
     assert "FLU-01" in _cod(r)
+
+
+def test_ramifica_aunque_no_haya_nodo_inicio_y_la_correccion_regrese_a_la_primera_tarea(tmp_path):
+    """Fábrica, 2026-11-11 («Alta de Avisos de Testamento»: sin condiciones entre vistas). El
+    diagrama del equipo no dibuja Inicio y «¿Tiene observaciones? Sí» vuelve a la captura: la
+    primera tarea recibía una flecha, ninguna quedaba como inicial y todo el flujo salía lineal."""
+    tobe = """# Propuesta TO-BE
+
+```mermaid
+flowchart TD
+    classDef solicitante fill:#eee
+    classDef area fill:#eee
+    T1[Solicitante: Captura la solicitud]:::solicitante --> G{¿@@procede == 'si'?}:::area
+    G -->|Sí| T2[Area: Cotiza]:::area
+    G -->|No| T3[Area: Oficio de improcedencia]:::area
+    T3 --> T1
+```
+"""
+    carpeta = _expediente(tmp_path, **{"5.-Diccionario de Datos.md": _DICC_RAMA, "3.-Propuesta TO-BE.md": tobe})
+    r = extraer_expediente(carpeta)
+    assert "FLU-03" in _cod(r) and "FLU-01" not in _cod(r)
+    iniciales = [t for t in r.manifiesto.flujo.tareas if t.inicial]
+    assert len(iniciales) == 1 and [x.id for x in iniciales[0].pantallas] == ["p1"]
+    assert sum(1 for c in r.manifiesto.flujo.conexiones if c.cuando is not None) == 2
+
+
+def test_una_vista_con_solo_campos_de_lectura_va_en_modo_visualizacion():
+    """Fábrica, 2026-11-11: «vistas que contienen únicamente un campo de solo lectura… aprovechar
+    el modo Visualización». Una pantalla donde nadie captura nada no es una vista de edición."""
+    from gpmc.extractores.expediente import _marcar_visualizacion
+    from gpmc.nucleo.manifiesto import Campo, Tarea
+    pantallas = [
+        Pantalla(id="p1", nombre="Captura", actor="c", campos=[Campo(nombre="a"), Campo(nombre="b", solo_lectura=True)]),
+        Pantalla(id="p2", nombre="Pago en línea", actor="c", campos=[Campo(nombre="m", solo_lectura=True), Campo(nombre="e", solo_lectura=True)]),
+        Pantalla(id="p3", nombre="Vacía", actor="c", campos=[]),
+    ]
+    tareas = [Tarea(id="t1", nombre="x", pantallas=["p1"]), Tarea(id="t2", nombre="y", pantallas=["p2"]),
+              Tarea(id="t3", nombre="z", pantallas=["p3"])]
+    _marcar_visualizacion(tareas, pantallas)
+    assert [t.pantallas[0].modo for t in tareas] == ["edicion", "visualizacion", "edicion"]

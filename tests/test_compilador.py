@@ -822,3 +822,16 @@ def test_un_date_time_del_manifiesto_tambien_lleva_subtipo():
     c = _campos_fecha()["cita"]
     assert c["tipo"] == "date_time"
     assert json.loads(c["extra"])["subtype"] == "date"
+
+
+def test_el_archivo_de_pruebas_dice_por_dentro_que_no_es_el_tramite():
+    """2026-11-11: a la fábrica se le envió el «test-ui» creyendo que era el trámite y regresaron
+    nueve observaciones (sin tareas, sin roles, sin flujo). Quien lo importe debe verlo de inmediato."""
+    from gpmc.compilador.a_gpm import compilar
+    m = _manifiesto_con_nombre("Constancia de Prueba")
+    normal, prueba = compilar(m), compilar(m, modo_pruebas=True)
+    assert normal["nombre"] == "Constancia de Prueba" and "PRUEBA" not in (normal["description"] or "")
+    assert prueba["nombre"] == "PRUEBA DE VISTAS - Constancia de Prueba"
+    assert "no es el trámite" in prueba["description"].lower() and "sin flujo" in prueba["description"].lower()
+    assert len(prueba["Tareas"]) == 1
+    assert m.tramite.nombre == "Constancia de Prueba"            # el manifiesto original no se toca

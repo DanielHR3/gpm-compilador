@@ -187,8 +187,9 @@ export default function PanelDescargas({
             Mira dentro de cada archivo antes de bajarlo.{" "}
             <span className="font-medium text-foreground">Producción</span> es el que
             se importa de verdad;{" "}
-            <span className="font-medium text-foreground">pruebas</span> trae datos de
-            ejemplo ya capturados.
+            <span className="font-medium text-foreground">pruebas</span> solo sirve para
+            recorrer las vistas: trae todo en una tarea, sin flujo, roles ni documentos.{" "}
+            <span className="font-medium text-foreground">No lo envíes a la fábrica.</span>
           </p>
           <p className="text-xs tabular-nums text-foreground/80">{resumenDe(estado)}</p>
         </div>
