@@ -53,7 +53,7 @@ def crear_router_solicitudes(raiz: Path, entorno: Optional[dict] = None) -> APIR
 
     @r.get("/solicitudes")
     async def listar():
-        lista = solicitudes.leer(raiz)
+        lista = solicitudes.con_seguimiento(raiz)
         return {"solicitudes": lista, "nuevas": sum(1 for s in lista if s["nueva"])}
 
     @r.post("/solicitudes/{ruts_id}/vista")

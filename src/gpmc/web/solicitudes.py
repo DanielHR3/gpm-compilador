@@ -153,6 +153,36 @@ def buscar(raiz: Path, ruts_id: str) -> Optional[dict]:
     return next((s for s in leer(raiz) if s["ruts_id"] == ruts_id), None)
 
 
+_CON_RUTS = re.compile(r"\A---\s*\n.*?^ruts_id:", re.S | re.M | re.I)
+ETAPAS = {"as-is": "AS-IS cargado", "to-be": "TO-BE listo", "diccionario": "Diccionario listo", "bpmn": "BPMN listo",
+          "gpm": "Archivo .gpm descargado", "aprobacion": "En aprobación", "publicado": "Publicado"}
+
+
+def con_ruts(texto: str, ruts_id: str) -> str:
+    """El AS-IS con `ruts_id` en su frontmatter, para que el expediente quede ligado al trámite que
+    mandó Simplifica. Si el analista ya escribió uno, el suyo manda y no se toca nada."""
+    if _CON_RUTS.search(texto):
+        return texto
+    linea = f'ruts_id: "{ruts_id}"\n'
+    if texto.startswith("---"):
+        cabeza, _, resto = texto.partition("\n")
+        return f"{cabeza}\n{linea}{resto}"
+    return f"---\n{linea}---\n{texto}"
+
+
+def con_seguimiento(raiz: Path) -> "list[dict]":
+    """Las solicitudes con lo que el registro de estado sabe de cada una: fechas por entregable y
+    la etapa en palabras (el último entregable alcanzado, o «Por iniciar»)."""
+    from gpmc.web import estado
+    salida = []
+    for s in leer(raiz):
+        exp = estado.consultar(raiz, s["ruts_id"])
+        entregables = exp[0]["entregables"] if exp else {k: None for k in estado.ENTREGABLES}
+        hechos = [k for k in estado.ENTREGABLES if entregables.get(k)]
+        salida.append({**s, "entregables": entregables, "etapa": ETAPAS[hechos[-1]] if hechos else "Por iniciar"})
+    return salida
+
+
 def as_is_inicial(ficha: dict) -> str:
     """AS-IS para empezar el expediente: frontmatter con `ruts_id` y dependencia (lo que lee `extractores/metadatos`)
     y los datos de RUTS que mandó Simplifica. El analista lo completa y lo sube como insumo."""
