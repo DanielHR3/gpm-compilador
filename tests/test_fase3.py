@@ -237,7 +237,7 @@ def test_mejora_conserva_la_ronda_2_cuando_tiene_menos_bloqueantes(tmp_path):
     from gpmc.agentes.bitacora import leer
     prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK),
                            _json("diccionario", _DICC_OK)])
-    g = generar(_ASIS_INLINE, prov, tmp_path, "e" * 16)
+    g = generar(_ASIS_INLINE, prov, tmp_path, "e" * 16, mejorar=True)
     assert g.estado == "listo"
     assert g.diccionario.ronda == 2 and g.diccionario.texto == _DICC_OK
     assert g.diccionario.version_prompt == "mejora-v3"
@@ -258,7 +258,7 @@ def test_mejora_conserva_la_ronda_1_cuando_la_2_empeora(tmp_path):
     dicc_1 = _DICC_OK.replace("| Poder notarial si el solicitante es persona moral | Archivo | Visor de archivos | No | `@@poder` |\n", "")
     prov = ProveedorFalso([_json("diccionario", dicc_1), _json("tobe", _TOBE_OK),
                            _json("diccionario", _DICC_ROTO)])
-    g = generar(_ASIS_INLINE, prov, tmp_path, "f" * 16)
+    g = generar(_ASIS_INLINE, prov, tmp_path, "f" * 16, mejorar=True)
     assert g.diccionario.ronda == 1 and g.diccionario.texto == dicc_1
     assert any(h.codigo == "GEN-01" for h in g.diccionario.huecos)
 
@@ -273,7 +273,7 @@ def test_mejora_se_pide_una_sola_vez_por_documento_y_el_tobe_ve_el_diccionario_e
     tobe_roto = "# Propuesta TO-BE — Constancia\n\nsin diagrama\n"       # MMD-01 falta_dato
     prov = ProveedorFalso([_json("diccionario", dicc_1), _json("tobe", tobe_roto),
                            _json("diccionario", _DICC_OK), _json("tobe", _TOBE_OK)])
-    g = generar(_ASIS_INLINE, prov, tmp_path, "0" * 16)
+    g = generar(_ASIS_INLINE, prov, tmp_path, "0" * 16, mejorar=True)
     assert prov.llamadas == 4
     assert g.diccionario.ronda == 2 and g.tobe.ronda == 2
     assert _DICC_OK in prov.ultimo_contexto          # la mejora del TO-BE vio el Diccionario de la ronda 2
@@ -286,7 +286,7 @@ def test_fallo_en_la_mejora_no_tira_la_ronda_1(tmp_path, monkeypatch):
     from gpmc.agentes.proveedor import ProveedorFalso
     monkeypatch.setattr(fase3.time, "sleep", lambda s: None)
     prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK)])
-    g = fase3.generar(_ASIS_INLINE, prov, tmp_path, "1" * 16)
+    g = fase3.generar(_ASIS_INLINE, prov, tmp_path, "1" * 16, mejorar=True)
     assert g.estado == "listo" and g.diccionario.ronda == 1
     assert any(h.codigo == "DIC-00" for h in g.diccionario.huecos)
 
@@ -458,7 +458,7 @@ def test_la_vista_es_la_de_la_ronda_elegida(tmp_path):
     from gpmc.agentes.proveedor import ProveedorFalso
     prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK),
                            _json("diccionario", _DICC_OK)])
-    g = generar(_ASIS_INLINE, prov, tmp_path, "6" * 16)
+    g = generar(_ASIS_INLINE, prov, tmp_path, "6" * 16, mejorar=True)
     assert g.diccionario.ronda == 2 and len(g.diccionario.vista) == 2
 
 
@@ -641,7 +641,7 @@ def test_gen02_se_atribuye_al_tobe_y_entra_a_la_ronda_de_mejora(tmp_path):
     # (llamada 3) y despues el TO-BE (llamada 4), que es la que ve el GEN-02.
     prov = ProveedorFalso([_json("diccionario", dicc), _json("tobe", tobe_1),
                            _json("diccionario", dicc), _json("tobe", tobe_1)])
-    generar(_ASIS_CON_CICLO, prov, tmp_path, "g" * 16)
+    generar(_ASIS_CON_CICLO, prov, tmp_path, "g" * 16, mejorar=True)
     assert prov.llamadas == 4 and "[GEN-02]" in prov.ultimo_contexto
 
 
@@ -671,7 +671,7 @@ def test_una_mejora_que_recorta_el_documento_no_gana_aunque_tenga_menos_huecos(t
     tobe_2_truncado = "# Propuesta TO-BE — Constancia\n\n### Diagrama compilable\n\n```mermaid\nflowchart TD\n    P1["
     prov = ProveedorFalso([_json("diccionario", _DICC_OK), _json("tobe", tobe_1),
                            _json("diccionario", _DICC_OK), _json("tobe", tobe_2_truncado)])
-    g = generar(_ASIS_CON_CICLO, prov, tmp_path, "h" * 16)
+    g = generar(_ASIS_CON_CICLO, prov, tmp_path, "h" * 16, mejorar=True)
     assert prov.llamadas == 4
     assert g.tobe.ronda == 1 and g.tobe.texto == tobe_1
     assert any(h.codigo == "GEN-02" for h in g.tobe.huecos)
@@ -784,7 +784,7 @@ def test_gen02_llega_tambien_a_la_mejora_del_diccionario(tmp_path):
     def espia(i, c, e):
         contextos.append(c); return original(i, c, e)
     prov.completar = espia
-    generar(_ASIS_CON_CICLO, prov, tmp_path, "i" * 16)
+    generar(_ASIS_CON_CICLO, prov, tmp_path, "i" * 16, mejorar=True)
     assert len(contextos) == 4
     assert "[GEN-02]" in contextos[2]          # la mejora del Diccionario lo ve
     assert "pantalla de corrección" in contextos[2].lower() or "GEN-02" in contextos[2]
@@ -814,7 +814,7 @@ def test_generar_avisa_cada_paso_en_orden(tmp_path):
     dicc_1 = _DICC_OK.replace("| Poder notarial si el solicitante es persona moral | Archivo | Visor de archivos | No | `@@poder` |\n", "")
     prov = ProveedorFalso([_json("diccionario", dicc_1), _json("tobe", _TOBE_OK),
                            _json("diccionario", _DICC_OK)], modelo="modelo-x")
-    g = generar(_ASIS_INLINE, prov, tmp_path, "j" * 16, avisar=pasos.append)
+    g = generar(_ASIS_INLINE, prov, tmp_path, "j" * 16, avisar=pasos.append, mejorar=True)
     assert g.estado == "listo"
     texto = "\n".join(pasos)
     assert pasos[0].startswith("Leyendo el AS-IS") and "3 requisitos" in pasos[0]
@@ -868,3 +868,89 @@ def test_el_aviso_de_liga_con_simplifica_no_se_le_cuelga_a_ningun_borrador():
     reparto = _por_documento([Hueco("por_confirmar", "META-RUTS", "metadatos", "sin ruts_id"),
                               Hueco("falta_dato", "DIC-02", "p1", "catalogo")])
     assert [h.codigo for h in reparto["diccionario"]] == ["DIC-02"] and reparto["tobe"] == []
+
+
+# --- Ahorro de tokens (2026-11-11): la mejora solo bajo pedido ------------------
+# La licencia de norte70 (500 mil tokens) iba en 70 % antes de producción y la
+# mejora era ~37 % del gasto. Ahora `generar` hace dos llamadas y la mejora se
+# pide aparte, sobre lo ya generado, sin repetir la ronda 1.
+
+def test_generar_por_omision_no_pide_la_mejora(tmp_path):
+    from gpmc.agentes.fase3 import generar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    prov = ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK)])
+    g = generar(_ASIS_INLINE, prov, tmp_path, "m" * 16)
+    assert g.estado == "listo" and prov.llamadas == 2
+    assert g.diccionario.ronda == 1
+    assert any(h.codigo == "DIC-00" for h in g.diccionario.huecos)
+
+
+def test_mejorar_bajo_pedido_parte_de_la_ronda_1_guardada(tmp_path):
+    from gpmc.agentes.fase3 import generar, mejorar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    g = generar(_ASIS_INLINE, ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK)]),
+                tmp_path, "n" * 16)
+    prov = ProveedorFalso([_json("diccionario", _DICC_OK)])
+    g2 = mejorar(_ASIS_INLINE, g.model_dump(mode="json"), prov, tmp_path, "n" * 16)
+    assert g2.estado == "listo" and prov.llamadas == 1      # solo el documento con pendientes
+    assert g2.diccionario.ronda == 2 and g2.diccionario.texto == _DICC_OK
+    assert g2.tobe.ronda == 1 and g2.tobe.texto == _TOBE_OK
+    assert "<<HUECOS>>" in prov.ultimo_contexto
+
+
+def test_si_la_mejora_bajo_pedido_falla_se_conserva_la_propuesta(tmp_path):
+    from gpmc.agentes.fase3 import generar, mejorar
+    from gpmc.agentes.proveedor import ProveedorFalso
+    g = generar(_ASIS_INLINE, ProveedorFalso([_json("diccionario", _DICC_ROTO), _json("tobe", _TOBE_OK)]),
+                tmp_path, "o" * 16)
+    g2 = mejorar(_ASIS_INLINE, g.model_dump(mode="json"), ProveedorFalso([]), tmp_path, "o" * 16)
+    assert g2.estado == "listo"
+    assert g2.diccionario.texto == _DICC_ROTO and g2.diccionario.ronda == 1
+
+
+# --- Ahorro de tokens (2026-11-11): el AS-IS viaja sin lo que no se usa ----------
+
+_ASIS_WIKI = """---
+tipo: expediente
+tramite: "[[1. REINGENIERIA/wiki/entidades/Constancia]]"
+creado: 2026-10-09
+---
+
+# Análisis AS-IS — Constancia
+
+## Ficha técnica
+- Dependencia: [[SEMARNATH|Secretaría de Medio Ambiente]]
+- **Requisitos:** identificación oficial vigente
+
+## Estado actual (según fuentes)
+Paso 1: el ciudadano acude a ventanilla ([[Manual de operación]]).
+
+## Cobertura de la entrevista
+Se entrevistó a tres personas durante dos horas.
+
+## Pendientes / dudas sin resolver
+- ¿Cuánto tarda el dictamen?
+
+## Fuentes
+- [[raw/Manual de operación.pdf]]
+"""
+
+
+def test_el_as_is_viaja_sin_frontmatter_cobertura_ni_sintaxis_de_enlaces():
+    import gpmc.agentes.prompt_fase3 as pr
+    t = pr.recortar_as_is(_ASIS_WIKI)
+    assert not t.startswith("---") and "creado:" not in t
+    assert "Cobertura de la entrevista" not in t and "tres personas" not in t
+    assert "[[" not in t and "Secretaría de Medio Ambiente" in t and "Manual de operación" in t
+    for seccion in ("Ficha técnica", "Estado actual", "Pendientes / dudas", "Fuentes"):
+        assert seccion in t
+    assert "Fuentes" not in pr.recortar_as_is(_ASIS_WIKI, quitar_fuentes=True)
+    assert len(t) < len(_ASIS_WIKI)
+
+
+def test_el_diccionario_no_recibe_fuentes_y_el_tobe_si():
+    import gpmc.agentes.prompt_fase3 as pr
+    assert "## Fuentes" not in pr.contexto_dicc(_ASIS_WIKI).split("<<DATOS>>")[1]
+    assert "## Fuentes" in pr.contexto_tobe(_ASIS_WIKI, "# Dicc").split("<<DATOS>>")[1]
+    # Los requisitos se siguen leyendo del AS-IS completo.
+    assert "<<REQUISITOS>>" in pr.contexto_dicc(_ASIS_WIKI)

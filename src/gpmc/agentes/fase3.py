@@ -16,7 +16,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel
 
-from gpmc.agentes.bitacora import Interaccion, registrar
+from gpmc.agentes.bitacora import Interaccion, copiar_consumo, registrar
 from gpmc.agentes.dic08 import ESPERAS_REINTENTO
 from gpmc.agentes import prompt_fase3 as pr
 from gpmc.agentes.proveedor import ErrorDeProveedor, ErrorDeRed, RespuestaInvalida
@@ -208,7 +208,7 @@ def _pedir(proveedor, raiz: Path, sid: str, documento: str, ronda: int,
             if not isinstance(e, ErrorDeRed) or intento == len(esperas) - 1:
                 raise
     it.modelo, it.respuesta = resp.modelo, resp.texto
-    it.tokens_entrada, it.tokens_salida, it.duracion_ms = resp.tokens_entrada, resp.tokens_salida, resp.duracion_ms
+    copiar_consumo(it, resp)
     segundos = f" en {resp.duracion_ms / 1000:.0f} s" if resp.duracion_ms else ""
     avisar((f"Mejora del {_DOC_CORTO[documento]} recibida" if ronda > 1
             else f"{_DOC_CORTO[documento]} recibido") + f" de {resp.modelo}{segundos}")
@@ -241,9 +241,11 @@ def _nombre(as_is: str) -> Optional[str]:
     return t.nombre if t is not None and t.nombre != "[por confirmar]" else None
 
 
-def generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool = True,
+def generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool = False,
             avisar=None, usuario: str = "anonimo") -> Generados:
-    """AS-IS -> Generados. Nunca propaga: cualquier fallo es `estado: error`
+    """AS-IS -> Generados. Por omision, dos llamadas (Diccionario y TO-BE): la
+    ronda de mejora se pide aparte con `mejorar()` (ahorro de tokens,
+    2026-11-11). Nunca propaga: cualquier fallo es `estado: error`
     con el tipo de la excepcion en el motivo (y en el log con traza).
     `avisar(mensaje)` recibe cada paso en cuanto ocurre; los pasos tambien
     vuelven en `Generados.pasos`."""
@@ -290,6 +292,38 @@ def _generar(as_is: str, proveedor, raiz: Path, sid: str, mejorar: bool, avisar=
     m_final = m_1
     if mejorar:
         elegido, huecos, m_final = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos, m_1, avisar, usuario)
+    return _armar(as_is, elegido, huecos, m_final, avisar)
+
+
+def mejorar(as_is: str, d: dict, proveedor, raiz: Path, sid: str, avisar=None,
+            usuario: str = "anonimo") -> Generados:
+    """La ronda de mejora bajo pedido, sobre una propuesta ya generada (`d`, el
+    `generados.json` de la sesion). No repite la ronda 1: vuelve a medir sus
+    huecos en local y solo llama por el documento que tenga bloqueantes. Nunca
+    propaga: si algo falla, devuelve la propuesta como estaba, con el paso."""
+    pasos = []
+
+    def _avisar(mensaje: str) -> None:
+        pasos.append(mensaje)
+        if avisar is not None:
+            avisar(mensaje)
+
+    try:
+        elegido = {c: (d[c]["texto"], d[c].get("ronda", 1), d[c].get("version_prompt", ""))
+                   for c in ("diccionario", "tobe")}
+        m_1, huecos = extraer_borradores(as_is, elegido["diccionario"][0], elegido["tobe"][0])
+        elegido, huecos, m_final = _ronda_de_mejora(as_is, proveedor, raiz, sid, elegido, huecos,
+                                                    m_1, _avisar, usuario)
+        g = _armar(as_is, elegido, huecos, m_final, _avisar)
+    except Exception as exc:
+        log.error("fase3 sid=%s la mejora bajo pedido fallo: %s", sid, type(exc).__name__, exc_info=exc)
+        _avisar(f"La mejora falló ({type(exc).__name__}); se conserva la propuesta")
+        g = Generados(**{k: v for k, v in d.items() if k in Generados.model_fields})
+    g.pasos = pasos            # solo los de esta mejora; la web ya guardó los anteriores
+    return g
+
+
+def _armar(as_is: str, elegido: dict, huecos: list, m_final, avisar=_sin_aviso) -> Generados:
     reparto = _por_documento(huecos)
     docs = {}
     for clave, (texto, ronda, version) in elegido.items():

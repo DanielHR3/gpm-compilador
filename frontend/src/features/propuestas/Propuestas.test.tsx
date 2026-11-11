@@ -9,6 +9,7 @@ vi.mock("@/lib/api", () => ({
   leerGenerados: vi.fn(),
   decidirDocumento: vi.fn(),
   subirDocumento: vi.fn(),
+  mejorarPropuesta: vi.fn(),
   ErrorApi: class extends Error { status = 0; error = ""; constructor(m: string) { super(m); this.error = m; } },
 }));
 vi.mock("mermaid", () => ({
@@ -161,4 +162,34 @@ it("sin pasos todavía, la espera dice que está arrancando", async () => {
     .mockResolvedValueOnce(listo);
   render(<Propuestas sid={SID} onListo={() => {}} />);
   expect(await screen.findByText(/arrancando/i)).toBeInTheDocument();
+});
+
+
+// Ahorro de tokens (2026-11-11): la mejora ya no corre sola; se pide con un botón.
+const hueco = { codigo: "DIC-00", nivel: "bloqueante", ubicacion: "", mensaje: "sin pantallas", propuesta: null };
+
+it("con pendientes y sin decisiones ofrece «Mejorar con IA» y vuelve a consultar", async () => {
+  const { leerGenerados, mejorarPropuesta } = await import("@/lib/api");
+  const conPend = { ...listo, diccionario: { ...conVista, huecos: [hueco] } };
+  vi.mocked(leerGenerados).mockReset();
+  vi.mocked(leerGenerados)
+    .mockResolvedValueOnce(conPend)
+    .mockResolvedValueOnce({ ...conPend, estado: "generando" })
+    .mockResolvedValue({ ...listo, diccionario: { ...conVista, ronda: 2 } });
+  vi.mocked(mejorarPropuesta).mockResolvedValue({ sid: SID, estado: "generando" });
+  render(<Propuestas sid={SID} onListo={() => {}} />);
+  await userEvent.click(await screen.findByRole("button", { name: /mejorar con ia/i }));
+  expect(mejorarPropuesta).toHaveBeenCalledWith(SID);
+  expect(await screen.findByText(/generando la propuesta/i)).toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
+  await waitFor(() => expect(screen.queryByRole("button", { name: /mejorar con ia/i })).not.toBeInTheDocument());
+});
+
+it("sin pendientes no ofrece la mejora", async () => {
+  const { leerGenerados } = await import("@/lib/api");
+  vi.mocked(leerGenerados).mockReset();
+  vi.mocked(leerGenerados).mockResolvedValue(listo);
+  render(<Propuestas sid={SID} onListo={() => {}} />);
+  expect(await screen.findByText("Diccionario (1 de 2)")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /mejorar con ia/i })).not.toBeInTheDocument();
 });

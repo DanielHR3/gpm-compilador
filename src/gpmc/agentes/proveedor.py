@@ -17,6 +17,11 @@ class Respuesta(BaseModel):
     tokens_salida: Optional[int] = None
     modelo: str
     duracion_ms: int
+    # Consumo total de la llamada cuando el proveedor no separa entrada y salida
+    # (norte70: por diferencia de saldo). `tokens_estimados` si salio del tamaño.
+    tokens_total: Optional[int] = None
+    tokens_estimados: bool = False
+    saldo: Optional[int] = None       # lo que queda de la licencia, si el proveedor lo dice
 
 
 class ProveedorNoDisponible(Exception):

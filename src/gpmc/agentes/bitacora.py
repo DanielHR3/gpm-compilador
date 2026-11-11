@@ -42,6 +42,23 @@ class Interaccion(BaseModel):
     # interacciones de DIC-08, que siguen escribiendose igual que antes.
     documento: Optional[str] = None
     ronda: Optional[int] = None
+    # Consumo (2026-11-11): con norte70 no hay entrada ni salida, solo el total
+    # por diferencia de saldo; `saldo` es lo que queda de la licencia.
+    tokens_total: Optional[int] = None
+    tokens_estimados: bool = False
+    saldo: Optional[int] = None
+
+
+def copiar_consumo(it: Interaccion, resp) -> None:
+    """Lo que la respuesta dice de su consumo pasa a la interaccion. Unico
+    lugar donde se hace, para que ningun agente deje la licencia sin medir."""
+    it.tokens_entrada, it.tokens_salida, it.duracion_ms = resp.tokens_entrada, resp.tokens_salida, resp.duracion_ms
+    total = getattr(resp, "tokens_total", None)
+    if total is None and resp.tokens_entrada is not None and resp.tokens_salida is not None:
+        total = resp.tokens_entrada + resp.tokens_salida
+    it.tokens_total = total
+    it.tokens_estimados = bool(getattr(resp, "tokens_estimados", False))
+    it.saldo = getattr(resp, "saldo", None)
 
 
 def registrar(raiz: Path, it: Interaccion) -> None:

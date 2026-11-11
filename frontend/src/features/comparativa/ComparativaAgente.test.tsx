@@ -80,7 +80,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it("la primera vez lanza el análisis sola y la página se completa", async () => {
+it("ya no se lanza sola: ofrece «Completar con IA» y se completa al pedirlo", async () => {
+  // Ahorro de tokens (2026-11-11): abrir la página no gasta licencia de IA.
   vi.useFakeTimers({ shouldAdvanceTime: true });
   api.leerComparativa
     .mockResolvedValueOnce(BASE)
@@ -90,18 +91,19 @@ it("la primera vez lanza el análisis sola y la página se completa", async () =
   api.analizarComparativa.mockResolvedValue({ estado: "analizando" });
   render(<Comparativa sid={SID} />);
 
-  const estado = await screen.findByRole("status");
-  expect(estado).toHaveTextContent(/el agente está completando la comparativa/i);
-  expect(estado).toHaveTextContent("Leyendo el AS-IS y el TO-BE");
+  const boton = await screen.findByRole("button", { name: /completar con ia/i });
+  expect(api.analizarComparativa).not.toHaveBeenCalled();
+  await userEvent.click(boton);
   expect(api.analizarComparativa).toHaveBeenCalledTimes(1);
   expect(api.analizarComparativa).toHaveBeenCalledWith(SID);
+  const estado = await screen.findByRole("status");
+  expect(estado).toHaveTextContent(/el agente está completando la comparativa/i);
 
   await act(async () => {
     await vi.advanceTimersByTimeAsync(2600);
   });
   const tarjeta = await screen.findByRole("article", { name: "Visitas presenciales" });
   expect(tarjeta).toHaveTextContent("propuesto por el agente");
-  expect(tarjeta).toHaveTextContent("−100 %");
   expect(api.analizarComparativa).toHaveBeenCalledTimes(1);
 });
 

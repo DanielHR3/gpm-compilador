@@ -69,11 +69,17 @@ export default function EstadoAnalisis({
             en cada tarjeta y corrige la que no se sostenga.
           </p>
         ) : null}
-        {analisis.puede_analizar && !analizando && analisis.estado !== "sin_analizar" ? (
+        {analisis.puede_analizar && analisis.estado === "sin_analizar" ? (
+          <p className="text-sm">
+            El compilador ya contó lo que pudo. El agente puede buscar en el AS-IS y el TO-BE las
+            cifras que faltan y proponer puntos de mejora; consume licencia de IA.
+          </p>
+        ) : null}
+        {analisis.puede_analizar && !analizando ? (
           <Button type="button" size="sm" variant="outline" className="self-start"
                   disabled={ocupado} onClick={onAnalizar}>
             <Sparkles aria-hidden />
-            Volver a analizar
+            {analisis.estado === "sin_analizar" ? "Completar con IA" : "Volver a analizar"}
           </Button>
         ) : null}
       </CardContent>
