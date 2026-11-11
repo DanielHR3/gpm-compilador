@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 
 import AvisoModoPruebas, { useModoPruebas } from "@/components/AvisoModoPruebas";
 import MigasDePan from "@/components/MigasDePan";
-import { decidirDocumento, ErrorApi, leerGenerados, subirDocumento } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { decidirDocumento, ErrorApi, leerGenerados, mejorarPropuesta, subirDocumento } from "@/lib/api";
 import { migas } from "@/lib/rutas";
 import type {
   ClaveDocumento,
@@ -71,6 +73,8 @@ export default function Propuestas({ sid, onListo }: Props) {
   const [agotado, setAgotado] = useState(false);
   const consultas = useRef(0);
   const pruebas = useModoPruebas();
+  // Sube cada vez que se pide la mejora: reinicia la consulta periodica.
+  const [vuelta, setVuelta] = useState(0);
 
   useEffect(() => {
     let vivo = true;
@@ -99,7 +103,34 @@ export default function Propuestas({ sid, onListo }: Props) {
       vivo = false;
       if (timer) clearTimeout(timer);
     };
-  }, [sid]);
+  }, [sid, vuelta]);
+
+  // Ahorro de tokens (2026-11-11): la ronda de mejora ya no corre sola. Se
+  // ofrece mientras haya pendientes y ninguno de los dos documentos se haya decidido.
+  const puedeMejorar =
+    g?.estado === "listo" &&
+    !!g.diccionario &&
+    !!g.tobe &&
+    g.diccionario.decision === "pendiente" &&
+    g.tobe.decision === "pendiente" &&
+    g.diccionario.huecos.length + g.tobe.huecos.length > 0;
+
+  const pedirMejora = async () => {
+    setError(null);
+    setOcupado(true);
+    try {
+      await mejorarPropuesta(sid);
+      consultas.current = 0;
+      setAgotado(false);
+      setG((previo) => (previo ? { ...previo, estado: "generando" } : previo));
+      setVuelta((v) => v + 1);
+    } catch (e) {
+      if (!(e instanceof ErrorApi)) throw e;
+      setError(e.error || e.message);
+    } finally {
+      setOcupado(false);
+    }
+  };
 
   const aplicar = useCallback(
     (r: ResultadoDecision) => {
@@ -203,6 +234,18 @@ export default function Propuestas({ sid, onListo }: Props) {
       {g && g.estado !== "generando" ? (
         <>
           {g.motivo ? <p className="text-sm text-foreground">{g.motivo}</p> : null}
+          {puedeMejorar ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card p-4 text-sm">
+              <p className="max-w-prose">
+                La propuesta trae pendientes. Puedes resolverlos tú o pedirle al agente una segunda vuelta
+                sobre lo que ya escribió. Consume licencia de IA.
+              </p>
+              <Button type="button" size="sm" variant="outline" disabled={ocupado} onClick={() => void pedirMejora()}>
+                <Sparkles aria-hidden />
+                Mejorar con IA
+              </Button>
+            </div>
+          ) : null}
           {ambos ? (
             <div className="grid items-start gap-6 lg:grid-cols-2">
               {tarjeta("diccionario")}

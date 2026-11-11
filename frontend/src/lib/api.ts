@@ -477,6 +477,15 @@ export async function proponerExpediente(
   return pedirJson(`${BASE}/expedientes/proponer`, { method: "POST", body: fd });
 }
 
+/**
+ * `POST /api/v1/expedientes/{sid}/generados/mejorar` — 202: la ronda de mejora
+ * bajo pedido (ya no corre sola al proponer, para ahorrar tokens). 409 si ya
+ * hay una decision o no hay licencia.
+ */
+export async function mejorarPropuesta(sid: string): Promise<{ sid: string; estado: EstadoGenerados }> {
+  return pedirJson(`${BASE}/expedientes/${sid}/generados/mejorar`, { method: "POST" });
+}
+
 /** `GET /api/v1/expedientes/{sid}/generados` — estado y borradores de la Fase 3. */
 export async function leerGenerados(sid: string): Promise<GeneradosOut> {
   return pedirJson<GeneradosOut>(`${BASE}/expedientes/${sid}/generados`);

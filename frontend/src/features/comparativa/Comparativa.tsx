@@ -154,7 +154,6 @@ export default function Comparativa({ sid }: { sid: string }) {
   const [aviso, setAviso] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const consultas = useRef(0);
-  const lanzado = useRef(false);
 
   useEffect(() => {
     let vivo = true;
@@ -180,16 +179,9 @@ export default function Comparativa({ sid }: { sid: string }) {
     }
   }, [sid]);
 
-  // La primera vez que alguien abre la comparativa de un expediente, el agente
-  // corre solo (decision del 2026-10-01: la pagina tiene que llegar completa).
-  // Una sola vez por montaje: un fallo no se reintenta en bucle.
+  // Ahorro de tokens (2026-11-11): el agente ya no corre solo al abrir la
+  // pagina (antes, decision del 2026-10-01); se pide con «Completar con IA».
   const estado = datos?.disponible ? datos.analisis : undefined;
-  useEffect(() => {
-    if (!estado || lanzado.current) return;
-    if (estado.estado !== "sin_analizar" || !estado.puede_analizar) return;
-    lanzado.current = true;
-    void analizar();
-  }, [estado, analizar]);
 
   // Mientras el agente trabaja se consulta cada 2.5 s, con un tope para no
   // dejar una pestaña olvidada preguntando toda la noche.
@@ -236,16 +228,14 @@ export default function Comparativa({ sid }: { sid: string }) {
   const agente =
     analisis?.estado === "lista"
       ? "termino"
-      : analisis?.estado === "analizando" ||
-          (analisis?.estado === "sin_analizar" && analisis.puede_analizar)
+      : analisis?.estado === "analizando"
         ? "buscando"
         : "sin_agente";
   const mejoras = datos.mejoras ?? [];
   const elementos = datos.elementos ?? [];
   // El aviso solo aparece cuando hay algo que decir.
-  const hayAviso =
-    analisis !== undefined &&
-    (analisis.estado !== "sin_analizar" || !analisis.puede_analizar || aviso !== null);
+  // Sin analizar y con agente disponible, el aviso es el boton para pedirlo.
+  const hayAviso = analisis !== undefined;
 
   return (
     <div className="flex flex-col gap-8">
