@@ -182,10 +182,10 @@ export default function Propuestas({ sid, onListo }: Props) {
 
   const nombre = g?.nombre ?? "Trámite sin nombre";
   const hay = g?.insumos ?? { diccionario: false, tobe: false };
-  // Un documento por pantalla: primero el Diccionario, despues el TO-BE. Se
-  // decide por lo que ya tiene archivo en la sesion, asi una recarga abre en
-  // el paso correcto aunque el Diccionario se haya declinado y subido.
-  const paso: "diccionario" | "tobe" = hay.diccionario ? "tobe" : "diccionario";
+  // Un documento por pantalla y en el orden del método de reingeniería del equipo (Luis Vera,
+  // 2026-11-11): primero la Propuesta TO-BE; el Diccionario sale del TO-BE ya validado. Se decide
+  // por lo que ya tiene archivo en la sesion, asi una recarga abre en el paso correcto.
+  const paso: "diccionario" | "tobe" = hay.tobe ? "diccionario" : "tobe";
   // Sin propuesta (error, sin licencia) o con los dos ya resueltos (un 422
   // del extractor): las dos tarjetas, para poder subir encima de cualquiera.
   const ambos = !g?.diccionario || !g?.tobe || (hay.diccionario && hay.tobe);
@@ -219,7 +219,7 @@ export default function Propuestas({ sid, onListo }: Props) {
       {g?.estado === "generando" ? (
         <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-4 text-sm">
           <p>
-            El compilador está redactando el Diccionario y el TO-BE a partir del AS-IS. Suele tardar de dos a cinco minutos.
+            El compilador está redactando la Propuesta TO-BE y el Diccionario de Datos a partir del AS-IS. Suele tardar de dos a cinco minutos.
           </p>
           <PasosDelAgente pasos={g.pasos ?? []} />
           <p className="text-muted-foreground">Puedes cerrar y volver: la liga guarda el avance.</p>
@@ -248,8 +248,8 @@ export default function Propuestas({ sid, onListo }: Props) {
           ) : null}
           {ambos ? (
             <div className="grid items-start gap-6 lg:grid-cols-2">
-              {tarjeta("diccionario")}
               {tarjeta("tobe")}
+              {tarjeta("diccionario")}
             </div>
           ) : (
             tarjeta(paso)
