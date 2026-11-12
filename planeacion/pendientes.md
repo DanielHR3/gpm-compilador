@@ -47,6 +47,35 @@ buscar.
 
 ## Abiertos
 
+- **P-27 — segunda ronda de la fabrica: enviado el 2026-11-12, en espera de respuesta.** Se
+  mando `Alta-de-Avisos-de-Testamento (produccion, 2026-11-12).gpm` con el PDF de atencion a
+  las siete observaciones (guion en `planeacion/fabrica/2026-11-12-atencion-a-observaciones.py`).
+  **El archivo no se importo a la plataforma antes de enviarlo: no hay acta.** Lo hecho esta
+  en `CLAUDE.md` seccion 17. Queda abierto, y casi todo depende de lo que conteste la fabrica:
+  - **Obs. 3, condicion de un paso.** Ningun paso de los 12 exports trae `regla`. Con la forma
+    confirmada se funden las rutas de pago en una tarea del Notario. No se emite sin acta.
+  - **Obs. 4, documentos.** «Archivo CSV» y «Oficio de contestacion» salen con `return '';` y
+    se disparan al terminar la captura. Faltan plantillas con `{{campo}}` (P-23) y decidir la
+    tarea de cada uno (`DOC-04`).
+  - **Obs. 5, acciones.** Solo sale el folio, con prefijo «GPM» provisional (`ACC-01`). Sin
+    calculo (`ACC-02`): «Monto a Pagar», «Fuera del Plazo Legal Sugerido», «Pago en Linea
+    Confirmado», «Archivo CSV para RENAT» y «Nombre del Funcionario que Firma».
+  - **Obs. 7, reglas con selectores.** No se identifico la regla que fallo. Cuatro decisiones
+    no tienen ruta para el «No»: «¿Pago Validado?», «¿Importacion validada en RENAT?»,
+    «Notario Verificado» y «Autoriza y Firma» (consulta a Simplificacion).
+  - **Las ocho preguntas enviadas:** (1) como se escribe la condicion de un paso y si puede
+    mirar un campo de un paso anterior de la misma tarea; (2) en que conexion vieron fallar la
+    regla con selector y que forma debe llevar; (3) que devuelve la Accion de cobro (cantidad o
+    arreglo de pasarela), partida, tipo de servicio y de donde sale la UMA; (4) si el contenido
+    del documento lo arma una Accion variable, si el evento va antes o despues y como lo ve
+    quien firma; (5) como se obtiene el funcionario en sesion y la confirmacion de la pasarela;
+    (6) que regla admite «fecha no futura»; (7) nombre exacto de los grupos «Notario» y «Area
+    De Avisos De Testamento»; (8) si fue correcto unir «Importacion a RENAT» con «Verificar
+    Notario y Firmar» y si esperan reducir la ruta de banco.
+  - **De nuestro lado:** importar el archivo y levantar acta; prefijo del folio con la
+    dependencia; «Campos con Error» sale como texto porque su lista no tiene opciones; dos
+    pruebas de `test_registro` (`sembrar`) fallan con `GPMC_WIKI` desde antes de esta ronda.
+
 - **P-25 — el servidor corre con Gemini y las propuestas de `DIC-08` sobre expedientes reales
   pasan por el.** Detectado el 2026-09-23 al agotar la cuota diaria gratuita (20 llamadas por
   modelo) con tres siembras del tablero: cada expediente que se sube dispara una propuesta de
