@@ -26,6 +26,10 @@ const TITULOS: Record<string, string> = {
   "DIC-07": "Lista sin opciones",
   "DIC-08": "Visibilidad de un campo",
   "DIC-09": "Nombre técnico repetido",
+  "DIC-10": "Vista que se muestra antes de revisar",
+  "FLU-04": "Tareas unidas en una sola",
+  "ACC-01": "Folio automático",
+  "ACC-02": "Datos que llena el sistema",
   "API-03": "Campo del que depende",
   "API-04": "Conexión con otro sistema",
   "API-05": "Conexión que exige credencial",
@@ -435,6 +439,45 @@ const REDACCIONES: Record<string, Redaccion> = {
       `diagrama TO-BE: ${contar(Number(m[1]), "decisión", "decisiones")} y ` +
       `${contar(Number(m[2]), "salida", "salidas")} con condición. Revisa que a ` +
       `cada tarea le haya tocado la pantalla correcta: ${m[3]}`
+    );
+  },
+
+  // --- Segunda ronda de la fabrica (2026-11-12). ---------------------------
+  "DIC-10": (mensaje) => {
+    const m = /la fila «(.+?)» no se emitió como campo: la tarea muestra primero la Pantalla (\d+) completa/s.exec(mensaje);
+    if (!m) return null;
+    return (
+      `En lugar del renglón «${m[1]}», quien atiende esta tarea verá primero la ` +
+      `Pantalla ${m[2]} completa, sin poder modificarla, y después esta pantalla. ` +
+      "Confirma que eso es lo que debe revisar."
+    );
+  },
+  "FLU-04": (mensaje) => {
+    const m = /^(\d+) tarea\(s\) seguidas del mismo responsable se unieron en una sola con varios pasos: (.+)\. Confirma/s.exec(mensaje);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return (
+      `${n === 1 ? "Se unió 1 tarea" : `Se unieron ${n} tareas`} con la anterior porque las atiende la misma ` +
+      `persona y no hay ninguna decisión entre ellas: ${m[2]}. Confirma que de ` +
+      "verdad las atiende el mismo responsable."
+    );
+  },
+  "ACC-01": (mensaje) => {
+    const m = /^«(.+?)» \(@@\w+\) se llena con una acción de folio consecutivo, con la forma (\S+)\. El prefijo «(.+?)» es provisional/s.exec(mensaje);
+    if (!m) return null;
+    return (
+      `«${m[1]}» se llenará solo, con un folio consecutivo de la forma ${m[2]}. El prefijo ` +
+      `«${m[3]}» es provisional: hay que cambiarlo en la plataforma por el de la dependencia.`
+    );
+  },
+  "ACC-02": (mensaje) => {
+    const m = /^(\d+) campo\(s\) los llena el sistema y el compilador no emite su cálculo: (.+)\. Cada uno necesita/s.exec(mensaje);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return (
+      `${n === 1 ? "Este dato lo" : `Estos ${n} datos los`} debe llenar el sistema, pero su cálculo no se genera ` +
+      `solo: ${m[2]}. Hay que programarlo${n === 1 ? "" : "s"} en la plataforma; mientras tanto ` +
+      `saldrá${n === 1 ? "" : "n"} vacío${n === 1 ? "" : "s"}.`
     );
   },
 

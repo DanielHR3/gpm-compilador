@@ -547,3 +547,63 @@ describe("aviso de liga con Simplifica", () => {
     );
   });
 });
+
+// Segunda ronda de la fabrica (2026-11-12): cuatro avisos nuevos del backend.
+describe("avisos de la segunda ronda de la fábrica", () => {
+  const h = (codigo: string, mensaje: string): Hueco =>
+    ({ nivel: "por_confirmar", codigo, ubicacion: "flujo", mensaje, propuesta: null }) as Hueco;
+
+  test("tienen título en castellano", () => {
+    expect(tituloDeCodigo("DIC-10")).toBe("Vista que se muestra antes de revisar");
+    expect(tituloDeCodigo("FLU-04")).toBe("Tareas unidas en una sola");
+    expect(tituloDeCodigo("ACC-01")).toBe("Folio automático");
+    expect(tituloDeCodigo("ACC-02")).toBe("Datos que llena el sistema");
+  });
+
+  test("DIC-10 dice qué pantalla verá primero quien revisa", () => {
+    const crudo =
+      "la fila «Vista de solo lectura (Notario → Área)» no se emitió como campo: la tarea muestra primero la " +
+      "Pantalla 1 completa en modo visualización, y después esta. Confirma que es lo que debe ver quien revisa";
+    expect(redactarHueco(h("DIC-10", crudo))).toBe(
+      "En lugar del renglón «Vista de solo lectura (Notario → Área)», quien atiende esta tarea verá primero la " +
+        "Pantalla 1 completa, sin poder modificarla, y después esta pantalla. Confirma que eso es lo que debe revisar.",
+    );
+  });
+
+  test("FLU-04 cuenta las uniones y conserva cuáles fueron", () => {
+    const crudo =
+      "1 tarea(s) seguidas del mismo responsable se unieron en una sola con varios pasos: «Firmar» pasa a ser " +
+      "un paso de «Importar». Confirma que no hay un cambio de responsable entre ellas";
+    expect(redactarHueco(h("FLU-04", crudo))).toBe(
+      "Se unió 1 tarea con la anterior porque las atiende la misma persona y no hay ninguna decisión entre " +
+        "ellas: «Firmar» pasa a ser un paso de «Importar». Confirma que de verdad las atiende el mismo responsable.",
+    );
+  });
+
+  test("ACC-01 avisa que el prefijo del folio es provisional", () => {
+    const crudo =
+      "«Número de Folio» (@@numero_folio) se llena con una acción de folio consecutivo, con la forma " +
+      "GPM-AAAA-00001. El prefijo «GPM» es provisional: cámbialo por el de la dependencia";
+    expect(redactarHueco(h("ACC-01", crudo))).toBe(
+      "«Número de Folio» se llenará solo, con un folio consecutivo de la forma GPM-AAAA-00001. El prefijo " +
+        "«GPM» es provisional: hay que cambiarlo en la plataforma por el de la dependencia.",
+    );
+  });
+
+  test("ACC-02 nombra los datos que hay que programar en la plataforma", () => {
+    const crudo =
+      "2 campo(s) los llena el sistema y el compilador no emite su cálculo: «Monto a Pagar», «Funcionario». " +
+      "Cada uno necesita una Acción PHP en la plataforma; sin ella el campo sale vacío";
+    expect(redactarHueco(h("ACC-02", crudo))).toBe(
+      "Estos 2 datos los debe llenar el sistema, pero su cálculo no se genera solo: «Monto a Pagar», " +
+        "«Funcionario». Hay que programarlos en la plataforma; mientras tanto saldrán vacíos.",
+    );
+  });
+
+  test("si el mensaje del backend cambia, se ve el original", () => {
+    for (const c of ["DIC-10", "FLU-04", "ACC-01", "ACC-02"]) {
+      expect(redactarHueco(h(c, "otro texto"))).toBe("otro texto");
+    }
+  });
+});
+

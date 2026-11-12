@@ -681,9 +681,9 @@ interno**. Spec y plan en `docs/superpowers/` (`2026-09-28-comparativa-antes-des
 - **Colores de la gráfica:** `--cmp-antes` / `--cmp-despues` en `index.css`. Son `--viz-2` y
   `--viz-4` en claro, `--viz-1` y `--viz-3` en oscuro: el validador de `dataviz` rechazó los
   extremos de la rampa. El contraste queda bajo 3:1 y por eso cada barra lleva su valor escrito.
-- **Pendiente anotado, no hecho:** el fixture `wiki` de `tests/conftest.py` comprueba la
-  carpeta con `legible()`, que la abre como archivo; con un directorio siempre da falso y toda
-  prueba que lo use se salta aunque `GPMC_WIKI` esté puesta. `test_comparativa_real.py` no lo usa.
+- **Hecho el 2026-11-11:** `legible()` de `tests/conftest.py` ya reconoce carpetas; con
+  `GPMC_WIKI` las pruebas de wiki corren. Con la wiki nueva fallan dos de `test_registro`
+  (`sembrar`), sin diagnosticar.
 
 ### 14. Documentos del trámite (2026-09-28)
 
@@ -826,4 +826,50 @@ Specs: `docs/superpowers/specs/2026-11-06-api-de-estado-para-simplifica-design.m
   y 18 pruebas web pedían sesión según el orden de la corrida.
 - **Nombre del proyecto:** «Telar» está propuesto pero en espera de que se indique el nombre; no
   se cambia ningún texto visible hasta entonces.
+
+### 17. Segunda ronda de la fábrica: validación, vistas, tareas unidas y folio (2026-11-12)
+
+La fábrica revisó el compilado normal de «Alta de Avisos de Testamento» y devolvió siete
+observaciones. Se comparó contra 12 exports auténticos. Bitácora: `2026-11-12 - Segunda ronda
+de la fábrica`. **Nada de esto se ha importado todavía a la plataforma: falta el acta.**
+
+- **Ya no es «una tarea por pantalla».** El diagrama sigue trayendo una tarea por pantalla (y
+  el prompt de la Fase 3 lo sigue exigiendo); la unión ocurre después, en
+  `expediente._fusionar_tareas`: A y B se vuelven una tarea con varios pasos cuando A solo sale
+  hacia B, sin condición, B solo recibe de A y el responsable es el mismo. Es la forma
+  (edición, edición) de los exports. Aviso `FLU-04` (`por_confirmar`). La tarea unida se llama
+  «A / B» si cabe en 60. **No se aplica con `FLU-01`:** el flujo lineal provisional lo va a
+  ramificar una persona tarea por tarea (`mmd04rama`). `reensamblar_flujo` sí la aplica.
+- **Una rama no se funde.** Exigiría una regla en el paso (`paso.regla`), y ningún paso de los
+  12 exports trae una. No se emite sin acta de la plataforma.
+- **«Vista de solo lectura (Origen → Destino)» es un paso de visualización, no un campo**
+  (cierra P-09). Cuando la fila cita UNA pantalla anterior que existe y la pantalla tiene más
+  filas, no se emite el campo: `Pantalla.muestra_antes` guarda el id y `expediente._pasos_de`
+  antepone ese paso en `visualizacion`. Vive en la pantalla y no en el flujo porque el flujo se
+  rearma desde el diagrama. Aviso `DIC-10` (`por_confirmar`). Una vista que no cita pantalla
+  («muestra el oficio generado») sigue como campo. `is_reusable` sale siempre `"0"` (P-10).
+- **`Flujo.tarea_de_pantalla(id)`** da la tarea DUEÑA de una pantalla (la que la tiene como
+  último paso). Usarla en vez de buscar «la tarea que contiene la pantalla»: ahora una pantalla
+  aparece en más de una tarea.
+- **Validación por tipo** (`Campo.formato`: `numeric`, `alpha_numeric`, `valid_email`), en la
+  forma `required|numeric|exact_length[10]`. Solo campos de texto que no son de solo lectura.
+  `alpha_numeric` exige longitud exacta o rango (rechaza espacios y guiones). **El ejemplo del
+  equipo es la contraprueba:** si no pasaría la regla, no se emite.
+- **Solo lectura por la etiqueta inicial** de la descripción (`[Captura]`, `[Solo lectura,
+  generado]`). Buscar «solo lectura» en todo el texto dejaba `@@referencia_pago` obligatorio y
+  bloqueado.
+- **El folio generado es una Acción** (`expediente._acciones_del_sistema`, `colgar_folios`):
+  un campo de texto de solo lectura, marcado como generado y llamado folio, produce
+  `crear-folio` con la variable igual al campo y evento «antes» de la tarea dueña. Prefijo
+  «GPM» provisional (`ACC-01`). **El costo no se emite:** en los exports cada uno es PHP
+  escrito para ese trámite (UMA, arreglo de pasarela). Lo que llena el sistema y queda sin
+  cálculo se nombra en un solo `ACC-02` (`por_confirmar`).
+- **Ids de acciones y documentos, y márgenes, como texto** (`'8930'`, `'120'`), igual que los
+  exports; salían como número.
+- La SPA redacta `DIC-10`, `FLU-04`, `ACC-01` y `ACC-02` (anclados) y los clasifica como
+  «plataforma»: no van en el documento para la dependencia.
+- **Abierto con la fábrica** (ocho preguntas enviadas): forma de la regla de un paso, qué
+  regla con selector falló, qué devuelve la Acción de cobro, documentos, dato de sesión,
+  «fecha no futura», nombres de los grupos. Los dos documentos de Testamento siguen saliendo
+  vacíos (`return '';`) hasta tener plantillas con `{{campo}}` (P-23).
 
