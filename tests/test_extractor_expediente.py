@@ -647,3 +647,46 @@ def test_una_vista_con_solo_campos_de_lectura_va_en_modo_visualizacion():
               Tarea(id="t3", nombre="z", pantallas=["p3"])]
     _marcar_visualizacion(tareas, pantallas)
     assert [t.pantallas[0].modo for t in tareas] == ["edicion", "visualizacion", "edicion"]
+
+
+# ── Fabrica, 2026-11-12: «quien valida debe ver que esta revisando» ──
+
+_DICC_REVISION = """### Pantalla 1 — Solicitante — Captura
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |
+| CURP | Texto | Input de texto | Sí | [Captura] Campo `@@curp`. |
+
+### Pantalla 2 — Area — Revisar
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |
+| Vista de solo lectura (Solicitante → Area) | N/A | Campos de solo lectura | No | [Solo lectura] Campo `@@vista_solicitud`. Muestra lo capturado en la Pantalla 1. |
+| Dictamen | Texto | Input de texto | Sí | [Captura] Campo `@@dictamen`. |
+"""
+
+
+def _pasos(tarea):
+    return [(p.id, p.modo) for p in tarea.pantallas]
+
+
+def test_la_tarea_de_revision_muestra_la_captura_en_visualizacion(tmp_path):
+    carpeta = _expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_REVISION})
+    m = extraer_expediente(carpeta).manifiesto
+    por_pantalla = {t.pantallas[-1].id: t for t in m.flujo.tareas if t.pantallas}
+    assert _pasos(por_pantalla["p1"]) == [("p1", "edicion")]
+    assert _pasos(por_pantalla["p2"]) == [("p1", "visualizacion"), ("p2", "edicion")]
+
+
+def test_el_flujo_ramificado_tambien_antepone_la_vista():
+    # `reensamblar_flujo` rearma las tareas desde el diagrama con las pantallas
+    # del manifiesto: la vista tiene que salir de ahi, no de la extraccion.
+    from gpmc.extractores import mermaid
+    from gpmc.extractores.expediente import _flujo_ramificado
+    from gpmc.nucleo.manifiesto import Campo
+    pantallas = [
+        Pantalla(id="p1", nombre="Captura", actor="c", campos=[Campo(nombre="a")]),
+        Pantalla(id="p2", nombre="Revisar", actor="c", campos=[Campo(nombre="b")], muestra_antes=["p1"]),
+    ]
+    rm = mermaid.extraer("flowchart TD\n  I([Inicio]) --> T1[Captura]\n  T1 --> T2[Revisar]\n  T2 --> F([Fin])\n")
+    tareas, _, _ = _flujo_ramificado(rm, pantallas)
+    assert [_pasos(t) for t in tareas] == [
+        [("p1", "edicion")], [("p1", "visualizacion"), ("p2", "edicion")]]

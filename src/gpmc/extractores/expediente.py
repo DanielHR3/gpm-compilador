@@ -20,7 +20,7 @@ from gpmc.nucleo.integraciones import requiere_token as _requiere_token
 from gpmc.nucleo.integraciones import nombre_propuesta as _nombre_propuesta
 from gpmc.nucleo.limites import LIMITE_FORMULARIO_NOMBRE as _CAP_NOMBRE
 from gpmc.nucleo.manifiesto import (
-    Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, Tarea,
+    Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, PasoPantalla, Tarea,
 )
 
 _BLOQUE_MERMAID = re.compile(r"```mermaid(.*?)```", re.S)
@@ -67,6 +67,16 @@ def _mapear_nodos_a_pantallas(nodos_tarea, pantallas):
     if len({id(p) for p in mapa.values()}) != len(pantallas):
         return None  # dos nodos apuntan a la misma pantalla
     return mapa
+
+
+def _pasos_de(p) -> list:
+    """Los pasos de la tarea de una pantalla: primero, en visualizacion, las
+    pantallas anteriores que su fila «Vista de solo lectura» pide ensenar; al
+    final la propia. Es la forma de los exports autenticos para una revision
+    (captura en visualizacion + dictamen en edicion) y lo que pidio la fabrica
+    el 2026-11-12: que quien valida vea lo que esta validando."""
+    return [PasoPantalla(id=pid, modo="visualizacion") for pid in p.muestra_antes] + [
+        PasoPantalla(id=p.id)]
 
 
 def _marcar_visualizacion(tareas, pantallas) -> None:
@@ -214,7 +224,7 @@ def _flujo_ramificado(rm, pantallas, overrides=None):
             id=n.id, nombre=(p.nombre or n.texto)[:_CAP_NOMBRE], actor=p.actor,
             inicial=(n.id in iniciales),
             terminal=(n.id in sale_if or n.id not in sale),
-            pantallas=[p.id],
+            pantallas=_pasos_de(p),
         ))
     # La plataforma arranca en UNA tarea: con dos que salen del Inicio (o sin
     # flecha de entrada) el Manifiesto lanzaba ValueError y el asistente daba 500.
@@ -475,6 +485,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
         pantallas.append(Pantalla(
             id=p.id, nombre=p.nombre, actor=aid,
             paso_ciudadano=p.paso_ciudadano, campos=p.campos,
+            muestra_antes=list(p.muestra_antes),
         ))
 
     # Huecos de integracion: se comprueban aqui y no en el compilador porque
@@ -566,7 +577,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     if not flujo_ramificado_exitoso:
         tareas = [
             Tarea(id=f"t_{p.id}", nombre=p.nombre[:_CAP_NOMBRE], actor=p.actor,
-                  inicial=(i == 0), pantallas=[p.id])
+                  inicial=(i == 0), pantallas=_pasos_de(p))
             for i, p in enumerate(pantallas)
         ]
         tareas.append(Tarea(id="t_fin", nombre="Trámite concluido", terminal=True))

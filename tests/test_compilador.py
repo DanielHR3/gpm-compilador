@@ -835,3 +835,50 @@ def test_el_archivo_de_pruebas_dice_por_dentro_que_no_es_el_tramite():
     assert "no es el trámite" in prueba["description"].lower() and "sin flujo" in prueba["description"].lower()
     assert len(prueba["Tareas"]) == 1
     assert m.tramite.nombre == "Constancia de Prueba"            # el manifiesto original no se toca
+
+
+# ── Fabrica, 2026-11-12 ──
+
+def _manifiesto_con_revision():
+    from gpmc.nucleo.manifiesto import Manifiesto
+    return Manifiesto(**{
+        "tramite": {"nombre": "Prueba", "dependencia": "D"},
+        "actores": [{"id": "c", "nombre": "C"}],
+        "pantallas": [
+            {"id": "p1", "nombre": "Captura", "actor": "c", "campos": [
+                {"nombre": "tel", "obligatorio": True, "formato": "numeric", "longitud_exacta": 10},
+                {"nombre": "correo", "formato": "valid_email", "longitud_max": 100},
+            ]},
+            {"id": "p2", "nombre": "Revisar", "actor": "c", "muestra_antes": ["p1"],
+             "campos": [{"nombre": "dictamen"}]},
+        ],
+        "flujo": {"tareas": [
+            {"id": "t1", "nombre": "Captura", "inicial": True, "pantallas": ["p1"]},
+            {"id": "t2", "nombre": "Revisar", "terminal": True,
+             "pantallas": [{"id": "p1", "modo": "visualizacion"}, "p2"]},
+        ], "conexiones": [{"de": "t1", "a": "t2"}]},
+    })
+
+
+def test_el_formato_viaja_en_la_validacion_como_en_los_exports():
+    g = compilar(_manifiesto_con_revision())
+    campos = {c["nombre"]: c["validacion"] for c in g["Formularios"][0]["Campos"]}
+    assert campos["tel"] == "required|numeric|exact_length[10]"
+    assert campos["correo"] == "valid_email|max_length[100]"
+
+
+def test_una_pantalla_reutilizada_en_visualizacion_no_se_marca_reusable():
+    # P-10: en los exports autenticos hay 11 formularios usados en 2 a 4 pasos
+    # y los once traen `is_reusable: "0"`. Reutilizar no activa esa clave.
+    g = compilar(_manifiesto_con_revision())
+    assert [f["is_reusable"] for f in g["Formularios"]] == ["0", "0"]
+    pasos = g["Tareas"][1]["Pasos"]
+    assert [(p["orden"], p["modo"]) for p in pasos] == [("1", "visualizacion"), ("2", "edicion")]
+    assert pasos[0]["formulario_id"] == g["Formularios"][0]["id"]
+
+
+def test_la_duena_de_una_pantalla_es_la_tarea_que_la_tiene_al_final():
+    m = _manifiesto_con_revision()
+    assert m.flujo.tarea_de_pantalla("p1").id == "t1"
+    assert m.flujo.tarea_de_pantalla("p2").id == "t2"
+    assert m.flujo.tarea_de_pantalla("no_existe") is None

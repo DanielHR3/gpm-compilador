@@ -105,6 +105,8 @@ class PantallaExtraida:
     # Nombres de los campos que el Diccionario marca como «autorellenable» (o
     # «autocompletado»): los llena una consulta, no la persona.
     autorellenables: list = field(default_factory=list)
+    # Ids de pantallas anteriores que esta ensena primero, en visualizacion.
+    muestra_antes: list = field(default_factory=list)
 
 
 @dataclass
@@ -427,6 +429,89 @@ def etiqueta_desde_nombre(nombre: str) -> str:
     return f"{cuerpo} {cola}".strip() if cola else cuerpo
 
 
+_ETIQUETA_INICIAL = re.compile(r"[\s`*]*\[([^\]]*)\]")
+
+
+def _es_solo_lectura(desc: str) -> bool:
+    """La descripcion abre con su etiqueta —«[Captura]», «[Solo lectura,
+    generado]»— y esa manda. Buscar «solo lectura» en todo el texto marcaba
+    `@@referencia_pago`, que es de captura y solo cita de pasada el campo
+    «[Solo lectura, generado]» que hubo antes: salia obligatorio y bloqueado
+    (fabrica, 2026-11-12). Sin etiqueta inicial se busca como siempre."""
+    m = _ETIQUETA_INICIAL.match(desc or "")
+    return "solo lectura" in _babel(m.group(1) if m else desc)
+
+
+_CUMPLE_FORMATO = {
+    "numeric": re.compile(r"[-+]?\d*\.?\d+"),
+    "alpha_numeric": re.compile(r"[A-Za-z0-9]+"),
+    "valid_email": re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+"),
+}
+_TIPOS_NUMERICOS = ("int", "integer", "entero", "number", "numero", "float", "decimal", "numerico")
+
+
+def _formato_de(tipo, tipo_dato, componente, limite, ejemplo, solo_lectura) -> Optional[str]:
+    """La regla de formato que el Diccionario declara para un campo de texto, o None.
+
+    Solo lo que el documento dice: tipo de dato numerico o componente
+    «numérico»; componente de correo; «alfanuméricos» junto a una longitud
+    exacta o un rango. `alpha_numeric` rechaza espacios y guiones, asi que sin
+    esa longitud no se emite: con ella es una clave (CURP, RFC, placa), que es
+    donde la llevan los exports autenticos.
+
+    El ejemplo que escribio el equipo es la contraprueba: si no pasaria la
+    regla («771 123 4567» con `numeric`), el campo dejaria fuera datos que el
+    equipo da por buenos, y no se emite. Un campo de solo lectura tampoco: lo
+    llena el sistema y nadie podria corregirlo.
+    """
+    if tipo != "text" or solo_lectura:
+        return None
+    lim = _babel(limite)
+    if "correo" in componente or "email" in componente or "e-mail" in componente:
+        formato = "valid_email"
+    elif tipo_dato in _TIPOS_NUMERICOS or "numeric" in componente or "number" in componente:
+        formato = "numeric"
+    elif "alfanumeric" in lim and (
+            _LONGITUD_RANGO.search(limite or "")
+            or (_LONGITUD.search(limite or "") and not _LONGITUD_MAX.search(limite or ""))):
+        formato = "alpha_numeric"
+    else:
+        return None
+    ej = (ejemplo or "").strip()
+    if ej and _babel(ej) not in ("n/a", "na", "n.a.") and not _CUMPLE_FORMATO[formato].fullmatch(ej):
+        return None
+    return formato
+
+
+_PANTALLA_CITADA = re.compile(r"pantalla\s+(\d+)", re.I)
+
+
+def _pantalla_que_muestra(etiqueta, desc, pantalla, otras_filas, anteriores) -> Optional[str]:
+    """El id de la pantalla anterior que una fila «Vista de solo lectura
+    (Origen → Destino)» pide ensenar, o None si la fila debe seguir como campo.
+
+    La leyenda del Diccionario define la fila como «un actor consume, sin
+    editar, campos capturados por otro actor en una pantalla anterior». En la
+    plataforma eso no es un campo: es la MISMA pantalla, otra vez, como paso en
+    modo visualizacion (asi lo hacen los exports autenticos: captura en
+    edicion, y en la tarea de revision captura en visualizacion + dictamen).
+    Como campo de texto el revisor no veia que estaba revisando (fabrica,
+    2026-11-12; P-09).
+
+    Solo cuando es inequivoco: la descripcion cita UNA pantalla, anterior y
+    existente, y la pantalla tiene mas filas (si no, quedaria vacia).
+    """
+    if not _babel(etiqueta).startswith("vista de solo lectura") or not otras_filas:
+        return None
+    citadas = {int(n) for n in _PANTALLA_CITADA.findall(desc or "")}
+    if len(citadas) != 1:
+        return None
+    num = citadas.pop()
+    if num >= pantalla.numero or num not in anteriores:
+        return None
+    return anteriores[num]
+
+
 def _catalogo_en_la_descripcion(desc: str) -> "list[OpcionCatalogo]":
     """Opciones escritas entre parentesis dentro de la descripcion, o [].
 
@@ -552,6 +637,16 @@ def _extraer_campos(
     i_dep = col("dependencia")
     i_end = col("endpoint", "api")
 
+    # Para las filas «Vista de solo lectura»: que pantallas hay antes, y si
+    # esta tabla trae alguna fila que no sea una vista.
+    anteriores = {p.numero: p.id for p in r.pantallas if p is not pantalla}
+
+    def _es_vista(fila):
+        cs = _celdas(fila)
+        return i_nombre < len(cs) and _babel(re.sub(r"[*`]", "", cs[i_nombre])).startswith("vista de solo lectura")
+
+    otras_filas = any(not _es_vista(f) for f in filas[1:])
+
     for fila in filas[1:]:
         celdas = _celdas(fila)
         if len(celdas) < 3 or not celdas[i_nombre]:
@@ -561,6 +656,17 @@ def _extraer_campos(
         etiqueta = etiqueta.replace("`", "")
 
         desc = celdas[i_desc] if i_desc is not None and i_desc < len(celdas) else ""
+        mostrada = _pantalla_que_muestra(etiqueta, desc, pantalla, otras_filas, anteriores)
+        if mostrada is not None:
+            if mostrada not in pantalla.muestra_antes:
+                pantalla.muestra_antes.append(mostrada)
+            r.huecos.append(Hueco(
+                "por_confirmar", "DIC-10", pantalla.id,
+                f"la fila «{etiqueta}» no se emitió como campo: la tarea muestra primero la "
+                f"Pantalla {mostrada.lstrip('p')} completa en modo visualización, y después esta. "
+                f"Confirma que es lo que debe ver quien revisa",
+            ))
+            continue
         # Un `@@` de la descripcion es el nombre de ESTA fila solo si lo declara
         # («Campo @@x»). Si solo lo cita y ese nombre lo declara otra fila, es
         # una REFERENCIA: quedarselo creaba dos campos con el mismo nombre.
@@ -743,13 +849,15 @@ def _extraer_campos(
                 f"el compilador lo emite como campo de texto hasta que se defina el catálogo",
             ))
 
+        solo_lectura = _es_solo_lectura(desc)
         campo = Campo(
             nombre=nombre,
             etiqueta=etiqueta,
             tipo=tipo,
             obligatorio=obligatorio,
             ayuda=ayuda,
-            solo_lectura="solo lectura" in _babel(desc),
+            solo_lectura=solo_lectura,
+            formato=_formato_de(tipo, tipo_dato, componente, lim, ejemplo, solo_lectura),
             longitud_exacta=int(m_long.group(1)) if m_long else None,
             longitud_max=(int(m_rango.group(2)) if m_rango
                           else int(m_max.group(1) or m_max.group(2)) if m_max else None),
