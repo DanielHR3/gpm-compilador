@@ -113,6 +113,9 @@ class PantallaExtraida:
 class Resultado:
     pantallas: list[PantallaExtraida] = field(default_factory=list)
     huecos: list[Hueco] = field(default_factory=list)
+    # Campos que llena el sistema, no una persona: {nombre: etiqueta}. De aqui
+    # salen la accion de folio y el aviso de lo que queda sin calcular.
+    generados: dict = field(default_factory=dict)
 
 
 def _sin_acentos(t: str) -> str:
@@ -944,6 +947,10 @@ def _extraer_campos(
             campo.obligatorio = True
 
         pantalla.campos.append(campo)
+        m_tag = _ETIQUETA_INICIAL.match(desc or "")
+        if solo_lectura and ("generad" in _babel(m_tag.group(1) if m_tag else "")
+                             or "auto" in componente):
+            r.generados[nombre] = etiqueta
         if ("autorellen" in componente or "autocomplet" in componente
                 or "autocompletado" in _babel(desc) or dep_tipo == "api_ajax"):
             pantalla.autorellenables.append(nombre)

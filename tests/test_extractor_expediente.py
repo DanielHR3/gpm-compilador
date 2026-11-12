@@ -789,3 +789,69 @@ def test_el_expediente_reporta_la_fusion_para_confirmar(tmp_path):
     con_pantallas = [t for t in r.manifiesto.flujo.tareas if t.pantallas]
     assert [[p.id for p in t.pantallas] for t in con_pantallas] == [["p1"], ["p1", "p2", "p3"]]
     assert any(h.codigo == "FLU-04" and h.nivel == "por_confirmar" for h in r.huecos)
+
+
+# ── Fabrica, 2026-11-12: «no se aprovechan las variables de tipo Acción» ──
+#
+# En los exports autenticos el folio es una Accion cuya variable se llama igual
+# que el campo de solo lectura que lo muestra, colgada «antes» de la tarea que
+# tiene ese campo (constancia-ambiental, pago-de-bases, busqueda-testamento).
+
+_CAB_ACC = ("| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n")
+_DICC_FOLIO = (
+    "### Pantalla 1 — Solicitante — Captura\n\n" + _CAB_ACC +
+    "| CURP | Texto | Input de texto | Sí | [Captura] Campo `@@curp`. |\n"
+    "| Número de Folio | String | Texto de solo lectura (auto-generado) | No | [Solo lectura] Campo `@@numero_folio`. |\n"
+    "\n### Pantalla 2 — Area — Cobro\n\n" + _CAB_ACC +
+    "| Monto a Pagar | Float | Texto de solo lectura (auto-generado) | No | [Solo lectura, generado] Campo `@@monto_pago`. Ordinario $534.00. |\n"
+    "| Folio RENAT | String | Input de texto | Sí | [Captura] Campo `@@folio_renat`. |\n"
+)
+
+
+def test_un_folio_generado_sale_como_accion_antes_de_la_tarea_que_lo_muestra(tmp_path):
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_FOLIO}))
+    m = r.manifiesto
+    folios = [a for a in m.acciones if a.tipo == "folio"]
+    assert [(a.nombre, a.variable) for a in folios] == [("crear-folio", "numero_folio")]
+    assert m.flujo.tarea_de_pantalla("p1").acciones_antes == ["crear-folio"]
+    assert any(h.codigo == "ACC-01" and h.nivel == "por_confirmar" for h in r.huecos)
+
+
+def test_el_gpm_trae_el_folio_con_bloqueo_y_su_evento(tmp_path):
+    import json
+    from gpmc.compilador.a_gpm import compilar
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_FOLIO}))
+    g = compilar(r.manifiesto, proceso_id="1")
+    extra = json.loads(g["Acciones"][0]["extra"])
+    assert extra["variable"] == "numero_folio"
+    assert "->where('nombre', 'numero_folio')->lockForUpdate()" in extra["expresion"]
+    inicial = next(t for t in g["Tareas"] if t["inicial"] == 1 or t["inicial"] == "1")
+    assert [(e["instante"], e["accion_id"]) for e in inicial["Eventos"]] == [("antes", g["Acciones"][0]["id"])]
+
+
+def test_un_folio_que_captura_una_persona_no_es_una_accion(tmp_path):
+    dicc = _DICC_FOLIO.replace(
+        "| Número de Folio | String | Texto de solo lectura (auto-generado) | No | [Solo lectura] Campo `@@numero_folio`. |\n", "")
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": dicc}))
+    assert not [a for a in r.manifiesto.acciones if a.tipo == "folio"]
+
+
+def test_lo_que_llena_el_sistema_y_no_se_emite_se_dice(tmp_path):
+    # El monto no se calcula solo: en los exports cada costo es PHP escrito a
+    # mano (UMA, pasarela). No se adivina; se nombra para que alguien lo haga.
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_FOLIO}))
+    acc02 = [h for h in r.huecos if h.codigo == "ACC-02"]
+    assert len(acc02) == 1 and acc02[0].nivel == "por_confirmar"
+    assert "Monto a Pagar" in acc02[0].mensaje and "Folio" not in acc02[0].mensaje
+    assert not [a for a in r.manifiesto.acciones if a.tipo == "costo"]
+
+
+def test_reensamblar_no_descuelga_el_folio():
+    from gpmc.extractores.expediente import colgar_folios
+    from gpmc.nucleo.manifiesto import Accion, Campo, Flujo, Tarea
+    pantallas = [Pantalla(id="p1", nombre="Captura", actor="c", campos=[Campo(nombre="numero_folio", solo_lectura=True)])]
+    flujo = Flujo(tareas=[Tarea(id="t1", nombre="Captura", inicial=True, terminal=True, pantallas=["p1"])])
+    acciones = [Accion(tipo="folio", nombre="crear-folio", variable="numero_folio", prefijo="GPM")]
+    colgar_folios(acciones, flujo, pantallas)
+    colgar_folios(acciones, flujo, pantallas)   # dos veces no lo duplica
+    assert flujo.tareas[0].acciones_antes == ["crear-folio"]

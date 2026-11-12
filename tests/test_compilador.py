@@ -882,3 +882,13 @@ def test_la_duena_de_una_pantalla_es_la_tarea_que_la_tiene_al_final():
     assert m.flujo.tarea_de_pantalla("p1").id == "t1"
     assert m.flujo.tarea_de_pantalla("p2").id == "t2"
     assert m.flujo.tarea_de_pantalla("no_existe") is None
+
+
+def test_los_ids_de_acciones_y_documentos_son_texto_como_en_los_exports():
+    from gpmc.compilador.acciones import construir_acciones
+    from gpmc.nucleo.manifiesto import Accion
+    from itertools import count
+    acciones, documentos, _ = construir_acciones(
+        [Accion(tipo="documento", nombre="Oficio", plantilla="Hola", variables=[])], "1", count(1000))
+    assert acciones[0]["id"] == "1000" and documentos[0]["id"] == "1001"
+    assert documentos[0]["margin_top"] == "100" and documentos[0]["margin_left"] == "20"

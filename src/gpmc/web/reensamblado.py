@@ -12,7 +12,7 @@ from pathlib import Path
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores.documentos import atar_a_tareas
 from gpmc.extractores.expediente import (
-    _flujo_ramificado, _fusionar_tareas, _marcar_visualizacion,
+    _flujo_ramificado, _fusionar_tareas, _marcar_visualizacion, colgar_folios,
 )
 from gpmc.nucleo.manifiesto import Flujo, Manifiesto
 from gpmc.web import sesiones
@@ -93,3 +93,4 @@ def _conservar_acciones(m: Manifiesto, nuevo: Flujo) -> None:
     sueltas = [a for a in m.acciones if a.nombre not in colgadas]
     # Los avisos que devuelve no se usan: son los de la extraccion, ya dados.
     atar_a_tareas(sueltas, nuevo, m.pantallas)
+    colgar_folios(sueltas, nuevo, m.pantallas)

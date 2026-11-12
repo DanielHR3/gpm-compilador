@@ -20,7 +20,7 @@ from gpmc.nucleo.integraciones import requiere_token as _requiere_token
 from gpmc.nucleo.integraciones import nombre_propuesta as _nombre_propuesta
 from gpmc.nucleo.limites import LIMITE_FORMULARIO_NOMBRE as _CAP_NOMBRE
 from gpmc.nucleo.manifiesto import (
-    Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, PasoPantalla, Tarea,
+    Accion, Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, PasoPantalla, Tarea,
 )
 
 _BLOQUE_MERMAID = re.compile(r"```mermaid(.*?)```", re.S)
@@ -152,6 +152,58 @@ def _hueco_de_fusion(fusiones):
         f"{len(fusiones)} tarea(s) seguidas del mismo responsable se unieron en una sola con "
         f"varios pasos: {detalle}. Confirma que no hay un cambio de responsable entre ellas",
     )
+
+
+def colgar_folios(acciones, flujo, pantallas) -> None:
+    """Cuelga cada accion de folio «antes» de la tarea que muestra su campo.
+
+    Es donde la llevan los tres exports autenticos con folio (la variable de
+    la accion se llama igual que el campo de solo lectura, y el evento va
+    «antes» de la tarea de esa pantalla). No duplica: se llama tambien al
+    rearmar el flujo, que construye tareas nuevas sin acciones."""
+    donde = {c.nombre: p.id for p in pantallas for c in p.campos}
+    for a in acciones:
+        if a.tipo != "folio":
+            continue
+        if any(a.nombre in t.acciones_antes + t.acciones_despues for t in flujo.tareas):
+            continue
+        tarea = flujo.tarea_de_pantalla(donde.get(getattr(a, "variable", ""), ""))
+        if tarea is not None:
+            tarea.acciones_antes.append(a.nombre)
+
+
+def _acciones_del_sistema(generados, pantallas):
+    """De los campos que el Diccionario dice que llena el sistema: la accion de
+    folio, si hay UN campo de folio, y el aviso de lo demas.
+
+    La fabrica (2026-11-12): «no se aprovechan las variables de tipo Acción».
+    El folio si se puede emitir sin adivinar: su forma es fija (contador con
+    bloqueo). Un monto no: en los exports cada costo es PHP escrito para ese
+    tramite (valor de la UMA, arreglo de la pasarela). Eso se nombra y lo
+    configura una persona.
+    """
+    tipos = {c.nombre: c.tipo for p in pantallas for c in p.campos}
+    presentes = {n: e for n, e in generados.items() if n in tipos}
+    folios = [n for n in presentes if "folio" in n and tipos[n] == "text"]
+    acciones, huecos = [], []
+    if len(folios) == 1:
+        variable = folios[0]
+        acciones.append(Accion(tipo="folio", nombre="crear-folio", variable=variable, prefijo="GPM"))
+        huecos.append(Hueco(
+            "por_confirmar", "ACC-01", "acciones",
+            f"«{presentes[variable]}» (@@{variable}) se llena con una acción de folio "
+            f"consecutivo, con la forma GPM-AAAA-00001. El prefijo «GPM» es provisional: "
+            f"cámbialo por el de la dependencia",
+        ))
+    resto = [e for n, e in presentes.items() if n not in folios[:1 if len(folios) == 1 else 0]]
+    if resto:
+        huecos.append(Hueco(
+            "por_confirmar", "ACC-02", "acciones",
+            f"{len(resto)} campo(s) los llena el sistema y el compilador no emite su cálculo: "
+            + ", ".join(f"«{e}»" for e in resto)
+            + ". Cada uno necesita una Acción PHP en la plataforma; sin ella el campo sale vacío",
+        ))
+    return acciones, huecos
 
 
 def _marcar_visualizacion(tareas, pantallas) -> None:
@@ -678,6 +730,9 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     _marcar_visualizacion(tareas, pantallas)
     flujo = Flujo(tareas=tareas, conexiones=conexiones)
     r.huecos += ext_docs.atar_a_tareas(acciones_doc, flujo, pantallas)
+    acciones_sis, huecos_sis = _acciones_del_sistema(rd.generados, pantallas)
+    r.huecos += huecos_sis
+    colgar_folios(acciones_sis, flujo, pantallas)
 
     r.huecos += _decisiones_de_publicacion(list(actores_vistos.values()), flujo)
 
@@ -686,6 +741,6 @@ def extraer_expediente(carpeta: Path) -> Resultado:
         actores=list(actores_vistos.values()),
         pantallas=pantallas,
         flujo=flujo,
-        acciones=acciones_doc,
+        acciones=acciones_sis + acciones_doc,
     )
     return r

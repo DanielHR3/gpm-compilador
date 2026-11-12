@@ -78,7 +78,9 @@ def _documento_gpm(id_, nombre, contenido, proceso_id, datos=None) -> dict:
     """
     datos = datos or {}
     return {
-        "id": id_, "tipo": "blanco", "nombre": nombre, "contenido": contenido,
+        # Ids y margenes como texto: asi los traen los exports autenticos
+        # ('8930', '120'). Salian como numero (visto el 2026-11-12).
+        "id": str(id_), "tipo": "blanco", "nombre": nombre, "contenido": contenido,
         "servicio": None, "servicio_url": None, "logo": None, "timbre": None,
         "firmador_nombre": datos.get("firmador_nombre"), 
         "firmador_cargo": datos.get("firmador_cargo"), 
@@ -88,15 +90,15 @@ def _documento_gpm(id_, nombre, contenido, proceso_id, datos=None) -> dict:
         "subtitulo": datos.get("subtitulo"), 
         "titulo": datos.get("titulo"),
         "validez_habiles": None, "paper_size": "LETTER", "orientation_page": "portrait",
-        "header": None, "footer": "1 de 1", "margin_top": 100, "margin_bottom": 100,
-        "margin_left": 20, "margin_right": 20, "output": "pdf",
+        "header": None, "footer": "1 de 1", "margin_top": "100", "margin_bottom": "100",
+        "margin_left": "20", "margin_right": "20", "output": "pdf",
         "verify_code": None, "metadata": None,
     }
 
 
 def _accion_gpm(id_, nombre, tipo, extra, proceso_id) -> dict:
     return {
-        "id": id_, "nombre": nombre, "tipo": tipo,
+        "id": str(id_), "nombre": nombre, "tipo": tipo,
         "extra": json.dumps(extra, ensure_ascii=False),
         "proceso_id": str(proceso_id), "request": None, "metadata": None,
     }
