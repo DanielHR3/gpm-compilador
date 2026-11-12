@@ -79,6 +79,81 @@ def _pasos_de(p) -> list:
         PasoPantalla(id=p.id)]
 
 
+def _fusionar_tareas(tareas, conexiones):
+    """Une en una sola tarea, con varios pasos, las que van seguidas y son del
+    mismo responsable. Devuelve (tareas, conexiones, [(nombre_a, nombre_b)]).
+
+    La fabrica (2026-11-12): «exceso de tareas que fragmentan el flujo… Las
+    tareas deben emplearse cuando exista una separación funcional, un cambio de
+    responsable». Una tarea por pantalla hacia que el mismo funcionario cerrara
+    una tarea para abrir la siguiente.
+
+    Solo cuando no hay nada que decidir entre las dos: A sale unicamente hacia
+    B, sin condicion, y a B solo se llega desde A. Asi el resultado es la forma
+    (edicion, edicion) que ya traen los exports autenticos. Fundir una rama
+    exigiria una regla en el paso, y ningun export trae una: eso no se emite
+    sin acta de la plataforma.
+    """
+    tareas = list(tareas)
+    conexiones = list(conexiones)
+    fusiones = []
+    while True:
+        por_id = {t.id: t for t in tareas}
+        pareja = None
+        for cx in conexiones:
+            a, b = por_id.get(cx.de), por_id.get(cx.a)
+            if (a is None or b is None or a is b or cx.cuando is not None
+                    or not a.actor or a.actor != b.actor
+                    or not a.pantallas or not b.pantallas or b.inicial
+                    or sum(1 for c in conexiones if c.de == a.id) != 1
+                    or sum(1 for c in conexiones if c.a == b.id) != 1
+                    # B no puede volver a A: seria un ciclo dentro de la tarea.
+                    or any(c.de == b.id and c.a == a.id for c in conexiones)):
+                continue
+            pareja = (cx, a, b)
+            break
+        if pareja is None:
+            return tareas, conexiones, fusiones
+        cx, a, b = pareja
+        ya = {p.id for p in a.pantallas}
+        # Lo que B ensenaba en visualizacion y A ya muestra no se repite.
+        a.pantallas = a.pantallas + [
+            p for p in b.pantallas if not (p.modo == "visualizacion" and p.id in ya)]
+        a.terminal = b.terminal
+        a.acciones_antes = a.acciones_antes + [x for x in b.acciones_antes if x not in a.acciones_antes]
+        a.acciones_despues = a.acciones_despues + [x for x in b.acciones_despues if x not in a.acciones_despues]
+        fusiones.append((a.nombre, b.nombre))
+        a.nombre = _nombre_unido(a.nombre, b.nombre)
+        tareas = [t for t in tareas if t is not b]
+        conexiones = [c for c in conexiones if c is not cx]
+        for c in conexiones:
+            if c.de == b.id:
+                c.de = a.id
+
+
+_NOTA_FINAL = re.compile(r"\s*\([^()]*\)\s*$")
+
+
+def _nombre_unido(a: str, b: str) -> str:
+    """El nombre de la tarea que junta dos: los dos, para que no parezca que
+    solo hace lo primero. Si no cabe en la columna, sin las notas entre
+    parentesis; y si aun asi no cabe, el de la primera."""
+    for x, y in ((a, b), (_NOTA_FINAL.sub("", a), _NOTA_FINAL.sub("", b))):
+        junto = f"{x} / {y}"
+        if len(junto) <= _CAP_NOMBRE:
+            return junto
+    return a
+
+
+def _hueco_de_fusion(fusiones):
+    detalle = "; ".join(f"«{b}» pasa a ser un paso de «{a}»" for a, b in fusiones)
+    return Hueco(
+        "por_confirmar", "FLU-04", "flujo",
+        f"{len(fusiones)} tarea(s) seguidas del mismo responsable se unieron en una sola con "
+        f"varios pasos: {detalle}. Confirma que no hay un cambio de responsable entre ellas",
+    )
+
+
 def _marcar_visualizacion(tareas, pantallas) -> None:
     """Una pantalla donde todos los campos son de solo lectura se recorre en modo Visualización
     (observación de la fábrica, 2026-11-11): nadie captura nada ahí, solo consulta."""
@@ -593,6 +668,13 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     r.huecos += huecos_doc
     # Sin Evento en una tarea el PDF nunca se produce: se cuelga de la
     # primera tarea que ya tiene todos sus datos, y se reporta para confirmar.
+    # Con FLU-01 el flujo lineal es un esqueleto provisional: el diagrama trae
+    # compuertas que una persona va a resolver a mano, tarea por tarea
+    # (`mmd04rama`). Fundir ahi esconderia las tareas donde cuelgan las ramas.
+    if not any(h.codigo == "FLU-01" for h in r.huecos):
+        tareas, conexiones, fusiones = _fusionar_tareas(tareas, conexiones)
+        if fusiones:
+            r.huecos.append(_hueco_de_fusion(fusiones))
     _marcar_visualizacion(tareas, pantallas)
     flujo = Flujo(tareas=tareas, conexiones=conexiones)
     r.huecos += ext_docs.atar_a_tareas(acciones_doc, flujo, pantallas)

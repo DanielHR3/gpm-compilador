@@ -227,7 +227,9 @@ _DICC_DOS_PANTALLAS = (
     "### Pantalla 1 — CIUDADANO — Solicitud\n\n"
     "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
     "| CURP | Texto | Input | Sí | La CURP `@@curp` |\n\n"
-    "### Pantalla 2 — CIUDADANO — Vehículo\n\n"
+    # Otro responsable: dos pantallas seguidas del mismo serian una sola
+    # tarea con dos pasos (fabrica, 2026-11-12) y aqui hacen falta dos.
+    "### Pantalla 2 — VENTANILLA — Vehículo\n\n"
     "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n"
     "| Placa | Texto | Input | Sí | La placa `@@placa` |\n"
 )

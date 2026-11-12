@@ -690,3 +690,102 @@ def test_el_flujo_ramificado_tambien_antepone_la_vista():
     tareas, _, _ = _flujo_ramificado(rm, pantallas)
     assert [_pasos(t) for t in tareas] == [
         [("p1", "edicion")], [("p1", "visualizacion"), ("p2", "edicion")]]
+
+
+# ── Fabrica, 2026-11-12: «exceso de tareas que fragmentan el flujo» ──
+#
+# «Las tareas deben emplearse cuando exista una separación funcional, un cambio
+# de responsable…». Dos tareas seguidas del mismo responsable, sin decision
+# entre ellas, son una tarea con dos pasos: la forma (edicion, edicion) esta en
+# 6 tareas de los exports autenticos.
+
+def _t(id_, actor, pantallas=None, **kw):
+    from gpmc.nucleo.manifiesto import Tarea
+    return Tarea(id=id_, nombre=f"Tarea {id_}", actor=actor, pantallas=pantallas or [f"p_{id_}"], **kw)
+
+
+def _fusionar(tareas, pares):
+    from gpmc.extractores.expediente import _fusionar_tareas
+    from gpmc.nucleo.manifiesto import Condicion, Conexion
+    cxs = [Conexion(de=a, a=b, cuando=(Condicion(campo="x", igual=c) if c else None))
+           for a, b, c in pares]
+    ts, cs, fusiones = _fusionar_tareas(tareas, cxs)
+    return ts, [(c.de, c.a, c.cuando.igual if c.cuando else None) for c in cs], fusiones
+
+
+def test_dos_tareas_seguidas_del_mismo_responsable_son_una_con_dos_pasos():
+    ts, cs, fusiones = _fusionar(
+        [_t("a", "notario", inicial=True), _t("b", "area"), _t("c", "area", terminal=True)],
+        [("a", "b", None), ("b", "c", None)])
+    assert [t.id for t in ts] == ["a", "b"]
+    assert [p.id for p in ts[1].pantallas] == ["p_b", "p_c"]
+    assert ts[1].terminal is True
+    assert cs == [("a", "b", None)]
+    assert fusiones == [("Tarea b", "Tarea c")]
+    assert ts[1].nombre == "Tarea b / Tarea c"
+
+
+def test_el_nombre_unido_cabe_en_la_columna_de_la_plataforma():
+    from gpmc.extractores.expediente import _nombre_unido
+    assert _nombre_unido("Importación a RENAT (manual, FUERA de GPM)", "Verificar Notario y Firmar") \
+        == "Importación a RENAT / Verificar Notario y Firmar"
+    largo = "Una tarea con un nombre verdaderamente largo para la columna"
+    assert _nombre_unido(largo, "Otra tarea igual de larga") == largo
+
+
+def test_un_cambio_de_responsable_no_se_fusiona():
+    ts, _, fusiones = _fusionar(
+        [_t("a", "notario", inicial=True), _t("b", "area", terminal=True)], [("a", "b", None)])
+    assert [t.id for t in ts] == ["a", "b"] and fusiones == []
+
+
+def test_una_decision_entre_dos_tareas_no_se_fusiona():
+    # La regla de un paso no aparece en ningun export: no se emite sin acta.
+    ts, _, _ = _fusionar(
+        [_t("a", "n", inicial=True), _t("b", "n", terminal=True), _t("c", "n", terminal=True)],
+        [("a", "b", "si"), ("a", "c", "no")])
+    assert [t.id for t in ts] == ["a", "b", "c"]
+
+
+def test_una_tarea_a_la_que_llegan_dos_caminos_no_se_fusiona():
+    ts, _, _ = _fusionar(
+        [_t("a", "n", inicial=True), _t("b", "area"), _t("c", "area"), _t("d", "area", terminal=True)],
+        [("a", "b", "si"), ("a", "c", "no"), ("b", "d", None), ("c", "d", None)])
+    assert [t.id for t in ts] == ["a", "b", "c", "d"]
+
+
+def test_una_cadena_de_tres_queda_en_una_tarea_y_hereda_las_salidas():
+    ts, cs, _ = _fusionar(
+        [_t("a", "n", inicial=True), _t("b", "n"), _t("c", "n"),
+         _t("d", "area", terminal=True), _t("e", "area", terminal=True)],
+        [("a", "b", None), ("b", "c", None), ("c", "d", "si"), ("c", "e", "no")])
+    assert [t.id for t in ts] == ["a", "d", "e"]
+    assert [p.id for p in ts[0].pantallas] == ["p_a", "p_b", "p_c"]
+    assert cs == [("a", "d", "si"), ("a", "e", "no")]
+
+
+def test_al_fusionar_no_se_repite_en_visualizacion_lo_que_la_tarea_ya_muestra():
+    b = _t("b", "n", pantallas=[{"id": "p_a", "modo": "visualizacion"}, "p_b"], terminal=True)
+    ts, _, _ = _fusionar([_t("a", "n", inicial=True), b], [("a", "b", None)])
+    assert [(p.id, p.modo) for p in ts[0].pantallas] == [("p_a", "edicion"), ("p_b", "edicion")]
+
+
+def test_una_tarea_sin_pantallas_no_se_fusiona():
+    # «Trámite concluido» del flujo lineal no tiene actor ni pantallas.
+    from gpmc.nucleo.manifiesto import Tarea
+    fin = Tarea(id="fin", nombre="Fin", terminal=True)
+    ts, _, _ = _fusionar([_t("a", "n", inicial=True), fin], [("a", "fin", None)])
+    assert [t.id for t in ts] == ["a", "fin"]
+
+
+def test_el_expediente_reporta_la_fusion_para_confirmar(tmp_path):
+    dicc = _DICC_REVISION + """
+### Pantalla 3 — Area — Firmar
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |
+| Firma | Texto | Input de texto | Sí | [Captura] Campo `@@firma`. |
+"""
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": dicc}))
+    con_pantallas = [t for t in r.manifiesto.flujo.tareas if t.pantallas]
+    assert [[p.id for p in t.pantallas] for t in con_pantallas] == [["p1"], ["p1", "p2", "p3"]]
+    assert any(h.codigo == "FLU-04" and h.nivel == "por_confirmar" for h in r.huecos)
