@@ -352,7 +352,9 @@ buscar.
   poseedores de un vehiculo automotor que extraviaron o les robaron su certificado». Le pedimos a
   mano un dato que ya nos dieron. El patron `_DIRIGIDO` exige la forma `**A quien va dirigido:**`
   y no contempla la tabla de la Ficha.
-- **P-09 — el compilador no emite Pasos en modo visualizacion.** De los 19 pasos de ese tipo que
+- **P-09 — HECHO el 2026-11-12** (segunda ronda de la fabrica): la fila «Vista de solo lectura» que cita
+  una pantalla anterior sale como paso de visualizacion (`Pantalla.muestra_antes`, hueco `DIC-10`).
+  Sin probar en la plataforma. Texto original: el compilador no emite Pasos en modo visualizacion. De los 19 pasos de ese tipo que
   hay en los exports autenticos (8 de 12 trámites), nuestro compilador emite **cero**: el flujo
   sale en linea recta y cada pantalla se muestra una vez, en edicion. Es lo que Simplificacion
   documenta como «Vista de solo lectura (Origen → Destino)», y la forma de la plataforma es
@@ -360,7 +362,8 @@ buscar.
   ciudadano (tarea 1) y lo ve el funcionario en visualizacion (tarea 2). El manifiesto ya tiene la
   pieza —`PasoPantalla.modo` acepta `visualizacion` y `a_gpm` la emite—; falta que el extractor la
   derive del TO-BE. Ver `docs/guias/Respuesta a Simplificacion - vistas de solo lectura.md`.
-- **P-10 — `is_reusable` se emite distinto a como lo hacen los exports (latente).** Nuestra regla
+- **P-10 — HECHO el 2026-11-12** junto con P-09: `is_reusable` sale siempre "0". Texto original:
+  `is_reusable` se emite distinto a como lo hacen los exports (latente). Nuestra regla
   es `is_reusable = (la pantalla se usa en mas de un paso)`. En los exports autenticos hay **11
   formularios usados por 2, 3 y hasta 4 pasos, y los once traen `is_reusable: "0"`**. O sea que
   reutilizar una pantalla NO es lo que activa esa clave. Hoy no se dispara porque nunca

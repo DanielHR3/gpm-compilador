@@ -20,7 +20,7 @@ from gpmc.nucleo.integraciones import requiere_token as _requiere_token
 from gpmc.nucleo.integraciones import nombre_propuesta as _nombre_propuesta
 from gpmc.nucleo.limites import LIMITE_FORMULARIO_NOMBRE as _CAP_NOMBRE
 from gpmc.nucleo.manifiesto import (
-    Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, Tarea,
+    Accion, Actor, Condicion, Conexion, Flujo, Manifiesto, Pantalla, PasoPantalla, Tarea,
 )
 
 _BLOQUE_MERMAID = re.compile(r"```mermaid(.*?)```", re.S)
@@ -67,6 +67,143 @@ def _mapear_nodos_a_pantallas(nodos_tarea, pantallas):
     if len({id(p) for p in mapa.values()}) != len(pantallas):
         return None  # dos nodos apuntan a la misma pantalla
     return mapa
+
+
+def _pasos_de(p) -> list:
+    """Los pasos de la tarea de una pantalla: primero, en visualizacion, las
+    pantallas anteriores que su fila «Vista de solo lectura» pide ensenar; al
+    final la propia. Es la forma de los exports autenticos para una revision
+    (captura en visualizacion + dictamen en edicion) y lo que pidio la fabrica
+    el 2026-11-12: que quien valida vea lo que esta validando."""
+    return [PasoPantalla(id=pid, modo="visualizacion") for pid in p.muestra_antes] + [
+        PasoPantalla(id=p.id)]
+
+
+def _fusionar_tareas(tareas, conexiones):
+    """Une en una sola tarea, con varios pasos, las que van seguidas y son del
+    mismo responsable. Devuelve (tareas, conexiones, [(nombre_a, nombre_b)]).
+
+    La fabrica (2026-11-12): «exceso de tareas que fragmentan el flujo… Las
+    tareas deben emplearse cuando exista una separación funcional, un cambio de
+    responsable». Una tarea por pantalla hacia que el mismo funcionario cerrara
+    una tarea para abrir la siguiente.
+
+    Solo cuando no hay nada que decidir entre las dos: A sale unicamente hacia
+    B, sin condicion, y a B solo se llega desde A. Asi el resultado es la forma
+    (edicion, edicion) que ya traen los exports autenticos. Fundir una rama
+    exigiria una regla en el paso, y ningun export trae una: eso no se emite
+    sin acta de la plataforma.
+    """
+    tareas = list(tareas)
+    conexiones = list(conexiones)
+    fusiones = []
+    while True:
+        por_id = {t.id: t for t in tareas}
+        pareja = None
+        for cx in conexiones:
+            a, b = por_id.get(cx.de), por_id.get(cx.a)
+            if (a is None or b is None or a is b or cx.cuando is not None
+                    or not a.actor or a.actor != b.actor
+                    or not a.pantallas or not b.pantallas or b.inicial
+                    or sum(1 for c in conexiones if c.de == a.id) != 1
+                    or sum(1 for c in conexiones if c.a == b.id) != 1
+                    # B no puede volver a A: seria un ciclo dentro de la tarea.
+                    or any(c.de == b.id and c.a == a.id for c in conexiones)):
+                continue
+            pareja = (cx, a, b)
+            break
+        if pareja is None:
+            return tareas, conexiones, fusiones
+        cx, a, b = pareja
+        ya = {p.id for p in a.pantallas}
+        # Lo que B ensenaba en visualizacion y A ya muestra no se repite.
+        a.pantallas = a.pantallas + [
+            p for p in b.pantallas if not (p.modo == "visualizacion" and p.id in ya)]
+        a.terminal = b.terminal
+        a.acciones_antes = a.acciones_antes + [x for x in b.acciones_antes if x not in a.acciones_antes]
+        a.acciones_despues = a.acciones_despues + [x for x in b.acciones_despues if x not in a.acciones_despues]
+        fusiones.append((a.nombre, b.nombre))
+        a.nombre = _nombre_unido(a.nombre, b.nombre)
+        tareas = [t for t in tareas if t is not b]
+        conexiones = [c for c in conexiones if c is not cx]
+        for c in conexiones:
+            if c.de == b.id:
+                c.de = a.id
+
+
+_NOTA_FINAL = re.compile(r"\s*\([^()]*\)\s*$")
+
+
+def _nombre_unido(a: str, b: str) -> str:
+    """El nombre de la tarea que junta dos: los dos, para que no parezca que
+    solo hace lo primero. Si no cabe en la columna, sin las notas entre
+    parentesis; y si aun asi no cabe, el de la primera."""
+    for x, y in ((a, b), (_NOTA_FINAL.sub("", a), _NOTA_FINAL.sub("", b))):
+        junto = f"{x} / {y}"
+        if len(junto) <= _CAP_NOMBRE:
+            return junto
+    return a
+
+
+def _hueco_de_fusion(fusiones):
+    detalle = "; ".join(f"«{b}» pasa a ser un paso de «{a}»" for a, b in fusiones)
+    return Hueco(
+        "por_confirmar", "FLU-04", "flujo",
+        f"{len(fusiones)} tarea(s) seguidas del mismo responsable se unieron en una sola con "
+        f"varios pasos: {detalle}. Confirma que no hay un cambio de responsable entre ellas",
+    )
+
+
+def colgar_folios(acciones, flujo, pantallas) -> None:
+    """Cuelga cada accion de folio «antes» de la tarea que muestra su campo.
+
+    Es donde la llevan los tres exports autenticos con folio (la variable de
+    la accion se llama igual que el campo de solo lectura, y el evento va
+    «antes» de la tarea de esa pantalla). No duplica: se llama tambien al
+    rearmar el flujo, que construye tareas nuevas sin acciones."""
+    donde = {c.nombre: p.id for p in pantallas for c in p.campos}
+    for a in acciones:
+        if a.tipo != "folio":
+            continue
+        if any(a.nombre in t.acciones_antes + t.acciones_despues for t in flujo.tareas):
+            continue
+        tarea = flujo.tarea_de_pantalla(donde.get(getattr(a, "variable", ""), ""))
+        if tarea is not None:
+            tarea.acciones_antes.append(a.nombre)
+
+
+def _acciones_del_sistema(generados, pantallas):
+    """De los campos que el Diccionario dice que llena el sistema: la accion de
+    folio, si hay UN campo de folio, y el aviso de lo demas.
+
+    La fabrica (2026-11-12): «no se aprovechan las variables de tipo Acción».
+    El folio si se puede emitir sin adivinar: su forma es fija (contador con
+    bloqueo). Un monto no: en los exports cada costo es PHP escrito para ese
+    tramite (valor de la UMA, arreglo de la pasarela). Eso se nombra y lo
+    configura una persona.
+    """
+    tipos = {c.nombre: c.tipo for p in pantallas for c in p.campos}
+    presentes = {n: e for n, e in generados.items() if n in tipos}
+    folios = [n for n in presentes if "folio" in n and tipos[n] == "text"]
+    acciones, huecos = [], []
+    if len(folios) == 1:
+        variable = folios[0]
+        acciones.append(Accion(tipo="folio", nombre="crear-folio", variable=variable, prefijo="GPM"))
+        huecos.append(Hueco(
+            "por_confirmar", "ACC-01", "acciones",
+            f"«{presentes[variable]}» (@@{variable}) se llena con una acción de folio "
+            f"consecutivo, con la forma GPM-AAAA-00001. El prefijo «GPM» es provisional: "
+            f"cámbialo por el de la dependencia",
+        ))
+    resto = [e for n, e in presentes.items() if n not in folios[:1 if len(folios) == 1 else 0]]
+    if resto:
+        huecos.append(Hueco(
+            "por_confirmar", "ACC-02", "acciones",
+            f"{len(resto)} campo(s) los llena el sistema y el compilador no emite su cálculo: "
+            + ", ".join(f"«{e}»" for e in resto)
+            + ". Cada uno necesita una Acción PHP en la plataforma; sin ella el campo sale vacío",
+        ))
+    return acciones, huecos
 
 
 def _marcar_visualizacion(tareas, pantallas) -> None:
@@ -214,7 +351,7 @@ def _flujo_ramificado(rm, pantallas, overrides=None):
             id=n.id, nombre=(p.nombre or n.texto)[:_CAP_NOMBRE], actor=p.actor,
             inicial=(n.id in iniciales),
             terminal=(n.id in sale_if or n.id not in sale),
-            pantallas=[p.id],
+            pantallas=_pasos_de(p),
         ))
     # La plataforma arranca en UNA tarea: con dos que salen del Inicio (o sin
     # flecha de entrada) el Manifiesto lanzaba ValueError y el asistente daba 500.
@@ -475,6 +612,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
         pantallas.append(Pantalla(
             id=p.id, nombre=p.nombre, actor=aid,
             paso_ciudadano=p.paso_ciudadano, campos=p.campos,
+            muestra_antes=list(p.muestra_antes),
         ))
 
     # Huecos de integracion: se comprueban aqui y no en el compilador porque
@@ -566,7 +704,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     if not flujo_ramificado_exitoso:
         tareas = [
             Tarea(id=f"t_{p.id}", nombre=p.nombre[:_CAP_NOMBRE], actor=p.actor,
-                  inicial=(i == 0), pantallas=[p.id])
+                  inicial=(i == 0), pantallas=_pasos_de(p))
             for i, p in enumerate(pantallas)
         ]
         tareas.append(Tarea(id="t_fin", nombre="Trámite concluido", terminal=True))
@@ -582,9 +720,19 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     r.huecos += huecos_doc
     # Sin Evento en una tarea el PDF nunca se produce: se cuelga de la
     # primera tarea que ya tiene todos sus datos, y se reporta para confirmar.
+    # Con FLU-01 el flujo lineal es un esqueleto provisional: el diagrama trae
+    # compuertas que una persona va a resolver a mano, tarea por tarea
+    # (`mmd04rama`). Fundir ahi esconderia las tareas donde cuelgan las ramas.
+    if not any(h.codigo == "FLU-01" for h in r.huecos):
+        tareas, conexiones, fusiones = _fusionar_tareas(tareas, conexiones)
+        if fusiones:
+            r.huecos.append(_hueco_de_fusion(fusiones))
     _marcar_visualizacion(tareas, pantallas)
     flujo = Flujo(tareas=tareas, conexiones=conexiones)
     r.huecos += ext_docs.atar_a_tareas(acciones_doc, flujo, pantallas)
+    acciones_sis, huecos_sis = _acciones_del_sistema(rd.generados, pantallas)
+    r.huecos += huecos_sis
+    colgar_folios(acciones_sis, flujo, pantallas)
 
     r.huecos += _decisiones_de_publicacion(list(actores_vistos.values()), flujo)
 
@@ -593,6 +741,6 @@ def extraer_expediente(carpeta: Path) -> Resultado:
         actores=list(actores_vistos.values()),
         pantallas=pantallas,
         flujo=flujo,
-        acciones=acciones_doc,
+        acciones=acciones_sis + acciones_doc,
     )
     return r

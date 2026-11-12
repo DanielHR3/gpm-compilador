@@ -647,3 +647,211 @@ def test_una_vista_con_solo_campos_de_lectura_va_en_modo_visualizacion():
               Tarea(id="t3", nombre="z", pantallas=["p3"])]
     _marcar_visualizacion(tareas, pantallas)
     assert [t.pantallas[0].modo for t in tareas] == ["edicion", "visualizacion", "edicion"]
+
+
+# ── Fabrica, 2026-11-12: «quien valida debe ver que esta revisando» ──
+
+_DICC_REVISION = """### Pantalla 1 — Solicitante — Captura
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |
+| CURP | Texto | Input de texto | Sí | [Captura] Campo `@@curp`. |
+
+### Pantalla 2 — Area — Revisar
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |
+| Vista de solo lectura (Solicitante → Area) | N/A | Campos de solo lectura | No | [Solo lectura] Campo `@@vista_solicitud`. Muestra lo capturado en la Pantalla 1. |
+| Dictamen | Texto | Input de texto | Sí | [Captura] Campo `@@dictamen`. |
+"""
+
+
+def _pasos(tarea):
+    return [(p.id, p.modo) for p in tarea.pantallas]
+
+
+def test_la_tarea_de_revision_muestra_la_captura_en_visualizacion(tmp_path):
+    carpeta = _expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_REVISION})
+    m = extraer_expediente(carpeta).manifiesto
+    por_pantalla = {t.pantallas[-1].id: t for t in m.flujo.tareas if t.pantallas}
+    assert _pasos(por_pantalla["p1"]) == [("p1", "edicion")]
+    assert _pasos(por_pantalla["p2"]) == [("p1", "visualizacion"), ("p2", "edicion")]
+
+
+def test_el_flujo_ramificado_tambien_antepone_la_vista():
+    # `reensamblar_flujo` rearma las tareas desde el diagrama con las pantallas
+    # del manifiesto: la vista tiene que salir de ahi, no de la extraccion.
+    from gpmc.extractores import mermaid
+    from gpmc.extractores.expediente import _flujo_ramificado
+    from gpmc.nucleo.manifiesto import Campo
+    pantallas = [
+        Pantalla(id="p1", nombre="Captura", actor="c", campos=[Campo(nombre="a")]),
+        Pantalla(id="p2", nombre="Revisar", actor="c", campos=[Campo(nombre="b")], muestra_antes=["p1"]),
+    ]
+    rm = mermaid.extraer("flowchart TD\n  I([Inicio]) --> T1[Captura]\n  T1 --> T2[Revisar]\n  T2 --> F([Fin])\n")
+    tareas, _, _ = _flujo_ramificado(rm, pantallas)
+    assert [_pasos(t) for t in tareas] == [
+        [("p1", "edicion")], [("p1", "visualizacion"), ("p2", "edicion")]]
+
+
+# ── Fabrica, 2026-11-12: «exceso de tareas que fragmentan el flujo» ──
+#
+# «Las tareas deben emplearse cuando exista una separación funcional, un cambio
+# de responsable…». Dos tareas seguidas del mismo responsable, sin decision
+# entre ellas, son una tarea con dos pasos: la forma (edicion, edicion) esta en
+# 6 tareas de los exports autenticos.
+
+def _t(id_, actor, pantallas=None, **kw):
+    from gpmc.nucleo.manifiesto import Tarea
+    return Tarea(id=id_, nombre=f"Tarea {id_}", actor=actor, pantallas=pantallas or [f"p_{id_}"], **kw)
+
+
+def _fusionar(tareas, pares):
+    from gpmc.extractores.expediente import _fusionar_tareas
+    from gpmc.nucleo.manifiesto import Condicion, Conexion
+    cxs = [Conexion(de=a, a=b, cuando=(Condicion(campo="x", igual=c) if c else None))
+           for a, b, c in pares]
+    ts, cs, fusiones = _fusionar_tareas(tareas, cxs)
+    return ts, [(c.de, c.a, c.cuando.igual if c.cuando else None) for c in cs], fusiones
+
+
+def test_dos_tareas_seguidas_del_mismo_responsable_son_una_con_dos_pasos():
+    ts, cs, fusiones = _fusionar(
+        [_t("a", "notario", inicial=True), _t("b", "area"), _t("c", "area", terminal=True)],
+        [("a", "b", None), ("b", "c", None)])
+    assert [t.id for t in ts] == ["a", "b"]
+    assert [p.id for p in ts[1].pantallas] == ["p_b", "p_c"]
+    assert ts[1].terminal is True
+    assert cs == [("a", "b", None)]
+    assert fusiones == [("Tarea b", "Tarea c")]
+    assert ts[1].nombre == "Tarea b / Tarea c"
+
+
+def test_el_nombre_unido_cabe_en_la_columna_de_la_plataforma():
+    from gpmc.extractores.expediente import _nombre_unido
+    assert _nombre_unido("Importación a RENAT (manual, FUERA de GPM)", "Verificar Notario y Firmar") \
+        == "Importación a RENAT / Verificar Notario y Firmar"
+    largo = "Una tarea con un nombre verdaderamente largo para la columna"
+    assert _nombre_unido(largo, "Otra tarea igual de larga") == largo
+
+
+def test_un_cambio_de_responsable_no_se_fusiona():
+    ts, _, fusiones = _fusionar(
+        [_t("a", "notario", inicial=True), _t("b", "area", terminal=True)], [("a", "b", None)])
+    assert [t.id for t in ts] == ["a", "b"] and fusiones == []
+
+
+def test_una_decision_entre_dos_tareas_no_se_fusiona():
+    # La regla de un paso no aparece en ningun export: no se emite sin acta.
+    ts, _, _ = _fusionar(
+        [_t("a", "n", inicial=True), _t("b", "n", terminal=True), _t("c", "n", terminal=True)],
+        [("a", "b", "si"), ("a", "c", "no")])
+    assert [t.id for t in ts] == ["a", "b", "c"]
+
+
+def test_una_tarea_a_la_que_llegan_dos_caminos_no_se_fusiona():
+    ts, _, _ = _fusionar(
+        [_t("a", "n", inicial=True), _t("b", "area"), _t("c", "area"), _t("d", "area", terminal=True)],
+        [("a", "b", "si"), ("a", "c", "no"), ("b", "d", None), ("c", "d", None)])
+    assert [t.id for t in ts] == ["a", "b", "c", "d"]
+
+
+def test_una_cadena_de_tres_queda_en_una_tarea_y_hereda_las_salidas():
+    ts, cs, _ = _fusionar(
+        [_t("a", "n", inicial=True), _t("b", "n"), _t("c", "n"),
+         _t("d", "area", terminal=True), _t("e", "area", terminal=True)],
+        [("a", "b", None), ("b", "c", None), ("c", "d", "si"), ("c", "e", "no")])
+    assert [t.id for t in ts] == ["a", "d", "e"]
+    assert [p.id for p in ts[0].pantallas] == ["p_a", "p_b", "p_c"]
+    assert cs == [("a", "d", "si"), ("a", "e", "no")]
+
+
+def test_al_fusionar_no_se_repite_en_visualizacion_lo_que_la_tarea_ya_muestra():
+    b = _t("b", "n", pantallas=[{"id": "p_a", "modo": "visualizacion"}, "p_b"], terminal=True)
+    ts, _, _ = _fusionar([_t("a", "n", inicial=True), b], [("a", "b", None)])
+    assert [(p.id, p.modo) for p in ts[0].pantallas] == [("p_a", "edicion"), ("p_b", "edicion")]
+
+
+def test_una_tarea_sin_pantallas_no_se_fusiona():
+    # «Trámite concluido» del flujo lineal no tiene actor ni pantallas.
+    from gpmc.nucleo.manifiesto import Tarea
+    fin = Tarea(id="fin", nombre="Fin", terminal=True)
+    ts, _, _ = _fusionar([_t("a", "n", inicial=True), fin], [("a", "fin", None)])
+    assert [t.id for t in ts] == ["a", "fin"]
+
+
+def test_el_expediente_reporta_la_fusion_para_confirmar(tmp_path):
+    dicc = _DICC_REVISION + """
+### Pantalla 3 — Area — Firmar
+
+| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |
+| Firma | Texto | Input de texto | Sí | [Captura] Campo `@@firma`. |
+"""
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": dicc}))
+    con_pantallas = [t for t in r.manifiesto.flujo.tareas if t.pantallas]
+    assert [[p.id for p in t.pantallas] for t in con_pantallas] == [["p1"], ["p1", "p2", "p3"]]
+    assert any(h.codigo == "FLU-04" and h.nivel == "por_confirmar" for h in r.huecos)
+
+
+# ── Fabrica, 2026-11-12: «no se aprovechan las variables de tipo Acción» ──
+#
+# En los exports autenticos el folio es una Accion cuya variable se llama igual
+# que el campo de solo lectura que lo muestra, colgada «antes» de la tarea que
+# tiene ese campo (constancia-ambiental, pago-de-bases, busqueda-testamento).
+
+_CAB_ACC = ("| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |\n")
+_DICC_FOLIO = (
+    "### Pantalla 1 — Solicitante — Captura\n\n" + _CAB_ACC +
+    "| CURP | Texto | Input de texto | Sí | [Captura] Campo `@@curp`. |\n"
+    "| Número de Folio | String | Texto de solo lectura (auto-generado) | No | [Solo lectura] Campo `@@numero_folio`. |\n"
+    "\n### Pantalla 2 — Area — Cobro\n\n" + _CAB_ACC +
+    "| Monto a Pagar | Float | Texto de solo lectura (auto-generado) | No | [Solo lectura, generado] Campo `@@monto_pago`. Ordinario $534.00. |\n"
+    "| Folio RENAT | String | Input de texto | Sí | [Captura] Campo `@@folio_renat`. |\n"
+)
+
+
+def test_un_folio_generado_sale_como_accion_antes_de_la_tarea_que_lo_muestra(tmp_path):
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_FOLIO}))
+    m = r.manifiesto
+    folios = [a for a in m.acciones if a.tipo == "folio"]
+    assert [(a.nombre, a.variable) for a in folios] == [("crear-folio", "numero_folio")]
+    assert m.flujo.tarea_de_pantalla("p1").acciones_antes == ["crear-folio"]
+    assert any(h.codigo == "ACC-01" and h.nivel == "por_confirmar" for h in r.huecos)
+
+
+def test_el_gpm_trae_el_folio_con_bloqueo_y_su_evento(tmp_path):
+    import json
+    from gpmc.compilador.a_gpm import compilar
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_FOLIO}))
+    g = compilar(r.manifiesto, proceso_id="1")
+    extra = json.loads(g["Acciones"][0]["extra"])
+    assert extra["variable"] == "numero_folio"
+    assert "->where('nombre', 'numero_folio')->lockForUpdate()" in extra["expresion"]
+    inicial = next(t for t in g["Tareas"] if t["inicial"] == 1 or t["inicial"] == "1")
+    assert [(e["instante"], e["accion_id"]) for e in inicial["Eventos"]] == [("antes", g["Acciones"][0]["id"])]
+
+
+def test_un_folio_que_captura_una_persona_no_es_una_accion(tmp_path):
+    dicc = _DICC_FOLIO.replace(
+        "| Número de Folio | String | Texto de solo lectura (auto-generado) | No | [Solo lectura] Campo `@@numero_folio`. |\n", "")
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": dicc}))
+    assert not [a for a in r.manifiesto.acciones if a.tipo == "folio"]
+
+
+def test_lo_que_llena_el_sistema_y_no_se_emite_se_dice(tmp_path):
+    # El monto no se calcula solo: en los exports cada costo es PHP escrito a
+    # mano (UMA, pasarela). No se adivina; se nombra para que alguien lo haga.
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_FOLIO}))
+    acc02 = [h for h in r.huecos if h.codigo == "ACC-02"]
+    assert len(acc02) == 1 and acc02[0].nivel == "por_confirmar"
+    assert "Monto a Pagar" in acc02[0].mensaje and "Folio" not in acc02[0].mensaje
+    assert not [a for a in r.manifiesto.acciones if a.tipo == "costo"]
+
+
+def test_reensamblar_no_descuelga_el_folio():
+    from gpmc.extractores.expediente import colgar_folios
+    from gpmc.nucleo.manifiesto import Accion, Campo, Flujo, Tarea
+    pantallas = [Pantalla(id="p1", nombre="Captura", actor="c", campos=[Campo(nombre="numero_folio", solo_lectura=True)])]
+    flujo = Flujo(tareas=[Tarea(id="t1", nombre="Captura", inicial=True, terminal=True, pantallas=["p1"])])
+    acciones = [Accion(tipo="folio", nombre="crear-folio", variable="numero_folio", prefijo="GPM")]
+    colgar_folios(acciones, flujo, pantallas)
+    colgar_folios(acciones, flujo, pantallas)   # dos veces no lo duplica
+    assert flujo.tareas[0].acciones_antes == ["crear-folio"]

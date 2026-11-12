@@ -261,7 +261,12 @@ function pintar(){
     <p>El trámite concluyó. Recorrido: ${ESTADO.rastro.map(x=>esc(TAREAS[x].nombre)).join(" → ")}</p>
     <div class="pie"><button class="sec" onclick="retroceder()">← Atrás</button>
     <button onclick="reiniciar()">Reiniciar</button></div></div>`;return}
-  const pantallas=(t.pantallas||[]).map(pid=>PANTALLAS[pid]);
+  // Un paso de visualizacion repite una pantalla ya capturada: se anuncia,
+  // no se vuelve a dibujar con cajas (pisaria lo capturado con el mismo name).
+  const vistas=t.vistas||[];
+  const pantallas=(t.pantallas||[]).filter(pid=>!vistas.includes(pid)).map(pid=>PANTALLAS[pid]);
+  const notaVistas=vistas.map(pid=>PANTALLAS[pid]).filter(Boolean).map(p=>
+    `<p class="nota-api">Primero se muestra «${esc(p.nombre)}» en modo visualización (${p.campos.length} campos, sin editar).</p>`).join("");
   const paso=pantallas.find(p=>p&&p.paso_ciudadano);
   let stepper="";
   if(paso){stepper=`<div class="stepper">`+PASOS.map(n=>
@@ -303,7 +308,7 @@ function pintar(){
   pintarSidebar();
   cont.innerHTML=`<div class="tarjeta">${stepper}
     <div class="encabezado"><strong>${esc(t.nombre)}</strong><span class="actor">${esc(ACTORES[t.actor]||"")}</span></div>
-    ${campos}
+    ${notaVistas}${campos}
     <div class="pie"><button class="sec" onclick="retroceder()">← Atrás</button>
     <button onclick="avanzar()">Continuar →</button></div></div>
     <div class="rastro">Recorrido: ${ESTADO.rastro.map(x=>esc(TAREAS[x].nombre)).join(" → ")}</div>`;
@@ -599,7 +604,9 @@ def generar(m: Manifiesto) -> str:
 
     tareas = {
         t.id: {"nombre": t.nombre, "actor": t.actor or "", "terminal": t.terminal,
-               "pantallas": [p.id for p in t.pantallas]}
+               "pantallas": [p.id for p in t.pantallas],
+               # Pasos de visualizacion que anteceden a la pantalla propia.
+               "vistas": [p.id for p in t.pantallas[:-1] if p.modo == "visualizacion"]}
         for t in m.flujo.tareas
     }
     pantallas = {

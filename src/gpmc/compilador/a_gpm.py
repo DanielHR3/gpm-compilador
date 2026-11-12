@@ -24,6 +24,10 @@ def _validacion_de(c: Campo) -> str:
     partes = []
     if c.obligatorio:
         partes.append("required")
+    # El formato va tras `required` y antes de la longitud: la forma mas
+    # repetida en los exports (`required|numeric|exact_length[10]`).
+    if c.formato:
+        partes.append(c.formato)
     if c.longitud_exacta is not None:
         partes.append(f"exact_length[{c.longitud_exacta}]")
     # Formas observadas en los exports autenticos: `max_length[9]` y
@@ -235,11 +239,6 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
         ids = count(1000)
     actores = {a.id: a for a in m.actores}
 
-    usos_pantalla = {}
-    for t in m.flujo.tareas:
-        for p in t.pantallas:
-            usos_pantalla[p.id] = usos_pantalla.get(p.id, 0) + 1
-
     acciones_gpm, documentos_gpm, mapa_ids_accion = construir_acciones(m.acciones, proceso_id, ids)
 
     formularios = []
@@ -257,7 +256,10 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
                 nombre=pantalla.nombre, 
                 proceso_id=proceso_id, 
                 campos=campos,
-                is_reusable=usos_pantalla.get(pantalla.id, 0) > 1,
+                # Siempre "0": en los exports autenticos los 11 formularios
+                # usados en 2 a 4 pasos lo traen asi. Reutilizar una pantalla
+                # en visualizacion no es lo que activa la clave (P-10).
+                is_reusable=False,
             )
         )
 

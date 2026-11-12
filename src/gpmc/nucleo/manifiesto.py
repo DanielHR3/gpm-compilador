@@ -83,6 +83,11 @@ class Campo(BaseModel):
     # `min_length[12]|max_length[13]`— y nosotros no. P-13, 2026-09-21.
     longitud_max: Optional[int] = None
     longitud_min: Optional[int] = None
+    # Regla de formato de la plataforma, con los tres nombres que usan los
+    # exports autenticos (`required|numeric|exact_length[10]`,
+    # `required|valid_email`). La fabrica observo dos veces que los campos
+    # salian solo con obligatoriedad y longitud (2026-11-12).
+    formato: Optional[Literal["numeric", "alpha_numeric", "valid_email"]] = None
     ayuda: Optional[str] = None
     catalogo: list[OpcionCatalogo] = []
     # Condicion de visibilidad ('Visible solo si "X" = Y' en el Diccionario).
@@ -107,6 +112,11 @@ class Pantalla(BaseModel):
     actor: str
     paso_ciudadano: Optional[int] = None
     campos: list[Campo] = []
+    # Pantallas anteriores que la tarea de esta pantalla ensena primero, en
+    # modo visualizacion: la fila «Vista de solo lectura (Origen → Destino)»
+    # del Diccionario. Vive aqui y no en el flujo porque el flujo se rearma
+    # desde el diagrama (`reensamblar_flujo`) y lo perderia.
+    muestra_antes: list[str] = []
 
 
 class PasoPantalla(BaseModel):
@@ -151,6 +161,18 @@ class Flujo(BaseModel):
     model_config = ConfigDict(extra="forbid")
     tareas: list[Tarea]
     conexiones: list[Conexion] = []
+
+    def tarea_de_pantalla(self, pantalla_id: str) -> Optional[Tarea]:
+        """La tarea DUEÑA de una pantalla: la que la tiene como ultimo paso.
+        Otra tarea puede ensenarla antes en visualizacion, y esa no es la suya.
+        Si ninguna la tiene al final, la primera que la muestre."""
+        for t in self.tareas:
+            if t.pantallas and t.pantallas[-1].id == pantalla_id:
+                return t
+        for t in self.tareas:
+            if any(p.id == pantalla_id for p in t.pantallas):
+                return t
+        return None
 
 
 class Accion(BaseModel):

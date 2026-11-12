@@ -1401,3 +1401,92 @@ def test_una_condicion_sola_que_no_resuelve_se_avisa_en_vez_de_callarse():
     r = extraer(_VIS_SOLA.replace('"¿Es Persona Moral?" = No', '"Campo que no existe" = No'))
     assert _campo(r, "curp_solicitante").condicion_visible is None
     assert any(h.codigo == "DIC-08" and "curp_solicitante" in h.ubicacion for h in r.huecos)
+
+
+# ── Segunda ronda de observaciones de la fabrica (2026-11-12) ──
+#
+# Sobre «Alta de Avisos de Testamento» ya compilado en modo normal: «los campos
+# siguen sin reglas de validacion segun su tipo» y «quien valida no ve que esta
+# revisando». Las tres causas estaban en la lectura del Diccionario.
+
+_CAB = (
+    "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Condición de Visibilidad "
+    "| Límite/Especificaciones | Catálogo de Valores | Ejemplo Real | Descripción |\n"
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+)
+_FABRICA = (
+    "## Sección 1 — Pantallas\n\n### Pantalla 1 — NOTARIO — Captura\n\n" + _CAB +
+    "| CURP | String | Campo de texto (input) | Sí | Siempre visible | exactamente 18 caracteres alfanuméricos | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@testador_curp`. |\n"
+    "| Número de Notaría | Int | Campo numérico (input number) | Sí | Siempre visible | máx. 3 dígitos | N/A | 015 | [Captura] Campo `@@notario_numero`. |\n"
+    "| Teléfono | Int | Campo numérico | No | Siempre visible | N/A | N/A | 771 123 4567 | [Captura] Campo `@@telefono`. |\n"
+    "| Número de Escritura | String | Campo de texto (input) | Sí | Siempre visible | máx. 20 caracteres alfanuméricos | N/A | 123-A | [Captura] Campo `@@num_escritura`. |\n"
+    "| Correo | String | Campo de correo electrónico | Sí | Siempre visible | N/A | N/A | ana@ejemplo.mx | [Captura] Campo `@@correo`. |\n"
+    "| Monto | Float | Campo numérico | No | Siempre visible | Moneda MXN | N/A | $564.00 | [Solo lectura, generado] Campo `@@monto_pago`. |\n"
+    "| Referencia | String | Campo de texto (input) | Sí | Siempre visible | Alfanumérico | N/A | AAT2026 | [Captura] Campo `@@referencia_pago`. Reemplaza el campo `[Solo lectura, generado]` que había antes. |\n"
+    "\n### Pantalla 2 — ÁREA — Revisar la Solicitud\n\n" + _CAB +
+    "| Vista de solo lectura (Notario → Área) | N/A | Campos de solo lectura | No | Siempre visible | N/A | N/A | N/A | [Solo lectura] Campo `@@vista_solicitud`. Muestra todos los datos capturados en la Pantalla 1 para que el funcionario revise. |\n"
+    "| ¿Tiene Observaciones? | Boolean | Switch / radio Sí-No | Sí | Siempre visible | Sí / No | N/A | No | [Captura] Campo `@@tiene_observaciones`. |\n"
+    "\n### Pantalla 3 — ÁREA — Firmar\n\n" + _CAB +
+    "| Vista de solo lectura (Sistema → Área) | N/A | Visor de documento generado | No | Siempre visible | N/A | N/A | N/A | [Solo lectura] Campo `@@vista_oficio`. Muestra el oficio que el Sistema generó. |\n"
+    "| Autoriza | Boolean | Switch / radio Sí-No | Sí | Siempre visible | Sí / No | N/A | Sí | [Captura] Campo `@@autoriza`. |\n"
+    "\n### Pantalla 4 — NOTARIO — Aviso\n\n" + _CAB +
+    "| Vista de solo lectura (Área → Notario) | N/A | Texto de solo lectura | No | Siempre visible | N/A | N/A | N/A | [Solo lectura] Campo `@@vista_resultado`. Muestra lo decidido en la Pantalla 3. |\n"
+)
+
+
+def test_un_entero_lleva_la_regla_numeric():
+    assert _campo(extraer(_FABRICA), "notario_numero").formato == "numeric"
+
+
+def test_alfanumerico_de_longitud_exacta_lleva_alpha_numeric():
+    assert _campo(extraer(_FABRICA), "testador_curp").formato == "alpha_numeric"
+
+
+def test_alfanumerico_sin_longitud_exacta_no_lleva_regla_de_formato():
+    # `alpha_numeric` rechaza espacios y guiones. Con longitud exacta es una
+    # clave (CURP, RFC, placa); un «máx. 20 alfanuméricos» puede ser «123-A».
+    assert _campo(extraer(_FABRICA), "num_escritura").formato is None
+
+
+def test_el_ejemplo_del_equipo_desmiente_la_regla():
+    # El equipo escribio el telefono con espacios: `numeric` no lo dejaria pasar.
+    assert _campo(extraer(_FABRICA), "telefono").formato is None
+
+
+def test_un_correo_lleva_valid_email():
+    assert _campo(extraer(_FABRICA), "correo").formato == "valid_email"
+
+
+def test_un_campo_de_solo_lectura_no_lleva_regla_de_formato():
+    # Lo llena el sistema: «$564.00» no pasaria `numeric` y nadie podria corregirlo.
+    assert _campo(extraer(_FABRICA), "monto_pago").formato is None
+
+
+def test_la_etiqueta_inicial_de_la_descripcion_decide_si_es_solo_lectura():
+    # `@@referencia_pago` es [Captura]; su descripcion cita de pasada el
+    # «[Solo lectura, generado]» que hubo antes. Salia obligatorio y bloqueado.
+    r = extraer(_FABRICA)
+    assert _campo(r, "referencia_pago").solo_lectura is False
+    assert _campo(r, "monto_pago").solo_lectura is True
+
+
+def test_la_vista_de_una_pantalla_anterior_no_es_un_campo():
+    r = extraer(_FABRICA)
+    p2 = r.pantallas[1]
+    assert [c.nombre for c in p2.campos] == ["tiene_observaciones"]
+    assert p2.muestra_antes == ["p1"]
+    assert any(h.codigo == "DIC-10" and h.nivel == "por_confirmar" for h in r.huecos)
+
+
+def test_una_vista_que_no_cita_pantalla_sigue_siendo_campo():
+    # «Muestra el oficio que el Sistema generó» no es otra pantalla: no se adivina.
+    p3 = extraer(_FABRICA).pantallas[2]
+    assert "vista_oficio" in [c.nombre for c in p3.campos]
+    assert p3.muestra_antes == []
+
+
+def test_una_pantalla_que_solo_es_vista_conserva_su_campo():
+    # Sin otro campo la pantalla quedaria vacia; se deja como estaba.
+    p4 = extraer(_FABRICA).pantallas[3]
+    assert [c.nombre for c in p4.campos] == ["vista_resultado"]
+    assert p4.muestra_antes == []

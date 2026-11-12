@@ -816,11 +816,8 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                     p = mapa_pantallas.get(mermaid_id)
                     if p is None:
                         return None
-                    return next(
-                        (t.id for t in m.flujo.tareas
-                         if p.id in [pp.id for pp in t.pantallas]),
-                        None,
-                    )
+                    duena = m.flujo.tarea_de_pantalla(p.id)
+                    return duena.id if duena else None
 
                 predecesora_id = _tarea_id(est["predecesora"])
                 if predecesora_id is None:
@@ -1000,11 +997,7 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                     )
                     p = mapa_pantallas.get(res.ubicacion) if mapa_pantallas else None
                     if p is not None:
-                        tarea = next(
-                            (t for t in m.flujo.tareas
-                             if p.id in [pp.id for pp in t.pantallas]),
-                            None,
-                        )
+                        tarea = m.flujo.tarea_de_pantalla(p.id)
                 if tarea is not None:
                     tarea.actor = res.valor
                     resueltos.append((codigo, res.ubicacion))
