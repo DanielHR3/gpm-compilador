@@ -52,6 +52,9 @@ const RESPONSABLE: Record<string, Responsable> = {
   // Si el tramite es publico y a que grupo real va cada responsable: no esta
   // en ningun insumo, se decide en el asistente (spec 2026-10-01).
   "META-07": "plataforma", "ACT-01": "plataforma",
+  // Segunda ronda de la fabrica (2026-11-12): como quedo armado el tramite y
+  // lo que falta programar en GPM. Nada de esto lo corrige la dependencia.
+  "DIC-10": "plataforma", "FLU-04": "plataforma", "ACC-01": "plataforma", "ACC-02": "plataforma",
 };
 
 /** Avisos que no van en el documento para la dependencia. */
