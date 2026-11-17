@@ -265,7 +265,7 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
         )
 
     # Lo que de verdad salio como `select` (un select sin opciones se degrada a
-    # texto): la regla de un paso lo lee con `->value`.
+    # texto): la regla de un paso o de una conexion lo lee con `->value`.
     selects = {c["nombre"] for f in formularios for c in f["Campos"] if c["tipo"] == "select"}
 
     tareas = []
@@ -282,7 +282,7 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
                 formulario_id=id_de_pantalla[p.id],
                 tarea_id=tid,
                 modo=p.modo,
-                regla=reglas.emitir_paso(p.cuando, selects) if p.cuando is not None else "",
+                regla=reglas.emitir_con_selects(p.cuando, selects) if p.cuando is not None else "",
             )
             for orden, p in enumerate(t.pantallas, start=1)
         ]
@@ -322,7 +322,7 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
             id=next(ids),
             origen=id_de_tarea[cx.de],
             destino=id_de_tarea[cx.a],
-            regla=reglas.emitir(cx.cuando) if cx.cuando else None,
+            regla=reglas.emitir_con_selects(cx.cuando, selects) if cx.cuando else None,
         )
         for cx in m.flujo.conexiones
     ]

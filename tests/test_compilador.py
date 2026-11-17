@@ -636,7 +636,9 @@ def test_emitir_une_clausulas_y_en_conexion_regla():
     g = _compilar_con_clausulas_y()
     conexiones_con_regla = [c for c in g["Conexiones"] if c["regla"]]
     assert len(conexiones_con_regla) == 1
-    assert conexiones_con_regla[0]["regla"] == "@@estado=='hidalgo'&&@@tipo=='foraneo'"
+    # `estado` y `tipo` son select: en la conexión se leen con `->value`
+    # (portal, 2026-11-17: sin él el trámite se finalizaba al salir de la tarea).
+    assert conexiones_con_regla[0]["regla"] == "@@estado->value == 'hidalgo'&&@@tipo->value == 'foraneo'"
 
 
 def test_la_tarea_inicial_emite_init_capture_en_1():

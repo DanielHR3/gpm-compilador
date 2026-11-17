@@ -62,15 +62,19 @@ def emitir(cond: "Condicion") -> str:
     return "&&".join([base, *extra])
 
 
-def emitir_paso(cond: "Condicion", selects: "set[str]") -> str:
-    """La regla de un PASO. Un campo `select` se lee con `->value`.
+def emitir_con_selects(cond: "Condicion", selects: "set[str]") -> str:
+    """La regla de un PASO o de una CONEXIÓN. Un campo `select` se lee con `->value`.
 
-    Portal, 2026-11-17 (proceso 1141, trámite 24177): el paso con
-    `@@modalidad_pago=='en_linea'` no aparecía aunque el valor guardado era
-    «en_linea»; con `@@modalidad_pago->value == 'en_linea'` sí. Es la forma que
-    dio la fábrica para un selector en la condición de un paso. Las conexiones
-    NO cambian: ahí `=='valor'` está probado sobre `select` y `radio`.
-    Solo `select`: un `radio` en un paso no se ha probado.
+    Portal, 2026-11-17 (procesos 1141 y 1143, trámites 24177, 24186, 24187):
+    - Paso: con `@@modalidad_pago=='en_linea'` no aparecía aunque el valor
+      guardado era «en_linea»; con `@@modalidad_pago->value == 'en_linea'` sí.
+    - Conexión: con `=='en_linea'` y `=='banco_o_transferencia'` los dos
+      trámites se FINALIZARON al salir de la tarea (ninguna regla se cumplió);
+      con `->value` el trámite 24187 pasó a «Generar y Cargar Formato».
+    - Un `radio` con `=='valor'` sí funciona en la conexión
+      (`@@tiene_observaciones=='no'` avanzó en los tres trámites).
+    Es la forma que dio la fábrica: un selector devuelve un objeto. La
+    visibilidad de campos (`dependiente_campo`) no cambia: funcionó con las dos.
     """
     def clausula(campo, operador, igual):
         if campo in selects:
@@ -80,6 +84,9 @@ def emitir_paso(cond: "Condicion", selects: "set[str]") -> str:
     base = clausula(cond.campo, getattr(cond, "operador", "=="), cond.igual)
     extra = [clausula(c.campo, c.operador, c.igual) for c in getattr(cond, "y", [])]
     return "&&".join([base, *extra])
+
+
+emitir_paso = emitir_con_selects
 
 
 def campos_de(regla: str) -> list[str]:

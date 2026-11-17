@@ -843,12 +843,27 @@ def test_la_regla_de_un_paso_sobre_texto_no_lleva_value():
     assert g["Tareas"][0]["Pasos"][1]["regla"] == "@@clave=='a'"
 
 
-def test_las_conexiones_sobre_un_select_siguen_sin_value(tmp_path):
-    # En el portal la conexión `@@tiene_observaciones=='no'` avanzó, y en la
-    # prueba del 2026-08-30 `@@procede=='si'` sobre un select también.
-    from gpmc.nucleo import reglas
-    from gpmc.nucleo.manifiesto import Condicion
-    assert reglas.emitir(Condicion(campo="modalidad_pago", igual="en_linea")) == "@@modalidad_pago=='en_linea'"
+def test_las_conexiones_leen_el_select_con_value_y_el_radio_sin_el():
+    # Portal, 2026-11-17: con `=='banco_o_transferencia'` sobre el select el
+    # trámite se finalizó al salir de la tarea; con `->value` avanzó. La
+    # conexión sobre el radio `@@tiene_observaciones=='no'` avanzó sin él.
+    from gpmc.compilador.a_gpm import compilar
+    from gpmc.nucleo.manifiesto import (
+        Actor, Campo, Condicion, Conexion, Flujo, Manifiesto, OpcionCatalogo, Pantalla, Tarea, Tramite)
+    ops = [OpcionCatalogo(etiqueta="Sí", valor="si"), OpcionCatalogo(etiqueta="No", valor="no")]
+    m = Manifiesto(
+        tramite=Tramite(nombre="Prueba", dependencia="DGT"),
+        actores=[Actor(id="n", nombre="Notario")],
+        pantallas=[Pantalla(id="p1", nombre="A", actor="n", campos=[
+            Campo(nombre="modalidad", tipo="select", catalogo=ops),
+            Campo(nombre="observa", tipo="radio", catalogo=ops)])],
+        flujo=Flujo(tareas=[Tarea(id="t1", nombre="A", actor="n", inicial=True, pantallas=["p1"]),
+                            Tarea(id="t2", nombre="B", actor="n", terminal=True, pantallas=["p1"])],
+                    conexiones=[Conexion(de="t1", a="t2", cuando=Condicion(campo="modalidad", igual="si")),
+                                Conexion(de="t1", a="t2", cuando=Condicion(campo="observa", igual="no"))]),
+    )
+    g = compilar(m, proceso_id="1")
+    assert [c["regla"] for c in g["Conexiones"]] == ["@@modalidad->value == 'si'", "@@observa=='no'"]
 
 
 def test_una_tarea_a_la_que_llegan_dos_caminos_no_se_fusiona():
