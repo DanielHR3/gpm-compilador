@@ -60,3 +60,29 @@ Ciudadana (María) en `tramites.hidalgo.gob.mx`; servidor público (Daniel) en `
 pregunta 1). En las conexiones la forma simple sigue funcionando (probado con `radio`).
 Pendiente: corregir `nreglas.emitir` para pasos sobre `select`; probar la ruta banco (paso oculto);
 recorrer hasta «Verificar Notario y Firmar» para el `@!`; diagnosticar el folio.
+
+## Segunda vuelta: `.gpm` corregido (proceso 1143, trámites 24186 y 24187)
+
+`.gpm` compilado de `8ca1c5a` (Notario público, `->value` en la regla del paso, folio nuevo),
+importado como **1143**, «Grupo_Test» a mano en las 4 tareas del Área, publicado como
+«Alta de Avisos de Testamento (v3 prueba)». María inicia; Daniel atiende.
+
+| Qué | Resultado |
+|---|---|
+| Folio | ✅ «GPM-2026-00001» en 24186 y «GPM-2026-00002» en 24187 (consecutivo) |
+| Paso «Pago en Línea» con `->value`, ruta en línea (1141) | ✅ aparece (3 pasos) |
+| Paso «Pago en Línea» con `->value`, ruta banco | ✅ no aparece (2 pasos, directo a Confirmación) |
+| Conexión `@@modalidad_pago=='banco_o_transferencia'` (24186) | ❌ el trámite se **finalizó** al salir de la tarea (igual que 24177 por la ruta en línea) |
+| Misma conexión con `->value` (editada a mano, 24187) | ✅ pasó a «Generar y Cargar Formato de Pago» |
+| Visibilidad `@@modalidad_pago=='banco…'` (select, sin `->value`) | ✅ los campos de banco se muestran |
+| Visibilidad `@@importacion_validada=='si'` (radio) | ✅ «Número de Folio RENAT» aparece al elegir Sí |
+| Pasos en visualización | ✅ cada tarea del Área abre con lo que revisa |
+| «Nombre del Funcionario que Firma» = `@!nombres @!apellido_paterno @!apellido_materno` | ✅ **«Daniel Hernández Rubio»** |
+| Ruta banco completa | ✅ 7 etapas «Completado», trámite finalizado |
+| Tareas del Notario después de la primera | ⚠️ caen en la bolsa de pendientes del funcionario, no le llegan a la ciudadana (mismo diseño que el export de la fábrica). Pregunta para la fábrica |
+
+**Reglas que quedan probadas en runtime:** un `select` se lee con `->value` en pasos **y**
+conexiones; un `radio` con `=='valor'`; la visibilidad de campos con la forma simple funciona
+con los dos. Implementado en `855e8ac` (`reglas.emitir_con_selects`).
+
+Al terminar, 1141 y 1143 se despublicaron (`public=0`, `add_in_menu=0`); su contenido no cambió.
