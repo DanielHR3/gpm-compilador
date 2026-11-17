@@ -32,6 +32,7 @@ const TITULOS: Record<string, string> = {
   "ACC-02": "Datos que llena el sistema",
   "FLU-05": "Paso que se muestra con una condición",
   "ACC-03": "Funcionario tomado de la sesión",
+  "ACT-02": "Quien inicia el trámite entra por el portal",
   "API-03": "Campo del que depende",
   "API-04": "Conexión con otro sistema",
   "API-05": "Conexión que exige credencial",
@@ -500,6 +501,15 @@ const REDACCIONES: Record<string, Redaccion> = {
     return (
       `${m[2]} se llenará solo con el nombre de la persona que atiende la tarea. ` +
       "Falta probarlo en la plataforma."
+    );
+  },
+
+  "ACT-02": (mensaje) => {
+    const m = /^«(.+?)» inicia el trámite, así que sus tareas quedan abiertas/.exec(mensaje);
+    if (!m) return null;
+    return (
+      `«${m[1]}» es quien inicia el trámite: sus tareas las atiende cualquier persona que entre ` +
+      "al portal con su cuenta, sin grupo de usuarios. Confirma que no es personal de la dependencia."
     );
   },
 

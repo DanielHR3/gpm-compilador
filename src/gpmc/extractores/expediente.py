@@ -567,6 +567,37 @@ def _leer(ruta: Path) -> str:
         ) from exc
 
 
+# Palabras que nombran una oficina de la dependencia, no a quien hace el tramite.
+_OFICINA = re.compile(
+    r"\b(area|direccion|departamento|ventanilla|oficina|coordinacion|unidad|"
+    r"subdireccion|jefatura|funcionari\w*|servidor\w* public\w*|dependencia)\b")
+
+
+def _abrir_al_solicitante(actores: "dict[str, Actor]", flujo: Flujo) -> "list[Hueco]":
+    """Quien inicia el tramite lo hace desde el portal: sus tareas van `publico`.
+
+    Prueba en el portal (2026-11-17, proceso 1141): con el Notario restringido
+    a un grupo, el portal respondio «Usuario no puede iniciar este proceso».
+    En 10 de 12 exports autenticos la tarea inicial es `publico`, y en el de la
+    fabrica para Testamento el Notario va `publico` en sus cuatro tareas. Antes
+    solo el actor llamado exactamente «Ciudadano» salia asi; «Ciudadano (Padre,
+    Madre o Tutor)», «Persona Estudiante» o «Notario» salian como grupo (15 de
+    28 expedientes de la wiki). Se queda como grupo si el nombre es el de una
+    oficina (Licitaciones: lo inicia un funcionario).
+    """
+    inicial = next((t for t in flujo.tareas if t.inicial), None)
+    a = actores.get(inicial.actor) if inicial and inicial.actor else None
+    if a is None or a.tipo == "autoservicio" or _OFICINA.search(ext_dicc._babel(a.nombre)):
+        return []
+    a.tipo = "autoservicio"
+    a.grupos_usuarios = []
+    return [Hueco(
+        "por_confirmar", "ACT-02", a.id,
+        f"«{a.nombre}» inicia el trámite, así que sus tareas quedan abiertas a quien "
+        f"entre al portal con su cuenta, sin grupo de usuarios",
+    )]
+
+
 def _decisiones_de_publicacion(actores: "list[Actor]", flujo: Flujo) -> "list[Hueco]":
     """Lo que hoy se corrige en la plataforma despues de importar, dicho antes.
 
@@ -823,6 +854,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     r.huecos += huecos_sis
     colgar_folios(acciones_sis, flujo, pantallas)
 
+    r.huecos += _abrir_al_solicitante(actores_vistos, flujo)
     r.huecos += _decisiones_de_publicacion(list(actores_vistos.values()), flujo)
 
     r.manifiesto = Manifiesto(

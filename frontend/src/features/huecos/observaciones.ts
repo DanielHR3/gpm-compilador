@@ -57,6 +57,8 @@ const RESPONSABLE: Record<string, Responsable> = {
   "DIC-10": "plataforma", "FLU-04": "plataforma", "ACC-01": "plataforma", "ACC-02": "plataforma",
   // Tercera ronda (2026-11-17): paso condicionado y funcionario de la sesion.
   "FLU-05": "plataforma", "ACC-03": "plataforma",
+  // Prueba en el portal (2026-11-17): el solicitante entra sin grupo.
+  "ACT-02": "plataforma",
 };
 
 /** Avisos que no van en el documento para la dependencia. */

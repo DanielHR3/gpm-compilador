@@ -630,6 +630,17 @@ describe("avisos de la tercera ronda de la fábrica", () => {
     );
   });
 
+  test("ACT-02 dice quién inicia el trámite", () => {
+    const crudo =
+      "«Notario» inicia el trámite, así que sus tareas quedan abiertas a quien entre al portal con su cuenta, " +
+      "sin grupo de usuarios";
+    expect(tituloDeCodigo("ACT-02")).toBe("Quien inicia el trámite entra por el portal");
+    expect(redactarHueco(h("ACT-02", crudo))).toBe(
+      "«Notario» es quien inicia el trámite: sus tareas las atiende cualquier persona que entre al portal con " +
+        "su cuenta, sin grupo de usuarios. Confirma que no es personal de la dependencia.",
+    );
+  });
+
   test("ACC-03 nombra el campo que toma al funcionario", () => {
     const crudo =
       "1 campo(s) toman el nombre del funcionario que tiene la tarea de la sesión (@!nombres @!apellido_paterno " +

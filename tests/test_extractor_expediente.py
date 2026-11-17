@@ -958,3 +958,45 @@ def test_reensamblar_no_descuelga_el_folio():
     colgar_folios(acciones, flujo, pantallas)
     colgar_folios(acciones, flujo, pantallas)   # dos veces no lo duplica
     assert flujo.tareas[0].acciones_antes == ["crear-folio"]
+
+
+# ── Portal, 2026-11-17: quien inicia el tramite entra por el portal ──
+#
+# Con el Notario restringido a un grupo de funcionarios, el portal respondio
+# «Usuario no puede iniciar este proceso» (proceso 1141). En 10 de 12 exports
+# autenticos la tarea inicial es `publico`; en el export de la fabrica de este
+# mismo tramite el Notario va `publico` y el Area con grupo.
+
+def _actor_inicial(r):
+    m = r.manifiesto
+    ini = next(t for t in m.flujo.tareas if t.inicial)
+    return next(a for a in m.actores if a.id == ini.actor)
+
+
+def test_quien_inicia_el_tramite_es_autoservicio_aunque_no_se_llame_ciudadano(tmp_path):
+    dicc = _DICC_REVISION.replace("Pantalla 1 — Solicitante —", "Pantalla 1 — Notario —").replace(
+        "(Solicitante → Area)", "(Notario → Area)")
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": dicc}))
+    a = _actor_inicial(r)
+    assert (a.nombre, a.tipo, a.grupos_usuarios) == ("Notario", "autoservicio", [])
+    area = next(x for x in r.manifiesto.actores if x.nombre == "Area")
+    assert area.tipo == "grupo"
+    assert any(h.codigo == "ACT-02" and h.nivel == "por_confirmar" for h in r.huecos)
+    assert not any(h.codigo == "ACT-01" and h.ubicacion == a.id for h in r.huecos)
+
+
+def test_el_gpm_abre_al_portal_las_tareas_del_solicitante(tmp_path):
+    from gpmc.compilador.a_gpm import compilar
+    dicc = _DICC_REVISION.replace("Pantalla 1 — Solicitante —", "Pantalla 1 — Notario —")
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": dicc}))
+    g = compilar(r.manifiesto, proceso_id="1")
+    ini = next(t for t in g["Tareas"] if str(t["inicial"]) == "1")
+    assert ini["acceso_modo"] == "publico" and ini["GruposUsuarios"] == []
+
+
+def test_una_oficina_que_inicia_el_tramite_sigue_como_grupo(tmp_path):
+    # Licitaciones: lo inicia un funcionario. El nombre lo dice.
+    dicc = _DICC_REVISION.replace("Pantalla 1 — Solicitante —", "Pantalla 1 — Área de Ventanilla —")
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": dicc}))
+    assert _actor_inicial(r).tipo == "grupo"
+    assert not any(h.codigo == "ACT-02" for h in r.huecos)
