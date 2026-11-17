@@ -34,13 +34,23 @@ def php_folio(prefijo: str, variable: str) -> str:
     resto (el str_pad y el return) si la plataforma la evalua cruda. No lo
     reproducimos: copiamos el mecanismo, no un comentario que puede romperlo.
     """
+    # Portal, 2026-11-17 (trámite 24177): el folio salió vacío. La forma de los
+    # exports suma 1 al ÚLTIMO VALOR guardado (`$total + 1`), y ese valor es un
+    # folio («CNIVA-2026-00003»), no un número: en PHP 8 eso lanza TypeError y la
+    # acción falla desde el segundo trámite. Además `numero_folio` lo comparten
+    # varios trámites. Se toma el último folio de ESTE prefijo y año y se le saca
+    # el número del final; sin ninguno, empieza en 1. Probado en PHP 8 contra
+    # la forma vieja (docker php:8.3-cli).
+    serie = f"{prefijo}-"
     return (
         "$year = date('Y'); "
-        "$total = \\DB::table('dato_seguimiento')"
+        "$ultimo = \\DB::table('dato_seguimiento')"
         f"->where('nombre', '{variable}')"
-        "->lockForUpdate()->value('valor'); "
-        "$consecutivo = str_pad($total + 1, 5, '0', STR_PAD_LEFT); "
-        f"return '{prefijo}-' . $year . '-' . $consecutivo;"
+        f"->where('valor', 'like', '%{serie}' . $year . '-%')"
+        "->orderBy('id', 'desc')->lockForUpdate()->value('valor'); "
+        "$n = ($ultimo && preg_match('/(\\d+)\\D*$/', (string) $ultimo, $m)) ? (int) $m[1] : 0; "
+        "$consecutivo = str_pad($n + 1, 5, '0', STR_PAD_LEFT); "
+        f"return '{serie}' . $year . '-' . $consecutivo;"
     )
 
 

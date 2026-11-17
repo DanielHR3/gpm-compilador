@@ -62,6 +62,26 @@ def emitir(cond: "Condicion") -> str:
     return "&&".join([base, *extra])
 
 
+def emitir_paso(cond: "Condicion", selects: "set[str]") -> str:
+    """La regla de un PASO. Un campo `select` se lee con `->value`.
+
+    Portal, 2026-11-17 (proceso 1141, trámite 24177): el paso con
+    `@@modalidad_pago=='en_linea'` no aparecía aunque el valor guardado era
+    «en_linea»; con `@@modalidad_pago->value == 'en_linea'` sí. Es la forma que
+    dio la fábrica para un selector en la condición de un paso. Las conexiones
+    NO cambian: ahí `=='valor'` está probado sobre `select` y `radio`.
+    Solo `select`: un `radio` en un paso no se ha probado.
+    """
+    def clausula(campo, operador, igual):
+        if campo in selects:
+            return f"@@{campo}->value {'!=' if operador == '!=' else '=='} '{igual}'"
+        return _emitir_clausula(campo, operador, igual)
+
+    base = clausula(cond.campo, getattr(cond, "operador", "=="), cond.igual)
+    extra = [clausula(c.campo, c.operador, c.igual) for c in getattr(cond, "y", [])]
+    return "&&".join([base, *extra])
+
+
 def campos_de(regla: str) -> list[str]:
     """Nombres de campo que aparecen en una regla, en orden y sin repetir."""
     vistos = []

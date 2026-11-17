@@ -51,6 +51,36 @@ def test_el_folio_incluye_el_prefijo_y_el_anio():
     assert "date('Y')" in php
 
 
+def test_el_folio_no_suma_al_ultimo_valor_guardado():
+    """Portal, 2026-11-17: el folio salió vacío. `$total + 1` sobre el último
+    folio guardado («CNIVA-2026-00003») es TypeError en PHP 8. Se filtra por
+    prefijo y año y se toma el número del final."""
+    php = php_folio(prefijo="GPM", variable="numero_folio")
+    assert "$total + 1" not in php
+    assert "->where('valor', 'like', '%GPM-' . $year . '-%')" in php
+    assert "preg_match('/(\\d+)\\D*$/'" in php
+
+
+@pytest.mark.skipif(
+    __import__("shutil").which("docker") is None or __import__("os").environ.get("GPMC_PHP_DOCKER") != "1",
+    reason="prueba en PHP 8 real: GPMC_PHP_DOCKER=1 y docker")
+def test_el_folio_corre_en_php8(tmp_path):
+    """La forma nueva en PHP 8.3 contra `\\DB` simulado (tests/php/folio_en_php8.php)."""
+    import json, shutil, subprocess
+    from pathlib import Path
+    vieja = ("$year = date('Y'); $total = \\DB::table('dato_seguimiento')->where('nombre', 'numero_folio')"
+             "->lockForUpdate()->value('valor'); $consecutivo = str_pad($total + 1, 5, '0', STR_PAD_LEFT); "
+             "return 'GPM-' . $year . '-' . $consecutivo;")
+    (tmp_path / "codigo.json").write_text(json.dumps({"vieja": vieja, "nueva": php_folio("GPM", "numero_folio")}))
+    shutil.copy(Path(__file__).parent / "php" / "folio_en_php8.php", tmp_path / "prueba.php")
+    out = subprocess.run(["docker", "run", "--rm", "-v", f"{tmp_path}:/w:ro", "php:8.3-cli", "php", "/w/prueba.php"],
+                         capture_output=True, text=True, timeout=300).stdout
+    nueva = [l for l in out.splitlines() if l.startswith("nueva")]
+    assert len(nueva) == 4 and not any("ERROR" in l for l in nueva)
+    assert any("GPM-2026-00008" in l for l in nueva)
+    assert any(l.startswith("vieja") and "TypeError" in l for l in out.splitlines())
+
+
 def test_el_documento_escapa_toda_variable():
     """DOC-01. Ni una implementacion ni la DGT escapan; el compilador siempre lo hace."""
     php = php_documento(plantilla="<h1>{{nombre}}</h1>", variables=["nombre"])

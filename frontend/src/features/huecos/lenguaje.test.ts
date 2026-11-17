@@ -621,12 +621,12 @@ describe("avisos de la tercera ronda de la fábrica", () => {
   test("FLU-05 dice qué paso quedó condicionado", () => {
     const crudo =
       "1 rama(s) del mismo responsable pasaron a ser un paso con condición: «Pago en Línea» pasa a ser un paso " +
-      "de «Modalidad» que solo se muestra si @@modalidad_pago=='en_linea'. La forma de la regla la confirmó la " +
-      "fábrica; falta probarla en la plataforma";
+      "de «Modalidad» que solo se muestra si «modalidad_pago» es «en_linea». La forma de la regla se probó en el " +
+      "portal (2026-11-17); confirma que es la condición correcta";
     expect(redactarHueco(h("FLU-05", crudo))).toBe(
       "Una tarea pasó a ser parte de la anterior porque las atiende la misma persona; solo se muestra cuando se " +
         "cumple la condición: «Pago en Línea» pasa a ser un paso de «Modalidad» que solo se muestra si " +
-        "@@modalidad_pago=='en_linea'. Falta probarlo en la plataforma.",
+        "«modalidad_pago» es «en_linea». Confirma que es la condición correcta.",
     );
   });
 

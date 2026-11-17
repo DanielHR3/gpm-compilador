@@ -14,7 +14,6 @@ from gpmc.extractores import documentos as ext_docs
 from gpmc.extractores import diccionario as ext_dicc
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores import metadatos as ext_meta
-from gpmc.nucleo import reglas as nreglas
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.integraciones import resolver as _resolver_catalogo
 from gpmc.nucleo.integraciones import requiere_token as _requiere_token
@@ -175,7 +174,7 @@ def _fusionar_ramas(tareas, conexiones):
             if not (p.modo == "visualizacion" and p.id in ya)]
         a.acciones_antes = a.acciones_antes + [x for x in b.acciones_antes if x not in a.acciones_antes]
         a.acciones_despues = a.acciones_despues + [x for x in b.acciones_despues if x not in a.acciones_despues]
-        ramas.append((a.nombre, b.nombre, nreglas.emitir(cx.cuando)))
+        ramas.append((a.nombre, b.nombre, f"«{cx.cuando.campo}» es «{cx.cuando.igual}»"))
         cx.a = sale.a
         tareas = [t for t in tareas if t is not b]
         conexiones = [c for c in conexiones if c is not sale]
@@ -187,7 +186,7 @@ def _hueco_de_ramas(ramas):
     return Hueco(
         "por_confirmar", "FLU-05", "flujo",
         f"{len(ramas)} rama(s) del mismo responsable pasaron a ser un paso con condición: {detalle}. "
-        "La forma de la regla la confirmó la fábrica; falta probarla en la plataforma",
+        "La forma de la regla se probó en el portal (2026-11-17); confirma que es la condición correcta",
     )
 
 

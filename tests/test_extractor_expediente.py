@@ -774,7 +774,7 @@ def test_una_rama_del_mismo_responsable_es_un_paso_con_su_condicion():
     pasos = [(p.id, p.cuando.igual if p.cuando else None) for p in ts[0].pantallas]
     assert pasos == [("p_a", None), ("p_b", "en_linea")]
     assert cs == [("a", "d", "en_linea"), ("a", "c", "banco"), ("c", "d", None)]
-    assert ramas == [("Tarea a", "Tarea b", "@@x=='en_linea'")]
+    assert ramas == [("Tarea a", "Tarea b", "«x» es «en_linea»")]
 
 
 def test_una_rama_de_otro_responsable_no_se_fusiona():
@@ -820,7 +820,35 @@ def test_el_gpm_lleva_la_regla_en_el_paso():
                                       id="p2", cuando=Condicion(campo="modalidad_pago", igual="en_linea"))])]),
     )
     g = compilar(m, proceso_id="1")
-    assert [p["regla"] for p in g["Tareas"][0]["Pasos"]] == ["", "@@modalidad_pago=='en_linea'"]
+    # Portal, 2026-11-17 (trámite 24177): con `@@modalidad_pago=='en_linea'` el
+    # paso no aparecía aunque se guardó «en_linea»; con `->value` sí. Es lo que
+    # dijo la fábrica: un selector en la regla de un paso se lee con `->value`.
+    assert [p["regla"] for p in g["Tareas"][0]["Pasos"]] == ["", "@@modalidad_pago->value == 'en_linea'"]
+
+
+def test_la_regla_de_un_paso_sobre_texto_no_lleva_value():
+    from gpmc.compilador.a_gpm import compilar
+    from gpmc.nucleo.manifiesto import (
+        Actor, Campo, Condicion, Flujo, Manifiesto, Pantalla, PasoPantalla, Tarea, Tramite)
+    m = Manifiesto(
+        tramite=Tramite(nombre="Prueba", dependencia="DGT"),
+        actores=[Actor(id="n", nombre="Notario")],
+        pantallas=[Pantalla(id="p1", nombre="A", actor="n", campos=[Campo(nombre="clave")]),
+                   Pantalla(id="p2", nombre="B", actor="n", campos=[Campo(nombre="x")])],
+        flujo=Flujo(tareas=[Tarea(id="t1", nombre="T", actor="n", inicial=True, terminal=True,
+                                  pantallas=[PasoPantalla(id="p1"), PasoPantalla(
+                                      id="p2", cuando=Condicion(campo="clave", igual="a"))])]),
+    )
+    g = compilar(m, proceso_id="1")
+    assert g["Tareas"][0]["Pasos"][1]["regla"] == "@@clave=='a'"
+
+
+def test_las_conexiones_sobre_un_select_siguen_sin_value(tmp_path):
+    # En el portal la conexión `@@tiene_observaciones=='no'` avanzó, y en la
+    # prueba del 2026-08-30 `@@procede=='si'` sobre un select también.
+    from gpmc.nucleo import reglas
+    from gpmc.nucleo.manifiesto import Condicion
+    assert reglas.emitir(Condicion(campo="modalidad_pago", igual="en_linea")) == "@@modalidad_pago=='en_linea'"
 
 
 def test_una_tarea_a_la_que_llegan_dos_caminos_no_se_fusiona():
@@ -900,7 +928,8 @@ def test_el_gpm_trae_el_folio_con_bloqueo_y_su_evento(tmp_path):
     g = compilar(r.manifiesto, proceso_id="1")
     extra = json.loads(g["Acciones"][0]["extra"])
     assert extra["variable"] == "numero_folio"
-    assert "->where('nombre', 'numero_folio')->lockForUpdate()" in extra["expresion"]
+    assert "dato_seguimiento')->where('nombre', 'numero_folio')" in extra["expresion"]
+    assert "->lockForUpdate()" in extra["expresion"]
     inicial = next(t for t in g["Tareas"] if t["inicial"] == 1 or t["inicial"] == "1")
     assert [(e["instante"], e["accion_id"]) for e in inicial["Eventos"]] == [("antes", g["Acciones"][0]["id"])]
 

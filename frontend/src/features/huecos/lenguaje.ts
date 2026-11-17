@@ -492,7 +492,7 @@ const REDACCIONES: Record<string, Redaccion> = {
     return (
       `${n === 1 ? "Una tarea pasó" : `${n} tareas pasaron`} a ser parte de la anterior porque las atiende la ` +
       `misma persona; solo se muestra${n === 1 ? "" : "n"} cuando se cumple la condición: ${m[2]}. ` +
-      "Falta probarlo en la plataforma."
+      "Confirma que es la condición correcta."
     );
   },
   "ACC-03": (mensaje) => {
