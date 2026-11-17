@@ -1,6 +1,6 @@
 # Pendientes — estado verificado
 
-Última verificación: 2026-09-21, suite en **533 passed, 23 skipped** (servidor) y **235
+Última verificación: 2026-11-17, suite en **1,319 passed, 30 skipped** (servidor) y **577
 passed** (interfaz).
 
 Este archivo solo registra lo que se comprobó ejecutando código o importando a la
