@@ -40,3 +40,23 @@ conexiones, el `valor_default` con `@!`). El proceso sigue `public: 0`.
 2. Ruta «Banco o transferencia»: NO aparece y el trámite pasa a «Generar y Cargar Formato».
 3. «Verificar Notario y Firmar»: «Nombre del Funcionario que Firma» muestra el nombre, no
    el texto `@!nombres …`.
+
+## Prueba en el portal (trámite 24177, mismo día)
+
+Ciudadana (María) en `tramites.hidalgo.gob.mx`; servidor público (Daniel) en `admin.hidalgo.gob.mx`.
+
+| Qué | Resultado |
+|---|---|
+| Iniciar con las tareas del Notario en grupo | ❌ «Usuario no puede iniciar este proceso». Corregido en el compilador (`25bd5e9`, `ACT-02`): quien inicia sale `publico` |
+| Iniciar con las tareas del Notario en `publico` | ✅ Captura llenada y enviada |
+| Revisión del Área: captura en `visualizacion` y luego dictamen | ✅ |
+| Conexión `@@tiene_observaciones=='no'` (radio) | ✅ Llevó a «Selección de Modalidad de Pago» |
+| Asignación de «Selección de Modalidad» (publico, autoservicio) | ⚠️ Queda en la bolsa de pendientes del funcionario, no le llega a la ciudadana. Igual en el export de la fábrica: pregunta para la fábrica |
+| Regla de paso `@@modalidad_pago=='en_linea'` sobre `select` | ❌ **El paso no aparece** aunque se guardó «en_linea» |
+| Regla de paso `@@modalidad_pago->value == 'en_linea'` | ✅ **El paso «Pago en Línea» aparece** (3 pasos en vez de 2), en visualización |
+| «Número de Folio» | ⚠️ Vacío en la captura y en la revisión: la acción de folio no lo llena |
+
+**Consecuencia:** en la regla de un PASO, un `select` exige `->value` (lo que dijo la fábrica en la
+pregunta 1). En las conexiones la forma simple sigue funcionando (probado con `radio`).
+Pendiente: corregir `nreglas.emitir` para pasos sobre `select`; probar la ruta banco (paso oculto);
+recorrer hasta «Verificar Notario y Firmar» para el `@!`; diagnosticar el folio.
