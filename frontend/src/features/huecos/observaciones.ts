@@ -55,6 +55,8 @@ const RESPONSABLE: Record<string, Responsable> = {
   // Segunda ronda de la fabrica (2026-11-12): como quedo armado el tramite y
   // lo que falta programar en GPM. Nada de esto lo corrige la dependencia.
   "DIC-10": "plataforma", "FLU-04": "plataforma", "ACC-01": "plataforma", "ACC-02": "plataforma",
+  // Tercera ronda (2026-11-17): paso condicionado y funcionario de la sesion.
+  "FLU-05": "plataforma", "ACC-03": "plataforma",
 };
 
 /** Avisos que no van en el documento para la dependencia. */

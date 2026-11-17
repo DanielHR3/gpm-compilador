@@ -740,11 +740,87 @@ def test_un_cambio_de_responsable_no_se_fusiona():
 
 
 def test_una_decision_entre_dos_tareas_no_se_fusiona():
-    # La regla de un paso no aparece en ningun export: no se emite sin acta.
+    # Fundir una rama es otra funcion (`_fusionar_ramas`); esta solo une
+    # tareas seguidas sin decision entre ellas.
     ts, _, _ = _fusionar(
         [_t("a", "n", inicial=True), _t("b", "n", terminal=True), _t("c", "n", terminal=True)],
         [("a", "b", "si"), ("a", "c", "no")])
     assert [t.id for t in ts] == ["a", "b", "c"]
+
+
+# ── Fabrica, 2026-11-17: la condicion de un paso ──
+#
+# «En la pestaña Pasos de la tarea, en "Escribir regla condición aquí", se
+# utiliza una expresión con @@ … Puede depender de un dato capturado en un paso
+# anterior». Y: no fusionar cuando cambia el responsable.
+
+def _ramas(tareas, pares):
+    from gpmc.extractores.expediente import _fusionar_ramas
+    from gpmc.nucleo.manifiesto import Condicion, Conexion
+    cxs = [Conexion(de=a, a=b, cuando=(Condicion(campo="x", igual=c) if c else None))
+           for a, b, c in pares]
+    ts, cs, ramas = _fusionar_ramas(tareas, cxs)
+    return ts, [(c.de, c.a, c.cuando.igual if c.cuando else None) for c in cs], ramas
+
+
+def test_una_rama_del_mismo_responsable_es_un_paso_con_su_condicion():
+    # Testamento: el Notario elige modalidad; «en línea» lo atiende el mismo
+    # Notario y vuelve al tronco; «banco» cambia de responsable.
+    ts, cs, ramas = _ramas(
+        [_t("a", "notario", inicial=True), _t("b", "notario"), _t("c", "area"),
+         _t("d", "area", terminal=True)],
+        [("a", "b", "en_linea"), ("a", "c", "banco"), ("b", "d", None), ("c", "d", None)])
+    assert [t.id for t in ts] == ["a", "c", "d"]
+    pasos = [(p.id, p.cuando.igual if p.cuando else None) for p in ts[0].pantallas]
+    assert pasos == [("p_a", None), ("p_b", "en_linea")]
+    assert cs == [("a", "d", "en_linea"), ("a", "c", "banco"), ("c", "d", None)]
+    assert ramas == [("Tarea a", "Tarea b", "@@x=='en_linea'")]
+
+
+def test_una_rama_de_otro_responsable_no_se_fusiona():
+    ts, cs, ramas = _ramas(
+        [_t("a", "notario", inicial=True), _t("b", "area"), _t("d", "area", terminal=True)],
+        [("a", "b", "si"), ("a", "d", "no"), ("b", "d", None)])
+    assert [t.id for t in ts] == ["a", "b", "d"] and ramas == []
+
+
+def test_una_rama_terminal_no_se_fusiona():
+    # Sin salida, A se quedaria sin camino cuando la condicion se cumple.
+    ts, _, ramas = _ramas(
+        [_t("a", "n", inicial=True), _t("b", "n", terminal=True), _t("c", "n", terminal=True)],
+        [("a", "b", "si"), ("a", "c", "no")])
+    assert [t.id for t in ts] == ["a", "b", "c"] and ramas == []
+
+
+def test_una_rama_con_salida_condicionada_no_se_fusiona():
+    # La condicion de B decidiria a donde ir: no cabe en un paso.
+    ts, _, ramas = _ramas(
+        [_t("a", "n", inicial=True), _t("b", "n"), _t("c", "area", terminal=True),
+         _t("d", "area", terminal=True)],
+        [("a", "b", "si"), ("a", "c", "no"), ("b", "c", "ok"), ("b", "d", "mal")])
+    assert [t.id for t in ts] == ["a", "b", "c", "d"] and ramas == []
+
+
+def test_el_gpm_lleva_la_regla_en_el_paso():
+    from gpmc.compilador.a_gpm import compilar
+    from gpmc.nucleo.manifiesto import (
+        Actor, Campo, Condicion, Conexion, Flujo, Manifiesto, OpcionCatalogo, Pantalla,
+        PasoPantalla, Tarea, Tramite)
+    m = Manifiesto(
+        tramite=Tramite(nombre="Prueba", dependencia="DGT"),
+        actores=[Actor(id="n", nombre="Notario")],
+        pantallas=[
+            Pantalla(id="p1", nombre="Modalidad", actor="n", campos=[Campo(
+                nombre="modalidad_pago", tipo="select",
+                catalogo=[OpcionCatalogo(etiqueta="En línea", valor="en_linea")])]),
+            Pantalla(id="p2", nombre="Pago", actor="n", campos=[Campo(nombre="referencia")]),
+        ],
+        flujo=Flujo(tareas=[Tarea(id="t1", nombre="Pago", actor="n", inicial=True, terminal=True,
+                                  pantallas=[PasoPantalla(id="p1"), PasoPantalla(
+                                      id="p2", cuando=Condicion(campo="modalidad_pago", igual="en_linea"))])]),
+    )
+    g = compilar(m, proceso_id="1")
+    assert [p["regla"] for p in g["Tareas"][0]["Pasos"]] == ["", "@@modalidad_pago=='en_linea'"]
 
 
 def test_una_tarea_a_la_que_llegan_dos_caminos_no_se_fusiona():
@@ -844,6 +920,33 @@ def test_lo_que_llena_el_sistema_y_no_se_emite_se_dice(tmp_path):
     assert len(acc02) == 1 and acc02[0].nivel == "por_confirmar"
     assert "Monto a Pagar" in acc02[0].mensaje and "Folio" not in acc02[0].mensaje
     assert not [a for a in r.manifiesto.acciones if a.tipo == "costo"]
+
+
+_DICC_FUNCIONARIO = _DICC_FOLIO + (
+    "| Nombre del Funcionario que Firma | String | Texto de solo lectura (auto-generado) | No | "
+    "[Solo lectura, generado] Campo `@@funcionario_firma`. |\n"
+)
+
+
+def test_el_funcionario_que_firma_sale_de_las_variables_de_sesion(tmp_path):
+    # Fabrica, 2026-11-17, pregunta 5: «Mediante las variables globales»
+    # (@!nombres, @!apellido_paterno, @!apellido_materno del usuario en sesion).
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_FUNCIONARIO}))
+    campo = r.manifiesto.campo_por_nombre("funcionario_firma")
+    assert campo.valor_default == "@!nombres @!apellido_paterno @!apellido_materno"
+    acc02 = next(h for h in r.huecos if h.codigo == "ACC-02")
+    assert "Funcionario" not in acc02.mensaje and "Monto a Pagar" in acc02.mensaje
+    acc03 = [h for h in r.huecos if h.codigo == "ACC-03"]
+    assert len(acc03) == 1 and acc03[0].nivel == "por_confirmar"
+
+
+def test_el_gpm_trae_el_valor_por_defecto(tmp_path):
+    from gpmc.compilador.a_gpm import compilar
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": _DICC_FUNCIONARIO}))
+    g = compilar(r.manifiesto, proceso_id="1")
+    campos = {c["nombre"]: c for f in g["Formularios"] for c in f["Campos"]}
+    assert campos["funcionario_firma"]["valor_default"] == "@!nombres @!apellido_paterno @!apellido_materno"
+    assert campos["folio_renat"]["valor_default"] == ""
 
 
 def test_reensamblar_no_descuelga_el_folio():

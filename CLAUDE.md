@@ -873,3 +873,35 @@ de la fábrica`. **Nada de esto se ha importado todavía a la plataforma: falta 
   «fecha no futura», nombres de los grupos. Los dos documentos de Testamento siguen saliendo
   vacíos (`return '';`) hasta tener plantillas con `{{campo}}` (P-23).
 
+
+### 18. Respuestas de la fábrica a la segunda ronda (2026-11-17)
+
+Contestadas sobre Testamento, pero son reglas de la plataforma: valen para todo trámite.
+Tabla completa en `planeacion/pendientes.md` («Respuestas de la fábrica (2026-11-17)»).
+**Nada de esto se ha importado todavía: falta el acta.** Bitácora: `2026-11-17 - Tercera
+entrega a la fábrica`.
+
+- **`->value` es por campo, no global.** La fábrica lo pide solo para un selector «con retorno
+  estructurado». `SINTAXIS_ESTRICTA` sigue en `False`: un `select` manual o un `radio` devuelven
+  valor plano y `=='valor'` está probado (acta 2026-08-30). No cambiar la constante para
+  atender una recomendación de sintaxis. Caso abierto: un `select` remoto con
+  `object_response` usado en una regla sale hoy con `==` y sin aviso; se decide con acta.
+- **Condición de un paso** (`PasoPantalla.cuando` → `Pasos[].regla`): misma forma
+  `@@campo=='valor'`, puede mirar un campo de un paso anterior. **Cambia la decisión de la §17:**
+  `expediente._fusionar_ramas` (después de `_fusionar_tareas`, también en `reensamblar_flujo`)
+  vuelve paso condicionado la rama B de A cuando B es del mismo responsable, a B solo se llega
+  por esa conexión y B tiene una salida sin condición; la conexión pasa a ir de A al sucesor
+  de B. Aviso `FLU-05` (`por_confirmar`). Ningún export trae un paso con regla: la forma es la
+  de la fábrica.
+- **No fusionar tareas cuando cambia el responsable** (pregunta 8): `_fusionar_tareas` tal cual.
+- **Datos de sesión con variables globales `@!`** (`@!nombres`, `@!apellido_paterno`,
+  `@!curp`, `@!date_ymd`, …). Un dato generado cuya etiqueta es el nombre del funcionario /
+  servidor público sale con `Campo.valor_default = "@!nombres @!apellido_paterno
+  @!apellido_materno"` y aviso `ACC-03`, y deja de contarse en `ACC-02`. Sin probar si la
+  plataforma sustituye `@!` en `valor_default` o solo en Acciones.
+- **Documentos:** Acción que arma el contenido + plantilla que cita la variable `@@`; el evento
+  va antes de que el documento la consuma; se muestra con «Documento Dinámico». Ningún export
+  lo trae: no se emite hasta tener su forma y las plantillas (P-23).
+- **«Fecha no futura»** no es regla de `validacion`: es «Rangos específicos» del `date_time`.
+  Ningún export lo trae; no se emite hasta ver su forma en un export.
+- **Los grupos de usuarios** se emiten con el nombre del responsable; nadie los ha confirmado.

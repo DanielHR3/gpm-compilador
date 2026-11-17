@@ -12,7 +12,7 @@ from pathlib import Path
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores.documentos import atar_a_tareas
 from gpmc.extractores.expediente import (
-    _flujo_ramificado, _fusionar_tareas, _marcar_visualizacion, colgar_folios,
+    _flujo_ramificado, _fusionar_ramas, _fusionar_tareas, _marcar_visualizacion, colgar_folios,
 )
 from gpmc.nucleo.manifiesto import Flujo, Manifiesto
 from gpmc.web import sesiones
@@ -63,6 +63,7 @@ def reensamblar_flujo(carpeta: Path, m: Manifiesto) -> Manifiesto:
         # La misma union de tareas que hace la extraccion: sin ella, resolver
         # una compuerta devolveria el flujo a una tarea por pantalla.
         tareas, conexiones, _fusiones = _fusionar_tareas(tareas, conexiones)
+        tareas, conexiones, _ramas = _fusionar_ramas(tareas, conexiones)
         _marcar_visualizacion(tareas, m.pantallas)
         nuevo = Flujo(tareas=tareas, conexiones=conexiones)
         _conservar_acciones(m, nuevo)
