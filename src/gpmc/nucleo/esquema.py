@@ -104,6 +104,7 @@ def tarea(
     id, identificador, nombre, proceso_id,
     inicial=False, terminal=False, actor_grupos=(), pasos=(), eventos=(),
     posx=0, posy=0, asignacion="autoservicio", asignacion_usuario="",
+    almacenar_usuario_variable="",
 ):
     """Una tarea del diagrama BPMN. 40 claves."""
     grupos = list(actor_grupos)
@@ -118,8 +119,8 @@ def tarea(
         "asignacion_usuario": asignacion_usuario,
         "asignacion_notificar": "0",
         "proceso_id": str(proceso_id),
-        "almacenar_usuario": "0",
-        "almacenar_usuario_variable": "",
+        "almacenar_usuario": "1" if almacenar_usuario_variable else "0",
+        "almacenar_usuario_variable": almacenar_usuario_variable,
         "acceso_modo": "grupos_usuarios" if grupos else "publico",
         "activacion": "si",
         "activacion_inicio": None,

@@ -197,6 +197,18 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
     )
 
 
+_VARIABLE_SOLICITANTE = "solicitante_id"
+
+
+def _asignacion_del_solicitante(t, solicitante, sigue_al_solicitante) -> dict:
+    """Las claves de asignación de una tarea según sea del solicitante."""
+    if not sigue_al_solicitante or t.actor != solicitante:
+        return {}
+    if t.inicial:
+        return {"almacenar_usuario_variable": _VARIABLE_SOLICITANTE}
+    return {"asignacion": "usuario", "asignacion_usuario": f"@@{_VARIABLE_SOLICITANTE}"}
+
+
 def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) -> dict:
     if modo_pruebas:
         # MODO PRUEBAS (Test UI): Agrupa todas las pantallas secuencialmente en
@@ -268,6 +280,16 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
     # texto): la regla de un paso o de una conexion lo lee con `->value`.
     selects = {c["nombre"] for f in formularios for c in f["Campos"] if c["tipo"] == "select"}
 
+    # Portal, 2026-11-17 (proceso 1144): una tarea del solicitante que no es la
+    # inicial, en «autoservicio», cae en la bolsa del funcionario y no le llega
+    # al ciudadano. La tarea inicial guarda quien la hizo y las siguientes del
+    # mismo actor se le asignan (lo completo la ciudadana; trámite 24193).
+    inicial = next((t for t in m.flujo.tareas if t.inicial), None)
+    actor_ini = actores.get(inicial.actor) if inicial and inicial.actor else None
+    solicitante = actor_ini.id if actor_ini and actor_ini.tipo == "autoservicio" else None
+    sigue_al_solicitante = solicitante is not None and any(
+        t.actor == solicitante and not t.inicial for t in m.flujo.tareas)
+
     tareas = []
     id_de_tarea: dict[str, str] = {}
     for i, t in enumerate(m.flujo.tareas, start=1):
@@ -314,6 +336,7 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
                 eventos=eventos,
                 posx=200 + (i - 1) * 220,
                 posy=120,
+                **_asignacion_del_solicitante(t, solicitante, sigue_al_solicitante),
             )
         )
 

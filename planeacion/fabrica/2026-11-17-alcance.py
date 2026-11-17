@@ -43,7 +43,7 @@ h = [
     P("<b>Trámite:</b> Alta de Avisos de Testamento &nbsp;·&nbsp; <b>Fecha:</b> 17 de noviembre de 2026"),
     P("<b>Archivo que sustituye al de esta mañana:</b> Alta-de-Avisos-de-Testamento (produccion, 2026-11-17, corregido).gpm"),
     P("Después de enviar el archivo de esta mañana lo importamos a la plataforma y recorrimos el trámite en el "
-      "portal, como ciudadano y como servidor público. Encontramos tres defectos de nuestro lado y los "
+      "portal, como ciudadano y como servidor público. Encontramos cuatro defectos de nuestro lado y los "
       "corregimos. Este archivo corregido <b>sí se probó en la plataforma</b>: la ruta de banco o transferencia "
       "completa, de la captura a la firma, y la ruta en línea hasta la selección de modalidad."),
     P("Qué cambió", h2),
@@ -57,6 +57,9 @@ filas = [
      "Las reglas sobre un selector usan ->value, en pasos y en conexiones.", "Sí: en línea muestra el paso; banco no lo muestra y continúa a «Generar y Cargar Formato»."),
     ("3", "«Número de Folio» salía vacío.",
      "La acción del folio ya no suma 1 al último folio guardado (un texto); toma el número de la serie GPM del año.", "Sí: GPM-2026-00001 y GPM-2026-00002 en dos trámites."),
+    ("4", "«Selección de Modalidad de Pago» y «Comprobante de Pago» no le llegaban al Notario: quedaban en la bolsa de pendientes del servidor público.",
+     "La captura guarda al usuario que la hace («Almacenar el identificador del usuario», variable solicitante_id) y las tareas siguientes del Notario se le asignan con @@solicitante_id.",
+     "Sí, con el mismo mecanismo en otro trámite de prueba: la corrección la recibió y la completó el ciudadano que inició."),
 ]
 t = Table([[P(c, chicob if i == 0 else chico) for c in f] for i, f in enumerate(filas)],
           colWidths=[0.7 * cm, 5.6 * cm, 5.6 * cm, 5.1 * cm], repeatRows=1)
@@ -94,10 +97,10 @@ h += [P("Un aviso sobre la forma del folio en sus exports", h2),
 
 h += [P("Preguntas", h2)]
 preg = [
-    ("Tareas del solicitante después de la primera.",
-     "«Selección de Modalidad de Pago» y «Comprobante de Pago» son del Notario y van con acceso público, como en su "
-     "export. En el portal no le llegaron al ciudadano que inició: quedaron en la bolsa de pendientes del servidor "
-     "público. ¿Cómo se asigna una tarea al mismo solicitante que inició el trámite?"),
+    ("Aviso al solicitante.",
+     "La tarea asignada al ciudadano no aparece en sus listas del portal («Pendientes», «En proceso»); solo la "
+     "abre con la liga directa. ¿Se le notifica de otra forma (por ejemplo, «Notificar vía correo electrónico al "
+     "usuario asignado»), o es algo del portal que están ajustando?"),
     ("Grupo del Área.",
      "La plataforma descarta en silencio el grupo «Area De Avisos De Testamento» porque no existe. Para probar "
      "usamos un grupo de pruebas. ¿Qué grupo se va a usar en producción, o lo crean ustedes?"),

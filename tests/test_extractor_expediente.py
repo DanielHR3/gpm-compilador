@@ -1031,6 +1031,21 @@ def test_reensamblar_no_descuelga_el_folio():
 # autenticos la tarea inicial es `publico`; en el export de la fabrica de este
 # mismo tramite el Notario va `publico` y el Area con grupo.
 
+def test_las_tareas_siguientes_del_solicitante_se_le_asignan_a_el():
+    # Portal, 2026-11-17 (proceso 1144, trámite 24193): con «autoservicio» la
+    # Corrección del ciudadano caía en la bolsa del funcionario. Guardando el
+    # usuario en la tarea inicial (`almacenar_usuario`) y asignando las
+    # siguientes con `@@solicitante_id`, la completó la ciudadana.
+    from pathlib import Path
+    from gpmc.compilador.a_gpm import compilar
+    carpeta = Path(__file__).resolve().parents[1] / "ejemplos" / "expedientes" / "constancia-de-residencia"
+    g = compilar(extraer_expediente(carpeta).manifiesto, proceso_id="1")
+    t = {x["nombre"]: x for x in g["Tareas"]}
+    assert (t["Solicitud"]["almacenar_usuario"], t["Solicitud"]["almacenar_usuario_variable"]) == ("1", "solicitante_id")
+    assert (t["Corrección"]["asignacion"], t["Corrección"]["asignacion_usuario"]) == ("usuario", "@@solicitante_id")
+    assert t["Revisión"]["asignacion"] == "autoservicio" and t["Revisión"]["almacenar_usuario"] == "0"
+
+
 def _actor_inicial(r):
     m = r.manifiesto
     ini = next(t for t in m.flujo.tareas if t.inicial)
