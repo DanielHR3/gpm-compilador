@@ -1178,6 +1178,42 @@ def test_los_digitos_tambien_cuentan_como_longitud():
     assert c.longitud_exacta == 4
 
 
+def _campo_con_limite_y_ejemplo(limite: str, ejemplo: str):
+    texto = MUESTRA.replace(
+        "| CURP | String | Campo de texto (input) | Sí | Siempre visible | 18 caracteres | N/A | GAGL651506HDFRNN01 | [Captura] Campo `@@curp_testador`. |",
+        f"| CURP | String | Campo de texto (input) | Sí | Siempre visible | {limite} | N/A | {ejemplo} | [Captura] Campo `@@curp_testador`. |",
+    )
+    return _campo(extraer(texto), "curp_testador")
+
+
+# Constancia de Residencia (ejemplo conforme del repo), 2026-11-17: «150
+# caracteres» con ejemplo «Juana López Ruiz» salía `exact_length[150]`: nadie
+# puede capturar un nombre de 16 letras. En la wiki, 153 campos exactos, entre
+# ellos nombres de 100 y observaciones de 500. El ejemplo del equipo es la
+# contraprueba, como en la regla de formato.
+
+def test_n_caracteres_con_un_ejemplo_mas_corto_es_un_maximo():
+    c = _campo_con_limite_y_ejemplo("150 caracteres", "Juana López Ruiz")
+    assert c.longitud_exacta is None and c.longitud_max == 150
+
+
+def test_n_caracteres_con_un_ejemplo_de_esa_longitud_es_exacta():
+    c = _campo_con_limite_y_ejemplo("18 caracteres", "GAGL651506HDFRNN01")
+    assert c.longitud_exacta == 18 and c.longitud_max is None
+
+
+def test_sin_ejemplo_una_longitud_larga_es_un_maximo_y_una_corta_exacta():
+    larga = _campo_con_limite_y_ejemplo("250 caracteres", "N/A")
+    corta = _campo_con_limite_y_ejemplo("13 caracteres", "N/A")
+    assert (larga.longitud_exacta, larga.longitud_max) == (None, 250)
+    assert (corta.longitud_exacta, corta.longitud_max) == (13, None)
+
+
+def test_exactamente_se_respeta_aunque_el_ejemplo_no_cuadre():
+    c = _campo_con_limite_y_ejemplo("exactamente 10 dígitos", "771 123 45")
+    assert c.longitud_exacta == 10
+
+
 def test_un_minimo_y_un_maximo_juntos():
     c = _campo_con_limite("entre 12 y 13 caracteres")
     assert c.longitud_min == 12 and c.longitud_max == 13

@@ -57,6 +57,33 @@ _LONGITUD_MAX = re.compile(
     r"(?:m[aá]x(?:imo)?\.?|hasta)\s*(\d+)\s*" + _UNIDAD
     + r"|(\d+)\s*" + _UNIDAD + r"\s*m[aá]x(?:imo)?\.?", re.I)
 _LONGITUD = re.compile(r"(\d+)\s*" + _UNIDAD, re.I)
+_EXACTAMENTE = re.compile(r"exacta(?:mente)?|justo", re.I)
+# Hasta aqui una longitud sin ejemplo se cree exacta: CURP 18, RFC 13, telefono
+# 10, codigo postal 5. Mas larga es un nombre, una calle o un texto libre.
+_LONGITUD_CORTA = 20
+
+
+def _longitud_exacta_o_maximo(m_long, limite: str, ejemplo: str):
+    """«N caracteres» a secas: ¿exacta o maximo? Devuelve (exacta, maximo).
+
+    Constancia de Residencia, 2026-11-17: «150 caracteres» con ejemplo «Juana
+    López Ruiz» salia `exact_length[150]` y nadie podia capturar el nombre. En
+    la wiki habia 153 campos exactos, entre ellos nombres de 100 y
+    observaciones de 500. El ejemplo del equipo es la contraprueba (como en la
+    regla de formato): exacta solo si el ejemplo mide eso. Sin ejemplo, exacta
+    solo si es corta. «exactamente N» se respeta siempre.
+    """
+    if not m_long:
+        return None, None
+    n = int(m_long.group(1))
+    if _EXACTAMENTE.search(limite or ""):
+        return n, None
+    ej = (ejemplo or "").strip()
+    if ej and ej.upper() not in ("N/A", "NA", "-"):
+        return (n, None) if len(ej) == n else (None, n)
+    return (n, None) if n <= _LONGITUD_CORTA else (None, n)
+
+
 _ENDPOINT = re.compile(r"`?([\w/-]+)`?")
 
 # La columna 'campo.nombre' de la plataforma corta los nombres tecnicos largos y
@@ -116,6 +143,9 @@ class Resultado:
     # Campos que llena el sistema, no una persona: {nombre: etiqueta}. De aqui
     # salen la accion de folio y el aviso de lo que queda sin calcular.
     generados: dict = field(default_factory=dict)
+    # El «Ejemplo Real» de esos campos: {nombre: ejemplo}. El del folio da su
+    # prefijo («RES-2026-00042» → «RES»).
+    ejemplos_generados: dict = field(default_factory=dict)
 
 
 def _sin_acentos(t: str) -> str:
@@ -853,6 +883,7 @@ def _extraer_campos(
             ))
 
         solo_lectura = _es_solo_lectura(desc)
+        exacta, maximo = _longitud_exacta_o_maximo(m_long, lim, ejemplo)
         campo = Campo(
             nombre=nombre,
             etiqueta=etiqueta,
@@ -861,9 +892,9 @@ def _extraer_campos(
             ayuda=ayuda,
             solo_lectura=solo_lectura,
             formato=_formato_de(tipo, tipo_dato, componente, lim, ejemplo, solo_lectura),
-            longitud_exacta=int(m_long.group(1)) if m_long else None,
+            longitud_exacta=exacta,
             longitud_max=(int(m_rango.group(2)) if m_rango
-                          else int(m_max.group(1) or m_max.group(2)) if m_max else None),
+                          else int(m_max.group(1) or m_max.group(2)) if m_max else maximo),
             longitud_min=int(m_rango.group(1)) if m_rango else None,
             catalogo=catalogo,
             dependencia_tipo=dep_tipo,
@@ -951,6 +982,7 @@ def _extraer_campos(
         if solo_lectura and ("generad" in _babel(m_tag.group(1) if m_tag else "")
                              or "auto" in componente):
             r.generados[nombre] = etiqueta
+            r.ejemplos_generados[nombre] = ejemplo
         if ("autorellen" in componente or "autocomplet" in componente
                 or "autocompletado" in _babel(desc) or dep_tipo == "api_ajax"):
             pantalla.autorellenables.append(nombre)

@@ -949,6 +949,26 @@ def test_el_gpm_trae_el_folio_con_bloqueo_y_su_evento(tmp_path):
     assert [(e["instante"], e["accion_id"]) for e in inicial["Eventos"]] == [("antes", g["Acciones"][0]["id"])]
 
 
+def test_el_prefijo_del_folio_sale_del_ejemplo_del_diccionario(tmp_path):
+    # Constancia de Residencia: el ejemplo del folio es «RES-2026-00042». Salía
+    # «GPM» provisional aunque el Diccionario ya decía el prefijo.
+    import json
+    from gpmc.compilador.a_gpm import compilar
+    dicc = _DICC_FOLIO.replace(
+        "| Número de Folio | String | Texto de solo lectura (auto-generado) | No | [Solo lectura] Campo `@@numero_folio`. |",
+        "| Número de Folio | String | Texto de solo lectura (auto-generado) | No | [Solo lectura] Campo `@@numero_folio`. Ej. RES-2026-00042 |")
+    dicc = dicc.replace("| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion |",
+                        "| Nombre del Campo | Tipo de Dato | Componente Sugerido (GPM) | Obligatorio | Descripcion | Ejemplo Real |")
+    dicc = dicc.replace("`@@numero_folio`. Ej. RES-2026-00042 |", "`@@numero_folio`. | RES-2026-00042 |")
+    r = extraer_expediente(_expediente(tmp_path, **{"Diccionario de Datos.md": dicc}))
+    folio = next(a for a in r.manifiesto.acciones if a.tipo == "folio")
+    assert folio.prefijo == "RES"
+    acc01 = next(h for h in r.huecos if h.codigo == "ACC-01")
+    assert "RES-AAAA-00001" in acc01.mensaje and "sale del ejemplo" in acc01.mensaje
+    g = compilar(r.manifiesto, proceso_id="1")
+    assert "return 'RES-' . $year" in json.loads(g["Acciones"][0]["extra"])["expresion"]
+
+
 def test_un_folio_que_captura_una_persona_no_es_una_accion(tmp_path):
     dicc = _DICC_FOLIO.replace(
         "| Número de Folio | String | Texto de solo lectura (auto-generado) | No | [Solo lectura] Campo `@@numero_folio`. |\n", "")

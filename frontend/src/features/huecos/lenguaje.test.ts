@@ -590,6 +590,16 @@ describe("avisos de la segunda ronda de la fábrica", () => {
     );
   });
 
+  test("ACC-01 con el prefijo tomado del ejemplo del Diccionario", () => {
+    const crudo =
+      "«Folio de la constancia» (@@folio_constancia) se llena con una acción de folio consecutivo, con la forma " +
+      "RES-AAAA-00001. El prefijo «RES» sale del ejemplo del Diccionario: confírmalo con la dependencia";
+    expect(redactarHueco(h("ACC-01", crudo))).toBe(
+      "«Folio de la constancia» se llenará solo, con un folio consecutivo de la forma RES-AAAA-00001. El prefijo " +
+        "«RES» se tomó del ejemplo del Diccionario: confírmalo con la dependencia.",
+    );
+  });
+
   test("ACC-02 nombra los datos que hay que programar en la plataforma", () => {
     const crudo =
       "2 campo(s) los llena el sistema y el compilador no emite su cálculo: «Monto a Pagar», «Funcionario». " +

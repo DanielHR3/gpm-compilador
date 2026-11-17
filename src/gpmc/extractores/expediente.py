@@ -240,7 +240,10 @@ def _es_funcionario(etiqueta: str) -> bool:
     return "nombre" in e and ("funcionario" in e or "servidor publico" in e)
 
 
-def _acciones_del_sistema(generados, pantallas):
+_FOLIO_CON_PREFIJO = re.compile(r"^([A-Z][A-Z0-9]{1,9})-\d{4}-\d+$")
+
+
+def _acciones_del_sistema(generados, pantallas, ejemplos=None):
     """De los campos que el Diccionario dice que llena el sistema: la accion de
     folio, si hay UN campo de folio, y el aviso de lo demas.
 
@@ -273,12 +276,19 @@ def _acciones_del_sistema(generados, pantallas):
     presentes = {n: e for n, e in presentes.items() if n not in sesion}
     if len(folios) == 1:
         variable = folios[0]
-        acciones.append(Accion(tipo="folio", nombre="crear-folio", variable=variable, prefijo="GPM"))
+        # El ejemplo del Diccionario trae el prefijo si el equipo lo escribio
+        # con la forma PREFIJO-AAAA-N (Constancia de Residencia: RES-2026-00042).
+        m = _FOLIO_CON_PREFIJO.match(((ejemplos or {}).get(variable) or "").strip())
+        prefijo = m.group(1) if m else "GPM"
+        acciones.append(Accion(tipo="folio", nombre="crear-folio", variable=variable, prefijo=prefijo))
+        if m:
+            cola = f"El prefijo «{prefijo}» sale del ejemplo del Diccionario: confírmalo con la dependencia"
+        else:
+            cola = f"El prefijo «{prefijo}» es provisional: cámbialo por el de la dependencia"
         huecos.append(Hueco(
             "por_confirmar", "ACC-01", "acciones",
             f"«{presentes[variable]}» (@@{variable}) se llena con una acción de folio "
-            f"consecutivo, con la forma GPM-AAAA-00001. El prefijo «GPM» es provisional: "
-            f"cámbialo por el de la dependencia",
+            f"consecutivo, con la forma {prefijo}-AAAA-00001. {cola}",
         ))
     resto = [e for n, e in presentes.items() if n not in folios[:1 if len(folios) == 1 else 0]]
     if resto:
@@ -849,7 +859,7 @@ def extraer_expediente(carpeta: Path) -> Resultado:
     _marcar_visualizacion(tareas, pantallas)
     flujo = Flujo(tareas=tareas, conexiones=conexiones)
     r.huecos += ext_docs.atar_a_tareas(acciones_doc, flujo, pantallas)
-    acciones_sis, huecos_sis = _acciones_del_sistema(rd.generados, pantallas)
+    acciones_sis, huecos_sis = _acciones_del_sistema(rd.generados, pantallas, rd.ejemplos_generados)
     r.huecos += huecos_sis
     colgar_folios(acciones_sis, flujo, pantallas)
 

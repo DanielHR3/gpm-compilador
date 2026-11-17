@@ -466,6 +466,13 @@ const REDACCIONES: Record<string, Redaccion> = {
     );
   },
   "ACC-01": (mensaje) => {
+    const del_ejemplo = /^«(.+?)» \(@@\w+\) se llena con una acción de folio consecutivo, con la forma (\S+)\. El prefijo «(.+?)» sale del ejemplo/s.exec(mensaje);
+    if (del_ejemplo) {
+      return (
+        `«${del_ejemplo[1]}» se llenará solo, con un folio consecutivo de la forma ${del_ejemplo[2]}. El prefijo ` +
+        `«${del_ejemplo[3]}» se tomó del ejemplo del Diccionario: confírmalo con la dependencia.`
+      );
+    }
     const m = /^«(.+?)» \(@@\w+\) se llena con una acción de folio consecutivo, con la forma (\S+)\. El prefijo «(.+?)» es provisional/s.exec(mensaje);
     if (!m) return null;
     return (
