@@ -903,5 +903,16 @@ y se recorrió en el portal (procesos 1141 y 1143, trámites 24177, 24186, 24187
 - **Documentos** (Acción + plantilla + evento antes de firmar + «Documento Dinámico») y
   **«fecha no futura»** («Rangos específicos» del `date_time`): ningún export los trae; no se
   emiten hasta ver su forma.
-- **Pendiente con la fábrica:** las tareas del solicitante después de la primera caen en la
-  bolsa de pendientes del funcionario y no le llegan al ciudadano (igual en su export).
+- **Las tareas del solicitante después de la primera se le asignan a él, PROBADO** (proceso
+  1144, trámite 24193; acta `2026-11-17-constancia-de-residencia-en-el-portal.md`): en
+  «autoservicio» caían en la bolsa del funcionario. La tarea inicial guarda al usuario
+  (`almacenar_usuario`, variable `solicitante_id`) y las siguientes del mismo actor van con
+  asignación «Usuario» `@@solicitante_id` (`a_gpm._asignacion_del_solicitante`); la ciudadana
+  completó su Corrección. Pendiente con la fábrica: la tarea asignada no aparece en las listas
+  del portal ciudadano (se abrió con la liga directa).
+- **«N caracteres» a secas es máximo** salvo que el ejemplo del Diccionario mida justo eso
+  (sin ejemplo, exacta solo hasta 20); «exactamente N» se respeta
+  (`diccionario._longitud_exacta_o_maximo`). Probado: un nombre de 17 letras con
+  `max_length[150]`.
+- **El prefijo del folio sale del ejemplo** si tiene la forma `PREFIJO-AAAA-N` («RES»); si no,
+  «GPM» provisional (`ACC-01`). Probado: «RES-2026-00001».
