@@ -60,17 +60,20 @@ buscar.
   - **Probado en runtime:** folio consecutivo; paso condicionado en las dos rutas; conexión
     sobre `select` con `->value`; `@!` en `valor_default` (mostró «Daniel Hernández Rubio»);
     visibilidad de campos; pasos de visualización; ruta banco completa (7 etapas).
-  - **Preguntas abiertas a la fábrica (en el alcance):** las tareas del Notario después de la
-    primera caen en la bolsa del funcionario y no le llegan al ciudadano (igual que su
-    export); nombre del grupo del Área en producción (el import descarta
-    «Area De Avisos De Testamento»); cobro/pasarela, «Rangos específicos» y «Documento
-    Dinámico» siguen sin ejemplo.
+  - **Resuelto el mismo día (`a78d080`, acta `2026-11-17-constancia-de-residencia-en-el-portal.md`):**
+    las tareas del solicitante después de la primera se le asignan con `almacenar_usuario` +
+    `@@solicitante_id` (la ciudadana completó su Corrección). El `.gpm` corregido y el alcance
+    del Escritorio ya lo traen.
+  - **Preguntas abiertas a la fábrica (en el alcance):** cómo se entera el ciudadano de una
+    tarea asignada (no aparece en sus listas del portal; solo con la liga directa); nombre
+    del grupo del Área en producción (el import descarta «Area De Avisos De Testamento»);
+    cobro/pasarela, «Rangos específicos» y «Documento Dinámico» siguen sin ejemplo.
   - **De nuestro lado:** prefijo del folio con la dependencia; «Campos con Error» sale como
     texto; «Vista de solo lectura (Sistema → Área)» sigue siendo un campo vacío hasta que
     exista el oficio (P-23); consulta a Simplificación (rutas del «No», longitud de
     «Referencia de Pago», plantillas, vista de la captura en «Importación a RENAT»); dos
     pruebas de `test_registro` con `GPMC_WIKI`.
-  - **En la plataforma quedan los procesos 1141 y 1143** (copias de prueba, despublicadas).
+  - **En la plataforma quedan los procesos 1141, 1143 y 1144** (copias de prueba, despublicadas).
 
 - **P-25 — el servidor corre con Gemini y las propuestas de `DIC-08` sobre expedientes reales
   pasan por el.** Detectado el 2026-09-23 al agotar la cuota diaria gratuita (20 llamadas por
