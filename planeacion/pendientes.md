@@ -47,34 +47,50 @@ buscar.
 
 ## Abiertos
 
-- **P-27 — segunda ronda de la fabrica: enviado el 2026-11-12, en espera de respuesta.** Se
-  mando `Alta-de-Avisos-de-Testamento (produccion, 2026-11-12).gpm` con el PDF de atencion a
-  las siete observaciones (guion en `planeacion/fabrica/2026-11-12-atencion-a-observaciones.py`).
-  **El archivo no se importo a la plataforma antes de enviarlo: no hay acta.** Lo hecho esta
-  en `CLAUDE.md` seccion 17. Queda abierto, y casi todo depende de lo que conteste la fabrica:
-  - **Obs. 3, condicion de un paso.** Ningun paso de los 12 exports trae `regla`. Con la forma
-    confirmada se funden las rutas de pago en una tarea del Notario. No se emite sin acta.
-  - **Obs. 4, documentos.** «Archivo CSV» y «Oficio de contestacion» salen con `return '';` y
-    se disparan al terminar la captura. Faltan plantillas con `{{campo}}` (P-23) y decidir la
-    tarea de cada uno (`DOC-04`).
-  - **Obs. 5, acciones.** Solo sale el folio, con prefijo «GPM» provisional (`ACC-01`). Sin
-    calculo (`ACC-02`): «Monto a Pagar», «Fuera del Plazo Legal Sugerido», «Pago en Linea
-    Confirmado», «Archivo CSV para RENAT» y «Nombre del Funcionario que Firma».
-  - **Obs. 7, reglas con selectores.** No se identifico la regla que fallo. Cuatro decisiones
-    no tienen ruta para el «No»: «¿Pago Validado?», «¿Importacion validada en RENAT?»,
-    «Notario Verificado» y «Autoriza y Firma» (consulta a Simplificacion).
-  - **Las ocho preguntas enviadas:** (1) como se escribe la condicion de un paso y si puede
-    mirar un campo de un paso anterior de la misma tarea; (2) en que conexion vieron fallar la
-    regla con selector y que forma debe llevar; (3) que devuelve la Accion de cobro (cantidad o
-    arreglo de pasarela), partida, tipo de servicio y de donde sale la UMA; (4) si el contenido
-    del documento lo arma una Accion variable, si el evento va antes o despues y como lo ve
-    quien firma; (5) como se obtiene el funcionario en sesion y la confirmacion de la pasarela;
-    (6) que regla admite «fecha no futura»; (7) nombre exacto de los grupos «Notario» y «Area
-    De Avisos De Testamento»; (8) si fue correcto unir «Importacion a RENAT» con «Verificar
-    Notario y Firmar» y si esperan reducir la ruta de banco.
-  - **De nuestro lado:** importar el archivo y levantar acta; prefijo del folio con la
+- **P-27 — la fabrica contesto la segunda ronda el 2026-11-17: se abre la tercera.**
+  Respuesta: `~/Downloads/OBSERVACIONES TRÁMITE A. TESTAMENTO– GPM.pdf`. Lo enviado el
+  2026-11-12 fue `~/Downloads/Alta-de-Avisos-de-Testamento (produccion, 2026-11-12).gpm` (8
+  tareas, 9 vistas, 41 campos, 9 conexiones, 4 con condicion) y `~/Downloads/Atención a
+  observaciones – Alta de Avisos de Testamento (2026-11-12).pdf`. **Sigue sin importarse a la
+  plataforma: no hay acta.** Los ids 5191/5192 que cita la fabrica son los que pone el
+  compilador en el `.gpm`, no prueba de que lo hayan importado.
+  Lo que contesto y aplica a todos los tramites esta en la seccion «Respuestas de la fabrica
+  (2026-11-17)», mas abajo, y en `CLAUDE.md` §18.
+  **Tercera entrega armada el 2026-11-17** (en `~/Desktop/Fábrica - Alta de Avisos de
+  Testamento (2026-11-17)/`; guion `planeacion/fabrica/2026-11-17-tercera-entrega.py`): 7
+  tareas, 13 pasos (1 con regla), 8 conexiones, 41 campos; `gpmc validar` sin hallazgos. El
+  compilado de `main` previo reproduce byte a byte lo enviado el 12-nov. **No importado.**
+  - **Hecho: rutas de pago en una tarea del Notario** — «Pago en Linea» es paso de «Seleccion
+    de Modalidad de Pago» con `@@modalidad_pago=='en_linea'` (`_fusionar_ramas`, `FLU-05`).
+    Falta acta: ningun paso de los 12 exports trae regla.
+  - **Hecho: «Nombre del Funcionario que Firma»** con `valor_default` `@!nombres
+    @!apellido_paterno @!apellido_materno` (`ACC-03`). Falta probar que la plataforma
+    sustituye `@!` en `valor_default`.
+  - **Tres fechas «no futura»** con «Rangos especificos» del campo Fecha/Hora (pregunta 6).
+    Falta saber como se guarda en el `.gpm` (buscar en los exports) y si admite el dia de hoy.
+  - **Los dos documentos** con «Documento Dinamico» y evento despues de capturar, antes de la
+    firma (pregunta 4). Siguen sin plantilla con `{{campo}}` (P-23).
+  - **Regla con selectores (obs. 7): no cambia.** La fabrica recomienda `->value` «si
+    `modalidad_pago` es un selector con retorno estructurado», y aclara que es revision de
+    sintaxis, no falla comprobada. En lo enviado `modalidad_pago` es `select` manual con
+    `object_response` vacio y `tiene_observaciones` es `radio` `si`/`no`: los dos devuelven
+    valor plano, el caso probado en plataforma (acta 2026-08-30). Decirselo en la respuesta.
+  - **Sin contestar, de su lado:** Accion de cobro (cantidad o arreglo, partida, tipo de
+    servicio, UMA) y confirmacion del pago en linea. Esperan el carrito de la pasarela, que
+    sigue en desarrollo. `ACC-02` se queda.
+  - **Nos toca:** nombre exacto de los grupos «Notario» y «Area De Avisos De Testamento» en la
+    pestaña Usuarios (pregunta 7); importar y levantar acta; prefijo del folio con la
     dependencia; «Campos con Error» sale como texto porque su lista no tiene opciones; dos
     pruebas de `test_registro` (`sembrar`) fallan con `GPMC_WIKI` desde antes de esta ronda.
+  - **Consulta a Simplificacion (obs. 3, la fabrica la repite):** que pasa cuando la respuesta
+    es «No» en «¿Pago Validado?», «¿Importacion validada en RENAT?», «Notario Verificado» y
+    «Autoriza y Firma». Hoy siguen una ruta fija.
+  - **Obs. 1 y 4 de la fabrica:** de los campos de texto de captura solo «Referencia de Pago»
+    queda sin formato (alfanumerico sin longitud documentada: pedirla a Simplificacion).
+    «Importacion a RENAT / Verificar Notario y Firmar» no muestra la captura del Notario; se
+    propuso abrir con ella en visualizacion, a confirmar con Simplificacion.
+  - **El Diccionario de Testamento trae PHP de referencia** (anexo tecnico, `formatear_fecha
+    ($data[...])` para el CSV de RENAT). Puede servir de base para el contenido del CSV (P-23).
 
 - **P-25 — el servidor corre con Gemini y las propuestas de `DIC-08` sobre expedientes reales
   pasan por el.** Detectado el 2026-09-23 al agotar la cuota diaria gratuita (20 llamadas por
@@ -426,6 +442,22 @@ Notas que no son defectos de este repo:
 —`planeacion/planes/2026-08-29-fase-A-apis-y-catalogos.md`— implementados y fusionados.)*
 
 ---
+
+## Respuestas de la fabrica (2026-11-17) — aplican a todos los tramites
+
+Contestadas sobre Testamento, pero son reglas de la plataforma, no del tramite. Ninguna se ha
+probado importando: cada una pasa a «verificada» solo con acta en `planeacion/actas/`.
+
+| Tema | Lo que dijo la fabrica | Que significa para el compilador |
+|---|---|---|
+| Condicion de un paso | Pestaña Pasos, «Escribir regla condicion aqui», misma forma `@@campo=='valor'` (manual p. 8). Puede mirar un campo de un paso anterior si ya esta disponible | Habilita fundir ramas del mismo responsable en una tarea (hoy `_fusionar_tareas` no funde ramas). Pendiente: acta antes de emitir `paso.regla` |
+| `->value` en reglas | Solo para un selector «con retorno estructurado» (p. 14, 22, 27). Lo marcan como revision de sintaxis, no falla comprobada | `SINTAXIS_ESTRICTA` sigue en `False` (acta 2026-08-30). El caso abierto es por campo: un `select` remoto con `object_response` usado en una regla. Hoy sale con `==` y sin aviso. Probarlo en plataforma antes de decidir |
+| Tareas separadas | Unir tareas seguidas del mismo responsable esta bien; **no** fusionar cuando cambia el responsable | Confirma `_fusionar_tareas` (`FLU-04`) tal como esta |
+| Documentos | La Accion arma el contenido, la plantilla cita la variable `@@`. Evento antes de que el documento consuma la variable (despues de capturar, antes de firmar). Se muestra con «Documento Dinamico» (p. 10, 34) | Hoy el contenido sale `return '';` y el evento al terminar la captura. Mover el evento y mostrar con Documento Dinamico; sigue faltando la plantilla (P-23) |
+| Datos de sesion | Variables globales `@!`: `@!id`, `@!usuario`, `@!nombres`, `@!apellido_paterno`, `@!apellido_materno`, `@!email`, `@!rfc`, `@!curp`, `@!tipo_persona`, `@!usuario_grupo`, `@!tramite_id`, `@!homoclave`, `@!prelacion`, `@!base_url`, `@!date_ymd`, `@!date_ymdhms`, `@!time_current_*` | Cubre «funcionario que firma», fecha del dia y datos del solicitante en cualquier tramite. El compilador no usa `@!` todavia |
+| Fecha no futura | No hay regla escrita: «Rangos especificos» del componente Fecha/Hora (p. 31) | Va en el `extra` del `date_time`, no en `validacion`. Falta ver la forma en los exports |
+| Grupos de usuarios | No los confirman: se revisan en la pestaña Usuarios (p. 7) | El responsable del diagrama se emite como nombre de grupo sin verificar, en todos los tramites |
+| Cobro en linea | Sin respuesta: el carrito de la pasarela sigue en desarrollo | `ACC-02` se queda en todo tramite con pago en linea |
 
 ## Preguntas de plataforma — las tres CERRADAS al 2026-08-31
 

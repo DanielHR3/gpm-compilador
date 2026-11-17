@@ -89,6 +89,10 @@ class Campo(BaseModel):
     # salian solo con obligatoriedad y longitud (2026-11-12).
     formato: Optional[Literal["numeric", "alpha_numeric", "valid_email"]] = None
     ayuda: Optional[str] = None
+    # Valor por defecto. Hoy solo lo llena el compilador con variables globales
+    # de la sesion (`@!nombres …`) para el funcionario que firma (fabrica,
+    # 2026-11-17, pregunta 5).
+    valor_default: str = ""
     catalogo: list[OpcionCatalogo] = []
     # Condicion de visibilidad ('Visible solo si "X" = Y' en el Diccionario).
     # Viaja al .gpm como string en dependiente_campo, la forma de los exports.
@@ -123,6 +127,10 @@ class PasoPantalla(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     modo: Literal["edicion", "visualizacion"] = "edicion"
+    # Regla del paso («Escribir regla condición aquí» en la pestaña Pasos): el
+    # paso solo se muestra si se cumple. Misma forma que una regla entre
+    # tareas; puede mirar un campo de un paso anterior (fabrica, 2026-11-17).
+    cuando: Optional[Condicion] = None
 
 
 class Tarea(BaseModel):

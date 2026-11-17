@@ -193,6 +193,7 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
         ayuda=c.ayuda,
         catalogo_id=catalogo_id,
         dependiente_campo=dependiente_campo,
+        valor_default=c.valor_default,
     )
 
 
@@ -277,6 +278,7 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
                 formulario_id=id_de_pantalla[p.id],
                 tarea_id=tid,
                 modo=p.modo,
+                regla=reglas.emitir(p.cuando) if p.cuando is not None else "",
             )
             for orden, p in enumerate(t.pantallas, start=1)
         ]

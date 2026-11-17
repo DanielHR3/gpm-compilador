@@ -30,6 +30,8 @@ const TITULOS: Record<string, string> = {
   "FLU-04": "Tareas unidas en una sola",
   "ACC-01": "Folio automático",
   "ACC-02": "Datos que llena el sistema",
+  "FLU-05": "Paso que se muestra con una condición",
+  "ACC-03": "Funcionario tomado de la sesión",
   "API-03": "Campo del que depende",
   "API-04": "Conexión con otro sistema",
   "API-05": "Conexión que exige credencial",
@@ -478,6 +480,26 @@ const REDACCIONES: Record<string, Redaccion> = {
       `${n === 1 ? "Este dato lo" : `Estos ${n} datos los`} debe llenar el sistema, pero su cálculo no se genera ` +
       `solo: ${m[2]}. Hay que programarlo${n === 1 ? "" : "s"} en la plataforma; mientras tanto ` +
       `saldrá${n === 1 ? "" : "n"} vacío${n === 1 ? "" : "s"}.`
+    );
+  },
+
+  // Tercera ronda de la fabrica (2026-11-17).
+  "FLU-05": (mensaje) => {
+    const m = /^(\d+) rama\(s\) del mismo responsable pasaron a ser un paso con condición: (.+)\. La forma de la regla/s.exec(mensaje);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return (
+      `${n === 1 ? "Una tarea pasó" : `${n} tareas pasaron`} a ser parte de la anterior porque las atiende la ` +
+      `misma persona; solo se muestra${n === 1 ? "" : "n"} cuando se cumple la condición: ${m[2]}. ` +
+      "Falta probarlo en la plataforma."
+    );
+  },
+  "ACC-03": (mensaje) => {
+    const m = /^(\d+) campo\(s\) toman el nombre del funcionario que tiene la tarea de la sesión \(.+?\): (.+)\. La fábrica/s.exec(mensaje);
+    if (!m) return null;
+    return (
+      `${m[2]} se llenará solo con el nombre de la persona que atiende la tarea. ` +
+      "Falta probarlo en la plataforma."
     );
   },
 

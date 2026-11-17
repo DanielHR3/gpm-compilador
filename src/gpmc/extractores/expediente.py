@@ -14,6 +14,7 @@ from gpmc.extractores import documentos as ext_docs
 from gpmc.extractores import diccionario as ext_dicc
 from gpmc.extractores import mermaid as ext_mmd
 from gpmc.extractores import metadatos as ext_meta
+from gpmc.nucleo import reglas as nreglas
 from gpmc.nucleo.huecos import Hueco
 from gpmc.nucleo.integraciones import resolver as _resolver_catalogo
 from gpmc.nucleo.integraciones import requiere_token as _requiere_token
@@ -131,6 +132,65 @@ def _fusionar_tareas(tareas, conexiones):
                 c.de = a.id
 
 
+def _fusionar_ramas(tareas, conexiones):
+    """Vuelve paso condicionado de A la rama B que atiende el mismo responsable.
+    Devuelve (tareas, conexiones, [(nombre_a, nombre_b, regla)]).
+
+    La fabrica (2026-11-17), pregunta 1: la condicion de un paso se escribe en
+    la pestaña Pasos con la misma forma que una regla entre tareas y puede mirar
+    un campo de un paso anterior. Pregunta 8: no fusionar cuando cambia el
+    responsable. Testamento: «Pago en Línea» es del mismo Notario que elige la
+    modalidad; la ruta de banco cambia de responsable y se queda.
+
+    Solo si: A sale hacia B con condicion, B es del mismo responsable, a B solo
+    se llega por esa conexion y B tiene UNA salida, sin condicion. La conexion
+    A→B pasa a ir de A al sucesor de B con la misma condicion. Ningun export
+    trae un paso con regla: la forma es la que dio la fabrica, sin acta.
+    """
+    tareas = list(tareas)
+    conexiones = list(conexiones)
+    ramas = []
+    while True:
+        por_id = {t.id: t for t in tareas}
+        pareja = None
+        for cx in conexiones:
+            a, b = por_id.get(cx.de), por_id.get(cx.a)
+            if (a is None or b is None or a is b or cx.cuando is None
+                    or not a.actor or a.actor != b.actor
+                    or not a.pantallas or not b.pantallas or b.inicial
+                    or sum(1 for c in conexiones if c.a == b.id) != 1
+                    or any(p.cuando is not None for p in b.pantallas)):
+                continue
+            salidas = [c for c in conexiones if c.de == b.id]
+            if len(salidas) != 1 or salidas[0].cuando is not None or salidas[0].a == a.id:
+                continue
+            pareja = (cx, a, b, salidas[0])
+            break
+        if pareja is None:
+            return tareas, conexiones, ramas
+        cx, a, b, sale = pareja
+        ya = {p.id for p in a.pantallas}
+        a.pantallas = a.pantallas + [
+            p.model_copy(update={"cuando": cx.cuando}) for p in b.pantallas
+            if not (p.modo == "visualizacion" and p.id in ya)]
+        a.acciones_antes = a.acciones_antes + [x for x in b.acciones_antes if x not in a.acciones_antes]
+        a.acciones_despues = a.acciones_despues + [x for x in b.acciones_despues if x not in a.acciones_despues]
+        ramas.append((a.nombre, b.nombre, nreglas.emitir(cx.cuando)))
+        cx.a = sale.a
+        tareas = [t for t in tareas if t is not b]
+        conexiones = [c for c in conexiones if c is not sale]
+
+
+def _hueco_de_ramas(ramas):
+    detalle = "; ".join(f"«{b}» pasa a ser un paso de «{a}» que solo se muestra si {r}"
+                        for a, b, r in ramas)
+    return Hueco(
+        "por_confirmar", "FLU-05", "flujo",
+        f"{len(ramas)} rama(s) del mismo responsable pasaron a ser un paso con condición: {detalle}. "
+        "La forma de la regla la confirmó la fábrica; falta probarla en la plataforma",
+    )
+
+
 _NOTA_FINAL = re.compile(r"\s*\([^()]*\)\s*$")
 
 
@@ -172,6 +232,15 @@ def colgar_folios(acciones, flujo, pantallas) -> None:
             tarea.acciones_antes.append(a.nombre)
 
 
+_FUNCIONARIO_EN_SESION = "@!nombres @!apellido_paterno @!apellido_materno"
+
+
+def _es_funcionario(etiqueta: str) -> bool:
+    """«Nombre del Funcionario que Firma», «Servidor público que atiende»."""
+    e = ext_dicc._babel(etiqueta)
+    return "nombre" in e and ("funcionario" in e or "servidor publico" in e)
+
+
 def _acciones_del_sistema(generados, pantallas):
     """De los campos que el Diccionario dice que llena el sistema: la accion de
     folio, si hay UN campo de folio, y el aviso de lo demas.
@@ -186,6 +255,23 @@ def _acciones_del_sistema(generados, pantallas):
     presentes = {n: e for n, e in generados.items() if n in tipos}
     folios = [n for n in presentes if "folio" in n and tipos[n] == "text"]
     acciones, huecos = [], []
+    # Fabrica, 2026-11-17, pregunta 5: el usuario en sesion sale de las
+    # variables globales `@!`. En la tarea del funcionario, el que tiene la
+    # sesion es el funcionario.
+    por_nombre = {c.nombre: c for p in pantallas for c in p.campos}
+    sesion = [n for n, e in presentes.items()
+              if tipos[n] == "text" and _es_funcionario(e) and n not in folios]
+    for n in sesion:
+        por_nombre[n].valor_default = _FUNCIONARIO_EN_SESION
+    if sesion:
+        huecos.append(Hueco(
+            "por_confirmar", "ACC-03", "acciones",
+            f"{len(sesion)} campo(s) toman el nombre del funcionario que tiene la tarea de la "
+            f"sesión ({_FUNCIONARIO_EN_SESION}): "
+            + ", ".join(f"«{presentes[n]}»" for n in sesion)
+            + ". La fábrica indicó las variables globales; falta probarlo en la plataforma",
+        ))
+    presentes = {n: e for n, e in presentes.items() if n not in sesion}
     if len(folios) == 1:
         variable = folios[0]
         acciones.append(Accion(tipo="folio", nombre="crear-folio", variable=variable, prefijo="GPM"))
@@ -727,6 +813,9 @@ def extraer_expediente(carpeta: Path) -> Resultado:
         tareas, conexiones, fusiones = _fusionar_tareas(tareas, conexiones)
         if fusiones:
             r.huecos.append(_hueco_de_fusion(fusiones))
+        tareas, conexiones, ramas = _fusionar_ramas(tareas, conexiones)
+        if ramas:
+            r.huecos.append(_hueco_de_ramas(ramas))
     _marcar_visualizacion(tareas, pantallas)
     flujo = Flujo(tareas=tareas, conexiones=conexiones)
     r.huecos += ext_docs.atar_a_tareas(acciones_doc, flujo, pantallas)

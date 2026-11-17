@@ -607,3 +607,44 @@ describe("avisos de la segunda ronda de la fábrica", () => {
   });
 });
 
+// Tercera ronda de la fabrica (2026-11-17): los mensajes salen de
+// `expediente._hueco_de_ramas` y `_acciones_del_sistema`.
+describe("avisos de la tercera ronda de la fábrica", () => {
+  const h = (codigo: string, mensaje: string): Hueco =>
+    ({ nivel: "por_confirmar", codigo, ubicacion: "flujo", mensaje, propuesta: null }) as Hueco;
+
+  test("tienen título en castellano", () => {
+    expect(tituloDeCodigo("FLU-05")).toBe("Paso que se muestra con una condición");
+    expect(tituloDeCodigo("ACC-03")).toBe("Funcionario tomado de la sesión");
+  });
+
+  test("FLU-05 dice qué paso quedó condicionado", () => {
+    const crudo =
+      "1 rama(s) del mismo responsable pasaron a ser un paso con condición: «Pago en Línea» pasa a ser un paso " +
+      "de «Modalidad» que solo se muestra si @@modalidad_pago=='en_linea'. La forma de la regla la confirmó la " +
+      "fábrica; falta probarla en la plataforma";
+    expect(redactarHueco(h("FLU-05", crudo))).toBe(
+      "Una tarea pasó a ser parte de la anterior porque las atiende la misma persona; solo se muestra cuando se " +
+        "cumple la condición: «Pago en Línea» pasa a ser un paso de «Modalidad» que solo se muestra si " +
+        "@@modalidad_pago=='en_linea'. Falta probarlo en la plataforma.",
+    );
+  });
+
+  test("ACC-03 nombra el campo que toma al funcionario", () => {
+    const crudo =
+      "1 campo(s) toman el nombre del funcionario que tiene la tarea de la sesión (@!nombres @!apellido_paterno " +
+      "@!apellido_materno): «Nombre del Funcionario que Firma». La fábrica indicó las variables globales; falta " +
+      "probarlo en la plataforma";
+    expect(redactarHueco(h("ACC-03", crudo))).toBe(
+      "«Nombre del Funcionario que Firma» se llenará solo con el nombre de la persona que atiende la tarea. " +
+        "Falta probarlo en la plataforma.",
+    );
+  });
+
+  test("si el mensaje del backend cambia, se ve el original", () => {
+    for (const c of ["FLU-05", "ACC-03"]) {
+      expect(redactarHueco(h(c, "otro texto"))).toBe("otro texto");
+    }
+  });
+});
+
