@@ -1526,3 +1526,95 @@ def test_una_pantalla_que_solo_es_vista_conserva_su_campo():
     p4 = extraer(_FABRICA).pantallas[3]
     assert [c.nombre for c in p4.campos] == ["vista_resultado"]
     assert p4.muestra_antes == []
+
+
+# ── Dictamen de Impacto en la Movilidad, 2026-11-18 ──
+#
+# Encabezado `### Pantalla 1 — Ciudadano: Tipo…` (dos puntos en vez de un
+# segundo guion) con un párrafo debajo. El patrón aceptaba saltos de línea en
+# el actor y llegaba hasta los guiones del separador `|---|`: las tareas se
+# llamaron `|---|---|---|---|` y los grupos eran párrafos enteros.
+
+_DICC_DOS_PUNTOS = """## Sección 1 — Pantallas
+
+### Pantalla 1 — Ciudadano: Tipo y tamaño de proyecto
+
+Paso 1 del stepper. El ciudadano selecciona el tipo de proyecto — y el sistema le muestra el costo.
+
+| Nombre del Campo | Descripción | Tipo | Obligatorio | Catálogo / Límite |
+|---|---|---|---|---|
+| Tipo de proyecto | `@@tipo_proyecto` — selector del tipo de proyecto | Select | Sí | Habitacional · Comercial |
+
+### Pantalla 2 — Funcionario: Validación de información
+
+El funcionario revisa la solicitud.
+
+| Nombre del Campo | Descripción | Tipo | Obligatorio | Catálogo / Límite |
+|---|---|---|---|---|
+| ¿Cumple los requisitos? | `@@cumple_requisitos` — dictamen de la revisión | Radio (Sí / No) | Sí | Sí · No |
+"""
+
+
+def test_encabezado_con_dos_puntos_y_parrafo_debajo():
+    r = extraer(_DICC_DOS_PUNTOS)
+    assert [(p.actor.lower(), p.nombre) for p in r.pantallas] == [
+        ("ciudadano", "Tipo y tamaño de proyecto"), ("funcionario", "Validación de información")]
+    assert [c.nombre for c in r.pantallas[0].campos] == ["tipo_proyecto"]
+    assert [o.valor for o in r.pantallas[0].campos[0].catalogo] == ["habitacional", "comercial"]
+
+
+def test_un_encabezado_nunca_se_lee_en_varias_lineas():
+    texto = "### Pantalla 1 — Ciudadano\n\nUn párrafo.\n\n|---|---|\n"
+    r = extraer(texto)
+    assert all("\n" not in p.actor and "|" not in p.nombre for p in r.pantallas)
+
+
+_DICC_COLUMNA_MIXTA = """### Pantalla 1 — Ciudadano: Pago
+
+Resumen de la operación.
+
+| Nombre del Campo | Descripción | Tipo | Obligatorio | Catálogo / Límite |
+|---|---|---|---|---|
+| Tipo de proyecto | `@@tipo_proyecto` — tipo | Select | Sí | 1. De 11 a 100 viviendas → 35 UMA's · 2. De 101 a 500 viviendas → 70 UMA's |
+| Subtipo | `@@subtipo_proyecto` — clasificación | Select dinámico | Sí | [Pendiente de confirmar] — el entregable solo da un ejemplo, no el catálogo completo |
+| Método de pago | `@@metodo_pago` — forma de pago | Select | Sí | "Billetera digital" (único valor que muestra el wireframe) — [Pendiente de confirmar] catálogo completo de métodos |
+| Total | `@@total_pago` — monto total | Moneda automático / solo lectura | No | Ejemplo del wireframe: `$817.00` |
+| Nombre(s) | `@@nombre_solicitante` — nombre de pila | Texto | Sí | [Pendiente de confirmar] longitud máxima |
+| Estatus | `@@estatus_tramite` — estatus | Select | No | Ejemplo del wireframe: "Pendiente", "Terminado" — [Pendiente de confirmar] catálogo completo |
+"""
+
+
+def test_opciones_numeradas_pierden_el_numero_y_el_valor_queda_limpio():
+    c = _campo(extraer(_DICC_COLUMNA_MIXTA), "tipo_proyecto")
+    assert [o.etiqueta for o in c.catalogo] == ["De 11 a 100 viviendas → 35 UMA's", "De 101 a 500 viviendas → 70 UMA's"]
+    assert [o.valor for o in c.catalogo] == ["de_11_a_100_viviendas_35_uma_s", "de_101_a_500_viviendas_70_uma_s"]
+
+
+def test_pendiente_entre_corchetes_es_pendiente_aunque_haya_un_ejemplo():
+    r = extraer(_DICC_COLUMNA_MIXTA)
+    for n in ("subtipo_proyecto", "metodo_pago", "estatus_tramite"):
+        assert _campo(r, n).catalogo == [], n
+    dic02 = [h.mensaje for h in r.huecos if h.codigo == "DIC-02"]
+    assert any("Subtipo" in m for m in dic02) and any("Método de pago" in m for m in dic02)
+
+
+def test_un_ejemplo_del_wireframe_no_es_un_catalogo():
+    c = _campo(extraer(_DICC_COLUMNA_MIXTA), "total_pago")
+    assert c.catalogo == []
+
+
+def test_el_catalogo_pendiente_de_un_campo_de_texto_no_avisa():
+    r = extraer(_DICC_COLUMNA_MIXTA)
+    assert not any("Nombre(s)" in h.mensaje for h in r.huecos if h.codigo == "DIC-02")
+
+
+def test_solo_lectura_declarado_en_la_columna_tipo():
+    assert _campo(extraer(_DICC_COLUMNA_MIXTA), "total_pago").solo_lectura is True
+    assert _campo(extraer(_DICC_COLUMNA_MIXTA), "nombre_solicitante").solo_lectura is False
+
+
+def test_la_etiqueta_captura_gana_a_solo_lectura_en_el_componente():
+    texto = _DICC_COLUMNA_MIXTA + (
+        "| ¿Corregir? | `@@corregir_datos` [Captura] | Switch / enlace junto a los campos de solo lectura | No | Sí / No |\n")
+    texto = texto.replace("| ¿Corregir? | `@@corregir_datos` [Captura] |", "| ¿Corregir? | [Captura] Campo `@@corregir_datos`. |")
+    assert _campo(extraer(texto), "corregir_datos").solo_lectura is False

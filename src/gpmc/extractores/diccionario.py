@@ -25,8 +25,13 @@ from gpmc.nucleo.limites import LIMITE_CAMPO_NOMBRE as LIMITE_NOMBRE_CAMPO
 
 # Acepta ### y ####: los expedientes que siguen la regla fija 16 anidan las
 # pantallas bajo un encabezado "### Paso N del stepper".
+# Una sola linea: `[ \t]` y no `\s`. Dictamen de Impacto (2026-11-18) escribe
+# `### Pantalla 1 — Ciudadano: Tipo…` con un parrafo debajo; con `\s` el actor
+# cruzaba al parrafo y el nombre salia del separador `|---|` de la tabla. Entre
+# actor y nombre vale otro guion o dos puntos.
 _ENCABEZADO = re.compile(
-    r"^#{3,4}\s+Pantalla\s+(?P<num>\d+)\s*[—\-–]\s*(?P<actor>[^—\-–]+?)\s*[—\-–]\s*(?P<nombre>.+?)\s*$",
+    r"^#{3,4}[ \t]+Pantalla[ \t]+(?P<num>\d+)[ \t]*[—\-–][ \t]*(?P<actor>[^—\-–:\n]+?)"
+    r"[ \t]*(?:[—\-–]|:)[ \t]*(?P<nombre>[^\n]+?)[ \t]*$",
     re.M,
 )
 _PASO_STEPPER = re.compile(r"\(\s*Paso\s+(\d+)", re.I)          # captura el numero
@@ -245,6 +250,10 @@ def _despegar(partes: list[str]) -> list[str]:
     return salida
 
 
+def _valor_de_opcion(etiqueta: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", _babel(etiqueta)).strip("_")
+
+
 def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
     """Devuelve las opciones y si el catalogo esta declarado como pendiente."""
     crudo = (celda or "").strip()
@@ -272,6 +281,15 @@ def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
         crudo = m.group(1).strip()
     if not crudo or crudo.upper() == "N/A":
         return [], False
+    # Dictamen de Impacto (2026-11-18): la columna «Catálogo / Límite» mezcla
+    # catálogo, ejemplos y notas. «[Pendiente de confirmar]» entre corchetes es
+    # la marca explícita aunque la celda traiga un ejemplo («"Billetera digital"
+    # (único valor…) — [Pendiente de confirmar] catálogo completo»): un solo
+    # valor visto no es el catálogo. Y «Ejemplo del wireframe: …» no es lista.
+    if re.search(r"\[\s*pendiente", crudo, re.I):
+        return [], True
+    if _babel(crudo).startswith("ejemplo"):
+        return [], False
     # Si es un catálogo por archivo, se maneja como un endpoint especial
     m_archivo = re.match(r"^(?:archivo|file)\s*[:\-]\s*(.+?\.csv)$", crudo, re.I)
     if m_archivo:
@@ -291,8 +309,12 @@ def _catalogo_de(celda: str) -> tuple[list[OpcionCatalogo], bool]:
         if any(m in _babel(crudo) for m in MARCAS_PENDIENTE):
             return [], True
         return [], False
+    # «1. De 11 a 100 viviendas → 35 UMA's»: el número de la lista no es parte
+    # de la etiqueta, y el valor —que se compara en las reglas— queda solo con
+    # letras, números y guion bajo (antes «1._de_11_…_→_35_uma's»).
+    partes = [re.sub(r"^\d+[.)]\s+", "", p) for p in partes]
     return [
-        OpcionCatalogo(etiqueta=p, valor=_babel(p).replace(" ", "_")) for p in partes
+        OpcionCatalogo(etiqueta=p, valor=_valor_de_opcion(p)) for p in partes
     ], False
 
 
@@ -816,7 +838,9 @@ def _extraer_campos(
             ]
             if tipo not in ("select", "radio"):
                 tipo = "radio"
-        if pendiente:
+        # Solo una lista tiene catálogo que esperar: «[Pendiente de confirmar]
+        # longitud máxima» en un campo de texto no es un catálogo pendiente.
+        if pendiente and tipo in ("select", "radio"):
             r.huecos.append(Hueco(
                 "falta_dato", "DIC-02", pantalla.id,
                 f"el catálogo de '{etiqueta}' está declarado como pendiente en el Diccionario; no se emite",
@@ -882,7 +906,15 @@ def _extraer_campos(
                 f"el compilador lo emite como campo de texto hasta que se defina el catálogo",
             ))
 
-        solo_lectura = _es_solo_lectura(desc)
+        # «Texto automático / solo lectura» en la columna Tipo (Dictamen de
+        # Impacto, 2026-11-18): la descripción no trae etiqueta. Si la trae
+        # («[Captura]»), manda ella: «Switch / enlace "Corregir" junto a los
+        # campos de solo lectura» es un campo de captura (8 en la wiki).
+        if _ETIQUETA_INICIAL.match(desc or ""):
+            solo_lectura = _es_solo_lectura(desc)
+        else:
+            solo_lectura = (_es_solo_lectura(desc) or "solo lectura" in tipo_dato
+                            or "solo lectura" in componente)
         exacta, maximo = _longitud_exacta_o_maximo(m_long, lim, ejemplo)
         campo = Campo(
             nombre=nombre,
