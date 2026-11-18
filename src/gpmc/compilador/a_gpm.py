@@ -197,6 +197,42 @@ def _campo_gpm(c: Campo, posicion: int, formulario_id: str, campo_id: int) -> di
     )
 
 
+def _acomodo(flujo) -> dict:
+    """{tarea: (posx, posy)} con la forma de los exports: una columna por paso
+    del flujo desde la tarea inicial (posx 100, 300, 500…) y las ramas de una
+    misma columna apiladas (posy 150, 250…). Antes iban todas en una fila
+    (posx de 220 en 220, posy 120) y en el modelador se encimaban."""
+    from collections import deque
+    ids = [t.id for t in flujo.tareas]
+    sale = {i: [] for i in ids}
+    for c in flujo.conexiones:
+        if c.de in sale and c.a in sale:
+            sale[c.de].append(c.a)
+    inicial = next((t.id for t in flujo.tareas if t.inicial), ids[0] if ids else None)
+    columna = {}
+    if inicial is not None:
+        columna[inicial] = 0
+        cola = deque([inicial])
+        while cola:
+            x = cola.popleft()
+            for y in sale[x]:
+                if y not in columna:
+                    columna[y] = columna[x] + 1
+                    cola.append(y)
+    ultima = max(columna.values(), default=-1)
+    for i in ids:  # lo que no se alcanza desde la inicial va al final
+        if i not in columna:
+            ultima += 1
+            columna[i] = ultima
+    fila: dict[int, int] = {}
+    pos = {}
+    for i in ids:
+        k = fila.get(columna[i], 0)
+        fila[columna[i]] = k + 1
+        pos[i] = (100 + 200 * columna[i], 150 + 100 * k)
+    return pos
+
+
 _VARIABLE_SOLICITANTE = "solicitante_id"
 
 
@@ -290,6 +326,8 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
     sigue_al_solicitante = solicitante is not None and any(
         t.actor == solicitante and not t.inicial for t in m.flujo.tareas)
 
+    posiciones = _acomodo(m.flujo)
+
     tareas = []
     id_de_tarea: dict[str, str] = {}
     for i, t in enumerate(m.flujo.tareas, start=1):
@@ -334,8 +372,8 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
                 actor_grupos=grupos,
                 pasos=pasos,
                 eventos=eventos,
-                posx=200 + (i - 1) * 220,
-                posy=120,
+                posx=posiciones[t.id][0],
+                posy=posiciones[t.id][1],
                 **_asignacion_del_solicitante(t, solicitante, sigue_al_solicitante),
             )
         )

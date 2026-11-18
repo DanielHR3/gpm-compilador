@@ -1046,6 +1046,21 @@ def test_las_tareas_siguientes_del_solicitante_se_le_asignan_a_el():
     assert t["Revisión"]["asignacion"] == "autoservicio" and t["Revisión"]["almacenar_usuario"] == "0"
 
 
+def test_las_tareas_se_acomodan_por_columnas_y_ramas_como_los_exports():
+    # En los exports la columna es el paso del flujo (posx 100, 300, 500…) y las
+    # ramas se apilan (posy 150, 250…). Antes todas iban en una fila, encimadas.
+    from pathlib import Path
+    from gpmc.compilador.a_gpm import compilar
+    carpeta = Path(__file__).resolve().parents[1] / "ejemplos" / "expedientes" / "constancia-de-residencia"
+    g = compilar(extraer_expediente(carpeta).manifiesto, proceso_id="1")
+    pos = {t["nombre"]: (int(t["posx"]), int(t["posy"])) for t in g["Tareas"]}
+    assert pos["Solicitud"] == (100, 150)
+    assert pos["Revisión"] == (300, 150)
+    assert pos["Emisión"][0] == pos["Corrección"][0] == 500
+    assert pos["Emisión"][1] != pos["Corrección"][1]
+    assert len(set(pos.values())) == len(pos)
+
+
 def _actor_inicial(r):
     m = r.manifiesto
     ini = next(t for t in m.flujo.tareas if t.inicial)
