@@ -640,6 +640,11 @@ describe("avisos de la tercera ronda de la fábrica", () => {
     );
   });
 
+  test("los avisos de la puerta del Diccionario tienen título", () => {
+    expect(tituloDeCodigo("DIC-11")).toBe("Encabezado de pantalla que no se entiende");
+    expect(tituloDeCodigo("DIC-12")).toBe("Pantalla sin campos");
+  });
+
   test("ACT-02 dice quién inicia el trámite", () => {
     const crudo =
       "«Notario» inicia el trámite, así que sus tareas quedan abiertas a quien entre al portal con su cuenta, " +

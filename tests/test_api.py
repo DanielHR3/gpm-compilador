@@ -649,6 +649,27 @@ def test_gpm_se_descarga_cuando_no_hay_bloqueantes(tmp_path):
     assert len(r.content) > 0
 
 
+def test_un_bloqueante_del_validador_tambien_cierra_la_descarga(tmp_path, monkeypatch):
+    # 2026-11-18: el Dictamen.gpm roto salió de esta descarga porque la puerta
+    # solo miraba los huecos del extractor, nunca el validador del .gpm.
+    from gpmc.validador.reglas import Hallazgo
+    import gpmc.web.api as api_mod
+    monkeypatch.setattr(api_mod, "revisar", lambda g: [
+        Hallazgo("CAL-01", "bloqueante", "la tarea 1 se llama '|---|'", "Tareas[1]"),
+        Hallazgo("CAL-05", "aviso", "no bloquea", "Tareas[2]")])
+    c = _cli(tmp_path)
+    sid = c.post("/api/v1/expedientes", files={
+        "diccionario": ("dd.md", _DICC_LIMPIO.encode("utf-8"), "text/markdown"),
+        "as_is": ("asis.md", _ASIS_LIMPIO.encode("utf-8"), "text/markdown"),
+        "to_be": ("tobe.md", _TOBE_LIMPIO.encode("utf-8"), "text/markdown"),
+    }).json()["sid"]
+    r = c.get(f"/api/v1/expedientes/{sid}/gpm")
+    assert r.status_code == 409
+    assert [b["codigo"] for b in r.json()["bloqueantes"]] == ["CAL-01"]
+    # El archivo de pruebas de vistas no pasa por la puerta de calidad.
+    assert c.get(f"/api/v1/expedientes/{sid}/gpm?modo=pruebas").status_code == 200
+
+
 def test_manifiesto_devuelve_el_yaml(tmp_path):
     c = _cli(tmp_path)
     sid = c.post("/api/v1/expedientes", files={

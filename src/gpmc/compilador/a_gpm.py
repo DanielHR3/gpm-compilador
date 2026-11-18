@@ -238,7 +238,7 @@ _VARIABLE_SOLICITANTE = "solicitante_id"
 
 def _asignacion_del_solicitante(t, solicitante, sigue_al_solicitante) -> dict:
     """Las claves de asignación de una tarea según sea del solicitante."""
-    if not sigue_al_solicitante or t.actor != solicitante:
+    if not sigue_al_solicitante or t.actor not in solicitante:
         return {}
     if t.inicial:
         return {"almacenar_usuario_variable": _VARIABLE_SOLICITANTE}
@@ -322,9 +322,13 @@ def compilar(m: Manifiesto, proceso_id: str = "", modo_pruebas: bool = False) ->
     # mismo actor se le asignan (lo completo la ciudadana; trámite 24193).
     inicial = next((t for t in m.flujo.tareas if t.inicial), None)
     actor_ini = actores.get(inicial.actor) if inicial and inicial.actor else None
-    solicitante = actor_ini.id if actor_ini and actor_ini.tipo == "autoservicio" else None
-    sigue_al_solicitante = solicitante is not None and any(
-        t.actor == solicitante and not t.inicial for t in m.flujo.tareas)
+    # Hay un solo solicitante por tramite: toda tarea de un actor autoservicio
+    # es suya aunque el Diccionario lo nombre distinto («Ciudadano (Aspirante)»
+    # al iniciar, «Ciudadano» despues; la puerta CAL-05 lo encontro en la wiki).
+    solicitante = {a.id for a in m.actores if a.tipo == "autoservicio"} \
+        if actor_ini and actor_ini.tipo == "autoservicio" else set()
+    sigue_al_solicitante = bool(solicitante) and any(
+        t.actor in solicitante and not t.inicial for t in m.flujo.tareas)
 
     posiciones = _acomodo(m.flujo)
 

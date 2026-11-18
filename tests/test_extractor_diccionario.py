@@ -1618,3 +1618,22 @@ def test_la_etiqueta_captura_gana_a_solo_lectura_en_el_componente():
         "| ¿Corregir? | `@@corregir_datos` [Captura] | Switch / enlace junto a los campos de solo lectura | No | Sí / No |\n")
     texto = texto.replace("| ¿Corregir? | `@@corregir_datos` [Captura] |", "| ¿Corregir? | [Captura] Campo `@@corregir_datos`. |")
     assert _campo(extraer(texto), "corregir_datos").solo_lectura is False
+
+
+# ── Puerta de calidad del insumo (2026-11-18) ──
+
+def test_un_encabezado_de_pantalla_que_no_se_entiende_bloquea():
+    texto = _DICC_DOS_PUNTOS + "\n### Pantalla 3 Funcionario Firma\n\n| Nombre del Campo | Descripción | Tipo |\n|---|---|---|\n| Firma | `@@firma` | Texto |\n"
+    r = extraer(texto)
+    dic11 = [h for h in r.huecos if h.codigo == "DIC-11"]
+    assert len(dic11) == 1 and dic11[0].nivel == "bloqueante"
+    assert "Pantalla 3 Funcionario Firma" in dic11[0].mensaje
+
+
+def test_una_pantalla_sin_campos_avisa_que_falta():
+    texto = _DICC_DOS_PUNTOS + (
+        "\n### Pantalla 3 — Funcionario: Estatus del trámite\n\nTablero general.\n\n"
+        "| Columna | Contenido |\n|---|---|\n| ID | número del trámite |\n| Estatus | Pendiente · Terminado |\n")
+    r = extraer(texto)
+    dic12 = [h for h in r.huecos if h.codigo == "DIC-12"]
+    assert len(dic12) == 1 and dic12[0].nivel == "falta_dato" and dic12[0].ubicacion == "p3"

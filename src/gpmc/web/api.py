@@ -25,6 +25,7 @@ from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
+from gpmc.validador.reglas import revisar
 from gpmc.compilador.a_gpm import compilar
 from gpmc.estimador import estimar
 from gpmc.extractores.documentos import vale_para
@@ -1125,13 +1126,24 @@ def crear_router(raiz: Path, proveedor=None) -> APIRouter:
                  "mensaje": h.mensaje}
                 for h in faltan
             ]})
+        gpm = compilar(m, modo_pruebas=(modo == "pruebas"))
+        if modo != "pruebas":
+            # Puerta de calidad (2026-11-18): el .gpm tambien pasa por el
+            # validador. El Dictamen roto (tareas `|---|`) salio de aqui porque
+            # solo se miraban los huecos del extractor.
+            graves = [h for h in revisar(gpm) if h.gravedad == "bloqueante"]
+            if graves:
+                return JSONResponse(status_code=409, content={"bloqueantes": [
+                    {"codigo": h.codigo, "ubicacion": h.ubicacion, "mensaje": h.mensaje}
+                    for h in graves
+                ]})
         base = re.sub(r"[^A-Za-z0-9._-]+", "-", m.tramite.nombre)[:60] or "tramite"
         nombre = f"{base}-test-ui.gpm" if modo == "pruebas" else f"{base}.gpm"
         if modo != "pruebas":
             # Paso la puerta del linter: este es el .gpm de produccion.
             estado.anotar_gpm(raiz, m.tramite.ruts_id)
         return Response(
-            serializar(compilar(m, modo_pruebas=(modo == "pruebas"))),
+            serializar(gpm),
             media_type="application/octet-stream",
             headers={"content-disposition": f'attachment; filename="{nombre}"'},
         )

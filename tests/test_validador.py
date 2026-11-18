@@ -293,3 +293,112 @@ def test_un_campo_date_time_pasa_limpio():
         {"nombre": "fecha_nac", "tipo": "date_time",
          "extra": '{"tamano":"col-xs-12 col-md-6","subtype":"date"}'}]}]
     assert "EST-08" not in _codigos(revisar(g))
+
+
+# ── Puerta de calidad (2026-11-18) ──
+#
+# El `Dictamen.gpm` de AWS —14 tareas llamadas `|---|---|---|---|`, párrafos
+# como grupos, flujo lineal— pasaba «sin hallazgos»: el validador revisaba la
+# sintaxis de la plataforma, no si el trámite tiene sentido. Estas reglas son
+# lo que se comprobó en el portal (actas del 2026-11-17).
+
+import json as _json
+from pathlib import Path as _Path
+
+from gpmc.compilador.a_gpm import compilar as _compilar
+from gpmc.extractores.expediente import extraer_expediente as _extraer
+
+_EJEMPLO = _Path(__file__).resolve().parents[1] / "ejemplos" / "expedientes" / "constancia-de-residencia"
+
+
+def _gpm_conforme():
+    return _compilar(_extraer(_EJEMPLO).manifiesto, proceso_id="1")
+
+
+def _cal(g):
+    return [(h.codigo, h.gravedad) for h in revisar(g)]
+
+
+def test_el_ejemplo_conforme_pasa_la_puerta():
+    assert [c for c in _cal(_gpm_conforme()) if c[0].startswith("CAL")] == []
+
+
+def test_nombre_de_tarea_con_separador_de_tabla_bloquea():
+    g = _gpm_conforme()
+    g["Tareas"][1]["nombre"] = "|---|---|---|---|"
+    assert ("CAL-01", "bloqueante") in _cal(g)
+
+
+def test_grupo_que_es_un_parrafo_bloquea():
+    g = _gpm_conforme()
+    t = next(t for t in g["Tareas"] if t["GruposUsuarios"])
+    t["GruposUsuarios"] = [{"nombre": "Funcionario: Validación\n\nEl funcionario revisa la solicitud y los pagos."}]
+    assert ("CAL-01", "bloqueante") in _cal(g)
+
+
+def test_regla_sobre_select_sin_value_bloquea_en_conexion_y_en_paso():
+    g = _gpm_conforme()
+    c = next(c for c in g["Conexiones"] if c["regla"])
+    c["regla"] = "@@dictamen=='aprobado'"
+    assert ("CAL-02", "bloqueante") in _cal(g)
+    g = _gpm_conforme()
+    g["Tareas"][0]["Pasos"][0]["regla"] = "@@dictamen == 'aprobado'"
+    assert ("CAL-02", "bloqueante") in _cal(g)
+
+
+def test_regla_sobre_radio_sin_value_no_bloquea():
+    g = _gpm_conforme()
+    for f in g["Formularios"]:
+        for c in f["Campos"]:
+            if c["nombre"] == "dictamen":
+                c["tipo"] = "radio"
+    next(c for c in g["Conexiones"] if c["regla"])["regla"] = "@@dictamen=='aprobado'"
+    assert "CAL-02" not in [c for c, _ in _cal(g)]
+
+
+def test_folio_que_suma_al_ultimo_valor_bloquea():
+    g = _gpm_conforme()
+    a = g["Acciones"][0]
+    extra = _json.loads(a["extra"])
+    extra["expresion"] = ("$year = date('Y'); $total = \\DB::table('dato_seguimiento')->where('nombre', 'folio')"
+                          "->lockForUpdate()->value('valor'); $c = str_pad($total + 1, 5, '0', STR_PAD_LEFT); return 'X-' . $c;")
+    a["extra"] = _json.dumps(extra)
+    assert ("CAL-03", "bloqueante") in _cal(g)
+
+
+def test_solicitante_restringido_a_grupo_avisa():
+    g = _gpm_conforme()
+    ini = next(t for t in g["Tareas"] if t["inicial"] == "1")
+    ini["acceso_modo"] = "grupos_usuarios"
+    ini["GruposUsuarios"] = [{"nombre": "Ciudadano"}]
+    assert ("CAL-04", "aviso") in _cal(g)
+
+
+def test_tarea_publica_sin_asignar_avisa():
+    g = _gpm_conforme()
+    t = next(t for t in g["Tareas"] if t["asignacion"] == "usuario")
+    t["asignacion"], t["asignacion_usuario"] = "autoservicio", ""
+    assert ("CAL-05", "aviso") in _cal(g)
+
+
+def test_longitud_exacta_larga_avisa():
+    g = _gpm_conforme()
+    c = next(c for f in g["Formularios"] for c in f["Campos"] if c["nombre"] == "nombre_completo")
+    c["validacion"] = "required|exact_length[150]"
+    assert ("CAL-06", "aviso") in _cal(g)
+
+
+def test_flujo_lineal_largo_avisa():
+    g = _gpm_conforme()
+    for c in g["Conexiones"]:
+        c["regla"] = None
+    assert ("CAL-07", "aviso") in _cal(g)
+
+
+def test_el_dictamen_roto_ya_no_pasa():
+    ruta = _Path.home() / "Downloads" / "Dictamen.gpm"
+    if not ruta.exists():
+        import pytest
+        pytest.skip("material interno")
+    cods = [h.codigo for h in revisar_archivo(ruta) if h.gravedad == "bloqueante"]
+    assert "CAL-01" in cods

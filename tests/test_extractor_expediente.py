@@ -1046,6 +1046,30 @@ def test_las_tareas_siguientes_del_solicitante_se_le_asignan_a_el():
     assert t["Revisión"]["asignacion"] == "autoservicio" and t["Revisión"]["almacenar_usuario"] == "0"
 
 
+def test_el_solicitante_con_otro_nombre_tambien_recibe_sus_tareas():
+    # Wiki, 2026-11-18 (la puerta CAL-05 lo encontró): «Ciudadano (Aspirante)»
+    # inicia y las demás pantallas dicen «Ciudadano»: eran dos actores y sus
+    # tareas caían en la bolsa del funcionario. En la plataforma hay un solo
+    # solicitante por trámite.
+    from gpmc.compilador.a_gpm import compilar
+    from gpmc.nucleo.manifiesto import Actor, Flujo, Manifiesto, Pantalla, Tarea, Conexion, Tramite, Campo
+    m = Manifiesto(
+        tramite=Tramite(nombre="Prueba", dependencia="DGT"),
+        actores=[Actor(id="asp", nombre="Ciudadano (Aspirante)"), Actor(id="ciu", nombre="Ciudadano"),
+                 Actor(id="f", nombre="Area", tipo="grupo", grupos_usuarios=["Area"])],
+        pantallas=[Pantalla(id=p, nombre=p, actor=a, campos=[Campo(nombre=f"c_{p}")])
+                   for p, a in (("p1", "asp"), ("p2", "f"), ("p3", "ciu"))],
+        flujo=Flujo(tareas=[Tarea(id="t1", nombre="A", actor="asp", inicial=True, pantallas=["p1"]),
+                            Tarea(id="t2", nombre="B", actor="f", pantallas=["p2"]),
+                            Tarea(id="t3", nombre="C", actor="ciu", terminal=True, pantallas=["p3"])],
+                    conexiones=[Conexion(de="t1", a="t2"), Conexion(de="t2", a="t3")]),
+    )
+    t = {x["nombre"]: x for x in compilar(m, proceso_id="1")["Tareas"]}
+    assert t["A"]["almacenar_usuario_variable"] == "solicitante_id"
+    assert (t["C"]["asignacion"], t["C"]["asignacion_usuario"]) == ("usuario", "@@solicitante_id")
+    assert t["B"]["asignacion"] == "autoservicio"
+
+
 def test_las_tareas_se_acomodan_por_columnas_y_ramas_como_los_exports():
     # En los exports la columna es el paso del flujo (posx 100, 300, 500…) y las
     # ramas se apilan (posy 150, 250…). Antes todas iban en una fila, encimadas.

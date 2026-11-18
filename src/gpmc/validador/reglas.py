@@ -289,6 +289,108 @@ def _revisar_nombres_repetidos(g: dict) -> list[Hallazgo]:
     return hallazgos
 
 
+# ── Puerta de calidad (2026-11-18) ──
+#
+# El `Dictamen.gpm` de AWS —tareas `|---|---|---|---|`, parrafos como grupos,
+# flujo lineal— pasaba «sin hallazgos». Lo de abajo es lo que se comprobo en el
+# portal (actas 2026-11-17): bloquea lo que rompe el tramite y avisa de lo que
+# lo deja a medias. Vale igual para un .gpm hecho a mano o de la fabrica.
+
+_NOMBRE_ROTO = re.compile(r"\||^\s*-{3,}|\n")
+_REGLA_CAMPO = re.compile(r"@@(\w+)(\s*->\s*value)?")
+_FOLIO_SUMA = re.compile(
+    r"\$(\w+)\s*=\s*\\?DB::table\([^;]*->value\(\s*'valor'\s*\)\s*;")
+_EXACTA_LARGA = 20
+
+
+def _revisar_calidad(g: dict) -> list[Hallazgo]:
+    h = []
+    tareas = g.get("Tareas", [])
+    tipos = {c.get("nombre"): c.get("tipo") for f in g.get("Formularios", []) for c in f.get("Campos", [])}
+
+    # CAL-01: nombres que no son nombres (encabezado mal leido).
+    for t in tareas:
+        if t.get("nombre") is None:  # sin la clave: no hay nombre que juzgar
+            continue
+        n = str(t.get("nombre"))
+        if not n.strip() or _NOMBRE_ROTO.search(n):
+            h.append(Hallazgo("CAL-01", "bloqueante",
+                              f"la tarea {t.get('id')} se llama {n[:40]!r}: no es un nombre de tarea "
+                              "(¿un encabezado del Diccionario mal leído?)", f"Tareas[{t.get('id')}]"))
+        for gr in t.get("GruposUsuarios") or []:
+            gn = str(gr.get("nombre") or "")
+            if "\n" in gn or len(gn) > 80:
+                h.append(Hallazgo("CAL-01", "bloqueante",
+                                  f"el grupo de la tarea {n[:30]!r} es un texto de {len(gn)} caracteres, "
+                                  "no el nombre de un grupo", f"Tareas[{t.get('id')}]"))
+    for f in g.get("Formularios", []):
+        if f.get("nombre") is None:
+            continue
+        n = str(f.get("nombre"))
+        if not n.strip() or _NOMBRE_ROTO.search(n):
+            h.append(Hallazgo("CAL-01", "bloqueante",
+                              f"la vista {f.get('id')} se llama {n[:40]!r}: no es un nombre de vista",
+                              f"Formularios[{f.get('id')}]"))
+
+    # CAL-02: regla sobre un select sin ->value (paso o conexion). En el portal
+    # no se cumple: el paso no aparece y el tramite se finaliza al salir.
+    def _reglas():
+        for c in g.get("Conexiones", []):
+            yield c.get("regla"), f"Conexiones[{c.get('id')}]"
+        for t in tareas:
+            for p in t.get("Pasos", []):
+                yield p.get("regla"), f"Tareas[{t.get('id')}]/Pasos[{p.get('id')}]"
+    for regla, ubic in _reglas():
+        for campo, con_value in _REGLA_CAMPO.findall(regla or ""):
+            if tipos.get(campo) == "select" and not con_value:
+                h.append(Hallazgo("CAL-02", "bloqueante",
+                                  f"la regla {regla!r} compara el select @@{campo} sin ->value: en el portal "
+                                  "no se cumple (el paso no aparece o el trámite se finaliza)", ubic))
+
+    # CAL-03: folio que suma 1 al ultimo valor guardado (un folio, no un numero).
+    for a in g.get("Acciones", []):
+        expr = _expresion_de(a)
+        for var in _FOLIO_SUMA.findall(expr):
+            if re.search(r"\$" + var + r"\s*\+\s*1", expr):
+                h.append(Hallazgo("CAL-03", "bloqueante",
+                                  f"la acción {a.get('nombre')!r} suma 1 al último valor guardado (${var}), que es "
+                                  "un folio y no un número: en PHP 8 truena desde el segundo trámite",
+                                  f"Acciones/{a.get('nombre')}"))
+
+    # CAL-04 / CAL-05: el solicitante y sus tareas.
+    for t in tareas:
+        if str(t.get("inicial")) == "1" and t.get("acceso_modo") == "grupos_usuarios":
+            h.append(Hallazgo("CAL-04", "aviso",
+                              f"la tarea inicial {t.get('nombre')!r} está restringida a grupos: un ciudadano "
+                              "recibe «Usuario no puede iniciar este proceso». Correcto solo si lo inicia "
+                              "personal de la dependencia", f"Tareas[{t.get('id')}]"))
+    if any(str(t.get("inicial")) == "1" and t.get("acceso_modo") == "publico" for t in tareas):
+        for t in tareas:
+            if (str(t.get("inicial")) != "1" and t.get("acceso_modo") == "publico"
+                    and t.get("asignacion") == "autoservicio" and t.get("Pasos")):
+                h.append(Hallazgo("CAL-05", "aviso",
+                                  f"la tarea {t.get('nombre')!r} es del solicitante pero no se le asigna: cae en "
+                                  "la bolsa de pendientes del funcionario. Asígnala con «Usuario» y la "
+                                  "variable que guarda la tarea inicial", f"Tareas[{t.get('id')}]"))
+
+    # CAL-06: longitud exacta larga en un campo de captura.
+    for f in g.get("Formularios", []):
+        for c in f.get("Campos", []):
+            m = re.search(r"exact_length\[(\d+)\]", c.get("validacion") or "")
+            if m and int(m.group(1)) > _EXACTA_LARGA and str(c.get("readonly")) != "1":
+                h.append(Hallazgo("CAL-06", "aviso",
+                                  f"el campo {c.get('nombre')!r} exige exactamente {m.group(1)} caracteres: "
+                                  "¿no es un máximo (max_length)?", f"Formularios/{f.get('id')}/{c.get('nombre')}"))
+
+    # CAL-07: flujo lineal largo (el diagrama suele tener decisiones).
+    con_tareas = [t for t in tareas if t.get("Pasos")]
+    if len(con_tareas) >= 4 and not any(c.get("regla") for c in g.get("Conexiones", [])):
+        h.append(Hallazgo("CAL-07", "aviso",
+                          f"{len(con_tareas)} tareas y ninguna decisión: el flujo es una línea recta. "
+                          "Confirma que el trámite no tiene rutas de rechazo, corrección o pago", "Conexiones"))
+    return h
+
+
 def revisar(gpm: dict) -> list[Hallazgo]:
     return (
         _revisar_estructura(gpm)
@@ -297,6 +399,7 @@ def revisar(gpm: dict) -> list[Hallazgo]:
         + _revisar_acciones(gpm)
         + _revisar_credenciales(gpm)
         + _revisar_sintaxis(gpm)
+        + _revisar_calidad(gpm)
     )
 
 

@@ -27,6 +27,8 @@ const TITULOS: Record<string, string> = {
   "DIC-08": "Visibilidad de un campo",
   "DIC-09": "Nombre técnico repetido",
   "DIC-10": "Vista que se muestra antes de revisar",
+  "DIC-11": "Encabezado de pantalla que no se entiende",
+  "DIC-12": "Pantalla sin campos",
   "FLU-04": "Tareas unidas en una sola",
   "ACC-01": "Folio automático",
   "ACC-02": "Datos que llena el sistema",

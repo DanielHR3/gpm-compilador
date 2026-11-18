@@ -28,6 +28,8 @@ type Responsable = "diccionario" | "to_be" | "plataforma";
 const RESPONSABLE: Record<string, Responsable> = {
   "DIC-00": "diccionario", "DIC-01": "diccionario", "DIC-02": "diccionario",
   "DIC-03": "diccionario", "DIC-04": "diccionario", "DIC-05": "diccionario",
+  // Puerta de calidad del insumo (2026-11-18): los corrige quien escribe el Diccionario.
+  "DIC-11": "diccionario", "DIC-12": "diccionario",
   "DIC-06": "diccionario", "DIC-07": "diccionario", "DIC-08": "diccionario",
   "DIC-09": "diccionario",
   // Requisito del AS-IS sin campo Archivo en el Diccionario propuesto (Fase 3).

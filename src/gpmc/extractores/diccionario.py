@@ -1143,7 +1143,26 @@ def extraer(texto: str) -> Resultado:
 
         _extraer_campos(filas, pantalla, r, indice)
         _armar_autollenado(pantalla, r)
+        if not pantalla.campos:
+            # Bandejas y listados que se maquetan como pantalla (Dictamen de
+            # Impacto: «Estatus del trámite», «Registro del expediente»).
+            r.huecos.append(Hueco(
+                "falta_dato", "DIC-12", pantalla.id,
+                f"la Pantalla {pantalla.numero} «{pantalla.nombre}» no declara ningún campo `@@`: "
+                "¿es una bandeja o un listado de la plataforma? Si lo es, quítala del Diccionario",
+            ))
         r.pantallas.append(pantalla)
+
+    # Un encabezado «Pantalla N» que el patron no entiende se perdia en
+    # silencio: la pantalla no existia para el compilador.
+    entendidos = {m.start() for m in encabezados}
+    for m in re.finditer(r"^#{3,4}[ \t]+Pantalla[ \t]+\d+.*$", texto, re.M):
+        if m.start() not in entendidos:
+            r.huecos.append(Hueco(
+                "bloqueante", "DIC-11", "",
+                f"no se entiende el encabezado «{m.group(0).lstrip('#').strip()}»: debe ser "
+                "«### Pantalla N — ACTOR — Nombre» (o «ACTOR: Nombre»). Esa pantalla no se compiló",
+            ))
 
     if not r.pantallas:
         # `por_confirmar`, no `falta_dato`: esto describe una decision que el

@@ -364,9 +364,21 @@ def crear_app(almacen: Optional[Path] = None, proveedor=None,
                     status_code=409,
                     media_type="text/plain; charset=utf-8",
                 )
+            gpm = compilar(m)
+            # Puerta de calidad (2026-11-18): tambien el validador del .gpm.
+            from gpmc.validador.reglas import revisar
+            graves = [h for h in revisar(gpm) if h.gravedad == "bloqueante"]
+            if graves:
+                lineas = "\n".join(f"  [{h.codigo}] {h.ubicacion} {h.mensaje}" for h in graves)
+                return Response(
+                    f"No se puede descargar el .gpm: {len(graves)} defecto(s) que lo romperían "
+                    f"en la plataforma.\n\n{lineas}\n",
+                    status_code=409,
+                    media_type="text/plain; charset=utf-8",
+                )
             estado.anotar_gpm(raiz, m.tramite.ruts_id)  # paso la puerta
             return Response(
-                serializar(compilar(m)),
+                serializar(gpm),
                 media_type="application/octet-stream",
                 headers={"content-disposition": f'attachment; filename="{base}.gpm"'},
             )
