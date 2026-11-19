@@ -916,3 +916,34 @@ y se recorrió en el portal (procesos 1141 y 1143, trámites 24177, 24186, 24187
   `max_length[150]`.
 - **El prefijo del folio sale del ejemplo** si tiene la forma `PREFIJO-AAAA-N` («RES»); si no,
   «GPM» provisional (`ACC-01`). Probado: «RES-2026-00001».
+
+### 19. Puerta de calidad: el validador también frena la descarga (2026-11-18)
+
+El `Dictamen.gpm` de AWS (tareas `|---|---|`, párrafos como grupos, flujo lineal) pasó «sin
+hallazgos» y salió por la descarga de la SPA, que solo miraba los huecos del extractor.
+Bitácora: `2026-11-18 - Dictamen de Impacto en la Movilidad`. Commit `a224744`.
+
+- **Regla del proyecto: ningún `.gpm` se entrega sin pasar `validador.reglas.revisar`.** La
+  descarga de producción (`GET /api/v1/.../gpm` y la ruta HTML) compila, corre el validador y
+  responde **409 con los bloqueantes**; después sigue valiendo la puerta del linter (huecos).
+  El modo pruebas (`-test-ui.gpm`) no pasa por esta puerta.
+- **Lo que bloquea** (todo comprobado en el portal, actas del 2026-11-17):
+  `CAL-01` nombre de tarea/vista con `|`, `---` o salto de línea, o grupo que es un párrafo;
+  `CAL-02` regla de paso o conexión sobre un `select` sin `->value`; `CAL-03` folio que suma 1
+  al último valor guardado. **Avisos:** `CAL-04` tarea inicial restringida a grupos, `CAL-05`
+  tarea del solicitante sin asignarle, `CAL-06` longitud exacta mayor a 20 en captura, `CAL-07`
+  4+ tareas y ninguna decisión.
+- **En la entrada, el extractor:** `DIC-11` (bloqueante) encabezado «Pantalla N» que no
+  entiende — antes esa pantalla se perdía en silencio; `DIC-12` (`falta_dato`) pantalla sin
+  campos `@@`, típica de bandejas maquetadas.
+- **No ablandar una regla `CAL` para que un `.gpm` pase.** Si una regla frena algo que el
+  portal acepta, se prueba en la plataforma con acta y entonces se ajusta.
+- **Lo que entregue la fábrica también pasa por la puerta antes de aceptarse** (`gpmc validar`).
+  Medición del 18: exports de la fábrica 7 de 12 con bloqueantes; Dictamen roto 36; Dictamen
+  rehecho limpio; wiki 17 de 28 flujos lineales (`CAL-07`: falta el diagrama de decisiones,
+  no es del compilador).
+- **Toda tarea autoservicio no inicial del solicitante va a `@@solicitante_id`**, aunque el
+  Diccionario lo nombre de dos formas («Ciudadano (Aspirante)» / «Ciudadano»); la puerta lo
+  encontró (wiki: `CAL-05` 30 → 0).
+- Código nuevo de validación: `CAL-*` en `src/gpmc/validador/reglas.py`, `DIC-11/12` en
+  `extractores/diccionario.py`; la SPA los redacta en `features/huecos/lenguaje.ts`.
