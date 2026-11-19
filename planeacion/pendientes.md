@@ -60,7 +60,8 @@ buscar.
   preguntó si era práctica. Pedirles su `.gpm` cuando lo tengan para comparar trazo y pasarlo por
   la puerta de calidad. Importado como **1146** (sin errores, 15 tareas, ramas); las tareas de
   DGMS/DGN quedaron sin grupo (`ACT-01`) y el diagrama encima cajas de nombre largo.
-  **Falta: recorrerlo en el portal y el acta.**
+  Grupo_Test (213) asignado a mano a las 11 tareas DGMS/DGN, verificado tras recargar.
+  **Falta: recorrerlo en el portal y el acta; corregir el encimado de cajas en el compilador.**
 
 - **P-27 — Testamento probado en el portal el 2026-11-17; entrega corregida por enviar.**
   Acta: `planeacion/actas/2026-11-17-importacion-tercera-entrega-testamento.md` (procesos 1141
