@@ -56,7 +56,11 @@ buscar.
   proveedor de pago: `DIC-02`); Acciones PHP de monto en UMA, referencia, vigencia y total
   (`ACC-02`); oficios sin contenido (P-23); y que las tareas de Movilidad Sustentable y
   Normatividad apuntan a grupos con el nombre del responsable, que no existen (`ACT-01`).
-  **Falta: su respuesta, y el import con acta.**
+  **Respuesta (Gis, 9:56):** el Dictamen está entre los 10 trámites que la fábrica modela ahora;
+  preguntó si era práctica. Pedirles su `.gpm` cuando lo tengan para comparar trazo y pasarlo por
+  la puerta de calidad. Importado como **1146** (sin errores, 15 tareas, ramas); las tareas de
+  DGMS/DGN quedaron sin grupo (`ACT-01`) y el diagrama encima cajas de nombre largo.
+  **Falta: recorrerlo en el portal y el acta.**
 
 - **P-27 — Testamento probado en el portal el 2026-11-17; entrega corregida por enviar.**
   Acta: `planeacion/actas/2026-11-17-importacion-tercera-entrega-testamento.md` (procesos 1141
