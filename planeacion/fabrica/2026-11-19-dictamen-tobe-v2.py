@@ -230,6 +230,22 @@ def construir(salida):
         doc.build(h)
 
 
+def construir_diagrama(salida):
+    """Solo el diagrama, en una hoja, como el BPMN que entrega la fábrica."""
+    with tempfile.TemporaryDirectory() as tmp:
+        png = Path(tmp) / "tobe.png"
+        diagrama(png)
+        img = Carriles(png, ANCHO * 0.7)
+        hoja = (img.width + 3 * cm, img.height + 4.2 * cm)
+        doc = BaseDocTemplate(str(salida), pagesize=hoja, title="Dictamen de Impacto en la Movilidad - TO-BE",
+                              author="", creator="")
+        doc.addPageTemplates([PageTemplate("d", [Frame(1.5 * cm, 1.2 * cm, hoja[0] - 3 * cm, hoja[1] - 2.4 * cm)])])
+        doc.build([P("Dictamen de Impacto en la Movilidad · Propuesta TO-BE", titulo), Spacer(1, 8), img])
+
+
 if __name__ == "__main__":
-    construir(Path(sys.argv[1]))
+    if sys.argv[1:2] == ["--diagrama"]:
+        construir_diagrama(Path(sys.argv[2]))
+    else:
+        construir(Path(sys.argv[1]))
     print("listo")
