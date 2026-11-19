@@ -60,6 +60,7 @@ buscar.
   preguntó si era práctica. Pedirles su `.gpm` cuando lo tengan para comparar trazo y pasarlo por
   la puerta de calidad. Importado como **1146** (sin errores, 15 tareas, ramas); las tareas de
   DGMS/DGN quedaron sin grupo (`ACT-01`) y el diagrama encima cajas de nombre largo.
+  TO-BE enviado a Gis el mismo día, solo como diagrama por carriles (PNG).
   Grupo_Test (213) asignado a mano a las 11 tareas DGMS/DGN, verificado tras recargar.
   **Falta: recorrerlo en el portal y el acta; corregir el encimado de cajas en el compilador.**
 
