@@ -47,6 +47,17 @@ buscar.
 
 ## Abiertos
 
+- **P-28 — Dictamen de Impacto en la Movilidad enviado a la fábrica sin importarlo (2026-11-19).**
+  Se decidió mandarlo tal cual para ver su reacción. Es el `.gpm` rehecho
+  (`~/Desktop/Dictamen de Impacto en la Movilidad/…gpm`, copia en Descargas, sha1 `f301e59a`):
+  `gpmc validar` lo da limpio, pero **nunca se importó ni se recorrió en el portal**. Bitácora:
+  `2026-11-18 - Dictamen de Impacto en la Movilidad`. **Cuando respondan, se les explica lo
+  que falta:** catálogos que su entregable no define (clasificación del proyecto, método y
+  proveedor de pago: `DIC-02`); Acciones PHP de monto en UMA, referencia, vigencia y total
+  (`ACC-02`); oficios sin contenido (P-23); y que las tareas de Movilidad Sustentable y
+  Normatividad apuntan a grupos con el nombre del responsable, que no existen (`ACT-01`).
+  **Falta: su respuesta, y el import con acta.**
+
 - **P-27 — Testamento probado en el portal el 2026-11-17; entrega corregida por enviar.**
   Acta: `planeacion/actas/2026-11-17-importacion-tercera-entrega-testamento.md` (procesos 1141
   y 1143, trámites 24177, 24186, 24187). La entrega de la mañana (`… (produccion,
